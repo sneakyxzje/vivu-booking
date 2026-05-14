@@ -1,7 +1,6 @@
 # Vivu Booking
 
-Client: React + TailwindCSS + Typescript
-Server: Laravel 13
+**Stack:** React + Typescript & Laravel 13
 
 ## Cấu trúc thư mục
 
@@ -80,4 +79,4 @@ npm run dev
 
 ## Test
 
-Sau khi chạy 2 terminal, start client và server thì vào web và test thử endpoint xem client và server đã chạy được chưa
+Sau khi chạy 2 terminal, start client và server thì vào web và test endpoint
