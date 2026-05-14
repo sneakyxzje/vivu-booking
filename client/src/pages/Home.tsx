@@ -25,6 +25,7 @@ export const Home: React.FC = () => {
       </button>
 
       {response && <pre>{response}</pre>}
+      <h1 className="text-red-700">Test TailwindCSS</h1>
     </div>
   );
 };
