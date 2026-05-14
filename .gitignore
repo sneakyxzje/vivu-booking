@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Environment
+.env
+.env.*.local
+.env.local
+
+# Builds and IDE
+dist/
+build/
+.idea/
+.vscode/
+*.log
+.DS_Store
