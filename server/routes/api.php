@@ -15,15 +15,5 @@ use App\Http\Controllers\Api\UserController;
 |
 */
 
-// Endpoint cực kỳ cơ bản khớp đúng với client api.get('/test')
 Route::get('/test', [UserController::class, 'test']);
 
-Route::get('/health', function () {
-    return response()->json(['status' => 'ok', 'timestamp' => now()->toIso8601String()]);
-});
-
-Route::prefix('users')->group(function () {
-    Route::get('/', [UserController::class, 'index']);
-    Route::post('/', [UserController::class, 'store']);
-    Route::get('/{id}', [UserController::class, 'show']);
-});
