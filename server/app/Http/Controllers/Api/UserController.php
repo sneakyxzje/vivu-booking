@@ -5,11 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
 class UserController extends Controller
 {
-
     public function test(): JsonResponse
     {
         // Mock
@@ -23,5 +23,13 @@ class UserController extends Controller
             new UserResource($dummy),
             'Success.'
         );
+    }
+
+    public function updateProfile(Request $request): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'Placeholder: Update profile endpoint'
+        ]);
     }
 }
