@@ -1,4 +1,1 @@
-export interface TestResponse {
-  message: string;
-  status: string;
-}
+// Viết type ở đây
