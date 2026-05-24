@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useState, useCallback } from "react";
 import type { ReactNode } from "react";
-import type { AuthUser } from "@/types";
+
+export interface AuthUser {
+  id: number;
+  name: string;
+  email: string;
+  role: "customer" | "host" | "admin";
+}
 
 interface AuthContextType {
   user: AuthUser | null;
