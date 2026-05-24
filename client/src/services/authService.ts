@@ -1,11 +1,10 @@
 import api from "./api";
+import type { LoginPayload, RegisterPayload } from "@/types";
 
 const authService = {
-  login: (payload: { email: string; password: string }) =>
-    api.post("/login", payload),
+  login: (payload: LoginPayload) => api.post("/login", payload),
 
-  register: (payload: Record<string, unknown>) =>
-    api.post("/register", payload),
+  register: (payload: RegisterPayload) => api.post("/register", payload),
 
   logout: () => api.post("/logout"),
 
