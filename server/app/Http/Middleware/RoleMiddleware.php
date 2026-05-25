@@ -9,9 +9,11 @@ class RoleMiddleware
 {
     public function handle(Request $request, Closure $next, $role)
     {
-        if (!$request->user() || $request->user()->role !== $role) {
+        if ($request->user()->role !== $role) {
+
             return response()->json([
-                'message' => 'Forbidden - no permission'
+                'success' => false,
+                'message' => 'Forbidden'
             ], 403);
         }
 
