@@ -1,47 +1,90 @@
 <?php
 
-use Illuminate\Auth\AuthenticationException;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Foundation\Application;
-use Illuminate\Foundation\Configuration\Exceptions;
-use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Route;
 
-return Application::configure(basePath: dirname(__DIR__))
-    ->withRouting(
-        web: __DIR__ . '/../routes/web.php',
-        api: __DIR__ . '/../routes/api.php',
-        commands: __DIR__ . '/../routes/console.php',
-        health: '/up',
-    )
-    ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->alias([
-            'role' => \App\Http\Middleware\RoleMiddleware::class,
-        ]);
-    })
-    ->withExceptions(function (Exceptions $exceptions): void {
-        // Trả về JSON chuẩn khi validation thất bại 
-        $exceptions->render(function (ValidationException $e) {
+// Controllers
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\TourController;
+
+// Customer
+use App\Http\Controllers\Api\Customer\BookingController as CustomerBookingController;
+
+// Host
+use App\Http\Controllers\Api\Host\HostController;
+use App\Http\Controllers\Api\Host\TourController as HostTourController;
+use App\Http\Controllers\Api\Host\BookingController as HostBookingController;
+
+// Admin
+use App\Http\Controllers\Api\Admin\AdminController;
+use App\Http\Controllers\Api\Admin\AdminUserController;
+use App\Http\Controllers\Api\Admin\AdminTourController;
+
+/*
+|--------------------------------------------------------------------------
+| PUBLIC ROUTES
+|--------------------------------------------------------------------------
+*/
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
+
+Route::get('/tours', [TourController::class, 'index']);
+Route::get('/tours/{id}', [TourController::class, 'show']);
+
+/*
+|--------------------------------------------------------------------------
+| AUTHENTICATED ROUTES
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth:sanctum')->group(function () {
+
+    // dùng chung cho tất cả user login
+    Route::get('/me', [AuthController::class, 'me']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::put('/profile', [UserController::class, 'updateProfile']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | CUSTOMER
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware('role:customer')->group(function () {
+        Route::post('/bookings', [CustomerBookingController::class, 'store']);
+        Route::get('/my-bookings', [CustomerBookingController::class, 'myBookings']);
+        Route::post('/tours/{id}/reviews', [TourController::class, 'review']);
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | HOST
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware('role:host')->prefix('host')->group(function () {
+        Route::get('/dashboard', [HostController::class, 'dashboardData']);
+        Route::apiResource('/my-tours', HostTourController::class);
+        Route::get('/bookings', [HostBookingController::class, 'index']);
+        Route::put('/bookings/{id}/confirm', [HostBookingController::class, 'confirm']);
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | ADMIN
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware('role:admin')->prefix('admin')->group(function () {
+
+        Route::get('/dashboard', [AdminController::class, 'dashboardData']);
+Route::get('/users', [AdminUserController::class, 'index']);
+        Route::put('/users/{id}/status', [AdminUserController::class, 'toggleStatus']);
+        Route::put('/tours/{id}/approve', [AdminTourController::class, 'approve']);
+
+        // route test admin (từ file thứ 2 bạn đưa)
+        Route::get('/admin-only', function () {
             return response()->json([
-                'success' => false,
-                'message' => $e->validator->errors()->first(),
-                'errors'  => $e->errors(),
-            ], 422);
+                'message' => 'Admin route'
+            ]);
         });
 
-        // Trả về JSON khi không tìm thấy model 
-        $exceptions->render(function (ModelNotFoundException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Không tìm thấy dữ liệu.',
-            ], 404);
-        });
+    });
 
-        // Trả về JSON khi chưa đăng nhập 
-        $exceptions->render(function (AuthenticationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Chưa xác thực. Vui lòng đăng nhập.',
-            ], 401);
-        });
-    })->create();
+});
