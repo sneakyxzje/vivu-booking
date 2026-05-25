@@ -3,29 +3,78 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 
 class AuthController extends Controller
 {
-    public function register(Request $request): JsonResponse
+    // REGISTER
+    public function register(Request $request)
     {
-        return $this->success([], 'Placeholder: Register endpoint');
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|min:6',
+            'role' => 'nullable|in:customer,host,admin'
+        ]);
+
+        $user = User::create([
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'password' => Hash::make($data['password']),
+            'role' => $data['role'] ?? 'customer'
+        ]);
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Register success',
+            'user' => $user,
+            'token' => $token
+        ]);
     }
 
-    public function login(Request $request): JsonResponse
+    // LOGIN
+    public function login(Request $request)
     {
-        return $this->success([], 'Placeholder: Login endpoint');
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required'
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'Invalid email or password'
+            ], 401);
+        }
+
+        $token = $user->createToken('login_token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Login success',
+            'user' => $user,
+            'token' => $token
+        ]);
     }
 
-    public function logout(Request $request): JsonResponse
+    // GET USER INFO (/me)
+    public function me(Request $request)
     {
-        return $this->success([], 'Placeholder: Logout endpoint');
+        return response()->json([
+            'user' => $request->user()
+        ]);
     }
 
-    public function me(Request $request): JsonResponse
-    {
-        return $this->success([], 'Placeholder: Get current user endpoint');
-    }
+    // LOGOUT
+   public function logout(Request $request)
+{
+    $request->user()->currentAccessToken()->delete();
+
+    return response()->json([
+        'message' => 'Logout success'
+    ]);
+}
 }
