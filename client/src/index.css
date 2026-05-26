@@ -8,7 +8,7 @@
   --color-primary-700: #1e3a8a;
   --color-background: #f8f9fa;
   --font-inter: "Inter", sans-serif;
-  --font-outfit: "Outfit", sans-serif;
+  --font-plus-jakarta: "Plus Jakarta Sans", sans-serif;
 }
 
 @layer base {
@@ -24,7 +24,7 @@
   h4,
   h5,
   h6 {
-    font-family: var(--font-outfit);
+    font-family: var(--font-plus-jakarta);
   }
 }
 
