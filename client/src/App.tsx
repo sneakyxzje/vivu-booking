@@ -5,19 +5,20 @@ import { Layout } from "@/components/Layout";
 import { Login } from "@/pages/Login";
 import { Register } from "@/pages/Register";
 import { NotFound } from "@/pages/NotFound";
+import { Home } from "@/pages/Home";
+import { Tours } from "@/pages/Tours";
 
 const router = createBrowserRouter([
-  // ── LAYOUT (Header + Footer) ─────────────────────────────────────────────
   {
     element: <Layout />,
     children: [
       {
         path: "/",
-        element: <div>Home</div>,
+        element: <Home />,
       },
       {
         path: "/tours",
-        element: <div>Tour trọn gói — TODO</div>,
+        element: <Tours />,
       },
       {
         path: "/flights",
