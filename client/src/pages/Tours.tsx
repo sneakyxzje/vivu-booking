@@ -4,7 +4,6 @@ import type { Tour } from "@/types";
 import { TourCard } from "@/components/TourCard";
 import {
   MagnifyingGlassIcon,
-  InformationCircleIcon,
   ExclamationTriangleIcon,
   InboxIcon,
 } from "@/components/Icons";
@@ -15,7 +14,6 @@ export const Tours: React.FC = () => {
   const [tours, setTours] = useState<Tour[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMock, setIsMock] = useState<boolean>(false);
 
   const [searchKeyword, setSearchKeyword] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -35,7 +33,6 @@ export const Tours: React.FC = () => {
       const res = await tourService.getAll();
       if (res.success) {
         setTours(res.data);
-        setIsMock(!!res.isMock);
       } else {
         setError("Không thể tải danh sách tour.");
       }
@@ -154,17 +151,6 @@ export const Tours: React.FC = () => {
             Tìm kiếm và lựa chọn hành trình phù hợp nhất với bạn
           </p>
         </div>
-
-        {isMock && (
-          <div className="bg-blue-50/70 border border-blue-100 rounded-2xl px-5 py-4 text-sm text-primary-700 flex items-start gap-3 mb-8 shadow-sm">
-            <InformationCircleIcon className="w-5 h-5 text-primary-600 shrink-0 mt-0.5" />
-            <div>
-              <strong className="block mb-1 text-primary-800">Data Mock</strong>
-              Đây chỉ là data mock, anh em nào code features này bổ sung vào sau
-              nhé!
-            </div>
-          </div>
-        )}
 
         <div className="flex flex-col lg:flex-row gap-8">
           <aside className="w-full lg:w-[320px] shrink-0">

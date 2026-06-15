@@ -14,3 +14,8 @@ export type {
   Tour,
   TourFilterParams,
 } from "./tour";
+export type {
+  HostDashboardStats,
+  HostBooking,
+  BookingStatus,
+} from "./host";

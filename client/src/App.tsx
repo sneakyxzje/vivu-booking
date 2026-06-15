@@ -1,12 +1,17 @@
 import React from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Layout } from "@/components/Layout";
+import { HostLayout } from "@/components/host/HostLayout";
 import { Login } from "@/pages/Login";
 import { Register } from "@/pages/Register";
 import { NotFound } from "@/pages/NotFound";
 import { Home } from "@/pages/Home";
 import { Tours } from "@/pages/Tours";
+import { HostDashboard } from "@/pages/host/HostDashboard";
+import { HostTours } from "@/pages/host/HostTours";
+import { HostBookings } from "@/pages/host/HostBookings";
+import { HostTourForm } from "@/pages/host/HostTourForm";
 
 const router = createBrowserRouter([
   {
@@ -44,7 +49,6 @@ const router = createBrowserRouter([
         path: "/register",
         element: <Register />,
       },
-      // User đã đăng nhập
       {
         element: <ProtectedRoute />,
         children: [
@@ -54,17 +58,40 @@ const router = createBrowserRouter([
           },
         ],
       },
-      // Chỉ host
       {
         element: <ProtectedRoute allowedRoles={["host"]} />,
         children: [
           {
-            path: "/host/dashboard",
-            element: <div>Host Dashboard — TODO</div>,
+            element: <HostLayout />,
+            children: [
+              {
+                path: "/host",
+                element: <Navigate to="/host/dashboard" replace />,
+              },
+              {
+                path: "/host/dashboard",
+                element: <HostDashboard />,
+              },
+              {
+                path: "/host/tours",
+                element: <HostTours />,
+              },
+              {
+                path: "/host/tours/create",
+                element: <HostTourForm />,
+              },
+              {
+                path: "/host/tours/:id/edit",
+                element: <HostTourForm />,
+              },
+              {
+                path: "/host/bookings",
+                element: <HostBookings />,
+              },
+            ],
           },
         ],
       },
-      // Chỉ admin
       {
         element: <ProtectedRoute allowedRoles={["admin"]} />,
         children: [
@@ -76,8 +103,6 @@ const router = createBrowserRouter([
       },
     ],
   },
-
-  // ── 404 ──────────────────────────────────────────────────────────────────
   {
     path: "*",
     element: <NotFound />,
