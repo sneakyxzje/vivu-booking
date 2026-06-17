@@ -10,7 +10,6 @@ import { Tours } from "@/pages/Tours";
 import Dashboard from "@/pages/admin/Dashboard";
 import TourList from "@/pages/admin/TourList";
 
-
 const router = createBrowserRouter([
   {
     element: <Layout />,
@@ -67,30 +66,22 @@ const router = createBrowserRouter([
           },
         ],
       },
-      // Chỉ admin
-      // {
-      //   element: <ProtectedRoute allowedRoles={["admin"]} />,
-      //   children: [
-      //   {
-      //     path: "/admin/dashboard",
-      //     element: <Dashboard />,
-      //   }
-      //   ],
-      // },
-      
+      {
+        element: <ProtectedRoute allowedRoles={["admin"]} />,
+        children: [
+          {
+            path: "/admin/dashboard",
+            element: <Dashboard />,
+          },
+          {
+            path: "/admin/tours",
+            element: <TourList />,
+          },
+        ],
+      },
     ],
+  },
 
-    
-  },
-  // admin
-  {
-    path: "/admin/dashboard",
-    element: <Dashboard />,
-  },
-  {
-      path: "/admin/tours",
-      element: <TourList />,
-  },
   // ── 404 ──────────────────────────────────────────────────────────────────
   {
     path: "*",
