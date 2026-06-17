@@ -3,27 +3,64 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Tour;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
 class TourController extends Controller
 {
+    /**
+     * Danh sách tất cả tour
+     */
     public function index(Request $request): JsonResponse
     {
+        $tours = Tour::with([
+            'host',
+            'categories',
+            'services',
+            'images',
+            'itineraries',
+            'schedules'
+        ])->get();
+
         return response()->json([
             'success' => true,
-            'message' => 'Placeholder: Get all tours endpoint'
+            'message' => 'Lấy danh sách tour thành công',
+            'data' => $tours
         ]);
     }
 
+    /**
+     * Chi tiết tour
+     */
     public function show(int $id): JsonResponse
     {
+        $tour = Tour::with([
+            'host',
+            'categories',
+            'services',
+            'images',
+            'itineraries',
+            'schedules'
+        ])->find($id);
+
+        if (!$tour) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy tour'
+            ], 404);
+        }
+
         return response()->json([
             'success' => true,
-            'message' => 'Placeholder: Get tour details for ' . $id
+            'message' => 'Chi tiết tour',
+            'data' => $tour
         ]);
     }
 
+    /**
+     * Đánh giá tour
+     */
     public function review(Request $request, int $id): JsonResponse
     {
         return response()->json([
