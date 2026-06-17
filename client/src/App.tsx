@@ -1,5 +1,9 @@
 import React from "react";
-import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+} from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Layout } from "@/components/Layout";
 import { HostLayout } from "@/components/host/HostLayout";
@@ -8,6 +12,8 @@ import { Register } from "@/pages/Register";
 import { NotFound } from "@/pages/NotFound";
 import { Home } from "@/pages/Home";
 import { Tours } from "@/pages/Tours";
+import Dashboard from "@/pages/admin/Dashboard";
+import TourList from "@/pages/admin/TourList";
 import { HostDashboard } from "@/pages/host/HostDashboard";
 import { HostTours } from "@/pages/host/HostTours";
 import { HostBookings } from "@/pages/host/HostBookings";
@@ -97,7 +103,11 @@ const router = createBrowserRouter([
         children: [
           {
             path: "/admin/dashboard",
-            element: <div>Admin Dashboard — TODO</div>,
+            element: <Dashboard />,
+          },
+          {
+            path: "/admin/tours",
+            element: <TourList />,
           },
         ],
       },

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import tourService from "@/services/tourService";
 import type { Tour } from "@/types";
 import { TourCard } from "@/components/TourCard";
+
 import {
   MapPinIcon,
   PlaneIcon,
