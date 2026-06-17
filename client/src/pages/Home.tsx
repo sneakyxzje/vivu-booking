@@ -17,7 +17,6 @@ import {
   ExclamationTriangleIcon,
   InboxIcon,
   EnvelopeIcon,
-  InformationCircleIcon,
   CurrencyDollarIcon,
   ShieldCheckIcon,
   SupportIcon,
@@ -198,7 +197,6 @@ export const Home: React.FC = () => {
   const [tours, setTours] = useState<Tour[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMock, setIsMock] = useState<boolean>(false);
 
   // Bộ lọc tìm kiếm
   const [searchDest, setSearchDest] = useState<string>("");
@@ -218,7 +216,6 @@ export const Home: React.FC = () => {
       if (res.success) {
         setTours(res.data);
         setFilteredTours(res.data);
-        setIsMock(!!res.isMock);
       } else {
         setError("Không thể tải danh sách tour du lịch.");
       }
@@ -457,18 +454,6 @@ export const Home: React.FC = () => {
           </div>
         </div>
       </section>
-
-      {isMock && !loading && (
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 mb-4">
-          <div className="bg-blue-50/70 border border-blue-100 rounded-xl px-4 py-3 text-xs text-primary-700 flex items-center gap-2">
-            <span className="flex h-2 w-2 relative shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
-            </span>
-            <InformationCircleIcon className="w-4 h-4 text-primary-600 shrink-0" />
-          </div>
-        </div>
-      )}
 
       {/* ── 3. TOUR GRID ────────────────────────────────────────────────────── */}
       <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 mb-16">
