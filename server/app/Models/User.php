@@ -15,6 +15,12 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     use HasFactory, Notifiable, HasApiTokens;
+
+    public function tours()
+    {
+        return $this->hasMany(Tour::class, 'host_id');
+    }
+
     protected function casts(): array
     {
         return [

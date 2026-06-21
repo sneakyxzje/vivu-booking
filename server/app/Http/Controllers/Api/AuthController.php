@@ -60,7 +60,6 @@ class AuthController extends Controller
         ]);
     }
 
-    // GET USER INFO (/me)
     public function me(Request $request)
     {
         return response()->json([
@@ -69,12 +68,12 @@ class AuthController extends Controller
     }
 
     // LOGOUT
-   public function logout(Request $request)
-{
-    $request->user()->currentAccessToken()->delete();
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
 
-    return response()->json([
-        'message' => 'Logout success'
-    ]);
-}
+        return response()->json([
+            'message' => 'Logout success'
+        ]);
+    }
 }

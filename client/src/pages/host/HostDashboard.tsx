@@ -3,21 +3,11 @@ import { Link } from "react-router-dom";
 import hostService from "@/services/hostService";
 import type { HostBooking, HostDashboardStats } from "@/types/host";
 import type { Tour } from "@/types";
-import { BookingStatusBadge, TourStatusBadge } from "@/components/host/StatusBadge";
-
-const formatPrice = (v: number) =>
-  new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(v);
-
-const formatDate = (d: string) =>
-  new Date(d).toLocaleDateString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+import {
+  BookingStatusBadge,
+  TourStatusBadge,
+} from "@/components/host/StatusBadge";
+import { formatDate, formatPrice } from "@/utils/format";
 
 export const HostDashboard: React.FC = () => {
   const [stats, setStats] = useState<HostDashboardStats | null>(null);
@@ -116,7 +106,9 @@ export const HostDashboard: React.FC = () => {
             >
               {card.value}
             </p>
-            <p className={`text-xs mt-1 font-medium ${card.color.split(" ")[1]}`}>
+            <p
+              className={`text-xs mt-1 font-medium ${card.color.split(" ")[1]}`}
+            >
               {card.sub}
             </p>
           </div>
@@ -135,7 +127,9 @@ export const HostDashboard: React.FC = () => {
             </Link>
           </div>
           {pendingTours.length === 0 ? (
-            <p className="p-6 text-sm text-gray-500">Không có tour chờ duyệt.</p>
+            <p className="p-6 text-sm text-gray-500">
+              Không có tour chờ duyệt.
+            </p>
           ) : (
             <ul className="divide-y divide-gray-50">
               {pendingTours.map((tour) => (
@@ -148,7 +142,8 @@ export const HostDashboard: React.FC = () => {
                       {tour.title}
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {tour.start_location} · {formatPrice(tour.discount_price ?? tour.price)}
+                      {tour.start_location} ·{" "}
+                      {formatPrice(tour.discount_price ?? tour.price)}
                     </p>
                   </div>
                   <TourStatusBadge status={tour.status} />
@@ -160,7 +155,9 @@ export const HostDashboard: React.FC = () => {
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-900">Đặt chỗ chờ xác nhận</h2>
+            <h2 className="font-semibold text-gray-900">
+              Đặt chỗ chờ xác nhận
+            </h2>
             <Link
               to="/host/bookings?status=pending"
               className="text-sm text-primary-600 hover:underline"
@@ -182,7 +179,8 @@ export const HostDashboard: React.FC = () => {
                       {b.customer_name}
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {b.tour_title} · {b.guests} khách · {formatDate(b.departure_date)}
+                      {b.tour_title} · {b.guests} khách ·{" "}
+                      {formatDate(b.departure_date)}
                     </p>
                   </div>
                   <BookingStatusBadge status={b.status} />
@@ -191,21 +189,6 @@ export const HostDashboard: React.FC = () => {
             </ul>
           )}
         </div>
-      </div>
-
-      <div className="bg-primary-50 border border-primary-100 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <p className="font-semibold text-primary-700">Đăng tour mới</p>
-          <p className="text-sm text-primary-600/80 mt-0.5">
-            Tour mới sẽ ở trạng thái chờ duyệt trước khi hiển thị công khai.
-          </p>
-        </div>
-        <Link
-          to="/host/tours/create"
-          className="shrink-0 bg-primary-600 text-white font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-700 transition-colors"
-        >
-          + Tạo tour
-        </Link>
       </div>
     </div>
   );

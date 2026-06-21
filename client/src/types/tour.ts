@@ -24,18 +24,16 @@ export interface TourItinerary {
   tour_id: number;
   day_number: number;
   title: string;
-  description: string;
+  content: string;
 }
 
 export interface TourSchedule {
   id: number;
   tour_id: number;
   start_date: string;
-  end_date: string;
-  price: number;
-  min_participants: number;
-  max_participants: number;
-  booked_count: number;
+  max_people: number;
+  booked_people: number;
+  status: "active" | "canceled" | "completed";
 }
 
 export interface Tour {
