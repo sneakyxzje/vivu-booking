@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   {
-    to: "/host/dashboard",
+    to: "/admin/dashboard",
     label: "Tổng quan",
     icon: (
       <svg
@@ -23,8 +23,8 @@ const navItems = [
     ),
   },
   {
-    to: "/host/tours",
-    label: "Tour của tôi",
+    to: "/admin/tours",
+    label: "Quản lý Tour",
     icon: (
       <svg
         className="w-5 h-5"
@@ -41,35 +41,16 @@ const navItems = [
       </svg>
     ),
   },
-  {
-    to: "/host/bookings",
-    label: "Đặt chỗ",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-        />
-      </svg>
-    ),
-  },
 ];
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
     isActive
       ? "bg-primary-600 text-white shadow-md"
-      : "text-gray-600 hover:bg-gray-100 hover:text-primary-600"
+      : "text-gray-600 hover:bg-primary-50 hover:text-primary-600"
   }`;
 
-export const HostLayout: React.FC = () => {
+export const AdminLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -92,7 +73,7 @@ export const HostLayout: React.FC = () => {
             </span>
             VivuBooking{" "}
             <span className="text-[10px] bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded font-semibold uppercase">
-              Host
+              Admin
             </span>
           </Link>
         </div>
@@ -100,11 +81,11 @@ export const HostLayout: React.FC = () => {
         {/* User profile section */}
         <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-3 bg-gray-50/50">
           <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-sm">
-            {user?.name?.charAt(0).toUpperCase() ?? "H"}
+            {user?.name?.charAt(0).toUpperCase() ?? "A"}
           </div>
           <div className="min-w-0">
             <p className="font-semibold text-gray-900 truncate text-sm">
-              {user?.name ?? "Host User"}
+              {user?.name ?? "Administrator"}
             </p>
             <p className="text-xs text-gray-500 truncate">{user?.email}</p>
           </div>
@@ -174,4 +155,4 @@ export const HostLayout: React.FC = () => {
   );
 };
 
-export default HostLayout;
+export default AdminLayout;

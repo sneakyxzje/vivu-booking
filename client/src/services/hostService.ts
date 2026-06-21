@@ -44,19 +44,58 @@ const mapBooking = (raw: Record<string, unknown>): HostBooking => ({
 
 const buildTourPayload = (form: unknown) => {
   const f = form as Record<string, unknown>;
-  return {
-    title: f.title,
-    description: f.description || null,
-    price: Number(f.price),
-    discount_price: f.discount_price ? Number(f.discount_price) : null,
-    thumbnail: f.thumbnail || null,
-    number_of_days: Number(f.number_of_days),
-    number_of_nights: Number(f.number_of_nights),
-    start_location: f.start_location,
-    end_location: f.end_location || null,
-    category_ids: f.category_ids ?? [],
-    service_ids: f.service_ids ?? [],
-  };
+  const data = new FormData();
+
+  data.append("title", String(f.title ?? ""));
+  data.append("description", String(f.description ?? ""));
+  data.append("price", String(Number(f.price)));
+  if (f.discount_price) {
+    data.append("discount_price", String(Number(f.discount_price)));
+  }
+  data.append("number_of_days", String(Number(f.number_of_days)));
+  data.append("number_of_nights", String(Number(f.number_of_nights)));
+  data.append("start_location", String(f.start_location ?? ""));
+  data.append("end_location", String(f.end_location ?? ""));
+
+  if (f.thumbnail) {
+    data.append("thumbnail", String(f.thumbnail));
+  }
+
+  if (f.thumbnail_file instanceof File) {
+    data.append("thumbnail_file", f.thumbnail_file);
+  }
+
+  ((f.images as File[] | undefined) ?? []).forEach((file) => {
+    data.append("images[]", file);
+  });
+
+  ((f.category_ids as number[] | undefined) ?? []).forEach((id) => {
+    data.append("category_ids[]", String(id));
+  });
+
+  ((f.service_ids as number[] | undefined) ?? []).forEach((id) => {
+    data.append("service_ids[]", String(id));
+  });
+
+  (
+    (f.itineraries as
+      | { day_number: string; title: string; content: string }[]
+      | undefined) ?? []
+  ).forEach((item, index) => {
+    data.append(`itineraries[${index}][day_number]`, String(item.day_number));
+    data.append(`itineraries[${index}][title]`, item.title);
+    data.append(`itineraries[${index}][content]`, item.content);
+  });
+
+  (
+    (f.schedules as { start_date: string; max_people: string }[] | undefined) ??
+    []
+  ).forEach((item, index) => {
+    data.append(`schedules[${index}][start_date]`, item.start_date);
+    data.append(`schedules[${index}][max_people]`, String(item.max_people));
+  });
+
+  return data;
 };
 
 const hostService = {
@@ -102,7 +141,9 @@ const hostService = {
   },
 
   createTour: async (payload: unknown): Promise<{ success: boolean }> => {
-    const response = await api.post("/host/my-tours", buildTourPayload(payload));
+    const response = await api.post("/host/my-tours", buildTourPayload(payload), {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return { success: response.data?.success !== false };
   },
 
@@ -113,6 +154,7 @@ const hostService = {
     const response = await api.put(
       `/host/my-tours/${id}`,
       buildTourPayload(payload),
+      { headers: { "Content-Type": "multipart/form-data" } },
     );
     return { success: response.data?.success !== false };
   },
