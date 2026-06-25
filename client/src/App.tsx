@@ -19,6 +19,7 @@ import { HostDashboard } from "@/pages/host/HostDashboard";
 import { HostTours } from "@/pages/host/HostTours";
 import { HostBookings } from "@/pages/host/HostBookings";
 import { HostTourForm } from "@/pages/host/HostTourForm";
+import TourDetail from "@/components/TourDetail";
 
 const router = createBrowserRouter([
   // 1. NHÓM ROUTES CHO USER (Sử dụng Layout chung của User có Header/Footer)
@@ -32,6 +33,10 @@ const router = createBrowserRouter([
       {
         path: "/tours",
         element: <Tours />,
+      },
+      {
+      path: "/tours/:id",
+      element: <TourDetail />,
       },
       {
         path: "/flights",
