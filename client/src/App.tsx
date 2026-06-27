@@ -6,7 +6,7 @@ import {
 } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Layout } from "@/components/Layout";
-import { HostLayout } from "@/components/host/HostLayout";
+import { GuideLayout } from "@/components/guide/GuideLayout";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Login } from "@/pages/Login";
 import { Register } from "@/pages/Register";
@@ -15,10 +15,10 @@ import { Home } from "@/pages/Home";
 import { Tours } from "@/pages/Tours";
 import Dashboard from "@/pages/admin/Dashboard";
 import TourList from "@/pages/admin/TourList";
-import { HostDashboard } from "@/pages/host/HostDashboard";
-import { HostTours } from "@/pages/host/HostTours";
-import { HostBookings } from "@/pages/host/HostBookings";
-import { HostTourForm } from "@/pages/host/HostTourForm";
+import { GuideDashboard } from "@/pages/guide/GuideDashboard";
+import { GuideTours } from "@/pages/guide/GuideTours";
+import { GuideBookings } from "@/pages/guide/GuideBookings";
+import { GuideTourForm } from "@/pages/guide/GuideTourForm";
 import TourDetail from "@/components/TourDetail";
 
 const router = createBrowserRouter([
@@ -74,36 +74,36 @@ const router = createBrowserRouter([
     ],
   },
 
-  // 2. NHÓM ROUTES CHO HOST (Sử dụng HostLayout riêng biệt)
+  // 2. NHÓM ROUTES CHO GUIDE (Sử dụng GuideLayout riêng biệt)
   {
-    element: <ProtectedRoute allowedRoles={["host"]} />,
+    element: <ProtectedRoute allowedRoles={["guide"]} />,
     children: [
       {
-        element: <HostLayout />,
+        element: <GuideLayout />,
         children: [
           {
-            path: "/host",
-            element: <Navigate to="/host/dashboard" replace />,
+            path: "/guide",
+            element: <Navigate to="/guide/dashboard" replace />,
           },
           {
-            path: "/host/dashboard",
-            element: <HostDashboard />,
+            path: "/guide/dashboard",
+            element: <GuideDashboard />,
           },
           {
-            path: "/host/tours",
-            element: <HostTours />,
+            path: "/guide/tours",
+            element: <GuideTours />,
           },
           {
-            path: "/host/tours/create",
-            element: <HostTourForm />,
+            path: "/guide/tours/create",
+            element: <GuideTourForm />,
           },
           {
-            path: "/host/tours/:id/edit",
-            element: <HostTourForm />,
+            path: "/guide/tours/:id/edit",
+            element: <GuideTourForm />,
           },
           {
-            path: "/host/bookings",
-            element: <HostBookings />,
+            path: "/guide/bookings",
+            element: <GuideBookings />,
           },
         ],
       },
@@ -144,4 +144,15 @@ const router = createBrowserRouter([
 export const App: React.FC = () => <RouterProvider router={router} />;
 
 export default App;
+
+
+
+
+
+
+
+
+
+
+
 

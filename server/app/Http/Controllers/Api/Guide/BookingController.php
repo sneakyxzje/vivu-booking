@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\Host;
+namespace App\Http\Controllers\Api\Guide;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -12,7 +12,7 @@ class BookingController extends Controller
     {
         return response()->json([
             'success' => true,
-            'message' => 'Placeholder: Host view bookings endpoint'
+            'message' => 'Placeholder: Guide view bookings endpoint'
         ]);
     }
 
@@ -20,7 +20,7 @@ class BookingController extends Controller
     {
         return response()->json([
             'success' => true,
-            'message' => 'Placeholder: Host confirm booking endpoint for ' . $id
+            'message' => 'Placeholder: Guide confirm booking endpoint for ' . $id
         ]);
     }
 }

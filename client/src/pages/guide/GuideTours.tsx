@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import hostService from "@/services/hostService";
+import guideService from "@/services/guideService";
 import type { Tour } from "@/types";
-import { TourStatusBadge } from "@/components/host/StatusBadge";
+import { TourStatusBadge } from "@/components/guide/GuideStatusBadge";
 
 const formatPrice = (v: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -13,7 +13,7 @@ const formatPrice = (v: number) =>
 
 type StatusFilter = "all" | Tour["status"];
 
-export const HostTours: React.FC = () => {
+export const GuideTours: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initialStatus = (searchParams.get("status") as StatusFilter) || "all";
 
@@ -24,7 +24,7 @@ export const HostTours: React.FC = () => {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    hostService
+    guideService
       .getMyTours()
       .then((data) => setTours(data))
       .catch(() => setError("Không thể tải danh sách tour."))
@@ -64,7 +64,7 @@ export const HostTours: React.FC = () => {
           </p>
         </div>
         <Link
-          to="/host/tours/create"
+          to="/guide/tours/create"
           className="inline-flex items-center justify-center gap-2 bg-primary-600 text-white font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-700 transition-colors"
         >
           <span className="text-lg leading-none">+</span> Tạo tour mới
@@ -109,7 +109,7 @@ export const HostTours: React.FC = () => {
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
           <p className="text-gray-500 mb-4">Chưa có tour nào.</p>
           <Link
-            to="/host/tours/create"
+            to="/guide/tours/create"
             className="text-primary-600 font-semibold text-sm hover:underline"
           >
             Tạo tour đầu tiên →
@@ -164,7 +164,7 @@ export const HostTours: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Link
-                        to={`/host/tours/${tour.id}/edit`}
+                        to={`/guide/tours/${tour.id}/edit`}
                         className="text-primary-600 font-semibold hover:underline text-xs"
                       >
                         Sửa
@@ -181,4 +181,9 @@ export const HostTours: React.FC = () => {
   );
 };
 
-export default HostTours;
+export default GuideTours;
+
+
+
+
+

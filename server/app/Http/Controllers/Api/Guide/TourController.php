@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\Host;
+namespace App\Http\Controllers\Api\Guide;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -30,7 +30,7 @@ class TourController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Lấy danh sách tour của host thành công',
+            'message' => 'Lấy danh sách tour của guide thành công',
             'data' => TourResource::collection($tours),
         ]);
     }
@@ -96,7 +96,7 @@ class TourController extends Controller
     {
         return response()->json([
             'success' => true,
-            'message' => 'Placeholder: Host show tour endpoint for ' . $id
+            'message' => 'Placeholder: Guide show tour endpoint for ' . $id
         ]);
     }
 
@@ -104,7 +104,7 @@ class TourController extends Controller
     {
         return response()->json([
             'success' => true,
-            'message' => 'Placeholder: Host update tour endpoint for ' . $id
+            'message' => 'Placeholder: Guide update tour endpoint for ' . $id
         ]);
     }
 
@@ -112,7 +112,7 @@ class TourController extends Controller
     {
         return response()->json([
             'success' => true,
-            'message' => 'Placeholder: Host destroy tour endpoint for ' . $id
+            'message' => 'Placeholder: Guide destroy tour endpoint for ' . $id
         ]);
     }
 }

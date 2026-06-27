@@ -36,8 +36,8 @@ export const Login: React.FC = () => {
       const data = res.data as AuthResponse;
       login(data.token, data.user);
       const dest =
-        data.user.role === "host"
-          ? "/host/dashboard"
+        data.user.role === "guide"
+          ? "/guide/dashboard"
           : data.user.role === "admin"
             ? "/admin/dashboard"
             : "/";

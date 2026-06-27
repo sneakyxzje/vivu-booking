@@ -77,8 +77,8 @@ export const Header: React.FC = () => {
             {isAuthenticated ? (
               <Link
                 to={
-                  user?.role === "host"
-                    ? "/host/dashboard"
+                  user?.role === "guide"
+                    ? "/guide/dashboard"
                     : user?.role === "admin"
                       ? "/admin/dashboard"
                       : "/profile"
@@ -88,7 +88,7 @@ export const Header: React.FC = () => {
                 <div className="w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center text-white text-xs font-semibold">
                   {user?.name?.charAt(0).toUpperCase() ?? "U"}
                 </div>
-                {user?.role === "host" ? "Quản lý Host" : "Tài khoản"}
+                {user?.role === "guide" ? "Quản lý Guide" : "Tài khoản"}
               </Link>
             ) : (
               <Link

@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   {
-    to: "/host/dashboard",
+    to: "/guide/dashboard",
     label: "Tổng quan",
     icon: (
       <svg
@@ -23,7 +23,7 @@ const navItems = [
     ),
   },
   {
-    to: "/host/tours",
+    to: "/guide/tours",
     label: "Tour của tôi",
     icon: (
       <svg
@@ -42,7 +42,7 @@ const navItems = [
     ),
   },
   {
-    to: "/host/bookings",
+    to: "/guide/bookings",
     label: "Đặt chỗ",
     icon: (
       <svg
@@ -69,7 +69,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
       : "text-gray-600 hover:bg-gray-100 hover:text-primary-600"
   }`;
 
-export const HostLayout: React.FC = () => {
+export const GuideLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -92,7 +92,7 @@ export const HostLayout: React.FC = () => {
             </span>
             VivuBooking{" "}
             <span className="text-[10px] bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded font-semibold uppercase">
-              Host
+              Guide
             </span>
           </Link>
         </div>
@@ -104,7 +104,7 @@ export const HostLayout: React.FC = () => {
           </div>
           <div className="min-w-0">
             <p className="font-semibold text-gray-900 truncate text-sm">
-              {user?.name ?? "Host User"}
+              {user?.name ?? "Guide User"}
             </p>
             <p className="text-xs text-gray-500 truncate">{user?.email}</p>
           </div>
@@ -174,4 +174,11 @@ export const HostLayout: React.FC = () => {
   );
 };
 
-export default HostLayout;
+export default GuideLayout;
+
+
+
+
+
+
+

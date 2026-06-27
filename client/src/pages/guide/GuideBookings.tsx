@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import hostService from "@/services/hostService";
-import type { HostBooking, BookingStatus } from "@/types/host";
-import { BookingStatusBadge } from "@/components/host/StatusBadge";
+import guideService from "@/services/guideService";
+import type { GuideBooking, BookingStatus } from "@/types/guide";
+import { BookingStatusBadge } from "@/components/guide/GuideStatusBadge";
 
 const formatPrice = (v: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -20,11 +20,11 @@ const formatDate = (d: string) =>
 
 type StatusFilter = "all" | BookingStatus;
 
-export const HostBookings: React.FC = () => {
+export const GuideBookings: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initialStatus = (searchParams.get("status") as StatusFilter) || "all";
 
-  const [bookings, setBookings] = useState<HostBooking[]>([]);
+  const [bookings, setBookings] = useState<GuideBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatus);
@@ -32,7 +32,7 @@ export const HostBookings: React.FC = () => {
   const [toast, setToast] = useState("");
 
   useEffect(() => {
-    hostService
+    guideService
       .getBookings()
       .then((data) => setBookings(data))
       .catch(() => setError("Không thể tải danh sách đặt chỗ."))
@@ -54,8 +54,8 @@ export const HostBookings: React.FC = () => {
   const handleConfirm = async (id: number) => {
     setConfirmingId(id);
     try {
-      await hostService.confirmBooking(id);
-      const updated = await hostService.getBookings();
+      await guideService.confirmBooking(id);
+      const updated = await guideService.getBookings();
       setBookings(updated);
       setToast("Đã xác nhận đặt chỗ.");
     } catch {
@@ -180,4 +180,14 @@ export const HostBookings: React.FC = () => {
   );
 };
 
-export default HostBookings;
+export default GuideBookings;
+
+
+
+
+
+
+
+
+
+

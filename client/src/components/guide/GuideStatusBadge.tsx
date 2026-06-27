@@ -1,6 +1,6 @@
 import React from "react";
 import type { Tour } from "@/types";
-import type { BookingStatus } from "@/types/host";
+import type { BookingStatus } from "@/types/guide";
 
 type TourStatus = Tour["status"];
 
@@ -47,3 +47,5 @@ export const BookingStatusBadge: React.FC<{ status: BookingStatus }> = ({
     {bookingLabels[status]}
   </span>
 );
+
+

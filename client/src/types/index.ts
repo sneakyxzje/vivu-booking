@@ -15,7 +15,10 @@ export type {
   TourFilterParams,
 } from "./tour";
 export type {
-  HostDashboardStats,
-  HostBooking,
+  GuideDashboardStats,
+  GuideBooking,
   BookingStatus,
-} from "./host";
+} from "./guide";
+
+
+
