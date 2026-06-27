@@ -1,8 +1,8 @@
 import api from "./api";
 import { extractArray, extractObject } from "@/utils/apiHelpers";
-import type { HostBooking, HostDashboardStats, Tour } from "@/types/host";
+import type { GuideBooking, GuideDashboardStats, Tour } from "@/types/guide";
 
-const defaultStats: HostDashboardStats = {
+const defaultStats: GuideDashboardStats = {
   totalTours: 0,
   activeTours: 0,
   pendingTours: 0,
@@ -13,7 +13,7 @@ const defaultStats: HostDashboardStats = {
 
 const mapDashboardStats = (
   raw: Record<string, unknown> | null,
-): HostDashboardStats => {
+): GuideDashboardStats => {
   if (!raw) return { ...defaultStats };
 
   return {
@@ -28,7 +28,7 @@ const mapDashboardStats = (
   };
 };
 
-const mapBooking = (raw: Record<string, unknown>): HostBooking => ({
+const mapBooking = (raw: Record<string, unknown>): GuideBooking => ({
   id: Number(raw.id),
   tour_id: Number(raw.tour_id),
   tour_title: String(raw.tour_title ?? raw.tourTitle ?? ""),
@@ -38,7 +38,7 @@ const mapBooking = (raw: Record<string, unknown>): HostBooking => ({
   departure_date: String(raw.departure_date ?? raw.departureDate ?? ""),
   guests: Number(raw.guests ?? 0),
   total_amount: Number(raw.total_amount ?? raw.totalAmount ?? 0),
-  status: (raw.status as HostBooking["status"]) ?? "pending",
+  status: (raw.status as GuideBooking["status"]) ?? "pending",
   created_at: String(raw.created_at ?? raw.createdAt ?? ""),
 });
 
@@ -98,26 +98,26 @@ const buildTourPayload = (form: unknown) => {
   return data;
 };
 
-const hostService = {
-  getDashboardStats: async (): Promise<HostDashboardStats> => {
-    const response = await api.get("/host/dashboard");
+const guideService = {
+  getDashboardStats: async (): Promise<GuideDashboardStats> => {
+    const response = await api.get("/guide/dashboard");
     const raw = extractObject<Record<string, unknown>>(response);
     return mapDashboardStats(raw);
   },
 
   getMyTours: async (): Promise<Tour[]> => {
-    const response = await api.get("/host/my-tours");
+    const response = await api.get("/guide/my-tours");
     return extractArray<Tour>(response);
   },
 
   getTourById: async (id: number): Promise<Tour | undefined> => {
-    const response = await api.get(`/host/my-tours/${id}`);
+    const response = await api.get(`/guide/my-tours/${id}`);
     const tour = extractObject<Tour>(response);
     return tour ?? undefined;
   },
 
-  getBookings: async (): Promise<HostBooking[]> => {
-    const response = await api.get("/host/bookings");
+  getBookings: async (): Promise<GuideBooking[]> => {
+    const response = await api.get("/guide/bookings");
     return extractArray<Record<string, unknown>>(response).map(mapBooking);
   },
 
@@ -141,7 +141,7 @@ const hostService = {
   },
 
   createTour: async (payload: unknown): Promise<{ success: boolean }> => {
-    const response = await api.post("/host/my-tours", buildTourPayload(payload), {
+    const response = await api.post("/guide/my-tours", buildTourPayload(payload), {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return { success: response.data?.success !== false };
@@ -152,7 +152,7 @@ const hostService = {
     payload: unknown,
   ): Promise<{ success: boolean }> => {
     const response = await api.put(
-      `/host/my-tours/${id}`,
+      `/guide/my-tours/${id}`,
       buildTourPayload(payload),
       { headers: { "Content-Type": "multipart/form-data" } },
     );
@@ -160,9 +160,19 @@ const hostService = {
   },
 
   confirmBooking: async (id: number): Promise<{ success: boolean }> => {
-    const response = await api.put(`/host/bookings/${id}/confirm`);
+    const response = await api.put(`/guide/bookings/${id}/confirm`);
     return { success: response.data?.success !== false };
   },
 };
 
-export default hostService;
+export default guideService;
+
+
+
+
+
+
+
+
+
+

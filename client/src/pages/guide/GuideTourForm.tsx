@@ -1,18 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import hostService from "@/services/hostService";
-import { TourFormBasicSection } from "@/components/host/tour-form/TourFormBasicSection";
-import { TourFormMediaSection } from "@/components/host/tour-form/TourFormMediaSection";
-import { TourFormItinerarySection } from "@/components/host/tour-form/TourFormItinerarySection";
-import { TourFormScheduleSection } from "@/components/host/tour-form/TourFormScheduleSection";
-import { TourFormTaxonomySection } from "@/components/host/tour-form/TourFormTaxonomySection";
-import { TourFormSidebar } from "@/components/host/tour-form/TourFormSidebar";
+import guideService from "@/services/guideService";
+import { TourFormBasicSection } from "@/components/guide/tour-form/TourFormBasicSection";
+import { TourFormMediaSection } from "@/components/guide/tour-form/TourFormMediaSection";
+import { TourFormItinerarySection } from "@/components/guide/tour-form/TourFormItinerarySection";
+import { TourFormScheduleSection } from "@/components/guide/tour-form/TourFormScheduleSection";
+import { TourFormTaxonomySection } from "@/components/guide/tour-form/TourFormTaxonomySection";
+import { TourFormSidebar } from "@/components/guide/tour-form/TourFormSidebar";
 import type {
   ScheduleFormItem,
   ItineraryFormItem,
   SelectOption,
   TourFormState,
-} from "@/components/host/tour-form/types";
+} from "@/components/guide/tour-form/types";
 
 const emptyForm: TourFormState = {
   title: "",
@@ -50,7 +50,7 @@ const formatPreviewPrice = (value: string) => {
   }).format(amount);
 };
 
-export const HostTourForm: React.FC = () => {
+export const GuideTourForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
@@ -84,7 +84,7 @@ export const HostTourForm: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const formData = await hostService.getFormData();
+        const formData = await guideService.getFormData();
         setCategories(formData.categories);
         setServices(formData.services);
       } catch {
@@ -105,7 +105,7 @@ export const HostTourForm: React.FC = () => {
 
     const loadTour = async () => {
       try {
-        const tour = await hostService.getTourById(Number(id));
+        const tour = await guideService.getTourById(Number(id));
         if (!tour) {
           setError("Không tìm thấy tour.");
           return;
@@ -289,11 +289,11 @@ export const HostTourForm: React.FC = () => {
 
     try {
       if (isEdit && id) {
-        await hostService.updateTour(Number(id), form);
+        await guideService.updateTour(Number(id), form);
       } else {
-        await hostService.createTour(form);
+        await guideService.createTour(form);
       }
-      navigate("/host/tours");
+      navigate("/guide/tours");
     } catch {
       setError("Không thể lưu tour. Vui lòng thử lại.");
     } finally {
@@ -318,7 +318,7 @@ export const HostTourForm: React.FC = () => {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Link
-            to="/host/tours"
+            to="/guide/tours"
             className="inline-flex items-center gap-2 text-sm font-semibold text-primary-600 hover:text-primary-700"
           >
             <svg
@@ -426,7 +426,7 @@ export const HostTourForm: React.FC = () => {
 
           <div className="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:flex-row sm:justify-end md:px-6">
             <Link
-              to="/host/tours"
+              to="/guide/tours"
               className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-100"
             >
               Hủy
@@ -484,4 +484,14 @@ export const HostTourForm: React.FC = () => {
   );
 };
 
-export default HostTourForm;
+export default GuideTourForm;
+
+
+
+
+
+
+
+
+
+

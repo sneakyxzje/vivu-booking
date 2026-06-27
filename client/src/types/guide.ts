@@ -1,6 +1,6 @@
 import type { Tour } from "./tour";
 
-export interface HostDashboardStats {
+export interface GuideDashboardStats {
   totalTours: number;
   activeTours: number;
   pendingTours: number;
@@ -11,7 +11,7 @@ export interface HostDashboardStats {
 
 export type BookingStatus = "pending" | "confirmed" | "cancelled";
 
-export interface HostBooking {
+export interface GuideBooking {
   id: number;
   tour_id: number;
   tour_title: string;
@@ -26,3 +26,7 @@ export interface HostBooking {
 }
 
 export type { Tour };
+
+
+
+

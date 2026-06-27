@@ -25,7 +25,7 @@ class AdminController extends Controller
             'featured_tours' => Tour::where('is_featured', true)->count(),
             'new_users_this_week' => User::where('created_at', '>=', now()->subDays(7))->count(),
             'total_customers' => User::where('role', 'customer')->count(),
-            'total_hosts' => User::where('role', 'host')->count(),
+            'total_guides' => User::where('role', 'guide')->count(),
             'total_categories' => Category::count(),
             'inactive_categories' => Category::where('is_active', false)->count(),
             'total_services' => Service::count(),
@@ -91,3 +91,4 @@ class AdminController extends Controller
         ], 'Lấy dữ liệu dashboard thành công');
     }
 }
+

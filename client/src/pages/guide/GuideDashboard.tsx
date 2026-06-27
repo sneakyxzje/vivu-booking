@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import hostService from "@/services/hostService";
-import type { HostBooking, HostDashboardStats } from "@/types/host";
+import guideService from "@/services/guideService";
+import type { GuideBooking, GuideDashboardStats } from "@/types/guide";
 import type { Tour } from "@/types";
 import {
   BookingStatusBadge,
   TourStatusBadge,
-} from "@/components/host/StatusBadge";
+} from "@/components/guide/GuideStatusBadge";
 import { formatDate, formatPrice } from "@/utils/format";
 
-export const HostDashboard: React.FC = () => {
-  const [stats, setStats] = useState<HostDashboardStats | null>(null);
-  const [bookings, setBookings] = useState<HostBooking[]>([]);
+export const GuideDashboard: React.FC = () => {
+  const [stats, setStats] = useState<GuideDashboardStats | null>(null);
+  const [bookings, setBookings] = useState<GuideBooking[]>([]);
   const [tours, setTours] = useState<Tour[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -20,9 +20,9 @@ export const HostDashboard: React.FC = () => {
     const load = async () => {
       try {
         const [s, b, t] = await Promise.all([
-          hostService.getDashboardStats(),
-          hostService.getBookings(),
-          hostService.getMyTours(),
+          guideService.getDashboardStats(),
+          guideService.getBookings(),
+          guideService.getMyTours(),
         ]);
         setStats(s);
         setBookings(b);
@@ -120,7 +120,7 @@ export const HostDashboard: React.FC = () => {
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <h2 className="font-semibold text-gray-900">Tour chờ duyệt</h2>
             <Link
-              to="/host/tours?status=pending"
+              to="/guide/tours?status=pending"
               className="text-sm text-primary-600 hover:underline"
             >
               Xem tất cả
@@ -159,7 +159,7 @@ export const HostDashboard: React.FC = () => {
               Đặt chỗ chờ xác nhận
             </h2>
             <Link
-              to="/host/bookings?status=pending"
+              to="/guide/bookings?status=pending"
               className="text-sm text-primary-600 hover:underline"
             >
               Xem tất cả
@@ -194,4 +194,13 @@ export const HostDashboard: React.FC = () => {
   );
 };
 
-export default HostDashboard;
+export default GuideDashboard;
+
+
+
+
+
+
+
+
+
