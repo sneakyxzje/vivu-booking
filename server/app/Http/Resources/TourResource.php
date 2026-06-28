@@ -16,7 +16,7 @@ class TourResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'host_id' => $this->host_id,
+            'admin_id' => $this->admin_id,
             'title' => $this->title,
             'slug' => $this->slug,
             'description' => $this->description,
@@ -35,7 +35,7 @@ class TourResource extends JsonResource
             'total_booked' => $this->when(isset($this->total_booked), (int) $this->total_booked),
 
             // Chỉ trả về data quan hệ khi được load để tối ưu hiệu năng
-            'host' => $this->whenLoaded('host'),
+            'admin' => $this->whenLoaded('admin'),
             'categories' => $this->whenLoaded('categories'),
             'services' => $this->whenLoaded('services'),
             'images' => $this->whenLoaded('images'),
