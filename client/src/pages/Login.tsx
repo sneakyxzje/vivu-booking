@@ -35,7 +35,13 @@ export const Login: React.FC = () => {
       const res = await authService.login(form);
       const data = res.data as AuthResponse;
       login(data.token, data.user);
-      navigate("/", { replace: true });
+      const dest =
+        data.user.role === "guide"
+          ? "/guide/dashboard"
+          : data.user.role === "admin"
+            ? "/admin/dashboard"
+            : "/";
+      navigate(dest, { replace: true });
     } catch (err) {
       const axiosErr = err as AxiosError<{ message?: string }>;
       setError(

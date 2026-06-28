@@ -1,23 +1,42 @@
 import React from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+} from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Layout } from "@/components/Layout";
+import { GuideLayout } from "@/components/guide/GuideLayout";
+import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Login } from "@/pages/Login";
 import { Register } from "@/pages/Register";
 import { NotFound } from "@/pages/NotFound";
+import { Home } from "@/pages/Home";
+import { Tours } from "@/pages/Tours";
+import Dashboard from "@/pages/admin/Dashboard";
+import TourList from "@/pages/admin/TourList";
+import { GuideDashboard } from "@/pages/guide/GuideDashboard";
+import { GuideTours } from "@/pages/guide/GuideTours";
+import { GuideBookings } from "@/pages/guide/GuideBookings";
+import TourDetail from "@/components/TourDetail";
+import { CreateTourForm } from "@/pages/admin/create/CreateTourForm";
 
 const router = createBrowserRouter([
-  // ── LAYOUT (Header + Footer) ─────────────────────────────────────────────
+  // 1. NHÓM ROUTES CHO USER (Sử dụng Layout chung của User có Header/Footer)
   {
     element: <Layout />,
     children: [
       {
         path: "/",
-        element: <div>Home</div>,
+        element: <Home />,
       },
       {
         path: "/tours",
-        element: <div>Tour trọn gói — TODO</div>,
+        element: <Tours />,
+      },
+      {
+        path: "/tours/:id",
+        element: <TourDetail />,
       },
       {
         path: "/flights",
@@ -43,7 +62,6 @@ const router = createBrowserRouter([
         path: "/register",
         element: <Register />,
       },
-      // User đã đăng nhập
       {
         element: <ProtectedRoute />,
         children: [
@@ -53,30 +71,70 @@ const router = createBrowserRouter([
           },
         ],
       },
-      // Chỉ host
+    ],
+  },
+
+  // 2. NHÓM ROUTES CHO GUIDE (Sử dụng GuideLayout riêng biệt)
+  {
+    element: <ProtectedRoute allowedRoles={["guide"]} />,
+    children: [
       {
-        element: <ProtectedRoute allowedRoles={["host"]} />,
+        element: <GuideLayout />,
         children: [
           {
-            path: "/host/dashboard",
-            element: <div>Host Dashboard — TODO</div>,
+            path: "/guide",
+            element: <Navigate to="/guide/dashboard" replace />,
           },
-        ],
-      },
-      // Chỉ admin
-      {
-        element: <ProtectedRoute allowedRoles={["admin"]} />,
-        children: [
           {
-            path: "/admin/dashboard",
-            element: <div>Admin Dashboard — TODO</div>,
+            path: "/guide/dashboard",
+            element: <GuideDashboard />,
+          },
+          {
+            path: "/guide/tours",
+            element: <GuideTours />,
+          },
+          // {
+          //   path: "/guide/tours/:id/edit",
+          //   element: <GuideTourForm />,
+          // },
+          {
+            path: "/guide/bookings",
+            element: <GuideBookings />,
           },
         ],
       },
     ],
   },
 
-  // ── 404 ──────────────────────────────────────────────────────────────────
+  // 3. NHÓM ROUTES CHO ADMIN (Sử dụng AdminLayout riêng biệt)
+  {
+    element: <ProtectedRoute allowedRoles={["admin"]} />,
+    children: [
+      {
+        element: <AdminLayout />,
+        children: [
+          {
+            path: "/admin",
+            element: <Navigate to="/admin/dashboard" replace />,
+          },
+          {
+            path: "/admin/dashboard",
+            element: <Dashboard />,
+          },
+          {
+            path: "/admin/tours",
+            element: <TourList />,
+          },
+          {
+            path: "/admin/tours/create",
+            element: <CreateTourForm />,
+          },
+        ],
+      },
+    ],
+  },
+
+  // 4. TRANG 404
   {
     path: "*",
     element: <NotFound />,

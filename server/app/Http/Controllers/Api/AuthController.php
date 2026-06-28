@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 
 class AuthController extends Controller
 {
@@ -16,7 +18,7 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6',
-            'role' => 'nullable|in:customer,host,admin'
+            'role' => 'nullable|in:customer,guide,admin'
         ]);
 
         $user = User::create([
@@ -60,7 +62,6 @@ class AuthController extends Controller
         ]);
     }
 
-    // GET USER INFO (/me)
     public function me(Request $request)
     {
         return response()->json([
@@ -69,12 +70,12 @@ class AuthController extends Controller
     }
 
     // LOGOUT
-   public function logout(Request $request)
-{
-    $request->user()->currentAccessToken()->delete();
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
 
-    return response()->json([
-        'message' => 'Logout success'
-    ]);
-}
+        return response()->json([
+            'message' => 'Logout success'
+        ]);
+    }
 }

@@ -1,27 +1,24 @@
-export type UserRole = "customer" | "host" | "admin";
+export type {
+  UserRole,
+  AuthUser,
+  LoginPayload,
+  RegisterPayload,
+  AuthResponse,
+} from "./auth";
+export type {
+  Category,
+  Service,
+  TourImage,
+  TourItinerary,
+  TourSchedule,
+  Tour,
+  TourFilterParams,
+} from "./tour";
+export type {
+  GuideDashboardStats,
+  GuideBooking,
+  BookingStatus,
+} from "./guide";
 
-export interface AuthUser {
-  id: number;
-  name: string;
-  email: string;
-  role: UserRole;
-}
 
-export interface LoginPayload {
-  email: string;
-  password: string;
-}
 
-export interface RegisterPayload {
-  name: string;
-  email: string;
-  password: string;
-  password_confirmation: string;
-  phone?: string;
-  address?: string;
-}
-
-export interface AuthResponse {
-  token: string;
-  user: AuthUser;
-}
