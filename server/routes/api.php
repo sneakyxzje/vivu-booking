@@ -3,10 +3,6 @@
 
 
 
-use Illuminate\Support\Facades\Route;
-
-
-
 // Controllers
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
@@ -26,6 +22,7 @@ use App\Http\Controllers\Api\Guide\BookingController as GuideBookingController;
 use App\Http\Controllers\Api\Admin\AdminController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminTourController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -103,3 +100,4 @@ Route::middleware('auth:sanctum')->group(function () {
         });
     });
 });
+
