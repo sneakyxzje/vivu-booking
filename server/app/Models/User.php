@@ -18,7 +18,7 @@ class User extends Authenticatable
 
     public function tours()
     {
-        return $this->hasMany(Tour::class, 'host_id');
+        return $this->hasMany(Tour::class, 'admin_id');
     }
 
     protected function casts(): array
