@@ -2,8 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-// Controllers
-use Illuminate\Support\Facades\Route;
+
 
 // Controllers
 use App\Http\Controllers\Api\AuthController;
@@ -100,6 +99,4 @@ Route::middleware('auth:sanctum')->group(function () {
             ]);
         });
     });
-});
-
 });
