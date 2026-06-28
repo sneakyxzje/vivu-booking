@@ -47,7 +47,7 @@ class AdminController extends Controller
                 ->get();
         }
 
-        $recentPendingTours = Tour::with('host:id,name,email')
+        $recentPendingTours = Tour::with('admin:id,name,email')
             ->where('status', 'pending')
             ->latest()
             ->limit(5)
