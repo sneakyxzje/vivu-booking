@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\TourResource;
 use App\Models\Tour;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -36,7 +37,6 @@ class TourController extends Controller
     public function show(int $id): JsonResponse
     {
         $tour = Tour::with([
-            'admin',
             'categories',
             'services',
             'images',
@@ -54,7 +54,7 @@ class TourController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Chi tiết tour',
-            'data' => $tour
+            'data' => new TourResource($tour)
         ]);
     }
 
