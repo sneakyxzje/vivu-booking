@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
+
+
 // Controllers
 use Illuminate\Support\Facades\Route;
 
