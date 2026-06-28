@@ -12,7 +12,7 @@ const tourService = {
     return { success: true, data };
   },
 
-  getById: async (id: number): Promise<{ data: Tour; success: boolean }> => {
+  getById: async (id: string): Promise<{ data: Tour; success: boolean }> => {
     const response = await api.get(`/tours/${id}`);
     const tour = extractObject<Tour>(response);
 
