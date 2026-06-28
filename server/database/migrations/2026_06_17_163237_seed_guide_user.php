@@ -12,11 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         DB::table('users')->updateOrInsert(
-            ['email' => 'host@gmail.com'],
+            ['email' => 'guide@gmail.com'],
             [
-                'name' => 'Host User',
-                'password' => Hash::make('host123'),
-                'role' => 'host',
+                'name' => 'Guide User',
+                'password' => Hash::make('guide123'),
+                'role' => 'guide',
                 'status' => 'active',
                 'email_verified_at' => now(),
                 'created_at' => now(),
@@ -30,7 +30,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::table('users')->where('email', 'host@gmail.com')->delete();
+        DB::table('users')->where('email', 'guide@gmail.com')->delete();
     }
 };
 

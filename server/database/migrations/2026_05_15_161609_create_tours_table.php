@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('tours', function (Blueprint $table) {
             $table->id();
-            // Cần biết tours này ai là người tạo (thuộc về host nào)
-            $table->foreignId('host_id')->constrained('users')->onDelete('cascade');
+            // Cần biết tours này ai là người tạo (thuộc về admin nào)
+            $table->foreignId('admin_id')->constrained('users')->onDelete('cascade');
 
 
             // Tiêu đề tour
@@ -53,7 +53,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Index cho các trường hay dùng để tìm kiếm, lọc tour
-            $table->index(['host_id', 'status']);
+            $table->index(['admin_id', 'status']);
         });
     }
 
