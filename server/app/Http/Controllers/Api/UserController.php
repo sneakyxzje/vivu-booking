@@ -12,7 +12,6 @@ class UserController extends Controller
 {
     public function test(): JsonResponse
     {
-        // Mock
         $dummy = new User();
         $dummy->id = 888;
         $dummy->name = 'Vivu Booking';

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
 export const Header: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navLinks = [
@@ -76,13 +76,19 @@ export const Header: React.FC = () => {
             {/* Auth Button */}
             {isAuthenticated ? (
               <Link
-                to="/profile"
+                to={
+                  user?.role === "host"
+                    ? "/host/dashboard"
+                    : user?.role === "admin"
+                      ? "/admin/dashboard"
+                      : "/profile"
+                }
                 className="flex items-center gap-2 text-sm font-medium bg-primary-50 text-primary-600 px-4 py-2 rounded-full hover:bg-primary-100 transition-colors"
               >
                 <div className="w-6 h-6 rounded-full bg-primary-600 flex items-center justify-center text-white text-xs font-semibold">
-                  U
+                  {user?.name?.charAt(0).toUpperCase() ?? "U"}
                 </div>
-                Tài khoản
+                {user?.role === "host" ? "Quản lý Host" : "Tài khoản"}
               </Link>
             ) : (
               <Link

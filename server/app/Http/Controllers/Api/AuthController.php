@@ -9,21 +9,23 @@ use App\Models\User;
 
 class AuthController extends Controller
 {
-    // REGISTER
+    /**
+     * Register
+     */
     public function register(Request $request)
     {
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6',
-            'role' => 'nullable|in:customer,host,admin'
+            'role' => 'nullable|in:customer,host,admin',
         ]);
 
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
-            'role' => $data['role'] ?? 'customer'
+            'role' => $data['role'] ?? 'customer',
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -31,23 +33,25 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Register success',
             'user' => $user,
-            'token' => $token
-        ]);
+            'token' => $token,
+        ], 201);
     }
 
-    // LOGIN
+    /**
+     * Login
+     */
     public function login(Request $request)
     {
-        $request->validate([
+        $credentials = $request->validate([
             'email' => 'required|email',
-            'password' => 'required'
+            'password' => 'required',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $credentials['email'])->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!$user || !Hash::check($credentials['password'], $user->password)) {
             return response()->json([
-                'message' => 'Invalid email or password'
+                'message' => 'Invalid email or password',
             ], 401);
         }
 
@@ -56,25 +60,31 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Login success',
             'user' => $user,
-            'token' => $token
+            'token' => $token,
         ]);
     }
 
-    // GET USER INFO (/me)
+    /**
+     * Get current authenticated user
+     */
     public function me(Request $request)
     {
         return response()->json([
-            'user' => $request->user()
+            'user' => $request->user(),
         ]);
     }
 
-    // LOGOUT
-   public function logout(Request $request)
-{
-    $request->user()->currentAccessToken()->delete();
+    /**
+     * Logout current device
+     */
+    public function logout(Request $request)
+    {
+        if ($request->user() && $request->user()->currentAccessToken()) {
+            $request->user()->currentAccessToken()->delete();
+        }
 
-    return response()->json([
-        'message' => 'Logout success'
-    ]);
-}
+        return response()->json([
+            'message' => 'Logout success',
+        ]);
+    }
 }

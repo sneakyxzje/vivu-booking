@@ -7,6 +7,11 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\TourController;
 
+
+use App\Models\Category;
+use App\Models\Service;
+
+
 // Customer
 use App\Http\Controllers\Api\Customer\BookingController as CustomerBookingController;
 
@@ -30,6 +35,14 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::get('/tours', [TourController::class, 'index']);
 Route::get('/tours/{id}', [TourController::class, 'show']);
+Route::get('/categories', fn () => response()->json([
+    'success' => true,
+    'data' => Category::where('is_active', true)->orderBy('name')->get(),
+]));
+Route::get('/services', fn () => response()->json([
+    'success' => true,
+    'data' => Service::orderBy('name')->get(),
+]));
 
 /*
 |--------------------------------------------------------------------------
@@ -86,5 +99,4 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
     });
-
 });

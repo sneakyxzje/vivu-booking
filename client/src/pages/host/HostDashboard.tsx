@@ -1,0 +1,197 @@
+import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import hostService from "@/services/hostService";
+import type { HostBooking, HostDashboardStats } from "@/types/host";
+import type { Tour } from "@/types";
+import {
+  BookingStatusBadge,
+  TourStatusBadge,
+} from "@/components/host/StatusBadge";
+import { formatDate, formatPrice } from "@/utils/format";
+
+export const HostDashboard: React.FC = () => {
+  const [stats, setStats] = useState<HostDashboardStats | null>(null);
+  const [bookings, setBookings] = useState<HostBooking[]>([]);
+  const [tours, setTours] = useState<Tour[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [s, b, t] = await Promise.all([
+          hostService.getDashboardStats(),
+          hostService.getBookings(),
+          hostService.getMyTours(),
+        ]);
+        setStats(s);
+        setBookings(b);
+        setTours(t);
+      } catch {
+        setError("Không thể tải dữ liệu tổng quan.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const pendingTours = tours.filter((t) => t.status === "pending");
+  const recentBookings = bookings
+    .filter((b) => b.status === "pending")
+    .slice(0, 4);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-500">
+        Đang tải...
+      </div>
+    );
+  }
+
+  if (error || !stats) {
+    return (
+      <div className="flex items-center justify-center h-64 text-red-500 text-sm">
+        {error || "Không thể tải dữ liệu tổng quan."}
+      </div>
+    );
+  }
+
+  const statCards = [
+    {
+      label: "Tổng tour",
+      value: stats.totalTours,
+      sub: `${stats.activeTours} đang hoạt động`,
+      color: "bg-primary-50 text-primary-600",
+    },
+    {
+      label: "Chờ duyệt",
+      value: stats.pendingTours,
+      sub: "Tour đang chờ admin",
+      color: "bg-amber-50 text-amber-600",
+    },
+    {
+      label: "Đặt chỗ",
+      value: stats.totalBookings,
+      sub: `${stats.pendingBookings} chờ xác nhận`,
+      color: "bg-blue-50 text-blue-600",
+    },
+    {
+      label: "Doanh thu",
+      value: formatPrice(stats.revenue),
+      sub: "Tháng này (ước tính)",
+      color: "bg-emerald-50 text-emerald-600",
+      isPrice: true,
+    },
+  ];
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Tổng quan</h1>
+        <p className="text-gray-500 text-sm mt-1">
+          Quản lý tour và đặt chỗ của bạn
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {statCards.map((card) => (
+          <div
+            key={card.label}
+            className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
+          >
+            <p className="text-sm text-gray-500 mb-2">{card.label}</p>
+            <p
+              className={`text-2xl font-bold ${card.isPrice ? "text-emerald-600 text-xl" : "text-gray-900"}`}
+            >
+              {card.value}
+            </p>
+            <p
+              className={`text-xs mt-1 font-medium ${card.color.split(" ")[1]}`}
+            >
+              {card.sub}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900">Tour chờ duyệt</h2>
+            <Link
+              to="/host/tours?status=pending"
+              className="text-sm text-primary-600 hover:underline"
+            >
+              Xem tất cả
+            </Link>
+          </div>
+          {pendingTours.length === 0 ? (
+            <p className="p-6 text-sm text-gray-500">
+              Không có tour chờ duyệt.
+            </p>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {pendingTours.map((tour) => (
+                <li
+                  key={tour.id}
+                  className="px-6 py-4 flex items-center justify-between gap-4"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {tour.title}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {tour.start_location} ·{" "}
+                      {formatPrice(tour.discount_price ?? tour.price)}
+                    </p>
+                  </div>
+                  <TourStatusBadge status={tour.status} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-900">
+              Đặt chỗ chờ xác nhận
+            </h2>
+            <Link
+              to="/host/bookings?status=pending"
+              className="text-sm text-primary-600 hover:underline"
+            >
+              Xem tất cả
+            </Link>
+          </div>
+          {recentBookings.length === 0 ? (
+            <p className="p-6 text-sm text-gray-500">Không có đặt chỗ mới.</p>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {recentBookings.map((b) => (
+                <li
+                  key={b.id}
+                  className="px-6 py-4 flex items-center justify-between gap-4"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {b.customer_name}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {b.tour_title} · {b.guests} khách ·{" "}
+                      {formatDate(b.departure_date)}
+                    </p>
+                  </div>
+                  <BookingStatusBadge status={b.status} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default HostDashboard;
