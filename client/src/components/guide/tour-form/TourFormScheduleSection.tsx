@@ -7,7 +7,11 @@ interface Props {
   items: ScheduleFormItem[];
   onAdd: () => void;
   onRemove: (index: number) => void;
-  onChange: (index: number, field: "start_date" | "max_people", value: string) => void;
+  onChange: (
+    index: number,
+    field: "start_date" | "max_people",
+    value: string,
+  ) => void;
 }
 
 export const TourFormScheduleSection: React.FC<Props> = ({
@@ -22,7 +26,6 @@ export const TourFormScheduleSection: React.FC<Props> = ({
     <div className="mb-4 flex items-center justify-between gap-3">
       <div>
         <h3 className="text-sm font-bold text-gray-950">Lịch khởi hành</h3>
-        <p className="mt-1 text-xs text-gray-500">Lưu vào bảng tour_schedules.</p>
       </div>
       <button
         type="button"
