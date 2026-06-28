@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 
+
+
 // Controllers
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
