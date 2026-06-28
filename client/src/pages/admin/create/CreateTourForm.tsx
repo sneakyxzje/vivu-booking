@@ -28,7 +28,9 @@ const emptyForm: TourFormState = {
   thumbnail_preview: "",
   images: [] as File[],
   image_previews: [] as string[],
-  itineraries: [{ day_number: "1", title: "", content: "" } as ItineraryFormItem],
+  itineraries: [
+    { day_number: "1", title: "", content: "" } as ItineraryFormItem,
+  ],
   schedules: [{ start_date: "", max_people: "10" } as ScheduleFormItem],
   category_ids: [] as number[],
   service_ids: [] as number[],
@@ -50,15 +52,13 @@ const formatPreviewPrice = (value: string) => {
   }).format(amount);
 };
 
-export const GuideTourForm: React.FC = () => {
+export const CreateTourForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
 
   const [form, setForm] = useState(emptyForm);
-  const [categories, setCategories] = useState<SelectOption[]>(
-    [],
-  );
+  const [categories, setCategories] = useState<SelectOption[]>([]);
   const [services, setServices] = useState<SelectOption[]>([]);
   const [loading, setLoading] = useState(isEdit);
   const [optionsLoading, setOptionsLoading] = useState(true);
@@ -345,10 +345,6 @@ export const GuideTourForm: React.FC = () => {
               : "Tour sẽ được gửi duyệt sau khi lưu."}
           </p>
         </div>
-        <span className="inline-flex w-fit items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
-          <span className="h-2 w-2 rounded-full bg-amber-500" />
-          Chờ duyệt
-        </span>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -484,14 +480,4 @@ export const GuideTourForm: React.FC = () => {
   );
 };
 
-export default GuideTourForm;
-
-
-
-
-
-
-
-
-
-
+export default CreateTourForm;
