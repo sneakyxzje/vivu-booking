@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 #[Fillable([
-    'host_id',
+    'admin_id',
     'title',
     'slug',
     'description',
@@ -22,10 +22,10 @@ use Illuminate\Database\Eloquent\Model;
 ])]
 class Tour extends Model
 {
-    // Một Tour thuộc về một Host (User)
-    public function host()
+    // Một Tour thuộc về một User tạo tour
+    public function admin()
     {
-        return $this->belongsTo(User::class, 'host_id');
+        return $this->belongsTo(User::class, 'admin_id');
     }
 
     // Một Tour có nhiều Danh mục 
