@@ -13,6 +13,7 @@ import type {
   SelectOption,
   TourFormState,
 } from "@/components/guide/tour-form/types";
+import tourService from "@/services/tourService";
 
 const emptyForm: TourFormState = {
   title: "",
@@ -291,7 +292,7 @@ export const CreateTourForm: React.FC = () => {
       if (isEdit && id) {
         await guideService.updateTour(Number(id), form);
       } else {
-        await guideService.createTour(form);
+        await tourService.createTour(form);
       }
       navigate("/guide/tours");
     } catch {
