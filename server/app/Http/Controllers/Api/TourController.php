@@ -15,7 +15,7 @@ class TourController extends Controller
     public function index(Request $request): JsonResponse
     {
         $tours = Tour::with([
-            'host',
+            'admin',
             'categories',
             'services',
             'images',
@@ -36,7 +36,7 @@ class TourController extends Controller
     public function show(int $id): JsonResponse
     {
         $tour = Tour::with([
-            'host',
+            'admin',
             'categories',
             'services',
             'images',
