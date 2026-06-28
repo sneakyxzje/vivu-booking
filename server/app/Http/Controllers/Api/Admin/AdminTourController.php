@@ -34,17 +34,32 @@ class AdminTourController extends Controller
             'end_location' => ['nullable', 'string', 'max:255'],
         ]);
 
+        $numberOfDay = (int) $validated['number_of_days'];
+        $numberOfNight = (int) $validated['number_of_nights'];
+        $price = (float) $validated['price'];
+        $salePrice = isset($validated['discount_price'])
+            ? (float) $validated['discount_price']
+            : null;
+
+        if ($numberOfNight > $numberOfDay) {
+            return $this->error('Số đêm không được lớn hơn số ngày', 400);
+        }
+
+        if ($salePrice !== null && $salePrice > $price) {
+            return $this->error('Giá giảm không được lớn hơn giá gốc', 400);
+        }
+
         $tour = Tour::create([
             ...$validated,
-            'host_id' => $request->user()->id,
-            'status' => 'pending',
+            'admin_id' => $request->user()->id,
+            'status' => 'active',
             'is_featured' => false,
-            'slug' => Tour::query()->where('title', $validated['title'])->count() ? Str::slug($validated['title']).'-'.time() : Str::slug($validated['title']),
+            'slug' => Tour::query()->where('title', $validated['title'])->count() ? Str::slug($validated['title']) . '-' . time() : Str::slug($validated['title']),
         ]);
 
         return $this->success([
             'tour' => $tour,
-        ], 'Tạo tour thành công');
+        ], 'Tạo tour thành công và đã được kích hoạt');
     }
 
     public function approve(Request $request, int $id): JsonResponse
@@ -52,5 +67,3 @@ class AdminTourController extends Controller
         return $this->success([], 'Placeholder: Admin approve tour endpoint for tour ' . $id);
     }
 }
-
-
