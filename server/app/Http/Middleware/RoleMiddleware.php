@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 class RoleMiddleware
 {
     public function handle(Request $request, Closure $next, $role)
-    public function handle(Request $request, Closure $next, $role)
+
     {
         if ($request->user()->role !== $role) {
 

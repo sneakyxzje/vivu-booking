@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 
 
+
 class AuthController extends Controller
 {
     // REGISTER
