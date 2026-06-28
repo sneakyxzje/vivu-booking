@@ -7,7 +7,11 @@ interface Props {
   items: ItineraryFormItem[];
   onAdd: () => void;
   onRemove: (index: number) => void;
-  onChange: (index: number, field: "day_number" | "title" | "content", value: string) => void;
+  onChange: (
+    index: number,
+    field: "day_number" | "title" | "content",
+    value: string,
+  ) => void;
 }
 
 export const TourFormItinerarySection: React.FC<Props> = ({
@@ -21,8 +25,9 @@ export const TourFormItinerarySection: React.FC<Props> = ({
   <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
     <div className="mb-4 flex items-center justify-between gap-3">
       <div>
-        <h3 className="text-sm font-bold text-gray-950">Lịch trình theo ngày</h3>
-        <p className="mt-1 text-xs text-gray-500">Lưu vào bảng tour_itineraries.</p>
+        <h3 className="text-sm font-bold text-gray-950">
+          Lịch trình theo ngày
+        </h3>
       </div>
       <button
         type="button"
@@ -34,9 +39,14 @@ export const TourFormItinerarySection: React.FC<Props> = ({
     </div>
     <div className="space-y-3">
       {items.map((item, index) => (
-        <div key={index} className="rounded-lg border border-gray-100 bg-white p-4">
+        <div
+          key={index}
+          className="rounded-lg border border-gray-100 bg-white p-4"
+        >
           <div className="mb-3 flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-gray-900">Ngày {index + 1}</p>
+            <p className="text-sm font-semibold text-gray-900">
+              Ngày {index + 1}
+            </p>
             {items.length > 1 && (
               <button
                 type="button"
