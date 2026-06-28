@@ -21,9 +21,7 @@ const mapDashboardStats = (
     activeTours: Number(raw.activeTours ?? raw.active_tours ?? 0),
     pendingTours: Number(raw.pendingTours ?? raw.pending_tours ?? 0),
     totalBookings: Number(raw.totalBookings ?? raw.total_bookings ?? 0),
-    pendingBookings: Number(
-      raw.pendingBookings ?? raw.pending_bookings ?? 0,
-    ),
+    pendingBookings: Number(raw.pendingBookings ?? raw.pending_bookings ?? 0),
     revenue: Number(raw.revenue ?? 0),
   };
 };
@@ -42,7 +40,7 @@ const mapBooking = (raw: Record<string, unknown>): GuideBooking => ({
   created_at: String(raw.created_at ?? raw.createdAt ?? ""),
 });
 
-const buildTourPayload = (form: unknown) => {
+export const buildTourPayload = (form: unknown) => {
   const f = form as Record<string, unknown>;
   const data = new FormData();
 
@@ -140,13 +138,6 @@ const guideService = {
     return { categories, services };
   },
 
-  createTour: async (payload: unknown): Promise<{ success: boolean }> => {
-    const response = await api.post("/guide/my-tours", buildTourPayload(payload), {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return { success: response.data?.success !== false };
-  },
-
   updateTour: async (
     id: number,
     payload: unknown,
@@ -166,13 +157,3 @@ const guideService = {
 };
 
 export default guideService;
-
-
-
-
-
-
-
-
-
-
