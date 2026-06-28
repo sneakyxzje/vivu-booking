@@ -18,8 +18,8 @@ import TourList from "@/pages/admin/TourList";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
 import { GuideTours } from "@/pages/guide/GuideTours";
 import { GuideBookings } from "@/pages/guide/GuideBookings";
-import { GuideTourForm } from "@/pages/guide/GuideTourForm";
 import TourDetail from "@/components/TourDetail";
+import { CreateTourForm } from "@/pages/admin/create/CreateTourForm";
 
 const router = createBrowserRouter([
   // 1. NHÓM ROUTES CHO USER (Sử dụng Layout chung của User có Header/Footer)
@@ -35,8 +35,8 @@ const router = createBrowserRouter([
         element: <Tours />,
       },
       {
-      path: "/tours/:id",
-      element: <TourDetail />,
+        path: "/tours/:id",
+        element: <TourDetail />,
       },
       {
         path: "/flights",
@@ -93,14 +93,10 @@ const router = createBrowserRouter([
             path: "/guide/tours",
             element: <GuideTours />,
           },
-          {
-            path: "/guide/tours/create",
-            element: <GuideTourForm />,
-          },
-          {
-            path: "/guide/tours/:id/edit",
-            element: <GuideTourForm />,
-          },
+          // {
+          //   path: "/guide/tours/:id/edit",
+          //   element: <GuideTourForm />,
+          // },
           {
             path: "/guide/bookings",
             element: <GuideBookings />,
@@ -129,6 +125,10 @@ const router = createBrowserRouter([
             path: "/admin/tours",
             element: <TourList />,
           },
+          {
+            path: "/admin/tours/create",
+            element: <CreateTourForm />,
+          },
         ],
       },
     ],
@@ -144,15 +144,3 @@ const router = createBrowserRouter([
 export const App: React.FC = () => <RouterProvider router={router} />;
 
 export default App;
-
-
-
-
-
-
-
-
-
-
-
-
