@@ -8,9 +8,6 @@ use Illuminate\Support\Facades\Route;
 
 
 // Controllers
-use Illuminate\Support\Facades\Route;
-
-// Controllers
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\TourController;
@@ -49,6 +46,8 @@ Route::get('/services', fn() => response()->json([
     'success' => true,
     'data' => Service::orderBy('name')->get(),
 ]));
+Route::post('/bookings', [CustomerBookingController::class, 'store']);
+Route::get('/vnpay/return', [CustomerBookingController::class, 'vnpayReturn']);
 
 /*
 |--------------------------------------------------------------------------
@@ -68,7 +67,6 @@ Route::middleware('auth:sanctum')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::middleware('role:customer')->group(function () {
-        Route::post('/bookings', [CustomerBookingController::class, 'store']);
         Route::get('/my-bookings', [CustomerBookingController::class, 'myBookings']);
         Route::post('/tours/{id}/reviews', [TourController::class, 'review']);
     });
@@ -107,4 +105,3 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
-});

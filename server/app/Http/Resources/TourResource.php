@@ -16,7 +16,6 @@ class TourResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'admin_id' => $this->admin_id,
             'title' => $this->title,
             'slug' => $this->slug,
             'description' => $this->description,
@@ -31,7 +30,7 @@ class TourResource extends JsonResource
             'status' => $this->status,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
-            
+
             'total_booked' => $this->when(isset($this->total_booked), (int) $this->total_booked),
 
             // Chỉ trả về data quan hệ khi được load để tối ưu hiệu năng
