@@ -28,6 +28,12 @@ class Tour extends Model
         return $this->belongsTo(User::class, 'admin_id');
     }
 
+    // Guide được phân công dẫn tour
+    public function guide()
+    {
+        return $this->belongsTo(User::class, 'guide_id');
+    }
+
     // Một Tour có nhiều Danh mục 
     public function categories()
     {
