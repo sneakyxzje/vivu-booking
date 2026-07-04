@@ -18,7 +18,10 @@ export type {
   GuideDashboardStats,
   GuideBooking,
   BookingStatus,
+  Guide,
 } from "./guide";
+export type { Booking } from "./booking";
+
 
 
 
