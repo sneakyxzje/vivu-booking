@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\Guide\BookingController as GuideBookingController;
 use App\Http\Controllers\Api\Admin\AdminController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminTourController;
+use App\Http\Controllers\Api\Admin\AdminBookingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -96,6 +97,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/tours/create', [AdminTourController::class, 'create']);
         Route::post('/tours', [AdminTourController::class, 'store']);
         Route::put('/tours/{id}/approve', [AdminTourController::class, 'approve']);
+
+        Route::get('/bookings', [AdminBookingController::class, 'index']);
+        Route::get('/bookings/{id}', [AdminBookingController::class, 'show']);
 
         Route::get('/admin-only', function () {
             return response()->json([
