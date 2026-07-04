@@ -4,7 +4,7 @@ import type { Tour, TourSchedule } from "@/types";
 import type { AxiosError } from "axios";
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 type BookingFormState = {
   customerName: string;
@@ -212,6 +212,7 @@ export const BookingTour = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadTour = async () => {
@@ -244,39 +245,62 @@ export const BookingTour = () => {
   const updateForm = (field: keyof BookingFormState, value: string | number) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
+  // const handleSubmit = async (event: FormEvent) => {
+  //   event.preventDefault();
+  //   if (!tour) return;
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!tour) return;
+  //   setSubmitting(true);
+  //   setMessage(null);
 
-    setSubmitting(true);
-    setMessage(null);
+  //   try {
+  //     const response = await bookingService.create({
+  //       tour_id: tour.id,
+  //       tour_schedule_id: Number(form.tourScheduleId),
+  //       customer_name: form.customerName,
+  //       customer_email: form.customerEmail,
+  //       customer_phone: form.customerPhone,
+  //       guests: Number(form.guests),
+  //       note: form.note,
+  //     });
 
-    try {
-      const response = await bookingService.create({
-        tour_id: tour.id,
-        tour_schedule_id: Number(form.tourScheduleId),
-        customer_name: form.customerName,
-        customer_email: form.customerEmail,
-        customer_phone: form.customerPhone,
-        guests: Number(form.guests),
-        note: form.note,
-      });
+  //     const paymentUrl = response.data.data.payment_url;
 
-      const paymentUrl = response.data.data.payment_url;
+  //     if (paymentUrl) {
+  //       window.location.href = paymentUrl;
+  //       return;
+  //     }
 
-      if (paymentUrl) {
-        window.location.href = paymentUrl;
-        return;
-      }
 
-      setMessage("Đặt tour thành công nhưng chưa tạo được link thanh toán VNPay.");
-    } catch (error) {
-      setMessage(getErrorMessage(error));
-    } finally {
-      setSubmitting(false);
-    }
-  };
+const handleSubmit = async (event: FormEvent) => {
+  event.preventDefault();
+
+  if (!tour) return;
+
+  setSubmitting(true);
+  setMessage(null);
+
+  try {
+    const response = await bookingService.create({
+      tour_id: tour.id,
+      tour_schedule_id: Number(form.tourScheduleId),
+      customer_name: form.customerName,
+      customer_email: form.customerEmail,
+      customer_phone: form.customerPhone,
+      guests: Number(form.guests),
+      note: form.note,
+    });
+
+    const booking = response.data.data.booking as { id: number };
+
+  navigate(`/booking-success/${booking.id}`, {
+    state: booking,
+  });
+  } catch (error) {
+    setMessage(getErrorMessage(error));
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   if (loading) {
     return <PageState>Đang tải...</PageState>;

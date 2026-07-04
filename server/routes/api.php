@@ -105,6 +105,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/bookings', [AdminBookingController::class, 'index']);
         Route::get('/bookings/{id}', [AdminBookingController::class, 'show']);
 
+        Route::get('/bookings', [AdminBookingController::class, 'index']);
+        Route::get('/bookings/{id}', [AdminBookingController::class, 'show']);
+
         Route::get('/admin-only', function () {
             return response()->json([
                 'message' => 'Admin route'
