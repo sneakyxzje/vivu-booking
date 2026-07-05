@@ -16,6 +16,8 @@ import { Tours } from "@/pages/Tours";
 import { PaymentResult } from "@/pages/PaymentResult";
 import Dashboard from "@/pages/admin/Dashboard";
 import TourList from "@/pages/admin/TourList";
+import BookingManagement from "@/pages/admin/BookingManagement";
+import GuideManagement from "@/pages/admin/GuideManagement";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
 import { GuideTours } from "@/pages/guide/GuideTours";
 import { GuideBookings } from "@/pages/guide/GuideBookings";
@@ -148,6 +150,14 @@ const router = createBrowserRouter([
           {
             path: "/admin/tours/create",
             element: <CreateTourForm />,
+          },
+          {
+            path: "/admin/bookings",
+            element: <BookingManagement />,
+          },
+          {
+            path: "/admin/guides",
+            element: <GuideManagement />,
           },
         ],
       },

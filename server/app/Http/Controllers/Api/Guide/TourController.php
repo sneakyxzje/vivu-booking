@@ -11,8 +11,8 @@ use App\Http\Resources\TourResource;
 
 class TourController extends Controller
 {
-    protected $tourService;
-    protected $cloudinaryService;
+    protected TourService $tourService;
+    protected CloudinaryService $cloudinaryService;
 
     public function __construct(TourService $tourService, CloudinaryService $cloudinaryService)
     {

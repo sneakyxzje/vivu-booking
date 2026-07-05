@@ -158,4 +158,29 @@ class AdminTourController extends Controller
     {
         return $this->success([], 'Placeholder: Admin approve tour endpoint for tour ' . $id);
     }
+
+    public function assignGuide(Request $request, int $id): JsonResponse
+    {
+        $tour = Tour::find($id);
+
+        if (!$tour) {
+            return $this->error('Không tìm thấy tour', 404);
+        }
+
+        $validated = $request->validate([
+            'guide_id' => ['nullable', 'exists:users,id']
+        ]);
+
+        if (!empty($validated['guide_id'])) {
+            $guide = \App\Models\User::find($validated['guide_id']);
+            if ($guide->role !== 'guide') {
+                return $this->error('User được chọn không phải là hướng dẫn viên', 400);
+            }
+        }
+
+        $tour->guide_id = $validated['guide_id'] ?? null;
+        $tour->save();
+
+        return $this->success($tour->load('guide'), 'Chỉ định hướng dẫn viên thành công');
+    }
 }

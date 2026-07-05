@@ -20,6 +20,14 @@ export const Register: React.FC = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({
+  name: "",
+  email: "",
+  phone: "",
+  address: "",
+  password: "",
+  password_confirmation: "",
+});
 
   useEffect(() => {
     if (toast) {
@@ -29,12 +37,81 @@ export const Register: React.FC = () => {
   }, [toast]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    if (error) setError("");
-  };
+  setForm((prev) => ({
+    ...prev,
+    [e.target.name]: e.target.value,
+  }));
+
+  setFieldErrors((prev) => ({
+    ...prev,
+    [e.target.name]: "",
+  }));
+
+  if (error) setError("");
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors = {
+  name: "",
+  email: "",
+  phone: "",
+  address: "",
+  password: "",
+  password_confirmation: "",
+};
+
+let hasError = false;
+
+// Họ tên
+if (!form.name.trim()) {
+  errors.name = "Vui lòng nhập họ tên";
+  hasError = true;
+}
+
+// Email
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+if (!form.email.trim()) {
+  errors.email = "Vui lòng nhập email";
+  hasError = true;
+} else if (!emailRegex.test(form.email)) {
+  errors.email = "Email không hợp lệ";
+  hasError = true;
+}
+
+// Phone
+const phoneRegex = /^(0|\+84)[0-9]{9}$/;
+
+if (!form.phone.trim()) {
+  errors.phone = "Vui lòng nhập số điện thoại";
+  hasError = true;
+} else if (!phoneRegex.test(form.phone)) {
+  errors.phone = "Số điện thoại không hợp lệ";
+  hasError = true;
+}
+
+// Password
+if (!form.password) {
+  errors.password = "Vui lòng nhập mật khẩu";
+  hasError = true;
+} else if (form.password.length < 6) {
+  errors.password = "Mật khẩu tối thiểu 6 ký tự";
+  hasError = true;
+}
+
+// Confirm Password
+if (!form.password_confirmation) {
+  errors.password_confirmation = "Vui lòng xác nhận mật khẩu";
+  hasError = true;
+} else if (form.password !== form.password_confirmation) {
+  errors.password_confirmation = "Mật khẩu xác nhận không khớp";
+  hasError = true;
+}
+
+setFieldErrors(errors);
+
+if (hasError) return;
     setLoading(true);
     setError("");
 
@@ -114,6 +191,11 @@ export const Register: React.FC = () => {
                 placeholder="Nhập họ và tên"
                 className="block w-full rounded-xl bg-gray-50 border-none px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors text-sm"
               />
+              {fieldErrors.name && (
+  <p className="mt-1 text-sm text-red-500">
+    {fieldErrors.name}
+  </p>
+)}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -134,7 +216,11 @@ export const Register: React.FC = () => {
                   onChange={handleChange}
                   placeholder="you@example.com"
                   className="block w-full rounded-xl bg-gray-50 border-none px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors text-sm"
-                />
+                />{fieldErrors.email && (
+  <p className="mt-1 text-sm text-red-500">
+    {fieldErrors.email}
+  </p>
+)}
               </div>
 
               <div>
@@ -155,6 +241,11 @@ export const Register: React.FC = () => {
                   placeholder="Nhập số điện thoại"
                   className="block w-full rounded-xl bg-gray-50 border-none px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors text-sm"
                 />
+                {fieldErrors.phone && (
+  <p className="mt-1 text-sm text-red-500">
+    {fieldErrors.phone}
+  </p>
+)}
               </div>
             </div>
 
@@ -197,6 +288,11 @@ export const Register: React.FC = () => {
                     placeholder="Tạo mật khẩu"
                     className="block w-full rounded-xl bg-gray-50 border-none px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors text-sm pr-12"
                   />
+                  {fieldErrors.password && (
+  <p className="mt-1 text-sm text-red-500">
+    {fieldErrors.password}
+  </p>
+)}
                 </div>
               </div>
 
@@ -219,6 +315,11 @@ export const Register: React.FC = () => {
                     placeholder="Nhập lại mật khẩu"
                     className="block w-full rounded-xl bg-gray-50 border-none px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors text-sm pr-12"
                   />
+                  {fieldErrors.password_confirmation && (
+  <p className="mt-1 text-sm text-red-500">
+    {fieldErrors.password_confirmation}
+  </p>
+)}
                 </div>
               </div>
             </div>
