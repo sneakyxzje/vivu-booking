@@ -35,16 +35,16 @@ export const TableActions: React.FC<TableActionsProps> = ({ actions }) => {
             onClick={() => setIsOpen(false)}
           />
           {/* Dropdown Menu popover */}
-          <div className="absolute right-0 mt-1 w-36 rounded-2xl bg-white shadow-xl border border-gray-100 py-1.5 z-20 animate-fade-in origin-top-right text-left">
+          <div className="absolute right-0 mt-1 min-w-[10rem] w-max max-w-xs rounded-2xl bg-white shadow-xl border border-gray-100 py-1.5 z-20 animate-fade-in origin-top-right text-left">
             {actions.map((action, index) => {
               const colorClass =
                 action.variant === "danger"
                   ? "text-rose-600 hover:bg-rose-50/70 hover:text-rose-700 font-semibold"
                   : action.variant === "success"
-                  ? "text-emerald-600 hover:bg-emerald-50/50 font-medium"
-                  : action.variant === "warning"
-                  ? "text-amber-600 hover:bg-amber-50/50 font-medium"
-                  : "text-gray-700 hover:bg-gray-50 hover:text-indigo-650 font-medium";
+                    ? "text-emerald-600 hover:bg-emerald-50/50 font-medium"
+                    : action.variant === "warning"
+                      ? "text-amber-600 hover:bg-amber-50/50 font-medium"
+                      : "text-gray-700 hover:bg-primary-50 hover:text-primary-600 font-medium";
 
               return (
                 <React.Fragment key={index}>
@@ -56,7 +56,7 @@ export const TableActions: React.FC<TableActionsProps> = ({ actions }) => {
                       setIsOpen(false);
                       action.onClick();
                     }}
-                    className={`w-full px-3.5 py-2 text-sm transition-colors flex items-center gap-2 ${colorClass}`}
+                    className={`w-full px-4 py-2.5 text-sm transition-colors flex items-center gap-2.5 whitespace-nowrap ${colorClass}`}
                   >
                     {action.icon && <span className="shrink-0">{action.icon}</span>}
                     {action.label}

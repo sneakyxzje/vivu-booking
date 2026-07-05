@@ -4,6 +4,7 @@ import adminService from "@/services/adminService";
 import tourService from "@/services/tourService";
 import { Toast } from "@/components/admin/CustomAlert";
 import { TableActions } from "@/components/admin/TableActions";
+import { Modal } from "@/components/admin/Modal";
 
 type TourStatus = "active" | "inactive";
 
@@ -141,7 +142,7 @@ export default function TourList() {
         <div>
           <a
             href="/admin/tours/create"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 shadow-sm transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-xl font-semibold text-sm hover:bg-primary-700 shadow-sm transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -155,7 +156,7 @@ export default function TourList() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
         {/* Tổng số Tour */}
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-          <div className="p-3.5 bg-indigo-50 text-indigo-600 rounded-xl group-hover:bg-indigo-100 transition-colors">
+          <div className="p-3.5 bg-primary-50 text-primary-600 rounded-xl group-hover:bg-primary-100 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
             </svg>
@@ -221,7 +222,7 @@ export default function TourList() {
               placeholder="Tìm kiếm tour theo tên hoặc địa điểm khởi hành..."
               value={search}
               onChange={handleSearch}
-              className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-50/50"
+              className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50"
             />
           </div>
 
@@ -229,7 +230,7 @@ export default function TourList() {
           <div className="md:col-span-1 flex">
             <button
               onClick={() => setSearch("")}
-              className="w-full py-2.5 text-sm text-gray-500 hover:text-indigo-600 bg-gray-50 border border-gray-100 rounded-xl font-medium hover:bg-indigo-50 transition-colors"
+              className="w-full py-2.5 text-sm text-gray-500 hover:text-primary-600 bg-gray-50 border border-gray-100 rounded-xl font-medium hover:bg-primary-50 transition-colors"
             >
               Xóa lọc
             </button>
@@ -357,100 +358,85 @@ export default function TourList() {
       </div>
 
       {/* ASSIGN GUIDE MODAL */}
-      {isAssignModalOpen && selectedTour && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center bg-black/50 p-4">
-          <div className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl border border-gray-100 overflow-hidden transform transition-all duration-300">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 p-5 text-white flex justify-between items-center">
-              <div>
-                <h3 className="font-bold text-base">Chỉ định Hướng dẫn viên</h3>
-                <p className="text-xs text-indigo-100 mt-1">Chọn hướng dẫn viên phụ trách hành trình tour</p>
-              </div>
-              <button
-                onClick={() => {
-                  setIsAssignModalOpen(false);
-                  setSelectedTour(null);
-                }}
-                className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full transition-colors focus:outline-none"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+      <Modal
+        isOpen={isAssignModalOpen && !!selectedTour}
+        onClose={() => {
+          setIsAssignModalOpen(false);
+          setSelectedTour(null);
+        }}
+        title="Chỉ định Hướng dẫn viên"
+        subtitle="Chọn hướng dẫn viên phụ trách hành trình tour"
+        size="md"
+        footer={
+          <button
+            type="button"
+            onClick={() => {
+              setIsAssignModalOpen(false);
+              setSelectedTour(null);
+            }}
+            className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-xl text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none"
+          >
+            Hủy bỏ
+          </button>
+        }
+      >
+        {selectedTour && (
+          <>
+            <div className="bg-primary-50/50 p-4 rounded-2xl border border-primary-100/50">
+              <p className="text-xs text-primary-600 font-semibold uppercase tracking-wider">Tên chương trình Tour</p>
+              <p className="text-sm font-bold text-gray-900 mt-1.5 leading-relaxed">{selectedTour.title}</p>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-5 space-y-4">
-              <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100">
-                <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Tên chương trình Tour</p>
-                <p className="text-sm font-semibold text-gray-900 mt-1">{selectedTour.title}</p>
-              </div>
-
-              <div>
-                <label className="block text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">
-                  Lựa chọn Hướng dẫn viên phụ trách
+            <div className="space-y-2.5">
+              <label className="block text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">
+                Lựa chọn Hướng dẫn viên phụ trách
+              </label>
+              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                {/* Option: Bỏ chỉ định */}
+                <label className="flex items-center gap-3 p-3.5 border rounded-2xl hover:bg-gray-50/50 cursor-pointer transition-colors border-gray-200 select-none">
+                  <input
+                    type="radio"
+                    name="guideSelect"
+                    checked={selectedTour.guide_id === null || selectedTour.guide_id === undefined}
+                    onChange={() => handleConfirmAssign(null)}
+                    className="text-primary-600 focus:ring-primary-500 w-4 h-4"
+                  />
+                  <div>
+                    <p className="text-sm font-bold text-gray-750">Chưa chỉ định (Trống)</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Không có hướng dẫn viên phụ trách tour này</p>
+                  </div>
                 </label>
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                  {/* Option: Bỏ chỉ định */}
-                  <label className="flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 cursor-pointer transition-colors border-gray-200">
+
+                {/* List active guides */}
+                {guides.map((guide) => (
+                  <label
+                    key={guide.id}
+                    className="flex items-center gap-3 p-3.5 border rounded-2xl hover:bg-gray-50/50 cursor-pointer transition-colors border-gray-200 select-none"
+                  >
                     <input
                       type="radio"
                       name="guideSelect"
-                      checked={selectedTour.guide_id === null || selectedTour.guide_id === undefined}
-                      onChange={() => handleConfirmAssign(null)}
-                      className="text-indigo-600 focus:ring-indigo-500"
+                      checked={selectedTour.guide_id === guide.id}
+                      onChange={() => handleConfirmAssign(guide.id)}
+                      className="text-primary-600 focus:ring-primary-500 w-4 h-4"
                     />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-700">Chưa chỉ định (Trống)</p>
-                      <p className="text-xs text-gray-400">Không có hướng dẫn viên phụ trách tour này</p>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-gray-900 leading-tight">{guide.name}</p>
+                        <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded-lg font-bold shrink-0">
+                          Sẵn sàng
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1 font-mono">{guide.email}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 font-mono">{guide.phone ?? "Không có SĐT"}</p>
                     </div>
                   </label>
-
-                  {/* List active guides */}
-                  {guides.map((guide) => (
-                    <label
-                      key={guide.id}
-                      className="flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 cursor-pointer transition-colors border-gray-200"
-                    >
-                      <input
-                        type="radio"
-                        name="guideSelect"
-                        checked={selectedTour.guide_id === guide.id}
-                        onChange={() => handleConfirmAssign(guide.id)}
-                        className="text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-bold text-gray-900">{guide.name}</p>
-                          <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded font-semibold">
-                            Sẵn sàng
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-0.5 font-mono">{guide.email}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{guide.phone ?? "Không có SĐT"}</p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
+                ))}
               </div>
             </div>
-
-            {/* Modal Footer */}
-            <div className="bg-gray-50 px-5 py-3.5 flex justify-end gap-2 border-t">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAssignModalOpen(false);
-                  setSelectedTour(null);
-                }}
-                className="px-4 py-2 bg-white border border-gray-200 text-xs font-semibold rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-              >
-                Hủy bỏ
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
       {/* --- CUSTOM ALERT TOAST --- */}
       <Toast
