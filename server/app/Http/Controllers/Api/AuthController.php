@@ -15,11 +15,11 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:6',
-            'role' => 'nullable|in:customer,guide,admin'
-        ]);
+    'name' => 'required|string|min:2|max:255',
+    'email' => 'required|email:rfc,dns|max:255|unique:users,email',
+    'password' => 'required|string|min:6|max:50|confirmed',
+    'role' => 'nullable|in:customer,guide,admin'
+]);
 
         $user = User::create([
             'name' => $data['name'],
@@ -41,9 +41,9 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
-            'password' => 'required'
-        ]);
+    'email' => 'required|email:rfc,dns|max:255',
+    'password' => 'required|string|min:6|max:50'
+]);
 
         $user = User::where('email', $request->email)->first();
 

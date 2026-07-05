@@ -59,6 +59,16 @@ class AdminTourController extends Controller
 
         $numberOfDay = (int) $validated['number_of_days'];
         $numberOfNight = (int) $validated['number_of_nights'];
+        if ($numberOfNight != $numberOfDay - 1) {
+    return $this->error('Số đêm phải thấp hơn số ngày đúng 1.', 400);
+}
+        if ($numberOfDay <= 0) {
+            return $this->error('Số ngày phải lớn hơn 0.', 400);
+        }
+
+        if ($numberOfNight < 0) {
+            return $this->error('Số đêm không được là số âm.', 400);
+        }
         $price = (float) $validated['price'];
         $salePrice = isset($validated['discount_price'])
             ? (float) $validated['discount_price']

@@ -14,20 +14,71 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState("");
 
+  const [fieldErrors, setFieldErrors] = useState({
+  email: "",
+  password: "",
+});
+
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(""), 3000);
       return () => clearTimeout(timer);
     }
   }, [toast]);
+const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  setForm((prev) => ({
+    ...prev,
+    [e.target.name]: e.target.value,
+  }));
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    if (error) setError("");
-  };
+  setFieldErrors((prev) => ({
+    ...prev,
+    [e.target.name]: "",
+  }));
+
+  if (error) setError("");
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+const errors = {
+  email: "",
+  password: "",
+};
+
+let hasError = false;
+
+if (!form.email.trim()) {
+  errors.email = "Vui lòng nhập email hoặc số điện thoại";
+  hasError = true;
+} else {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^(0|\+84)[0-9]{9}$/;
+
+  if (
+    !emailRegex.test(form.email.trim()) &&
+    !phoneRegex.test(form.email.trim())
+  ) {
+    errors.email = "Email hoặc số điện thoại không hợp lệ";
+    hasError = true;
+  }
+}
+
+if (!form.password.trim()) {
+  errors.password = "Vui lòng nhập mật khẩu";
+  hasError = true;
+} else if (form.password.length < 6) {
+  errors.password = "Mật khẩu phải có ít nhất 6 ký tự";
+  hasError = true;
+}
+
+setFieldErrors(errors);
+
+if (hasError) return;
+
+setLoading(true);
+setError("");
     setLoading(true);
     setError("");
 
@@ -95,6 +146,11 @@ export const Login: React.FC = () => {
                 placeholder="Số điện thoại hoặc email"
                 className="block w-full rounded-xl bg-gray-50 border-none px-4 py-3.5 text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:bg-white transition-colors text-sm"
               />
+              {fieldErrors.email && (
+  <p className="mt-1 text-sm text-red-500">
+    {fieldErrors.email}
+  </p>
+)}
             </div>
 
             <div>
@@ -128,6 +184,11 @@ export const Login: React.FC = () => {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                 </button>
               </div>
+              {fieldErrors.password && (
+  <p className="mt-1 text-sm text-red-500">
+    {fieldErrors.password}
+  </p>
+)}
             </div>
 
             {/* Mock reCAPTCHA */}

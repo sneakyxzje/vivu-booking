@@ -25,9 +25,17 @@ class BookingController extends Controller
         $data = $request->validate([
             'tour_id' => 'required|exists:tours,id',
             'tour_schedule_id' => 'required|exists:tour_schedules,id',
+            'customer_name' => 'required|string|min:2|max:255',
+            'customer_email' => 'required|email:rfc,dns|max:255',
+            'customer_phone' => [
+            'required',
+            'regex:/^(0|\+84)[0-9]{9}$/'
+        ],
+
             'customer_name' => 'required|string|max:255',
             'customer_email' => 'required|email|max:255',
             'customer_phone' => 'nullable|string|max:20',
+
             'guests' => 'required|integer|min:1',
             'note' => 'nullable|string|max:1000',
         ]);
