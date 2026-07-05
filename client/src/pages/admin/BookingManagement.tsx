@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import type { Booking } from "@/types";
 import adminService from "@/services/adminService";
+import { Modal } from "@/components/admin/Modal";
 
 export default function BookingManagement() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -13,7 +14,7 @@ export default function BookingManagement() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("latest");
-  
+
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -231,7 +232,7 @@ export default function BookingManagement() {
               placeholder="Tìm mã đơn, tên khách hàng, số điện thoại, tour..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-50/50"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50"
             />
           </div>
 
@@ -240,7 +241,7 @@ export default function BookingManagement() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white"
             >
               <option value="all">Tất cả trạng thái duyệt</option>
               <option value="pending">Chờ xác nhận</option>
@@ -254,7 +255,7 @@ export default function BookingManagement() {
             <select
               value={paymentFilter}
               onChange={(e) => setPaymentFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white"
             >
               <option value="all">Tất cả thanh toán</option>
               <option value="paid">Đã thanh toán (Qua VNPAY)</option>
@@ -267,7 +268,7 @@ export default function BookingManagement() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white"
             >
               <option value="latest">Mới nhất trước</option>
               <option value="oldest">Cũ nhất trước</option>
@@ -285,7 +286,7 @@ export default function BookingManagement() {
                 setPaymentFilter("all");
                 setSortBy("latest");
               }}
-              className="w-full py-2 text-sm text-gray-500 hover:text-indigo-600 bg-gray-50 border border-gray-100 rounded-xl font-medium hover:bg-indigo-50 transition-colors"
+              className="w-full py-2 text-sm text-gray-500 hover:text-primary-600 bg-gray-50 border border-gray-100 rounded-xl font-medium hover:bg-primary-50 transition-colors"
             >
               Xóa bộ lọc
             </button>
@@ -378,11 +379,10 @@ export default function BookingManagement() {
                         {/* Thanh toán */}
                         <td className="p-4 text-center">
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                              isPaid
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : "bg-gray-50 text-gray-500 border-gray-200"
-                            }`}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${isPaid
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-gray-50 text-gray-500 border-gray-200"
+                              }`}
                           >
                             <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? "bg-emerald-500" : "bg-gray-400"}`}></span>
                             {isPaid ? "Đã trả qua VNPAY" : "Chưa thanh toán"}
@@ -392,13 +392,12 @@ export default function BookingManagement() {
                         {/* Trạng thái duyệt */}
                         <td className="p-4 text-center">
                           <span
-                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                              booking.status === "confirmed"
-                                ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                : booking.status === "cancelled"
+                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${booking.status === "confirmed"
+                              ? "bg-blue-50 text-blue-700 border border-blue-200"
+                              : booking.status === "cancelled"
                                 ? "bg-rose-50 text-rose-700 border border-rose-200"
                                 : "bg-amber-50 text-amber-700 border border-amber-200"
-                            }`}
+                              }`}
                           >
                             {booking.status === "confirmed" && "Đã xác nhận"}
                             {booking.status === "cancelled" && "Đã hủy"}
@@ -410,7 +409,7 @@ export default function BookingManagement() {
                         <td className="p-4 text-center">
                           <button
                             onClick={() => openDetails(booking)}
-                            className="px-4 py-1.5 text-xs text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 font-medium transition-colors"
+                            className="px-4 py-1.5 text-xs text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 font-medium transition-colors"
                           >
                             Xem chi tiết
                           </button>
@@ -465,7 +464,7 @@ export default function BookingManagement() {
                   >
                     Trước
                   </button>
-                  <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-indigo-50 text-sm font-semibold text-indigo-600">
+                  <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-primary-50 text-sm font-semibold text-primary-600">
                     {currentPage}
                   </span>
                   <button
@@ -490,145 +489,129 @@ export default function BookingManagement() {
       </div>
 
       {/* DETAIL MODAL POPUP (CHỈ XEM CHI TIẾT) */}
-      {isModalOpen && selectedBooking && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center bg-black/50 p-4 animate-fade-in">
-          <div className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 p-6 text-white flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-bold">Chi tiết đơn đặt: BK-{selectedBooking.id}</h3>
-                <p className="text-xs text-indigo-100 mt-1">Khởi tạo lúc: {selectedBooking.created_at}</p>
+      <Modal
+        isOpen={isModalOpen && !!selectedBooking}
+        onClose={closeDetails}
+        title={`Chi tiết đơn đặt: BK-${selectedBooking?.id}`}
+        subtitle={`Khởi tạo lúc: ${selectedBooking?.created_at}`}
+        size="3xl"
+        footer={
+          <button
+            onClick={closeDetails}
+            className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-xl text-gray-700 hover:bg-gray-100 transition-colors focus:outline-none"
+          >
+            Đóng
+          </button>
+        }
+      >
+        {selectedBooking && (
+          <>
+            {/* Tour info */}
+            <div className="bg-primary-50/50 p-5 rounded-2xl border border-primary-100/50">
+              <p className="text-xs font-semibold text-primary-600 uppercase tracking-wider">Thông tin Tour đặt</p>
+              <h4 className="font-bold text-gray-900 mt-1.5 text-base font-plus-jakarta">
+                {selectedBooking.tour?.title}
+              </h4>
+              <div className="grid grid-cols-2 gap-y-3 gap-x-6 mt-4 text-sm font-inter">
+                <div>
+                  <span className="text-gray-400">Thời gian:</span>{" "}
+                  <span className="font-semibold text-gray-800">
+                    {selectedBooking.tour?.number_of_days} ngày {selectedBooking.tour?.number_of_nights} đêm
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Nơi đi:</span>{" "}
+                  <span className="font-semibold text-gray-800">
+                    {selectedBooking.tour?.start_location}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Ngày đi:</span>{" "}
+                  <span className="font-bold text-primary-600">
+                    {selectedBooking.departure_date}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400">Số khách:</span>{" "}
+                  <span className="font-bold text-gray-800">
+                    {selectedBooking.guests} người
+                  </span>
+                </div>
               </div>
-              <button
-                onClick={closeDetails}
-                className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full transition-colors focus:outline-none"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-              {/* Tour info */}
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Thông tin Tour đặt</p>
-                <h4 className="font-bold text-gray-900 mt-1 text-base">
-                  {selectedBooking.tour?.title}
-                </h4>
-                <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
-                  <div>
-                    <span className="text-gray-400">Thời gian:</span>{" "}
-                    <span className="font-medium text-gray-800">
-                      {selectedBooking.tour?.number_of_days} ngày {selectedBooking.tour?.number_of_nights} đêm
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400">Nơi đi:</span>{" "}
-                    <span className="font-medium text-gray-800">
-                      {selectedBooking.tour?.start_location}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400">Ngày đi:</span>{" "}
-                    <span className="font-semibold text-indigo-600">
-                      {selectedBooking.departure_date}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400">Số khách:</span>{" "}
-                    <span className="font-semibold text-gray-800">
-                      {selectedBooking.guests} người
-                    </span>
-                  </div>
+            {/* Customer & Payment info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+              <div className="bg-gray-50/50 p-5 rounded-2xl border border-gray-100">
+                <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Thông tin người đặt</h5>
+                <div className="mt-3.5 space-y-2 text-sm font-inter">
+                  <p className="flex justify-between border-b border-gray-100 pb-1.5">
+                    <span className="text-gray-400">Họ và tên:</span>{" "}
+                    <span className="font-semibold text-gray-800">{selectedBooking.customer_name}</span>
+                  </p>
+                  <p className="flex justify-between border-b border-gray-100 pb-1.5">
+                    <span className="text-gray-400">Email:</span>{" "}
+                    <span className="font-semibold text-gray-800 font-mono text-xs">{selectedBooking.customer_email}</span>
+                  </p>
+                  <p className="flex justify-between">
+                    <span className="text-gray-400">Số ĐT:</span>{" "}
+                    <span className="font-semibold text-gray-800 font-mono">{selectedBooking.customer_phone ?? "Không có"}</span>
+                  </p>
                 </div>
               </div>
 
-              {/* Customer info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Thông tin người đặt</h5>
-                  <div className="mt-2.5 space-y-1.5 text-sm">
-                    <p>
-                      <span className="text-gray-400">Họ và tên:</span>{" "}
-                      <span className="font-medium text-gray-800">{selectedBooking.customer_name}</span>
+              <div className="bg-gray-50/50 p-5 rounded-2xl border border-gray-100">
+                <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Trạng thái thanh toán</h5>
+                <div className="mt-3.5 space-y-2 text-sm font-inter">
+                  <p className="flex justify-between border-b border-gray-100 pb-1.5">
+                    <span className="text-gray-450">Giao dịch VNPAY:</span>{" "}
+                    <span className="font-semibold text-gray-800 font-mono text-xs">
+                      {selectedBooking.vnpay_transaction_no ?? "Chưa thanh toán"}
+                    </span>
+                  </p>
+                  {selectedBooking.paid_at && (
+                    <p className="flex justify-between border-b border-gray-100 pb-1.5">
+                      <span className="text-gray-450">Thời gian:</span>{" "}
+                      <span className="font-semibold text-gray-800 font-mono text-xs">{selectedBooking.paid_at}</span>
                     </p>
-                    <p>
-                      <span className="text-gray-400">Email:</span>{" "}
-                      <span className="font-medium text-gray-800 font-mono text-xs">{selectedBooking.customer_email}</span>
-                    </p>
-                    <p>
-                      <span className="text-gray-400">Số ĐT:</span>{" "}
-                      <span className="font-medium text-gray-800 font-mono">{selectedBooking.customer_phone ?? "Không có"}</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Trạng thái thanh toán</h5>
-                  <div className="mt-2.5 space-y-1.5 text-sm">
-                    <p>
-                      <span className="text-gray-400">Giao dịch VNPAY:</span>{" "}
-                      <span className="font-semibold text-gray-800 font-mono">
-                        {selectedBooking.vnpay_transaction_no ?? "Chưa thanh toán"}
-                      </span>
-                    </p>
-                    {selectedBooking.paid_at && (
-                      <p>
-                        <span className="text-gray-400">Ngày thanh toán:</span>{" "}
-                        <span className="font-medium text-gray-800 font-mono text-xs">{selectedBooking.paid_at}</span>
-                      </p>
-                    )}
-                    <p>
-                      <span className="text-gray-400">Tổng thanh toán:</span>{" "}
-                      <span className="font-bold text-gray-900 text-base">
-                        {Number(selectedBooking.total_amount).toLocaleString()}đ
-                      </span>
-                    </p>
-                  </div>
+                  )}
+                  <p className="flex justify-between items-baseline">
+                    <span className="text-gray-450">Tổng tiền:</span>{" "}
+                    <span className="font-bold text-primary-600 text-lg">
+                      {Number(selectedBooking.total_amount).toLocaleString()}đ
+                    </span>
+                  </p>
                 </div>
               </div>
+            </div>
 
-              {/* Passenger note */}
-              <div>
-                <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Ghi chú từ khách hàng</h5>
-                <p className="mt-2 p-3 bg-gray-50 text-sm text-gray-600 rounded-xl italic border-l-2 border-indigo-500">
-                  {selectedBooking.note || "Không có ghi chú thêm."}
-                </p>
-              </div>
+            {/* Passenger note */}
+            <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+              <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Ghi chú từ khách hàng</h5>
+              <p className="text-sm text-gray-600 italic leading-relaxed">
+                {selectedBooking.note || "Không có ghi chú thêm."}
+              </p>
+            </div>
 
-              {/* Trạng thái duyệt của Admin (Static) */}
-              <div className="pt-4 border-t border-gray-100 flex justify-between items-center">
-                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Trạng thái duyệt</span>
-                <span
-                  className={`inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold ${
-                    selectedBooking.status === "confirmed"
-                      ? "bg-blue-100 text-blue-800 border border-blue-200"
-                      : selectedBooking.status === "cancelled"
-                      ? "bg-rose-100 text-rose-800 border border-rose-200"
-                      : "bg-amber-100 text-amber-800 border border-amber-200"
+            {/* Trạng thái duyệt của Admin */}
+            <div className="pt-4 border-t border-gray-100 flex justify-between items-center">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Trạng thái duyệt</span>
+              <span
+                className={`inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold ${selectedBooking.status === "confirmed"
+                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                  : selectedBooking.status === "cancelled"
+                    ? "bg-rose-50 text-rose-700 border border-rose-200"
+                    : "bg-amber-50 text-amber-700 border border-amber-200"
                   }`}
-                >
-                  {selectedBooking.status === "confirmed" && "Đã xác nhận"}
-                  {selectedBooking.status === "cancelled" && "Đã hủy đơn"}
-                  {selectedBooking.status === "pending" && "Chờ xác nhận"}
-                </span>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="bg-gray-50 px-6 py-4 flex justify-end border-t border-gray-100">
-              <button
-                onClick={closeDetails}
-                className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-xl text-gray-700 hover:bg-gray-100 transition-colors"
               >
-                Đóng
-              </button>
+                {selectedBooking.status === "confirmed" && "Đã xác nhận"}
+                {selectedBooking.status === "cancelled" && "Đã hủy đơn"}
+                {selectedBooking.status === "pending" && "Chờ xác nhận"}
+              </span>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }
