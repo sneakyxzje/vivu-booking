@@ -4,7 +4,7 @@ import type { Tour, TourSchedule } from "@/types";
 import type { AxiosError } from "axios";
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 type BookingFormState = {
   customerName: string;
@@ -17,13 +17,6 @@ type BookingFormState = {
 
 type BookingFormProps = {
   form: BookingFormState;
-  errors: {
-  customerName: string;
-  customerPhone: string;
-  customerEmail: string;
-  tourScheduleId: string;
-  guests: string;
-};
   message: string | null;
   schedules: TourSchedule[];
   submitting: boolean;
@@ -59,7 +52,6 @@ const PageState = ({ children }: { children: string }) => (
 
 const BookingForm = ({
   form,
-  errors,
   message,
   schedules,
   submitting,
@@ -83,11 +75,6 @@ const BookingForm = ({
         onChange={handleInputChange("customerName")}
         required
       />
-      {errors.customerName && (
-  <p className="text-red-500 text-sm">
-    {errors.customerName}
-  </p>
-)}
 
       <input
         className="border rounded-xl p-3"
@@ -95,11 +82,6 @@ const BookingForm = ({
         value={form.customerPhone}
         onChange={handleInputChange("customerPhone")}
       />
-      {errors.customerPhone && (
-  <p className="text-red-500 text-sm">
-    {errors.customerPhone}
-  </p>
-)}
 
       <input
         className="border rounded-xl p-3 md:col-span-2"
@@ -109,11 +91,6 @@ const BookingForm = ({
         onChange={handleInputChange("customerEmail")}
         required
       />
-      {errors.customerEmail && (
-  <p className="text-red-500 text-sm">
-    {errors.customerEmail}
-  </p>
-)}
 
       <select
         className="border rounded-xl p-3 md:col-span-2"
@@ -127,11 +104,6 @@ const BookingForm = ({
           </option>
         ))}
       </select>
-      {errors.tourScheduleId && (
-  <p className="text-red-500 text-sm">
-    {errors.tourScheduleId}
-  </p>
-)}
 
       <input
         className="border rounded-xl p-3"
@@ -142,11 +114,6 @@ const BookingForm = ({
         onChange={handleInputChange("guests")}
         required
       />
-      {errors.guests && (
-  <p className="text-red-500 text-sm mt-1">
-    {errors.guests}
-  </p>
-)}
 
       <textarea
         className="border rounded-xl p-3 md:col-span-2"
@@ -245,13 +212,7 @@ export const BookingTour = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [errors, setErrors] = useState({
-  customerName: "",
-  customerPhone: "",
-  customerEmail: "",
-  tourScheduleId: "",
-  guests: "",
-});
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadTour = async () => {
@@ -282,97 +243,64 @@ export const BookingTour = () => {
   );
 
   const updateForm = (field: keyof BookingFormState, value: string | number) => {
-  setForm((current) => ({
-    ...current,
-    [field]: value,
-  }));
-
-  setErrors((current) => ({
-    ...current,
-    [field]: "",
-  }));
-};
-
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    const newErrors = {
-  customerName: "",
-  customerPhone: "",
-  customerEmail: "",
-  tourScheduleId: "",
-  guests: "",
-};
-
-let hasError = false;
-
-if (!form.customerName.trim()) {
-  newErrors.customerName = "Vui lòng nhập họ tên";
-  hasError = true;
-}
-
-const phoneRegex = /^(0|\+84)[0-9]{9}$/;
-
-if (!form.customerPhone.trim()) {
-  newErrors.customerPhone = "Vui lòng nhập số điện thoại";
-  hasError = true;
-} else if (!phoneRegex.test(form.customerPhone)) {
-  newErrors.customerPhone = "Số điện thoại không hợp lệ";
-  hasError = true;
-}
-
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-if (!form.customerEmail.trim()) {
-  newErrors.customerEmail = "Vui lòng nhập email";
-  hasError = true;
-} else if (!emailRegex.test(form.customerEmail)) {
-  newErrors.customerEmail = "Email không hợp lệ";
-  hasError = true;
-}
-
-if (!form.tourScheduleId) {
-  newErrors.tourScheduleId = "Vui lòng chọn ngày khởi hành";
-  hasError = true;
-}
-
-if (form.guests < 1) {
-  newErrors.guests = "Số khách phải lớn hơn 0";
-  hasError = true;
-}
-
-setErrors(newErrors);
-
-if (hasError) return;
-    if (!tour) return;
-
-    setSubmitting(true);
-    setMessage(null);
-
-    try {
-      const response = await bookingService.create({
-        tour_id: tour.id,
-        tour_schedule_id: Number(form.tourScheduleId),
-        customer_name: form.customerName,
-        customer_email: form.customerEmail,
-        customer_phone: form.customerPhone,
-        guests: Number(form.guests),
-        note: form.note,
-      });
-
-      const paymentUrl = response.data.data.payment_url;
-
-      if (paymentUrl) {
-        window.location.href = paymentUrl;
-        return;
-      }
-
-      setMessage("Đặt tour thành công nhưng chưa tạo được link thanh toán VNPay.");
-    } catch (error) {
-      setMessage(getErrorMessage(error));
-    } finally {
-      setSubmitting(false);
-    }
+    setForm((current) => ({ ...current, [field]: value }));
   };
+  // const handleSubmit = async (event: FormEvent) => {
+  //   event.preventDefault();
+  //   if (!tour) return;
+
+  //   setSubmitting(true);
+  //   setMessage(null);
+
+  //   try {
+  //     const response = await bookingService.create({
+  //       tour_id: tour.id,
+  //       tour_schedule_id: Number(form.tourScheduleId),
+  //       customer_name: form.customerName,
+  //       customer_email: form.customerEmail,
+  //       customer_phone: form.customerPhone,
+  //       guests: Number(form.guests),
+  //       note: form.note,
+  //     });
+
+  //     const paymentUrl = response.data.data.payment_url;
+
+  //     if (paymentUrl) {
+  //       window.location.href = paymentUrl;
+  //       return;
+  //     }
+
+
+const handleSubmit = async (event: FormEvent) => {
+  event.preventDefault();
+
+  if (!tour) return;
+
+  setSubmitting(true);
+  setMessage(null);
+
+  try {
+    const response = await bookingService.create({
+      tour_id: tour.id,
+      tour_schedule_id: Number(form.tourScheduleId),
+      customer_name: form.customerName,
+      customer_email: form.customerEmail,
+      customer_phone: form.customerPhone,
+      guests: Number(form.guests),
+      note: form.note,
+    });
+
+    const booking = response.data.data.booking as { id: number };
+
+  navigate(`/booking-success/${booking.id}`, {
+    state: booking,
+  });
+  } catch (error) {
+    setMessage(getErrorMessage(error));
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   if (loading) {
     return <PageState>Đang tải...</PageState>;
@@ -389,15 +317,14 @@ if (hasError) return;
           <div className="lg:col-span-2 space-y-4">
             <h1 className="text-2xl font-bold">Đặt tour</h1>
             <BookingForm
-  form={form}
-  errors={errors}
-  message={message}
-  schedules={schedules}
-  submitting={submitting}
-  totalAmount={totalAmount}
-  onChange={updateForm}
-  onSubmit={handleSubmit}
-/>
+              form={form}
+              message={message}
+              schedules={schedules}
+              submitting={submitting}
+              totalAmount={totalAmount}
+              onChange={updateForm}
+              onSubmit={handleSubmit}
+            />
           </div>
 
           <BookingSidebar tour={tour} />

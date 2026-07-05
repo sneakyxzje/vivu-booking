@@ -25,6 +25,18 @@ export interface GuideBooking {
   created_at: string;
 }
 
+export interface Guide {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  address: string | null;
+  avatar: string | null;
+  status: "active" | "inactive" | "blocked";
+  assigned_tours_count: number;
+  created_at: string;
+}
+
 export type { Tour };
 
 

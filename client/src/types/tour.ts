@@ -38,7 +38,6 @@ export interface TourSchedule {
 
 export interface Tour {
   id: number;
-  host_id: number;
   title: string;
   slug: string;
   description: string | null;
@@ -53,6 +52,7 @@ export interface Tour {
   status: "pending" | "active" | "inactive";
   created_at?: string;
   updated_at?: string;
+  admin_id?: number;
   categories?: Category[];
   services?: Service[];
   images?: TourImage[];

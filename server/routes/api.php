@@ -27,6 +27,8 @@ use App\Http\Controllers\Api\Guide\BookingController as GuideBookingController;
 use App\Http\Controllers\Api\Admin\AdminController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminTourController;
+use App\Http\Controllers\Api\Admin\AdminGuideController;
+use App\Http\Controllers\Api\Admin\AdminBookingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -47,6 +49,8 @@ Route::get('/services', fn() => response()->json([
     'success' => true,
     'data' => Service::orderBy('name')->get(),
 ]));
+Route::post('/bookings', [CustomerBookingController::class, 'store']);
+Route::get('/vnpay/return', [CustomerBookingController::class, 'vnpayReturn']);
 
 /*
 |--------------------------------------------------------------------------
@@ -66,7 +70,6 @@ Route::middleware('auth:sanctum')->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::middleware('role:customer')->group(function () {
-        Route::post('/bookings', [CustomerBookingController::class, 'store']);
         Route::get('/my-bookings', [CustomerBookingController::class, 'myBookings']);
         Route::post('/tours/{id}/reviews', [TourController::class, 'review']);
     });
@@ -96,6 +99,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/tours/create', [AdminTourController::class, 'create']);
         Route::post('/tours', [AdminTourController::class, 'store']);
         Route::put('/tours/{id}/approve', [AdminTourController::class, 'approve']);
+        Route::put('/tours/{id}/assign-guide', [AdminTourController::class, 'assignGuide']);
+
+        Route::apiResource('guides', AdminGuideController::class);
+
+        Route::get('/bookings', [AdminBookingController::class, 'index']);
+        Route::get('/bookings/{id}', [AdminBookingController::class, 'show']);
 
         Route::get('/admin-only', function () {
             return response()->json([
