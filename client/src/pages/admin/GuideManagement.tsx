@@ -3,6 +3,7 @@ import type { Guide } from "@/types";
 import adminService from "@/services/adminService";
 import { Toast, ConfirmModal } from "@/components/admin/CustomAlert";
 import { TableActions } from "@/components/admin/TableActions";
+import { Modal } from "@/components/admin/Modal";
 
 export default function GuideManagement() {
   const [guides, setGuides] = useState<Guide[]>([]);
@@ -208,7 +209,7 @@ export default function GuideManagement() {
         <div>
           <button
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 shadow-sm transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-xl font-semibold text-sm hover:bg-primary-700 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -222,7 +223,7 @@ export default function GuideManagement() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {/* Tổng số HDV */}
         <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-          <div className="p-3.5 bg-indigo-50 text-indigo-600 rounded-xl group-hover:bg-indigo-100 transition-colors">
+          <div className="p-3.5 bg-primary-50 text-primary-600 rounded-xl group-hover:bg-primary-100 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -295,7 +296,7 @@ export default function GuideManagement() {
               placeholder="Tìm kiếm hướng dẫn viên theo tên, email, điện thoại, địa chỉ..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-50/50"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50"
             />
           </div>
 
@@ -304,7 +305,7 @@ export default function GuideManagement() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white"
             >
               <option value="all">Tất cả trạng thái</option>
               <option value="active">Đang hoạt động</option>
@@ -319,7 +320,7 @@ export default function GuideManagement() {
                 setSearch("");
                 setStatusFilter("all");
               }}
-              className="w-full py-2 text-sm text-gray-500 hover:text-indigo-600 bg-gray-50 border border-gray-100 rounded-xl font-medium hover:bg-indigo-50 transition-colors"
+              className="w-full py-2 text-sm text-gray-500 hover:text-primary-600 bg-gray-50 border border-gray-100 rounded-xl font-medium hover:bg-primary-50 transition-colors"
             >
               Xóa lọc
             </button>
@@ -365,7 +366,7 @@ export default function GuideManagement() {
                       {/* Basic Info */}
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-inner uppercase">
+                          <div className="w-10 h-10 rounded-full bg-primary-600 text-white font-bold flex items-center justify-center text-sm shadow-inner uppercase">
                             {guide.name.charAt(0)}
                           </div>
                           <div>
@@ -384,7 +385,7 @@ export default function GuideManagement() {
                       </td>
 
                       {/* Số Tour phụ trách */}
-                      <td className="p-4 text-center font-bold text-indigo-600">
+                      <td className="p-4 text-center font-bold text-primary-600">
                         {guide.assigned_tours_count ?? 0} tours
                       </td>
 
@@ -496,7 +497,7 @@ export default function GuideManagement() {
                   >
                     Trước
                   </button>
-                  <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-indigo-50 text-sm font-semibold text-indigo-600">
+                  <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-primary-50 text-sm font-semibold text-primary-600">
                     {currentPage}
                   </span>
                   <button
@@ -519,168 +520,149 @@ export default function GuideManagement() {
           </div>
         )}
       </div>
-
       {/* CREATE & EDIT FORM MODAL */}
-      {isModalOpen && currentGuide && (
-        <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center bg-black/50 p-4">
-          <div className="relative bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-gray-100 overflow-hidden transform transition-all duration-300">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-violet-600 p-6 text-white flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-bold">
-                  {currentGuide.id ? `Sửa thông tin HDV: #${currentGuide.id}` : "Thêm mới Hướng dẫn viên"}
-                </h3>
-                <p className="text-xs text-indigo-100 mt-1">
-                  {currentGuide.id ? "Cập nhật các thông tin được phép sửa đổi" : "Nhập đầy đủ thông tin để cấp tài khoản Guide"}
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setCurrentGuide(null);
-                }}
-                className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full transition-colors focus:outline-none"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+      <Modal
+        isOpen={isModalOpen && !!currentGuide}
+        onClose={() => {
+          setIsModalOpen(false);
+          setCurrentGuide(null);
+        }}
+        title={currentGuide?.id ? `Sửa thông tin HDV: #${currentGuide.id}` : "Thêm mới Hướng dẫn viên"}
+        subtitle={currentGuide?.id ? "Cập nhật các thông tin được phép sửa đổi" : "Nhập đầy đủ thông tin để cấp tài khoản Guide"}
+        onSubmit={handleSaveGuide}
+        size="xl"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setIsModalOpen(false);
+                setCurrentGuide(null);
+              }}
+              className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-xl text-gray-700 hover:bg-gray-50 transition-all focus:outline-none"
+            >
+              Đóng
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-primary-600 text-sm font-semibold rounded-xl text-white hover:bg-primary-700 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+            >
+              Lưu thay đổi
+            </button>
+          </>
+        }
+      >
+        {currentGuide && (
+          <>
+            {/* Họ tên */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                Họ và tên <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={currentGuide.name || ""}
+                onChange={(e) => setCurrentGuide((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="Nhập họ tên hướng dẫn viên"
+                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-medium"
+              />
             </div>
 
-            {/* Modal Body (Form) */}
-            <form onSubmit={handleSaveGuide}>
-              <div className="p-6 space-y-4">
-                {/* Họ tên */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Họ và tên <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={currentGuide.name || ""}
-                    onChange={(e) => setCurrentGuide((prev) => ({ ...prev, name: e.target.value }))}
-                    placeholder="Nhập họ tên hướng dẫn viên"
-                    className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-50/50 font-medium"
-                  />
-                </div>
+            {/* Email */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                Email tài khoản {!currentGuide.id && <span className="text-rose-500">*</span>}
+              </label>
+              <input
+                type="email"
+                required={!currentGuide.id}
+                disabled={!!currentGuide.id}
+                value={currentGuide.email || ""}
+                onChange={(e) => setCurrentGuide((prev) => ({ ...prev, email: e.target.value }))}
+                placeholder="nguyenvanan@gmail.com"
+                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
+              />
+              {currentGuide.id && (
+                <span className="text-[10px] text-gray-400 mt-1 block">Email không được phép thay đổi sau khi tạo</span>
+              )}
+            </div>
 
-                {/* Email */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Email tài khoản {!currentGuide.id && <span className="text-rose-500">*</span>}
-                  </label>
-                  <input
-                    type="email"
-                    required={!currentGuide.id}
-                    disabled={!!currentGuide.id}
-                    value={currentGuide.email || ""}
-                    onChange={(e) => setCurrentGuide((prev) => ({ ...prev, email: e.target.value }))}
-                    placeholder="nguyenvanan@gmail.com"
-                    className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
-                  />
-                  {currentGuide.id && (
-                    <span className="text-[10px] text-gray-400 mt-1 block">Email không được phép thay đổi sau khi tạo</span>
-                  )}
-                </div>
-
-                {/* Password (Chỉ cho tạo mới) */}
-                {!currentGuide.id && (
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                      Mật khẩu khởi tạo <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={currentGuide.password || ""}
-                      onChange={(e) => setCurrentGuide((prev) => ({ ...prev, password: e.target.value }))}
-                      placeholder="Tối thiểu 6 ký tự"
-                      className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-50/50 font-medium"
-                    />
-                  </div>
-                )}
-
-                {/* SĐT */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Số điện thoại
-                  </label>
-                  <input
-                    type="text"
-                    disabled={!!currentGuide.id}
-                    value={currentGuide.phone || ""}
-                    onChange={(e) => setCurrentGuide((prev) => ({ ...prev, phone: e.target.value }))}
-                    placeholder="09xxxxxxxx"
-                    className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
-                  />
-                  {currentGuide.id && (
-                    <span className="text-[10px] text-gray-400 mt-1 block">Số điện thoại không được phép thay đổi qua API này</span>
-                  )}
-                </div>
-
-                {/* Địa chỉ */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Địa chỉ thường trú
-                  </label>
-                  <input
-                    type="text"
-                    disabled={!!currentGuide.id}
-                    value={currentGuide.address || ""}
-                    onChange={(e) => setCurrentGuide((prev) => ({ ...prev, address: e.target.value }))}
-                    placeholder="Quận/Huyện, Tỉnh/Thành Phố"
-                    className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
-                  />
-                  {currentGuide.id && (
-                    <span className="text-[10px] text-gray-400 mt-1 block">Địa chỉ không được phép thay đổi qua API này</span>
-                  )}
-                </div>
-
-                {/* Trạng thái */}
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Trạng thái hoạt động
-                  </label>
-                  <select
-                    value={currentGuide.status || "active"}
-                    onChange={(e) =>
-                      setCurrentGuide((prev) => ({
-                        ...prev,
-                        status: e.target.value as "active" | "inactive",
-                      }))
-                    }
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white"
-                  >
-                    <option value="active">Đang hoạt động (Active)</option>
-                    <option value="inactive">Tạm dừng hoạt động (Inactive)</option>
-                  </select>
-                </div>
+            {/* Password (Chỉ cho tạo mới) */}
+            {!currentGuide.id && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Mật khẩu khởi tạo <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={currentGuide.password || ""}
+                  onChange={(e) => setCurrentGuide((prev) => ({ ...prev, password: e.target.value }))}
+                  placeholder="Tối thiểu 6 ký tự"
+                  className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-medium"
+                />
               </div>
+            )}
 
-              {/* Modal Footer */}
-              <div className="bg-gray-50 px-6 py-4 flex justify-end gap-2 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setCurrentGuide(null);
-                  }}
-                  className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-xl text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  Đóng
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-sm font-semibold rounded-xl text-white hover:bg-indigo-700 shadow-sm transition-colors"
-                >
-                  Lưu thay đổi
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            {/* SĐT */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                Số điện thoại
+              </label>
+              <input
+                type="text"
+                disabled={!!currentGuide.id}
+                value={currentGuide.phone || ""}
+                onChange={(e) => setCurrentGuide((prev) => ({ ...prev, phone: e.target.value }))}
+                placeholder="09xxxxxxxx"
+                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
+              />
+              {currentGuide.id && (
+                <span className="text-[10px] text-gray-400 mt-1 block">Số điện thoại không được phép thay đổi qua API này</span>
+              )}
+            </div>
+
+            {/* Địa chỉ */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                Địa chỉ thường trú
+              </label>
+              <input
+                type="text"
+                disabled={!!currentGuide.id}
+                value={currentGuide.address || ""}
+                onChange={(e) => setCurrentGuide((prev) => ({ ...prev, address: e.target.value }))}
+                placeholder="Quận/Huyện, Tỉnh/Thành Phố"
+                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
+              />
+              {currentGuide.id && (
+                <span className="text-[10px] text-gray-400 mt-1 block">Địa chỉ không được phép thay đổi qua API này</span>
+              )}
+            </div>
+
+            {/* Trạng thái */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                Trạng thái hoạt động
+              </label>
+              <select
+                value={currentGuide.status || "active"}
+                onChange={(e) =>
+                  setCurrentGuide((prev) => ({
+                    ...prev,
+                    status: e.target.value as "active" | "inactive",
+                  }))
+                }
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white"
+              >
+                <option value="active">Đang hoạt động (Active)</option>
+                <option value="inactive">Tạm dừng hoạt động (Inactive)</option>
+              </select>
+            </div>
+          </>
+        )}
+      </Modal>
 
       {/* --- CUSTOM ALERTS RENDER --- */}
       <Toast

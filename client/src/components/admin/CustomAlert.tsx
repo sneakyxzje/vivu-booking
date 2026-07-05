@@ -94,7 +94,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const btnBg =
     type === "danger"
       ? "bg-rose-600 hover:bg-rose-700 focus:ring-rose-500"
-      : "bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500";
+      : "bg-primary-600 hover:bg-primary-700 focus:ring-primary-500";
 
   const iconBg =
     type === "danger"
