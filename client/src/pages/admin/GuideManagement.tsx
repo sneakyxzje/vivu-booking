@@ -209,7 +209,7 @@ export default function GuideManagement() {
         <div>
           <button
             onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-xl font-semibold text-sm hover:bg-primary-700 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-md font-semibold text-sm hover:bg-primary-700 shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -222,8 +222,8 @@ export default function GuideManagement() {
       {/* KPI STATS CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {/* Tổng số HDV */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-          <div className="p-3.5 bg-primary-50 text-primary-600 rounded-xl group-hover:bg-primary-100 transition-colors">
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
+          <div className="p-3.5 bg-primary-50 text-primary-600 rounded-md group-hover:bg-primary-100 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -240,8 +240,8 @@ export default function GuideManagement() {
         </div>
 
         {/* Đang hoạt động */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-          <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-xl group-hover:bg-emerald-100 transition-colors">
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
+          <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-md group-hover:bg-emerald-100 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -253,13 +253,13 @@ export default function GuideManagement() {
           </div>
           <div>
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Đang hoạt động (Trang này)</p>
-            <h3 className="text-xl font-bold text-gray-900 mt-1 text-emerald-600">{stats.active} HDV</h3>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 text-emerald-650">{stats.active} HDV</h3>
           </div>
         </div>
 
         {/* Tạm dừng hoạt động */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-          <div className="p-3.5 bg-rose-50 text-rose-600 rounded-xl group-hover:bg-rose-100 transition-colors">
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
+          <div className="p-3.5 bg-rose-50 text-rose-600 rounded-md group-hover:bg-rose-100 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -271,13 +271,13 @@ export default function GuideManagement() {
           </div>
           <div>
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Tạm dừng (Trang này)</p>
-            <h3 className="text-xl font-bold text-gray-900 mt-1 text-rose-600">{stats.inactive} nhân sự</h3>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 text-rose-605">{stats.inactive} nhân sự</h3>
           </div>
         </div>
       </div>
 
       {/* FILTER & SEARCH */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+      <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
           {/* Thanh tìm kiếm */}
           <div className="relative md:col-span-8">
@@ -296,7 +296,7 @@ export default function GuideManagement() {
               placeholder="Tìm kiếm hướng dẫn viên theo tên, email, điện thoại, địa chỉ..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50"
             />
           </div>
 
@@ -305,7 +305,7 @@ export default function GuideManagement() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white cursor-pointer"
             >
               <option value="all">Tất cả trạng thái</option>
               <option value="active">Đang hoạt động</option>
@@ -320,7 +320,7 @@ export default function GuideManagement() {
                 setSearch("");
                 setStatusFilter("all");
               }}
-              className="w-full py-2 text-sm text-gray-500 hover:text-primary-600 bg-gray-50 border border-gray-100 rounded-xl font-medium hover:bg-primary-50 transition-colors"
+              className="w-full py-2 text-sm text-gray-500 hover:text-primary-600 bg-gray-50 border border-gray-100 rounded-md font-medium hover:bg-primary-50 transition-colors cursor-pointer"
             >
               Xóa lọc
             </button>
@@ -329,7 +329,7 @@ export default function GuideManagement() {
       </div>
 
       {/* DATA TABLE */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-xs">
         {loading ? (
           <div className="p-12 text-center text-gray-500 font-medium">
             Đang tải danh sách Hướng dẫn viên...
@@ -338,14 +338,14 @@ export default function GuideManagement() {
           <div className="overflow-x-visible">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 text-gray-500 text-xs font-semibold uppercase tracking-wider border-b border-gray-100">
-                  <th className="p-4 w-16 text-center">ID</th>
-                  <th className="p-4">Thông tin Hướng dẫn viên</th>
-                  <th className="p-4">Điện thoại / Địa chỉ</th>
-                  <th className="p-4 text-center">Số Tour phụ trách</th>
-                  <th className="p-4">Ngày tạo tài khoản</th>
-                  <th className="p-4 text-center">Trạng thái</th>
-                  <th className="p-4 text-center">Hành động</th>
+                <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-gray-200">
+                  <th className="py-3.5 px-6 w-16 text-center">ID</th>
+                  <th className="py-3.5 px-6">Thông tin Hướng dẫn viên</th>
+                  <th className="py-3.5 px-6">Điện thoại / Địa chỉ</th>
+                  <th className="py-3.5 text-center px-6">Số Tour phụ trách</th>
+                  <th className="py-3.5 px-6">Ngày tạo tài khoản</th>
+                  <th className="py-3.5 text-center px-6">Trạng thái</th>
+                  <th className="py-3.5 text-center px-6">Hành động</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-sm">
@@ -359,12 +359,12 @@ export default function GuideManagement() {
                   filteredGuides.map((guide) => (
                     <tr key={guide.id} className="hover:bg-gray-50/50 transition-colors">
                       {/* ID */}
-                      <td className="p-4 text-center text-gray-500 font-mono">
+                      <td className="py-3.5 px-6 text-center text-gray-500 font-mono">
                         #{guide.id}
                       </td>
 
                       {/* Basic Info */}
-                      <td className="p-4">
+                      <td className="py-3.5 px-6">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-primary-600 text-white font-bold flex items-center justify-center text-sm shadow-inner uppercase">
                             {guide.name.charAt(0)}
@@ -377,7 +377,7 @@ export default function GuideManagement() {
                       </td>
 
                       {/* SĐT & Địa chỉ */}
-                      <td className="p-4">
+                      <td className="py-3.5 px-6">
                         <div>
                           <p className="font-medium text-gray-800 font-mono text-xs">{guide.phone ?? "Chưa cập nhật"}</p>
                           <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{guide.address ?? "Không có địa chỉ"}</p>
@@ -385,19 +385,19 @@ export default function GuideManagement() {
                       </td>
 
                       {/* Số Tour phụ trách */}
-                      <td className="p-4 text-center font-bold text-primary-600">
+                      <td className="py-3.5 px-6 text-center font-bold text-primary-600">
                         {guide.assigned_tours_count ?? 0} tours
                       </td>
 
                       {/* Ngày gia nhập */}
-                      <td className="p-4 text-gray-500 text-xs">
+                      <td className="py-3.5 px-6 text-gray-500 text-xs">
                         {guide.created_at}
                       </td>
 
                       {/* Trạng thái */}
-                      <td className="p-4 text-center">
+                      <td className="py-3.5 px-6 text-center">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${guide.status === "active"
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-semibold border ${guide.status === "active"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : "bg-rose-50 text-rose-700 border-rose-200"
                             }`}
@@ -408,7 +408,7 @@ export default function GuideManagement() {
                       </td>
 
                       {/* Hành động */}
-                      <td className="p-4 text-center">
+                      <td className="py-3.5 px-6 text-center">
                         <TableActions
                           id={guide.id}
                           actions={[
@@ -520,6 +520,7 @@ export default function GuideManagement() {
           </div>
         )}
       </div>
+
       {/* CREATE & EDIT FORM MODAL */}
       <Modal
         isOpen={isModalOpen && !!currentGuide}
@@ -539,13 +540,13 @@ export default function GuideManagement() {
                 setIsModalOpen(false);
                 setCurrentGuide(null);
               }}
-              className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-xl text-gray-700 hover:bg-gray-50 transition-all focus:outline-none"
+              className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-md text-gray-700 hover:bg-gray-50 transition-all focus:outline-none cursor-pointer"
             >
               Đóng
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-primary-600 text-sm font-semibold rounded-xl text-white hover:bg-primary-700 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              className="px-4 py-2 bg-primary-600 text-sm font-semibold rounded-md text-white hover:bg-primary-700 shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 cursor-pointer"
             >
               Lưu thay đổi
             </button>
@@ -553,7 +554,7 @@ export default function GuideManagement() {
         }
       >
         {currentGuide && (
-          <>
+          <div className="space-y-4">
             {/* Họ tên */}
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
@@ -565,7 +566,7 @@ export default function GuideManagement() {
                 value={currentGuide.name || ""}
                 onChange={(e) => setCurrentGuide((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="Nhập họ tên hướng dẫn viên"
-                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-medium"
+                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-medium"
               />
             </div>
 
@@ -581,7 +582,7 @@ export default function GuideManagement() {
                 value={currentGuide.email || ""}
                 onChange={(e) => setCurrentGuide((prev) => ({ ...prev, email: e.target.value }))}
                 placeholder="nguyenvanan@gmail.com"
-                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
+                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
               />
               {currentGuide.id && (
                 <span className="text-[10px] text-gray-400 mt-1 block">Email không được phép thay đổi sau khi tạo</span>
@@ -600,7 +601,7 @@ export default function GuideManagement() {
                   value={currentGuide.password || ""}
                   onChange={(e) => setCurrentGuide((prev) => ({ ...prev, password: e.target.value }))}
                   placeholder="Tối thiểu 6 ký tự"
-                  className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-medium"
+                  className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-medium"
                 />
               </div>
             )}
@@ -616,7 +617,7 @@ export default function GuideManagement() {
                 value={currentGuide.phone || ""}
                 onChange={(e) => setCurrentGuide((prev) => ({ ...prev, phone: e.target.value }))}
                 placeholder="09xxxxxxxx"
-                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
+                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
               />
               {currentGuide.id && (
                 <span className="text-[10px] text-gray-400 mt-1 block">Số điện thoại không được phép thay đổi qua API này</span>
@@ -634,7 +635,7 @@ export default function GuideManagement() {
                 value={currentGuide.address || ""}
                 onChange={(e) => setCurrentGuide((prev) => ({ ...prev, address: e.target.value }))}
                 placeholder="Quận/Huyện, Tỉnh/Thành Phố"
-                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
+                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
               />
               {currentGuide.id && (
                 <span className="text-[10px] text-gray-400 mt-1 block">Địa chỉ không được phép thay đổi qua API này</span>
@@ -654,13 +655,13 @@ export default function GuideManagement() {
                     status: e.target.value as "active" | "inactive",
                   }))
                 }
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white cursor-pointer"
               >
                 <option value="active">Đang hoạt động (Active)</option>
                 <option value="inactive">Tạm dừng hoạt động (Inactive)</option>
               </select>
             </div>
-          </>
+          </div>
         )}
       </Modal>
 

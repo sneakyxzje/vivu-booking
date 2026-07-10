@@ -1,3 +1,4 @@
+import type { Booking } from "@/types";
 import api from "./api";
 
 export interface CreateBookingPayload {
@@ -15,7 +16,7 @@ export interface CreateBookingResponse {
   message: string;
   data: {
     payment_url?: string;
-    booking: unknown;
+    booking: Booking;
   };
 }
 
