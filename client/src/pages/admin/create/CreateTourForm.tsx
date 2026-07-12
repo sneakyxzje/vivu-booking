@@ -220,17 +220,29 @@ export const CreateTourForm: React.FC = () => {
   };
 
   const addItinerary = () => {
-    setForm((prev) => ({
-      ...prev,
-      itineraries: [
-        ...prev.itineraries,
-        {
-          day_number: String(prev.itineraries.length + 1),
-          title: "",
-          content: "",
-        },
-      ],
-    }));
+    setForm((prev) => {
+      const maxDays = Number(prev.number_of_days);
+
+      if (
+        !Number.isInteger(maxDays) ||
+        maxDays < 1 ||
+        prev.itineraries.length >= maxDays
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        itineraries: [
+          ...prev.itineraries,
+          {
+            day_number: String(prev.itineraries.length + 1),
+            title: "",
+            content: "",
+          },
+        ],
+      };
+    });
   };
 
   const removeItinerary = (index: number) => {
@@ -289,6 +301,21 @@ export const CreateTourForm: React.FC = () => {
     setError("");
 
     try {
+      const maxDays = Number(form.number_of_days);
+      const hasInvalidItinerary = form.itineraries.some((item) => {
+        const dayNumber = Number(item.day_number);
+        return (
+          !Number.isInteger(dayNumber) ||
+          dayNumber < 1 ||
+          dayNumber > maxDays
+        );
+      });
+
+      if (form.itineraries.length > maxDays || hasInvalidItinerary) {
+        setError("Lịch trình chỉ được tối đa " + maxDays + " ngày.");
+        return;
+      }
+
       if (isEdit && id) {
         throw new Error("Edit tour is not implemented yet.");
       } else {
@@ -395,6 +422,7 @@ export const CreateTourForm: React.FC = () => {
               labelClass={labelClass}
               fieldClass={fieldClass}
               items={form.itineraries}
+              maxDays={Math.max(1, Number(form.number_of_days) || 1)}
               onAdd={addItinerary}
               onRemove={removeItinerary}
               onChange={updateItinerary}

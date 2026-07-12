@@ -5,6 +5,7 @@ interface Props {
   labelClass: string;
   fieldClass: string;
   items: ItineraryFormItem[];
+  maxDays: number;
   onAdd: () => void;
   onRemove: (index: number) => void;
   onChange: (
@@ -18,6 +19,7 @@ export const TourFormItinerarySection: React.FC<Props> = ({
   labelClass,
   fieldClass,
   items,
+  maxDays,
   onAdd,
   onRemove,
   onChange,
@@ -32,7 +34,8 @@ export const TourFormItinerarySection: React.FC<Props> = ({
       <button
         type="button"
         onClick={onAdd}
-        className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-primary-600 shadow-sm ring-1 ring-gray-200 hover:bg-primary-50"
+        disabled={items.length >= maxDays}
+        className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-primary-600 shadow-sm ring-1 ring-gray-200 hover:bg-primary-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
       >
         Thêm ngày
       </button>
@@ -63,6 +66,7 @@ export const TourFormItinerarySection: React.FC<Props> = ({
               <input
                 type="number"
                 min={1}
+                max={maxDays}
                 required
                 value={item.day_number}
                 onChange={(e) => onChange(index, "day_number", e.target.value)}
