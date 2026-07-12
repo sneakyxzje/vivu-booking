@@ -33,7 +33,7 @@ export interface TourSchedule {
   start_date: string;
   max_people: number;
   booked_people: number;
-  status: "active" | "canceled" | "completed";
+  status: "active" | "inactive" | "full";
 }
 
 export interface Tour {
@@ -49,10 +49,11 @@ export interface Tour {
   start_location: string;
   end_location: string | null;
   is_featured: boolean;
-  status: "pending" | "active" | "inactive";
+  status: "active" | "inactive" | "full";
   created_at?: string;
   updated_at?: string;
   admin_id?: number;
+  guide_id?: number | null;
   categories?: Category[];
   services?: Service[];
   images?: TourImage[];
@@ -69,7 +70,10 @@ export interface TourFilterParams {
   number_of_days?: number;
   duration?: "1" | "2-3" | "4+";
   is_featured?: boolean;
-  status?: "pending" | "active" | "inactive";
+  status?: "active" | "inactive" | "full";
   page?: number;
   per_page?: number;
 }
+
+
+

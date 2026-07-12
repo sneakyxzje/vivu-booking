@@ -36,7 +36,7 @@ export const GuideDashboard: React.FC = () => {
     load();
   }, []);
 
-  const pendingTours = tours.filter((t) => t.status === "pending");
+  const fullTours = tours.filter((t) => t.status === "full");
   const recentBookings = bookings
     .filter((b) => b.status === "pending")
     .slice(0, 4);
@@ -65,10 +65,10 @@ export const GuideDashboard: React.FC = () => {
       color: "bg-primary-50 text-primary-600",
     },
     {
-      label: "Chờ duyệt",
-      value: stats.pendingTours,
-      sub: "Tour đang chờ admin",
-      color: "bg-amber-50 text-amber-600",
+      label: "Hết chỗ",
+      value: stats.fullTours,
+      sub: "Tour đã kín chỗ",
+      color: "bg-red-50 text-red-600",
     },
     {
       label: "Đặt chỗ",
@@ -118,21 +118,21 @@ export const GuideDashboard: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-900">Tour chờ duyệt</h2>
+            <h2 className="font-semibold text-gray-900">Tour hết chỗ</h2>
             <Link
-              to="/guide/tours?status=pending"
+              to="/guide/tours?status=full"
               className="text-sm text-primary-600 hover:underline"
             >
               Xem tất cả
             </Link>
           </div>
-          {pendingTours.length === 0 ? (
+          {fullTours.length === 0 ? (
             <p className="p-6 text-sm text-gray-500">
-              Không có tour chờ duyệt.
+              Không có tour hết chỗ.
             </p>
           ) : (
             <ul className="divide-y divide-gray-50">
-              {pendingTours.map((tour) => (
+              {fullTours.map((tour) => (
                 <li
                   key={tour.id}
                   className="px-6 py-4 flex items-center justify-between gap-4"
@@ -195,6 +195,8 @@ export const GuideDashboard: React.FC = () => {
 };
 
 export default GuideDashboard;
+
+
 
 
 

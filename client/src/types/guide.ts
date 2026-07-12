@@ -3,7 +3,7 @@ import type { Tour } from "./tour";
 export interface GuideDashboardStats {
   totalTours: number;
   activeTours: number;
-  pendingTours: number;
+  fullTours: number;
   totalBookings: number;
   pendingBookings: number;
   revenue: number;
@@ -38,6 +38,7 @@ export interface Guide {
 }
 
 export type { Tour };
+
 
 
 

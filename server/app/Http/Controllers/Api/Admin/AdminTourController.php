@@ -21,6 +21,24 @@ class AdminTourController extends Controller
     ) {
     }
 
+
+    public function index(): JsonResponse
+    {
+        $tours = Tour::with([
+            'admin:id,name,email',
+            'guide:id,name,email,phone,status',
+            'categories',
+            'services',
+            'images',
+            'itineraries',
+            'schedules',
+        ])
+            ->latest()
+            ->get();
+
+        return $this->success(TourResource::collection($tours), 'Lấy danh sách tour thành công');
+    }
+
     public function create(): JsonResponse
     {
         return $this->success([
@@ -144,11 +162,6 @@ class AdminTourController extends Controller
         ], 'Tạo tour thành công và đã được kích hoạt');
     }
 
-    public function approve(Request $request, int $id): JsonResponse
-    {
-        return $this->success([], 'Placeholder: Admin approve tour endpoint for tour ' . $id);
-    }
-
     public function assignGuide(Request $request, int $id): JsonResponse
     {
         $tour = Tour::find($id);
@@ -174,3 +187,6 @@ class AdminTourController extends Controller
         return $this->success($tour->load('guide'), 'Chỉ định hướng dẫn viên thành công');
     }
 }
+
+
+

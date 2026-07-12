@@ -22,7 +22,7 @@ class TourController extends Controller
             'images',
             'itineraries',
             'schedules'
-        ])->get();
+        ])->whereIn('status', ['active', 'full'])->latest()->get();
 
         return response()->json([
             'success' => true,
@@ -42,7 +42,7 @@ class TourController extends Controller
             'images',
             'itineraries',
             'schedules'
-        ])->find($id);
+        ])->whereIn('status', ['active', 'full'])->find($id);
 
         if (!$tour) {
             return response()->json([
@@ -69,3 +69,4 @@ class TourController extends Controller
         ]);
     }
 }
+

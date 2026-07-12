@@ -5,15 +5,15 @@ import type { BookingStatus } from "@/types/guide";
 type TourStatus = Tour["status"];
 
 const tourStyles: Record<TourStatus, string> = {
-  pending: "bg-amber-50 text-amber-700 border-amber-200",
   active: "bg-emerald-50 text-emerald-700 border-emerald-200",
   inactive: "bg-gray-100 text-gray-600 border-gray-200",
+  full: "bg-red-50 text-red-700 border-red-200",
 };
 
 const tourLabels: Record<TourStatus, string> = {
-  pending: "Chờ duyệt",
   active: "Đang hoạt động",
-  inactive: "Ngừng",
+  inactive: "Tạm dừng",
+  full: "Hết chỗ",
 };
 
 const bookingStyles: Record<BookingStatus, string> = {
@@ -47,5 +47,3 @@ export const BookingStatusBadge: React.FC<{ status: BookingStatus }> = ({
     {bookingLabels[status]}
   </span>
 );
-
-

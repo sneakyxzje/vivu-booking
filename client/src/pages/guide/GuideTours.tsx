@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import guideService from "@/services/guideService";
 import type { Tour } from "@/types";
 import { TourStatusBadge } from "@/components/guide/GuideStatusBadge";
@@ -50,25 +50,17 @@ export const GuideTours: React.FC = () => {
   const tabs: { key: StatusFilter; label: string }[] = [
     { key: "all", label: "Tất cả" },
     { key: "active", label: "Đang hoạt động" },
-    { key: "pending", label: "Chờ duyệt" },
-    { key: "inactive", label: "Ngừng" },
+    { key: "inactive", label: "Tạm dừng" },
+    { key: "full", label: "Hết chỗ" },
   ];
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tour của tôi</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Quản lý danh sách tour bạn đã đăng
-          </p>
-        </div>
-        <Link
-          to="/guide/tours/create"
-          className="inline-flex items-center justify-center gap-2 bg-primary-600 text-white font-semibold text-sm px-5 py-2.5 rounded-xl hover:bg-primary-700 transition-colors"
-        >
-          <span className="text-lg leading-none">+</span> Tạo tour mới
-        </Link>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Tour của tôi</h1>
+        <p className="text-gray-500 text-sm mt-1">
+          Theo dõi danh sách tour được admin phân công
+        </p>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col sm:flex-row gap-4">
@@ -106,14 +98,8 @@ export const GuideTours: React.FC = () => {
       {loading ? (
         <div className="text-center py-16 text-gray-500">Đang tải...</div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-          <p className="text-gray-500 mb-4">Chưa có tour nào.</p>
-          <Link
-            to="/guide/tours/create"
-            className="text-primary-600 font-semibold text-sm hover:underline"
-          >
-            Tạo tour đầu tiên →
-          </Link>
+        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-500">
+          Chưa có tour nào được phân công.
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -126,7 +112,6 @@ export const GuideTours: React.FC = () => {
                   <th className="px-4 py-3 font-semibold">Giá</th>
                   <th className="px-4 py-3 font-semibold">Thời lượng</th>
                   <th className="px-4 py-3 font-semibold">Trạng thái</th>
-                  <th className="px-6 py-3 font-semibold text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -162,14 +147,6 @@ export const GuideTours: React.FC = () => {
                     <td className="px-4 py-4">
                       <TourStatusBadge status={tour.status} />
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <Link
-                        to={`/guide/tours/${tour.id}/edit`}
-                        className="text-primary-600 font-semibold hover:underline text-xs"
-                      >
-                        Sửa
-                      </Link>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -182,8 +159,3 @@ export const GuideTours: React.FC = () => {
 };
 
 export default GuideTours;
-
-
-
-
-
