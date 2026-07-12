@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { Booking } from "@/types";
 import adminService from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
@@ -125,21 +125,16 @@ export default function BookingManagement() {
             Xem thông tin đặt hàng
           </h1>
           <p className="text-sm text-gray-500">
-            Xem thông tin chi tiết và thanh toán của các đơn đặt tour du lịch từ khách hàng (Chỉ đọc)
+            Xem thông tin chi tiết và thanh toán của các đơn đặt tour du lịch từ khách hàng
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full font-medium border border-emerald-200">
-            Kết nối API Backend thành công
-          </span>
         </div>
       </div>
 
       {/* KPI METRICS CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Doanh thu */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-          <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-xl group-hover:bg-emerald-100 transition-colors">
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
+          <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-md group-hover:bg-emerald-100 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -158,8 +153,8 @@ export default function BookingManagement() {
         </div>
 
         {/* Tổng số đơn */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-          <div className="p-3.5 bg-blue-50 text-blue-600 rounded-xl group-hover:bg-blue-100 transition-colors">
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
+          <div className="p-3.5 bg-blue-50 text-blue-600 rounded-md group-hover:bg-blue-100 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -176,8 +171,8 @@ export default function BookingManagement() {
         </div>
 
         {/* Chờ duyệt */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-          <div className="p-3.5 bg-amber-50 text-amber-600 rounded-xl group-hover:bg-amber-100 transition-colors">
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
+          <div className="p-3.5 bg-amber-50 text-amber-600 rounded-md group-hover:bg-amber-100 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -194,8 +189,8 @@ export default function BookingManagement() {
         </div>
 
         {/* Đã hủy */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-          <div className="p-3.5 bg-rose-50 text-rose-600 rounded-xl group-hover:bg-rose-100 transition-colors">
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
+          <div className="p-3.5 bg-rose-50 text-rose-600 rounded-md group-hover:bg-rose-100 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -213,7 +208,7 @@ export default function BookingManagement() {
       </div>
 
       {/* FILTER & SEARCH */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+      <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
           {/* Thanh tìm kiếm */}
           <div className="relative md:col-span-4">
@@ -232,7 +227,7 @@ export default function BookingManagement() {
               placeholder="Tìm mã đơn, tên khách hàng, số điện thoại, tour..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50"
             />
           </div>
 
@@ -241,7 +236,7 @@ export default function BookingManagement() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white cursor-pointer"
             >
               <option value="all">Tất cả trạng thái duyệt</option>
               <option value="pending">Chờ xác nhận</option>
@@ -255,7 +250,7 @@ export default function BookingManagement() {
             <select
               value={paymentFilter}
               onChange={(e) => setPaymentFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white cursor-pointer"
             >
               <option value="all">Tất cả thanh toán</option>
               <option value="paid">Đã thanh toán (Qua VNPAY)</option>
@@ -268,7 +263,7 @@ export default function BookingManagement() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white cursor-pointer"
             >
               <option value="latest">Mới nhất trước</option>
               <option value="oldest">Cũ nhất trước</option>
@@ -286,7 +281,7 @@ export default function BookingManagement() {
                 setPaymentFilter("all");
                 setSortBy("latest");
               }}
-              className="w-full py-2 text-sm text-gray-500 hover:text-primary-600 bg-gray-50 border border-gray-100 rounded-xl font-medium hover:bg-primary-50 transition-colors"
+              className="w-full py-2 text-sm text-gray-500 hover:text-primary-600 bg-gray-50 border border-gray-100 rounded-md font-medium hover:bg-primary-50 transition-colors cursor-pointer"
             >
               Xóa bộ lọc
             </button>
@@ -295,7 +290,7 @@ export default function BookingManagement() {
       </div>
 
       {/* DATA TABLE */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-gray-500 font-medium">
             Đang tải dữ liệu đơn đặt hàng...
@@ -304,15 +299,15 @@ export default function BookingManagement() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-gray-50 text-gray-500 text-xs font-semibold uppercase tracking-wider border-b border-gray-100">
-                  <th className="p-4 w-28">Mã đơn</th>
-                  <th className="p-4 w-72">Khách hàng</th>
-                  <th className="p-4 w-80">Thông tin Tour & Ngày đi</th>
-                  <th className="p-4 text-right">Khách</th>
-                  <th className="p-4 text-right">Tổng tiền</th>
-                  <th className="p-4 text-center">Thanh toán</th>
-                  <th className="p-4 text-center">Trạng thái duyệt</th>
-                  <th className="p-4 text-center">Hành động</th>
+                <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-gray-200">
+                  <th className="py-3.5 px-6 w-28">Mã đơn</th>
+                  <th className="py-3.5 px-6 w-72">Khách hàng</th>
+                  <th className="py-3.5 px-6 w-80">Thông tin Tour & Ngày đi</th>
+                  <th className="py-3.5 text-right px-6">Khách</th>
+                  <th className="py-3.5 text-right px-6">Tổng tiền</th>
+                  <th className="py-3.5 text-center px-6">Thanh toán</th>
+                  <th className="py-3.5 text-center px-6">Trạng thái duyệt</th>
+                  <th className="py-3.5 text-center px-6">Hành động</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-sm">
@@ -328,12 +323,12 @@ export default function BookingManagement() {
                     return (
                       <tr key={booking.id} className="hover:bg-gray-50/50 transition-colors">
                         {/* Mã đơn */}
-                        <td className="p-4 font-bold text-gray-700">
+                        <td className="py-3.5 px-6 font-bold text-gray-700">
                           BK-{booking.id}
                         </td>
 
                         {/* Khách hàng */}
-                        <td className="p-4">
+                        <td className="py-3.5 px-6">
                           <div>
                             <p className="font-semibold text-gray-900">{booking.customer_name}</p>
                             <p className="text-xs text-gray-400 mt-0.5">{booking.customer_email}</p>
@@ -344,7 +339,7 @@ export default function BookingManagement() {
                         </td>
 
                         {/* Thông tin Tour */}
-                        <td className="p-4">
+                        <td className="py-3.5 px-6">
                           <div className="max-w-xs">
                             <p className="font-medium text-gray-800 line-clamp-1">
                               {booking.tour?.title ?? "Tour du lịch"}
@@ -367,19 +362,19 @@ export default function BookingManagement() {
                         </td>
 
                         {/* Khách */}
-                        <td className="p-4 text-right font-medium text-gray-700">
+                        <td className="py-3.5 px-6 text-right font-medium text-gray-700">
                           {booking.guests} khách
                         </td>
 
                         {/* Tổng tiền */}
-                        <td className="p-4 text-right font-bold text-gray-900">
+                        <td className="py-3.5 px-6 text-right font-bold text-gray-900">
                           {Number(booking.total_amount).toLocaleString()}đ
                         </td>
 
                         {/* Thanh toán */}
-                        <td className="p-4 text-center">
+                        <td className="py-3.5 px-6 text-center">
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border ${isPaid
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-semibold border ${isPaid
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : "bg-gray-50 text-gray-500 border-gray-200"
                               }`}
@@ -390,13 +385,13 @@ export default function BookingManagement() {
                         </td>
 
                         {/* Trạng thái duyệt */}
-                        <td className="p-4 text-center">
+                        <td className="py-3.5 px-6 text-center">
                           <span
-                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${booking.status === "confirmed"
-                              ? "bg-blue-50 text-blue-700 border border-blue-200"
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${booking.status === "confirmed"
+                              ? "bg-blue-50 text-blue-700 border-blue-200"
                               : booking.status === "cancelled"
-                                ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                : "bg-amber-50 text-amber-700 border border-amber-200"
+                                ? "bg-rose-50 text-rose-700 border-rose-200"
+                                : "bg-amber-50 text-amber-700 border-amber-200"
                               }`}
                           >
                             {booking.status === "confirmed" && "Đã xác nhận"}
@@ -406,10 +401,10 @@ export default function BookingManagement() {
                         </td>
 
                         {/* Hành động */}
-                        <td className="p-4 text-center">
+                        <td className="py-3.5 px-6 text-center">
                           <button
                             onClick={() => openDetails(booking)}
-                            className="px-4 py-1.5 text-xs text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 font-medium transition-colors"
+                            className="px-3 py-1 text-xs text-primary-600 bg-primary-50 rounded hover:bg-primary-100 font-medium transition-colors cursor-pointer"
                           >
                             Xem chi tiết
                           </button>
@@ -498,16 +493,16 @@ export default function BookingManagement() {
         footer={
           <button
             onClick={closeDetails}
-            className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-xl text-gray-700 hover:bg-gray-100 transition-colors focus:outline-none"
+            className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-md text-gray-700 hover:bg-gray-100 transition-colors focus:outline-none cursor-pointer"
           >
             Đóng
           </button>
         }
       >
         {selectedBooking && (
-          <>
+          <div className="space-y-5">
             {/* Tour info */}
-            <div className="bg-primary-50/50 p-5 rounded-2xl border border-primary-100/50">
+            <div className="bg-primary-50/50 p-5 rounded-lg border border-primary-100/50">
               <p className="text-xs font-semibold text-primary-600 uppercase tracking-wider">Thông tin Tour đặt</p>
               <h4 className="font-bold text-gray-900 mt-1.5 text-base font-plus-jakarta">
                 {selectedBooking.tour?.title}
@@ -542,7 +537,7 @@ export default function BookingManagement() {
 
             {/* Customer & Payment info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-              <div className="bg-gray-50/50 p-5 rounded-2xl border border-gray-100">
+              <div className="bg-gray-50/50 p-5 rounded-lg border border-gray-200">
                 <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Thông tin người đặt</h5>
                 <div className="mt-3.5 space-y-2 text-sm font-inter">
                   <p className="flex justify-between border-b border-gray-100 pb-1.5">
@@ -560,7 +555,7 @@ export default function BookingManagement() {
                 </div>
               </div>
 
-              <div className="bg-gray-50/50 p-5 rounded-2xl border border-gray-100">
+              <div className="bg-gray-50/50 p-5 rounded-lg border border-gray-200">
                 <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Trạng thái thanh toán</h5>
                 <div className="mt-3.5 space-y-2 text-sm font-inter">
                   <p className="flex justify-between border-b border-gray-100 pb-1.5">
@@ -586,7 +581,7 @@ export default function BookingManagement() {
             </div>
 
             {/* Passenger note */}
-            <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+            <div className="bg-gray-50/50 p-4 rounded-lg border border-gray-200">
               <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Ghi chú từ khách hàng</h5>
               <p className="text-sm text-gray-600 italic leading-relaxed">
                 {selectedBooking.note || "Không có ghi chú thêm."}
@@ -594,14 +589,14 @@ export default function BookingManagement() {
             </div>
 
             {/* Trạng thái duyệt của Admin */}
-            <div className="pt-4 border-t border-gray-100 flex justify-between items-center">
+            <div className="pt-4 border-t border-gray-200 flex justify-between items-center">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Trạng thái duyệt</span>
               <span
-                className={`inline-flex items-center px-3.5 py-1.5 rounded-full text-xs font-bold ${selectedBooking.status === "confirmed"
-                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                className={`inline-flex items-center px-3.5 py-1 rounded text-xs font-bold border ${selectedBooking.status === "confirmed"
+                  ? "bg-blue-50 text-blue-700 border-blue-200"
                   : selectedBooking.status === "cancelled"
-                    ? "bg-rose-50 text-rose-700 border border-rose-200"
-                    : "bg-amber-50 text-amber-700 border border-amber-200"
+                    ? "bg-rose-50 text-rose-700 border-rose-200"
+                    : "bg-amber-50 text-amber-700 border-amber-200"
                   }`}
               >
                 {selectedBooking.status === "confirmed" && "Đã xác nhận"}
@@ -609,7 +604,7 @@ export default function BookingManagement() {
                 {selectedBooking.status === "pending" && "Chờ xác nhận"}
               </span>
             </div>
-          </>
+          </div>
         )}
       </Modal>
     </div>

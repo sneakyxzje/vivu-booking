@@ -20,7 +20,7 @@ export const TableActions: React.FC<TableActionsProps> = ({ actions }) => {
       {/* 3-dots button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none transition-colors"
+        className="p-1.5 hover:bg-gray-100 rounded-full text-gray-500 hover:text-gray-700 focus:outline-none transition-colors cursor-pointer"
       >
         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
           <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
@@ -35,7 +35,9 @@ export const TableActions: React.FC<TableActionsProps> = ({ actions }) => {
             onClick={() => setIsOpen(false)}
           />
           {/* Dropdown Menu popover */}
-          <div className="absolute right-0 mt-1 min-w-[10rem] w-max max-w-xs rounded-2xl bg-white shadow-xl border border-gray-100 py-1.5 z-20 animate-fade-in origin-top-right text-left">
+          <div
+            className="absolute right-0 top-full mt-1.5 min-w-[10rem] w-max max-w-xs rounded-md bg-white shadow-xl border border-gray-100 py-1.5 z-20 animate-fade-in origin-top-right text-left"
+          >
             {actions.map((action, index) => {
               const colorClass =
                 action.variant === "danger"
