@@ -59,7 +59,7 @@ export const Modal: React.FC<ModalProps> = ({
       className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in"
     >
       <div
-        className={`relative bg-white w-full ${sizeClasses[size]} rounded-3xl shadow-2xl border border-gray-100 overflow-hidden transform transition-all duration-300`}
+        className={`relative bg-white w-full ${sizeClasses[size]} rounded-lg shadow-2xl border border-gray-100 overflow-hidden transform transition-all duration-300`}
       >
         {/* Modal Header */}
         <div className="p-6 pb-4 border-b border-gray-100 flex items-start justify-between bg-white">
@@ -76,7 +76,7 @@ export const Modal: React.FC<ModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+            className="p-1.5 bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -97,7 +97,7 @@ export const Modal: React.FC<ModalProps> = ({
 
           {/* Modal Footer */}
           {footer && (
-            <div className="bg-gray-50/50 px-6 py-4 flex justify-end gap-3 border-t border-gray-100 rounded-b-3xl">
+            <div className="bg-gray-50/50 px-6 py-4 flex justify-end gap-3 border-t border-gray-100 rounded-b-lg">
               {footer}
             </div>
           )}

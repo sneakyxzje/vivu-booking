@@ -372,11 +372,14 @@ const handleSubmit = async (event: FormEvent) => {
       note: form.note,
     });
 
-    const booking = response.data.data.booking as { id: number };
+    const booking = {
+      ...response.data.data.booking,
+      payment_url: response.data.data.payment_url,
+    };
 
-  navigate(`/booking-success/${booking.id}`, {
-    state: booking,
-  });
+    navigate(`/booking-success/${booking.id}`, {
+      state: booking,
+    });
   } catch (error) {
     setMessage(getErrorMessage(error));
   } finally {
