@@ -1,6 +1,6 @@
 import api from "./api";
 import { extractObject } from "@/utils/apiHelpers";
-import type { Booking, Guide } from "@/types";
+import type { Booking, Guide, Tour } from "@/types";
 
 export interface PaginatedResponse<T> {
   current_page: number;
@@ -11,6 +11,23 @@ export interface PaginatedResponse<T> {
 }
 
 const adminService = {
+  // --- TOURS ---
+  getTours: async (): Promise<Tour[]> => {
+    const response = await api.get("/admin/tours");
+    return response.data?.data ?? [];
+  },
+  getTourById: async (id: number): Promise<Tour | null> => {
+    const response = await api.get(`/admin/tours/${id}`);
+    return response.data?.data ?? null;
+  },
+
+  getAvailableGuides: async (startDate: string, numberOfDays: number): Promise<Guide[]> => {
+    const response = await api.get("/admin/available-guides", {
+      params: { start_date: startDate, number_of_days: numberOfDays },
+    });
+    return response.data?.data ?? [];
+  },
+
   // --- BOOKINGS ---
   getBookings: async (page = 1): Promise<PaginatedResponse<Booking> | null> => {
     const response = await api.get(`/admin/bookings?page=${page}`);
@@ -48,9 +65,9 @@ const adminService = {
     return response.data?.success !== false;
   },
 
-  // --- ASSIGN GUIDE TO TOUR ---
-  assignGuideToTour: async (tourId: number, guideId: number | null) => {
-    const response = await api.put(`/admin/tours/${tourId}/assign-guide`, {
+  // --- ASSIGN GUIDE TO SCHEDULE ---
+  assignGuideToSchedule: async (scheduleId: number, guideId: number | null) => {
+    const response = await api.put(`/admin/tour-schedules/${scheduleId}/assign-guide`, {
       guide_id: guideId,
     });
     return response.data?.success !== false;
@@ -58,3 +75,4 @@ const adminService = {
 };
 
 export default adminService;
+

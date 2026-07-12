@@ -13,7 +13,10 @@ class AdminGuideController extends Controller
 {
     public function index(): JsonResponse
     {
-        $guides = User::where('role', 'guide')->latest()->paginate(10);
+        $guides = User::where('role', 'guide')
+            ->withCount(['assignedSchedules as assigned_tours_count'])
+            ->latest()
+            ->paginate(10);
         return $this->success($guides, 'Lấy danh sách hướng dẫn viên thành công');
     }
 
@@ -39,7 +42,9 @@ class AdminGuideController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $guide = User::where('role', 'guide')->find($id);
+        $guide = User::where('role', 'guide')
+            ->withCount(['assignedSchedules as assigned_tours_count'])
+            ->find($id);
 
         if (!$guide) {
             return $this->error('Không tìm thấy hướng dẫn viên', 404);

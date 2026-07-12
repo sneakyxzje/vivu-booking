@@ -5,7 +5,7 @@ import type { GuideBooking, GuideDashboardStats, Tour } from "@/types/guide";
 const defaultStats: GuideDashboardStats = {
   totalTours: 0,
   activeTours: 0,
-  pendingTours: 0,
+  fullTours: 0,
   totalBookings: 0,
   pendingBookings: 0,
   revenue: 0,
@@ -19,7 +19,7 @@ const mapDashboardStats = (
   return {
     totalTours: Number(raw.totalTours ?? raw.total_tours ?? 0),
     activeTours: Number(raw.activeTours ?? raw.active_tours ?? 0),
-    pendingTours: Number(raw.pendingTours ?? raw.pending_tours ?? 0),
+    fullTours: Number(raw.fullTours ?? raw.full_tours ?? 0),
     totalBookings: Number(raw.totalBookings ?? raw.total_bookings ?? 0),
     pendingBookings: Number(raw.pendingBookings ?? raw.pending_bookings ?? 0),
     revenue: Number(raw.revenue ?? 0),
@@ -86,11 +86,14 @@ export const buildTourPayload = (form: unknown) => {
   });
 
   (
-    (f.schedules as { start_date: string; max_people: string }[] | undefined) ??
+    (f.schedules as { start_date: string; max_people: string; guide_id?: string }[] | undefined) ??
     []
   ).forEach((item, index) => {
     data.append(`schedules[${index}][start_date]`, item.start_date);
     data.append(`schedules[${index}][max_people]`, String(item.max_people));
+    if (item.guide_id) {
+      data.append(`schedules[${index}][guide_id]`, item.guide_id);
+    }
   });
 
   return data;
@@ -157,3 +160,4 @@ const guideService = {
 };
 
 export default guideService;
+

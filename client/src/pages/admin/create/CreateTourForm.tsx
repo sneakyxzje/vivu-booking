@@ -14,6 +14,8 @@ import type {
   TourFormState,
 } from "@/components/guide/tour-form/types";
 import tourService from "@/services/tourService";
+import adminService from "@/services/adminService";
+import type { Guide } from "@/types";
 
 const emptyForm: TourFormState = {
   title: "",
@@ -32,7 +34,7 @@ const emptyForm: TourFormState = {
   itineraries: [
     { day_number: "1", title: "", content: "" } as ItineraryFormItem,
   ],
-  schedules: [{ start_date: "", max_people: "10" } as ScheduleFormItem],
+  schedules: [{ start_date: "", max_people: "10", guide_id: "" } as ScheduleFormItem],
   category_ids: [] as number[],
   service_ids: [] as number[],
 };
@@ -65,6 +67,8 @@ export const CreateTourForm: React.FC = () => {
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [availableGuidesBySchedule, setAvailableGuidesBySchedule] = useState<Record<number, Guide[]>>({});
+  const [guideAvailabilityLoading, setGuideAvailabilityLoading] = useState(false);
 
   const previewPrice = useMemo(
     () => formatPreviewPrice(form.discount_price || form.price),
@@ -97,6 +101,50 @@ export const CreateTourForm: React.FC = () => {
     };
     load();
   }, []);
+
+  useEffect(() => {
+    const numberOfDays = Number(form.number_of_days);
+
+    if (!Number.isInteger(numberOfDays) || numberOfDays < 1) {
+      setAvailableGuidesBySchedule({});
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadAvailableGuides = async () => {
+      setGuideAvailabilityLoading(true);
+
+      const entries = await Promise.all(
+        form.schedules.map(async (schedule, index) => {
+          if (!schedule.start_date) {
+            return [index, []] as const;
+          }
+
+          try {
+            const guides = await adminService.getAvailableGuides(
+              schedule.start_date,
+              numberOfDays,
+            );
+            return [index, guides] as const;
+          } catch {
+            return [index, []] as const;
+          }
+        }),
+      );
+
+      if (!cancelled) {
+        setAvailableGuidesBySchedule(Object.fromEntries(entries));
+        setGuideAvailabilityLoading(false);
+      }
+    };
+
+    loadAvailableGuides();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form.number_of_days, form.schedules]);
 
   useEffect(() => {
     if (!isEdit || !id) {
@@ -137,6 +185,7 @@ export const CreateTourForm: React.FC = () => {
             tour.schedules?.map((item) => ({
               start_date: item.start_date,
               max_people: String(item.max_people ?? 10),
+              guide_id: String(item.guide_id ?? ""),
             })) ?? emptyForm.schedules,
           category_ids: tour.categories?.map((c) => c.id) ?? [],
           service_ids: tour.services?.map((s) => s.id) ?? [],
@@ -220,17 +269,29 @@ export const CreateTourForm: React.FC = () => {
   };
 
   const addItinerary = () => {
-    setForm((prev) => ({
-      ...prev,
-      itineraries: [
-        ...prev.itineraries,
-        {
-          day_number: String(prev.itineraries.length + 1),
-          title: "",
-          content: "",
-        },
-      ],
-    }));
+    setForm((prev) => {
+      const maxDays = Number(prev.number_of_days);
+
+      if (
+        !Number.isInteger(maxDays) ||
+        maxDays < 1 ||
+        prev.itineraries.length >= maxDays
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        itineraries: [
+          ...prev.itineraries,
+          {
+            day_number: String(prev.itineraries.length + 1),
+            title: "",
+            content: "",
+          },
+        ],
+      };
+    });
   };
 
   const removeItinerary = (index: number) => {
@@ -245,7 +306,7 @@ export const CreateTourForm: React.FC = () => {
 
   const updateSchedule = (
     index: number,
-    field: "start_date" | "max_people",
+    field: "start_date" | "max_people" | "guide_id",
     value: string,
   ) => {
     setForm((prev) => ({
@@ -259,7 +320,10 @@ export const CreateTourForm: React.FC = () => {
   const addSchedule = () => {
     setForm((prev) => ({
       ...prev,
-      schedules: [...prev.schedules, { start_date: "", max_people: "10" }],
+      schedules: [
+        ...prev.schedules,
+        { start_date: "", max_people: "10", guide_id: "" },
+      ],
     }));
   };
 
@@ -289,14 +353,46 @@ export const CreateTourForm: React.FC = () => {
     setError("");
 
     try {
+      const maxDays = Number(form.number_of_days);
+      const hasInvalidItinerary = form.itineraries.some((item) => {
+        const dayNumber = Number(item.day_number);
+        return (
+          !Number.isInteger(dayNumber) ||
+          dayNumber < 1 ||
+          dayNumber > maxDays
+        );
+      });
+
+      if (form.itineraries.length > maxDays || hasInvalidItinerary) {
+        setError("Lịch trình chỉ được tối đa " + maxDays + " ngày.");
+        return;
+      }
+
       if (isEdit && id) {
-        await guideService.updateTour(Number(id), form);
+        throw new Error("Edit tour is not implemented yet.");
       } else {
         await tourService.createTour(form);
       }
-      navigate("/guide/tours");
-    } catch {
-      setError("Không thể lưu tour. Vui lòng thử lại.");
+      navigate("/admin/tours");    } catch (submitError: unknown) {
+      const response = (
+        submitError as {
+          response?: {
+            data?: {
+              message?: string;
+              errors?: Record<string, string[]>;
+            };
+          };
+        }
+      ).response?.data;
+      const firstValidationError = response?.errors
+        ? Object.values(response.errors).flat()[0]
+        : undefined;
+
+      setError(
+        firstValidationError ??
+          response?.message ??
+          "Không thể lưu tour. Vui lòng thử lại.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -319,7 +415,7 @@ export const CreateTourForm: React.FC = () => {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Link
-            to="/guide/tours"
+            to="/admin/tours"
             className="inline-flex items-center gap-2 text-sm font-semibold text-primary-600 hover:text-primary-700"
           >
             <svg
@@ -343,7 +439,7 @@ export const CreateTourForm: React.FC = () => {
           <p className="mt-1 text-sm text-gray-500">
             {isEdit
               ? "Cập nhật thông tin tour đang quản lý."
-              : "Tour sẽ được gửi duyệt sau khi lưu."}
+              : "Tour sẽ được kích hoạt sau khi admin lưu."}
           </p>
         </div>
       </div>
@@ -395,6 +491,7 @@ export const CreateTourForm: React.FC = () => {
               labelClass={labelClass}
               fieldClass={fieldClass}
               items={form.itineraries}
+              maxDays={Math.max(1, Number(form.number_of_days) || 1)}
               onAdd={addItinerary}
               onRemove={removeItinerary}
               onChange={updateItinerary}
@@ -404,6 +501,9 @@ export const CreateTourForm: React.FC = () => {
               labelClass={labelClass}
               fieldClass={fieldClass}
               items={form.schedules}
+              numberOfDays={Math.max(1, Number(form.number_of_days) || 1)}
+              availableGuidesBySchedule={availableGuidesBySchedule}
+              availabilityLoading={guideAvailabilityLoading}
               onAdd={addSchedule}
               onRemove={removeSchedule}
               onChange={updateSchedule}
@@ -423,7 +523,7 @@ export const CreateTourForm: React.FC = () => {
 
           <div className="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:flex-row sm:justify-end md:px-6">
             <Link
-              to="/guide/tours"
+              to="/admin/tours"
               className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-100"
             >
               Hủy
@@ -458,7 +558,7 @@ export const CreateTourForm: React.FC = () => {
                 ? "Đang lưu..."
                 : isEdit
                   ? "Cập nhật tour"
-                  : "Gửi tour chờ duyệt"}
+                  : "Tạo tour"}
             </button>
           </div>
         </form>
@@ -482,3 +582,4 @@ export const CreateTourForm: React.FC = () => {
 };
 
 export default CreateTourForm;
+

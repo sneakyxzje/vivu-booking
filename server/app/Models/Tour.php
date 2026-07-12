@@ -22,43 +22,31 @@ use Illuminate\Database\Eloquent\Model;
 ])]
 class Tour extends Model
 {
-    // Một Tour thuộc về một User tạo tour
     public function admin()
     {
         return $this->belongsTo(User::class, 'admin_id');
     }
 
-    // Guide được phân công dẫn tour
-    public function guide()
-    {
-        return $this->belongsTo(User::class, 'guide_id');
-    }
-
-    // Một Tour có nhiều Danh mục 
     public function categories()
     {
         return $this->belongsToMany(Category::class, 'category_tour');
     }
 
-    // Một Tour có nhiều Dịch vụ/Tiện ích 
     public function services()
     {
         return $this->belongsToMany(Service::class, 'tour_service');
     }
 
-    // Một Tour có nhiều Ảnh trong thư viện gallery
     public function images()
     {
         return $this->hasMany(TourImage::class);
     }
 
-    // Một Tour có nhiều Ngày lịch trình chi tiết
     public function itineraries()
     {
         return $this->hasMany(TourItinerary::class);
     }
 
-    // Một Tour có nhiều Lịch khởi hành theo ngày cụ thể
     public function schedules()
     {
         return $this->hasMany(TourSchedule::class);

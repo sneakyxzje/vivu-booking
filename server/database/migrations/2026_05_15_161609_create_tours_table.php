@@ -48,7 +48,7 @@ return new class extends Migration
             // Kiểm tra tour có nổi bật không, có thì đưa lên trang chủ ( tạm thời là false )
             $table->boolean('is_featured')->default(false);
 
-            $table->enum('status', ['pending', 'active', 'inactive'])->default('pending');
+            $table->enum('status', ['active', 'inactive', 'full'])->default('active');
 
             $table->timestamps();
 
@@ -65,3 +65,4 @@ return new class extends Migration
         Schema::dropIfExists('tours');
     }
 };
+

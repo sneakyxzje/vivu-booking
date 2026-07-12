@@ -18,7 +18,7 @@ class AdminController extends Controller
     public function dashboardData(Request $request): JsonResponse
     {
         $summary = [
-            'pending_tours' => Tour::where('status', 'pending')->count(),
+            'full_tours' => Tour::where('status', 'full')->count(),
             'active_tours' => Tour::where('status', 'active')->count(),
             'inactive_tours' => Tour::where('status', 'inactive')->count(),
             'total_tours' => Tour::count(),
@@ -31,8 +31,8 @@ class AdminController extends Controller
             'total_services' => Service::count(),
             'upcoming_schedules' => TourSchedule::where('start_date', '>=', now()->toDateString())->count(),
             'total_booked_slots' => (int) TourSchedule::sum('booked_people'),
-            'canceled_schedules' => TourSchedule::where('status', 'canceled')->count(),
-            'completed_schedules' => TourSchedule::where('status', 'completed')->count(),
+            'full_schedules' => TourSchedule::where('status', 'full')->count(),
+            'inactive_schedules' => TourSchedule::where('status', 'inactive')->count(),
         ];
 
         $topSellingTours = Tour::withSum('schedules as total_booked', 'booked_people')
@@ -47,8 +47,8 @@ class AdminController extends Controller
                 ->get();
         }
 
-        $recentPendingTours = Tour::with('admin:id,name,email')
-            ->where('status', 'pending')
+        $recentFullTours = Tour::with('admin:id,name,email')
+            ->where('status', 'full')
             ->latest()
             ->limit(5)
             ->get();
@@ -72,7 +72,7 @@ class AdminController extends Controller
         return $this->success([
             'summary' => $summary,
             'top_selling_tours' => TourResource::collection($topSellingTours),
-            'recent_pending_tours' => TourResource::collection($recentPendingTours),
+            'recent_full_tours' => TourResource::collection($recentFullTours),
             'recent_users' => UserResource::collection($recentUsers),
             'top_services' => $topServices->map(fn ($service) => [
                 'id' => $service->id,
@@ -91,4 +91,5 @@ class AdminController extends Controller
         ], 'Lấy dữ liệu dashboard thành công');
     }
 }
+
 
