@@ -21,6 +21,13 @@ const adminService = {
     return response.data?.data ?? null;
   },
 
+  getAvailableGuides: async (startDate: string, numberOfDays: number): Promise<Guide[]> => {
+    const response = await api.get("/admin/available-guides", {
+      params: { start_date: startDate, number_of_days: numberOfDays },
+    });
+    return response.data?.data ?? [];
+  },
+
   // --- BOOKINGS ---
   getBookings: async (page = 1): Promise<PaginatedResponse<Booking> | null> => {
     const response = await api.get(`/admin/bookings?page=${page}`);
