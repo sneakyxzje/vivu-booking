@@ -7,6 +7,9 @@ use App\Models\Category;
 use App\Models\TourImage;
 use App\Models\Service;
 use App\Models\Tour;
+use App\Models\TourSchedule;
+use App\Models\User;
+use Carbon\Carbon;
 use App\Services\CloudinaryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +29,7 @@ class AdminTourController extends Controller
     {
         $tours = Tour::with([
             'admin:id,name,email',
-            'guide:id,name,email,phone,status',
+            'schedules.guide:id,name,email,phone,status',
             'categories',
             'services',
             'images',
@@ -172,29 +175,81 @@ class AdminTourController extends Controller
         ], 'Tạo tour thành công và đã được kích hoạt');
     }
 
-    public function assignGuide(Request $request, int $id): JsonResponse
+    public function assignScheduleGuide(Request $request, int $id): JsonResponse
     {
-        $tour = Tour::find($id);
-
-        if (!$tour) {
-            return $this->error('Không tìm thấy tour', 404);
-        }
-
         $validated = $request->validate([
-            'guide_id' => ['nullable', 'exists:users,id']
+            'guide_id' => ['nullable', 'exists:users,id'],
         ]);
 
-        if (!empty($validated['guide_id'])) {
-            $guide = \App\Models\User::find($validated['guide_id']);
-            if ($guide->role !== 'guide') {
-                return $this->error('User được chọn không phải là hướng dẫn viên', 400);
+        $schedule = TourSchedule::with('tour')->find($id);
+
+        if (! $schedule) {
+            return $this->error('Không tìm thấy lịch khởi hành', 404);
+        }
+
+        $guideId = $validated['guide_id'] ?? null;
+
+        if ($guideId !== null) {
+            $guide = User::find($guideId);
+
+            if ($guide->role !== 'guide' || $guide->status !== 'active') {
+                return $this->error('Hướng dẫn viên không hợp lệ hoặc đang ngừng hoạt động', 422);
+            }
+
+            $start = Carbon::parse($schedule->start_date)->startOfDay();
+            $end = $start->copy()->addDays(max(0, (int) $schedule->tour->number_of_days - 1));
+
+            $conflict = DB::transaction(function () use ($schedule, $guideId, $start, $end) {
+                User::whereKey($guideId)->lockForUpdate()->first();
+
+                $conflict = TourSchedule::query()
+                    ->with('tour:id,title,number_of_days')
+                    ->where('guide_id', $guideId)
+                    ->whereKeyNot($schedule->id)
+                    ->lockForUpdate()
+                    ->get()
+                    ->first(function (TourSchedule $assigned) use ($start, $end) {
+                        $assignedStart = Carbon::parse($assigned->start_date)->startOfDay();
+                        $assignedEnd = $assignedStart->copy()
+                            ->addDays(max(0, (int) $assigned->tour->number_of_days - 1));
+
+                        return $start->lte($assignedEnd) && $end->gte($assignedStart);
+                    });
+
+                if (! $conflict) {
+                    if ($guideId === null) {
+            $schedule->update(['guide_id' => null]);
+        }
+                }
+
+                return $conflict;
+            });
+
+            if ($conflict) {
+                $conflictStart = Carbon::parse($conflict->start_date);
+                $conflictEnd = $conflictStart->copy()
+                    ->addDays(max(0, (int) $conflict->tour->number_of_days - 1));
+
+                return $this->error(
+                    sprintf(
+                        'Hướng dẫn viên đã có chuyến "%s" từ %s đến %s',
+                        $conflict->tour->title,
+                        $conflictStart->format('d/m/Y'),
+                        $conflictEnd->format('d/m/Y')
+                    ),
+                    422
+                );
             }
         }
 
-        $tour->guide_id = $validated['guide_id'] ?? null;
-        $tour->save();
+        if ($guideId === null) {
+            $schedule->update(['guide_id' => null]);
+        }
 
-        return $this->success($tour->load('guide'), 'Chỉ định hướng dẫn viên thành công');
+        return $this->success(
+            $schedule->fresh(['guide:id,name,email,phone,status', 'tour:id,title,number_of_days']),
+            $guideId === null ? 'Đã bỏ phân công hướng dẫn viên' : 'Phân công hướng dẫn viên thành công'
+        );
     }
 }
 

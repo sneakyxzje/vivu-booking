@@ -30,10 +30,18 @@ export interface TourItinerary {
 export interface TourSchedule {
   id: number;
   tour_id: number;
+  guide_id?: number | null;
   start_date: string;
   max_people: number;
   booked_people: number;
   status: "active" | "inactive" | "full";
+  guide?: {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string | null;
+    status?: string;
+  } | null;
 }
 
 export interface Tour {
@@ -53,7 +61,6 @@ export interface Tour {
   created_at?: string;
   updated_at?: string;
   admin_id?: number;
-  guide_id?: number | null;
   categories?: Category[];
   services?: Service[];
   images?: TourImage[];

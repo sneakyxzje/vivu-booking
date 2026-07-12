@@ -7,11 +7,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class TourResource extends JsonResource
 {
-    /**
-     * Transform the resource into an array.
-     *
-     * @return array<string, mixed>
-     */
     public function toArray(Request $request): array
     {
         return [
@@ -28,15 +23,10 @@ class TourResource extends JsonResource
             'end_location' => $this->end_location,
             'is_featured' => (bool) $this->is_featured,
             'status' => $this->status,
-            'guide_id' => $this->guide_id,
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
-
             'total_booked' => $this->when(isset($this->total_booked), (int) $this->total_booked),
-
-            // Chỉ trả về data quan hệ khi được load để tối ưu hiệu năng
             'admin' => $this->whenLoaded('admin'),
-            'guide' => $this->whenLoaded('guide'),
             'categories' => $this->whenLoaded('categories'),
             'services' => $this->whenLoaded('services'),
             'images' => $this->whenLoaded('images'),
@@ -45,5 +35,3 @@ class TourResource extends JsonResource
         ];
     }
 }
-
-

@@ -53,9 +53,9 @@ const adminService = {
     return response.data?.success !== false;
   },
 
-  // --- ASSIGN GUIDE TO TOUR ---
-  assignGuideToTour: async (tourId: number, guideId: number | null) => {
-    const response = await api.put(`/admin/tours/${tourId}/assign-guide`, {
+  // --- ASSIGN GUIDE TO SCHEDULE ---
+  assignGuideToSchedule: async (scheduleId: number, guideId: number | null) => {
+    const response = await api.put(`/admin/tour-schedules/${scheduleId}/assign-guide`, {
       guide_id: guideId,
     });
     return response.data?.success !== false;
