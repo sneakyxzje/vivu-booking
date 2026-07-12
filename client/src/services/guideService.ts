@@ -86,11 +86,14 @@ export const buildTourPayload = (form: unknown) => {
   });
 
   (
-    (f.schedules as { start_date: string; max_people: string }[] | undefined) ??
+    (f.schedules as { start_date: string; max_people: string; guide_id?: string }[] | undefined) ??
     []
   ).forEach((item, index) => {
     data.append(`schedules[${index}][start_date]`, item.start_date);
     data.append(`schedules[${index}][max_people]`, String(item.max_people));
+    if (item.guide_id) {
+      data.append(`schedules[${index}][guide_id]`, item.guide_id);
+    }
   });
 
   return data;
