@@ -71,7 +71,7 @@ class AdminTourController extends Controller
             'itineraries.*.title' => ['required_with:itineraries', 'string', 'max:255'],
             'itineraries.*.content' => ['required_with:itineraries', 'string'],
             'schedules' => ['nullable', 'array'],
-            'schedules.*.start_date' => ['required_with:schedules', 'date'],
+            'schedules.*.start_date' => ['required_with:schedules', 'date', 'after_or_equal:today'],
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
         ]);
 
@@ -94,6 +94,16 @@ class AdminTourController extends Controller
         $serviceIds = $validated['service_ids'] ?? [];
         $itineraries = $validated['itineraries'] ?? [];
         $schedules = $validated['schedules'] ?? [];
+
+        if (count($itineraries) > $numberOfDay) {
+            return $this->error("Lịch trình chỉ được tối đa {$numberOfDay} ngày", 422);
+        }
+
+        foreach ($itineraries as $itinerary) {
+            if ((int) $itinerary['day_number'] > $numberOfDay) {
+                return $this->error("Ngày trong lịch trình không được vượt quá {$numberOfDay}", 422);
+            }
+        }
 
         $tour = DB::transaction(function () use ($request, $validated, $categoryIds, $serviceIds, $itineraries, $schedules) {
             if ($request->hasFile('thumbnail_file')) {

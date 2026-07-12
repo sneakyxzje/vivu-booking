@@ -1,6 +1,17 @@
 import React from "react";
 import type { ScheduleFormItem } from "./types";
 
+const getTodayInputValue = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+
+  return [year, month, day].join("-");
+};
+
+const minStartDate = getTodayInputValue();
+
 interface Props {
   labelClass: string;
   fieldClass: string;
@@ -45,6 +56,7 @@ export const TourFormScheduleSection: React.FC<Props> = ({
             <label className={labelClass}>Ngày khởi hành</label>
             <input
               type="date"
+              min={minStartDate}
               required
               value={item.start_date}
               onChange={(e) => onChange(index, "start_date", e.target.value)}
