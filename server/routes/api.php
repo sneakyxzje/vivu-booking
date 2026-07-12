@@ -98,6 +98,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/users/{id}/status', [AdminUserController::class, 'toggleStatus']);
         Route::get('/tours', [AdminTourController::class, 'index']);
         Route::get('/tours/create', [AdminTourController::class, 'create']);
+        Route::get('/tours/{id}', [AdminTourController::class, 'show']);
         Route::post('/tours', [AdminTourController::class, 'store']);
         Route::put('/tour-schedules/{id}/assign-guide', [AdminTourController::class, 'assignScheduleGuide']);
 

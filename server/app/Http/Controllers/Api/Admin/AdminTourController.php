@@ -42,6 +42,23 @@ class AdminTourController extends Controller
         return $this->success(TourResource::collection($tours), 'Lấy danh sách tour thành công');
     }
 
+    public function show(int $id): JsonResponse
+    {
+        $tour = Tour::with([
+            'admin:id,name,email',
+            'categories',
+            'services',
+            'images',
+            'itineraries',
+            'schedules.guide:id,name,email,phone,status',
+        ])->find($id);
+
+        if (! $tour) {
+            return $this->error('Không tìm thấy tour', 404);
+        }
+
+        return $this->success(new TourResource($tour), 'Lấy chi tiết tour thành công');
+    }
     public function create(): JsonResponse
     {
         return $this->success([
@@ -217,9 +234,7 @@ class AdminTourController extends Controller
                     });
 
                 if (! $conflict) {
-                    if ($guideId === null) {
-            $schedule->update(['guide_id' => null]);
-        }
+                    $schedule->update(['guide_id' => $guideId]);
                 }
 
                 return $conflict;
