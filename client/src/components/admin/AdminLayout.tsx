@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -93,13 +93,22 @@ export const AdminLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  useEffect(() => {
+    document.documentElement.classList.add("admin-layout-active");
+    document.body.classList.add("admin-layout-active");
+    return () => {
+      document.documentElement.classList.remove("admin-layout-active");
+      document.body.classList.remove("admin-layout-active");
+    };
+  }, []);
+
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
+    <div className="h-screen w-screen overflow-hidden bg-gray-50 flex flex-col md:flex-row">
       {/* Mobile Sidebar Backdrop Overlay */}
       {isSidebarOpen && (
         <div
@@ -110,7 +119,7 @@ export const AdminLayout: React.FC = () => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 transition-transform duration-300 ease-in-out md:static md:translate-x-0 shrink-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 transition-transform duration-300 ease-in-out md:static md:translate-x-0 shrink-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
       >
         <div className="p-5 border-b border-slate-800 flex items-center justify-between">

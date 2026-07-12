@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import type { Booking } from "@/types";
 import adminService from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
+import CustomSelect from "@/components/admin/Select";
 
 export default function BookingManagement() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -17,6 +18,26 @@ export default function BookingManagement() {
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const statusOptions = [
+    { value: "all", label: "Tất cả trạng thái duyệt" },
+    { value: "pending", label: "Chờ xác nhận" },
+    { value: "confirmed", label: "Đã xác nhận" },
+    { value: "cancelled", label: "Đã hủy" },
+  ];
+
+  const paymentOptions = [
+    { value: "all", label: "Tất cả thanh toán" },
+    { value: "paid", label: "Đã thanh toán (Qua VNPAY)" },
+    { value: "unpaid", label: "Chưa thanh toán" },
+  ];
+
+  const sortOptions = [
+    { value: "latest", label: "Mới nhất trước" },
+    { value: "oldest", label: "Cũ nhất trước" },
+    { value: "amount-desc", label: "Tổng giá giảm dần" },
+    { value: "amount-asc", label: "Tổng giá tăng dần" },
+  ];
 
   // Fetch dữ liệu từ Backend API (Có phân trang)
   useEffect(() => {
@@ -134,7 +155,7 @@ export default function BookingManagement() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Doanh thu */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
-          <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-md group-hover:bg-emerald-100 transition-colors">
+          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-emerald-100/50 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -145,8 +166,8 @@ export default function BookingManagement() {
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Doanh thu VNPAY (Trang này)</p>
-            <h3 className="text-xl font-bold text-gray-900 mt-1">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Doanh thu VNPAY (Trang này)</p>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 tracking-tight font-plus-jakarta">
               {stats.revenue.toLocaleString()}đ
             </h3>
           </div>
@@ -154,7 +175,7 @@ export default function BookingManagement() {
 
         {/* Tổng số đơn */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
-          <div className="p-3.5 bg-blue-50 text-blue-600 rounded-md group-hover:bg-blue-100 transition-colors">
+          <div className="w-12 h-12 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-blue-100/50 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -165,30 +186,32 @@ export default function BookingManagement() {
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Tổng Đơn Đặt (Tất cả)</p>
-            <h3 className="text-xl font-bold text-gray-900 mt-1">{stats.total} đơn</h3>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tổng Đơn Đặt (Tất cả)</p>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 tracking-tight font-plus-jakarta">{stats.total} đơn</h3>
           </div>
         </div>
 
-        {/* Chờ xác nhận */}`r`n        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">`r`n          <div className="p-3.5 bg-amber-50 text-amber-600 rounded-md group-hover:bg-amber-100 transition-colors">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-        </div>
+        {/* Chờ xác nhận */}
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
+          <div className="w-12 h-12 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-amber-100/50 transition-colors">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Chờ xác nhận (Trang này)</p>
-            <h3 className="text-xl font-bold text-gray-900 mt-1">{stats.pending} đơn</h3>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Chờ xác nhận (Trang này)</p>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 tracking-tight font-plus-jakarta">{stats.pending} đơn</h3>
           </div>
         </div>
 
         {/* Đã hủy */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
-          <div className="p-3.5 bg-rose-50 text-rose-600 rounded-md group-hover:bg-rose-100 transition-colors">
+          <div className="w-12 h-12 bg-rose-50 text-rose-600 border border-rose-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-rose-100/50 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -199,17 +222,17 @@ export default function BookingManagement() {
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Đơn đã hủy (Trang này)</p>
-            <h3 className="text-xl font-bold text-gray-900 mt-1">{stats.cancelled} đơn</h3>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Đơn đã hủy (Trang này)</p>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 tracking-tight font-plus-jakarta">{stats.cancelled} đơn</h3>
           </div>
         </div>
       </div>
 
       {/* FILTER & SEARCH */}
-      <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs space-y-4">
+      <div className="bg-white p-5 rounded-lg border border-gray-200 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
           {/* Thanh tìm kiếm */}
-          <div className="relative md:col-span-4">
+          <div className="relative md:col-span-3">
             <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -225,53 +248,39 @@ export default function BookingManagement() {
               placeholder="Tìm mã đơn, tên khách hàng, số điện thoại, tour..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50"
+              className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-md bg-white text-gray-800 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
             />
           </div>
 
           {/* Lọc trạng thái đặt */}
-          <div className="md:col-span-2">
-            <select
+          <div className="md:col-span-3">
+            <CustomSelect
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white cursor-pointer"
-            >
-              <option value="all">Tất cả trạng thái duyệt</option>
-              <option value="pending">Chờ xác nhận</option>
-              <option value="confirmed">Đã xác nhận</option>
-              <option value="cancelled">Đã hủy</option>
-            </select>
+              onChange={setStatusFilter}
+              options={statusOptions}
+            />
           </div>
 
           {/* Lọc thanh toán */}
-          <div className="md:col-span-2.5">
-            <select
+          <div className="md:col-span-3">
+            <CustomSelect
               value={paymentFilter}
-              onChange={(e) => setPaymentFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white cursor-pointer"
-            >
-              <option value="all">Tất cả thanh toán</option>
-              <option value="paid">Đã thanh toán (Qua VNPAY)</option>
-              <option value="unpaid">Chưa thanh toán</option>
-            </select>
+              onChange={setPaymentFilter}
+              options={paymentOptions}
+            />
           </div>
 
           {/* Sắp xếp */}
           <div className="md:col-span-2">
-            <select
+            <CustomSelect
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white cursor-pointer"
-            >
-              <option value="latest">Mới nhất trước</option>
-              <option value="oldest">Cũ nhất trước</option>
-              <option value="amount-desc">Tổng giá giảm dần</option>
-              <option value="amount-asc">Tổng giá tăng dần</option>
-            </select>
+              onChange={setSortBy}
+              options={sortOptions}
+            />
           </div>
 
           {/* Xóa lọc nhanh */}
-          <div className="md:col-span-1.5 flex">
+          <div className="md:col-span-1 flex">
             <button
               onClick={() => {
                 setSearch("");
@@ -279,16 +288,16 @@ export default function BookingManagement() {
                 setPaymentFilter("all");
                 setSortBy("latest");
               }}
-              className="w-full py-2 text-sm text-gray-500 hover:text-primary-600 bg-gray-50 border border-gray-100 rounded-md font-medium hover:bg-primary-50 transition-colors cursor-pointer"
+              className="w-full py-2.5 text-sm text-gray-500 hover:text-primary-600 bg-gray-50 border border-gray-200 rounded-md font-semibold hover:bg-primary-50 transition-colors cursor-pointer"
             >
-              Xóa bộ lọc
+              Xóa lọc
             </button>
           </div>
         </div>
       </div>
 
       {/* DATA TABLE */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-gray-500 font-medium">
             Đang tải dữ liệu đơn đặt hàng...
@@ -308,7 +317,7 @@ export default function BookingManagement() {
                   <th className="py-3.5 text-center px-6">Hành động</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 text-sm">
+              <tbody className="divide-y divide-gray-100 text-sm font-inter">
                 {filteredBookings.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="p-12 text-center text-gray-400">
@@ -402,7 +411,7 @@ export default function BookingManagement() {
                         <td className="py-3.5 px-6 text-center">
                           <button
                             onClick={() => openDetails(booking)}
-                            className="px-3 py-1 text-xs text-primary-600 bg-primary-50 rounded hover:bg-primary-100 font-medium transition-colors cursor-pointer"
+                            className="rounded bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-100 transition-colors cursor-pointer"
                           >
                             Xem chi tiết
                           </button>

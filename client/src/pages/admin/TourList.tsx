@@ -103,66 +103,66 @@ export default function TourList() {
       <div className="grid grid-cols-1 sm:grid-cols-5 gap-5">
         {/* Tổng số Tour */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
-          <div className="p-3.5 bg-primary-50 text-primary-600 rounded-md group-hover:bg-primary-100 transition-colors">
+          <div className="w-12 h-12 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-blue-100/50 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Tổng số Tour</p>
-            <h3 className="text-xl font-bold text-gray-900 mt-1">{stats.total} chương trình</h3>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tổng số Tour</p>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 tracking-tight font-plus-jakarta">{stats.total} chương trình</h3>
           </div>
         </div>
 
         {/* Đang hoạt động */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
-          <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-md group-hover:bg-emerald-100 transition-colors">
+          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-emerald-100/50 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Đang hoạt động</p>
-            <h3 className="text-xl font-bold text-emerald-600 mt-1">{stats.active} Tour</h3>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Đang hoạt động</p>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 tracking-tight font-plus-jakarta">{stats.active} Tour</h3>
           </div>
         </div>
 
         {/* Tạm ngưng hoạt động */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
-          <div className="p-3.5 bg-rose-50 text-rose-600 rounded-md group-hover:bg-rose-100 transition-colors">
+          <div className="w-12 h-12 bg-rose-50 text-rose-600 border border-rose-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-rose-100/50 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Tạm dừng</p>
-            <h3 className="text-xl font-bold text-rose-600 mt-1">{stats.inactive} Tour</h3>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tạm dừng</p>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 tracking-tight font-plus-jakarta">{stats.inactive} Tour</h3>
           </div>
         </div>
 
         {/* Hết chỗ */}
-        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
-          <div className="p-3.5 bg-red-50 text-red-600 rounded-xl group-hover:bg-red-100 transition-colors">
+        <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
+          <div className="w-12 h-12 bg-red-50 text-red-600 border border-red-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-red-100/50 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z" />
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Hết chỗ</p>
-            <h3 className="text-xl font-bold text-red-600 mt-1">{stats.full} Tour</h3>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Hết chỗ</p>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 tracking-tight font-plus-jakarta">{stats.full} Tour</h3>
           </div>
         </div>
 
         {/* Giá trung bình */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
-          <div className="p-3.5 bg-amber-50 text-amber-600 rounded-md group-hover:bg-amber-100 transition-colors">
+          <div className="w-12 h-12 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-amber-100/50 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Giá trung bình</p>
-            <h3 className="text-xl font-bold text-gray-900 mt-1">{stats.avgPrice.toLocaleString()}đ</h3>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Giá trung bình</p>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 tracking-tight font-plus-jakarta">{stats.avgPrice.toLocaleString()}đ</h3>
           </div>
         </div>
       </div>
