@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, type ChangeEvent } from "react";
-import type { Guide } from "@/types";
+import type { Guide, TourSchedule } from "@/types";
 import adminService from "@/services/adminService";
 import { Toast } from "@/components/admin/CustomAlert";
 import { TableActions } from "@/components/admin/TableActions";
@@ -13,7 +13,7 @@ interface Tour {
   price: number;
   status: TourStatus;
   start_location: string;
-  guide_id?: number | null;
+  schedules?: TourSchedule[];
 }
 
 export default function TourList() {
@@ -26,6 +26,7 @@ export default function TourList() {
 
   // States quản lý chỉ định HDV
   const [selectedTour, setSelectedTour] = useState<Tour | null>(null);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
 
   // --- CUSTOM ALERTS TOAST ---
@@ -93,35 +94,64 @@ export default function TourList() {
   // Mở modal chỉ định HDV
   const openAssignModal = (tour: Tour) => {
     setSelectedTour(tour);
+    setSelectedScheduleId(tour.schedules?.[0]?.id ?? null);
     setIsAssignModalOpen(true);
   };
 
-  // Xác nhận chỉ định HDV qua API
+  // Xác nhận chỉ định HDV cho một chuyến qua API
   const handleConfirmAssign = async (guideId: number | null) => {
-    if (!selectedTour) return;
+    if (!selectedTour || !selectedScheduleId) return;
 
     try {
-      const success = await adminService.assignGuideToTour(selectedTour.id, guideId);
+      const success = await adminService.assignGuideToSchedule(
+        selectedScheduleId,
+        guideId,
+      );
+
       if (success) {
+        const guide = guides.find((item) => item.id === guideId) ?? null;
+
         setTours((prev) =>
-          prev.map((t) => {
-            if (t.id === selectedTour.id) {
-              return {
-                ...t,
-                guide_id: guideId,
-              };
-            }
-            return t;
-          })
+          prev.map((tour) =>
+            tour.id === selectedTour.id
+              ? {
+                  ...tour,
+                  schedules: tour.schedules?.map((schedule) =>
+                    schedule.id === selectedScheduleId
+                      ? { ...schedule, guide_id: guideId, guide }
+                      : schedule,
+                  ),
+                }
+              : tour,
+          ),
         );
-        showToast("Chỉ định hướng dẫn viên cho tour thành công!", "success");
+        setSelectedTour((current) =>
+          current
+            ? {
+                ...current,
+                schedules: current.schedules?.map((schedule) =>
+                  schedule.id === selectedScheduleId
+                    ? { ...schedule, guide_id: guideId, guide }
+                    : schedule,
+                ),
+              }
+            : current,
+        );
+        showToast(
+          guideId === null
+            ? "Đã bỏ phân công hướng dẫn viên cho chuyến."
+            : "Phân công hướng dẫn viên cho chuyến thành công!",
+          "success",
+        );
       }
-    } catch (err) {
-      console.error("Lỗi chỉ định HDV cho tour: ", err);
-      showToast("Đã xảy ra lỗi trong quá trình phân công.", "error");
-    } finally {
-      setIsAssignModalOpen(false);
-      setSelectedTour(null);
+    } catch (err: unknown) {
+      const message =
+        (
+          err as {
+            response?: { data?: { message?: string } };
+          }
+        ).response?.data?.message ?? "Đã xảy ra lỗi trong quá trình phân công.";
+      showToast(message, "error");
     }
   };
 
@@ -278,7 +308,8 @@ export default function TourList() {
                   </tr>
                 ) : (
                   filteredTours.map((tour) => {
-                    const assignedGuide = guides.find((g) => g.id === tour.guide_id);
+                    const assignedCount = tour.schedules?.filter((schedule) => schedule.guide_id).length ?? 0;
+                    const scheduleCount = tour.schedules?.length ?? 0;
                     return (
                       <tr key={tour.id} className="hover:bg-gray-50/50 transition-colors">
                         {/* ID */}
@@ -303,8 +334,12 @@ export default function TourList() {
 
                         {/* Cột Hướng dẫn viên */}
                         <td className="py-3.5 px-6">
-                          <span className={`text-sm ${assignedGuide ? "text-gray-800 font-semibold" : "text-gray-400 italic"}`}>
-                            {assignedGuide ? assignedGuide.name : "Chưa chỉ định"}
+                          <span className={assignedCount > 0 ? "text-sm font-semibold text-gray-800" : "text-sm italic text-gray-400"}>
+                            {scheduleCount === 0 ? (
+                              "Chưa có lịch"
+                            ) : (
+                              <>{assignedCount}/{scheduleCount} chuyến đã phân công</>
+                            )}
                           </span>
                         </td>
 
@@ -372,9 +407,10 @@ export default function TourList() {
         onClose={() => {
           setIsAssignModalOpen(false);
           setSelectedTour(null);
+          setSelectedScheduleId(null);
         }}
-        title="Chỉ định Hướng dẫn viên"
-        subtitle="Chọn hướng dẫn viên phụ trách hành trình tour"
+        title="Phân công hướng dẫn viên theo chuyến"
+        subtitle="Chọn lịch khởi hành, sau đó chọn hướng dẫn viên phụ trách"
         size="md"
         footer={
           <button
@@ -382,67 +418,115 @@ export default function TourList() {
             onClick={() => {
               setIsAssignModalOpen(false);
               setSelectedTour(null);
+              setSelectedScheduleId(null);
             }}
             className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-md text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none cursor-pointer"
           >
-            Hủy bỏ
+            Đóng
           </button>
         }
       >
         {selectedTour && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div className="bg-primary-50/50 p-4 rounded-lg border border-primary-100/50">
-              <p className="text-xs text-primary-600 font-semibold uppercase tracking-wider">Tên chương trình Tour</p>
-              <p className="text-sm font-bold text-gray-900 mt-1.5 leading-relaxed">{selectedTour.title}</p>
+              <p className="text-xs text-primary-600 font-semibold uppercase tracking-wider">
+                Chương trình tour
+              </p>
+              <p className="text-sm font-bold text-gray-900 mt-1.5">
+                {selectedTour.title}
+              </p>
             </div>
 
-            <div className="space-y-2.5">
-              <label className="block text-xs text-gray-400 font-semibold uppercase tracking-wider mb-2">
-                Lựa chọn Hướng dẫn viên phụ trách
+            <div>
+              <label className="block text-xs text-gray-500 font-semibold uppercase mb-2">
+                Lịch khởi hành
               </label>
-              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-                {/* Option: Bỏ chỉ định */}
-                <label className="flex items-center gap-3 p-3.5 border rounded-lg hover:bg-gray-50/50 cursor-pointer transition-colors border-gray-200 select-none">
-                  <input
-                    type="radio"
-                    name="guideSelect"
-                    checked={selectedTour.guide_id === null || selectedTour.guide_id === undefined}
-                    onChange={() => handleConfirmAssign(null)}
-                    className="text-primary-600 focus:ring-primary-500 w-4 h-4"
-                  />
-                  <div>
-                    <p className="text-sm font-bold text-gray-750">Chưa chỉ định (Trống)</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Không có hướng dẫn viên phụ trách tour này</p>
-                  </div>
-                </label>
+              {selectedTour.schedules?.length ? (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {selectedTour.schedules.map((schedule) => (
+                    <label
+                      key={schedule.id}
+                      className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 cursor-pointer hover:bg-gray-50"
+                    >
+                      <input
+                        type="radio"
+                        name="scheduleSelect"
+                        checked={selectedScheduleId === schedule.id}
+                        onChange={() => setSelectedScheduleId(schedule.id)}
+                        className="h-4 w-4 text-primary-600 focus:ring-primary-500"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-gray-900">
+                          {new Date(schedule.start_date + "T00:00:00").toLocaleDateString("vi-VN")}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {schedule.guide
+                            ? "HDV: " + schedule.guide.name
+                            : "Chưa phân công hướng dẫn viên"}
+                        </p>
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        {schedule.booked_people}/{schedule.max_people} khách
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-lg border border-gray-200 p-4 text-sm text-gray-500">
+                  Tour chưa có lịch khởi hành.
+                </p>
+              )}
+            </div>
 
-                {/* List active guides */}
-                {guides.map((guide) => (
-                  <label
-                    key={guide.id}
-                    className="flex items-center gap-3 p-3.5 border rounded-lg hover:bg-gray-50/50 cursor-pointer transition-colors border-gray-200 select-none"
-                  >
+            {selectedScheduleId && (
+              <div>
+                <label className="block text-xs text-gray-500 font-semibold uppercase mb-2">
+                  Hướng dẫn viên phụ trách
+                </label>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer border-gray-200">
                     <input
                       type="radio"
                       name="guideSelect"
-                      checked={selectedTour.guide_id === guide.id}
-                      onChange={() => handleConfirmAssign(guide.id)}
-                      className="text-primary-600 focus:ring-primary-500 w-4 h-4"
+                      checked={
+                        selectedTour.schedules?.find(
+                          (schedule) => schedule.id === selectedScheduleId,
+                        )?.guide_id == null
+                      }
+                      onChange={() => handleConfirmAssign(null)}
+                      className="h-4 w-4 text-primary-600 focus:ring-primary-500"
                     />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-bold text-gray-900 leading-tight">{guide.name}</p>
-                        <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-bold shrink-0">
-                          Sẵn sàng
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-1 font-mono">{guide.email}</p>
-                      <p className="text-xs text-gray-400 mt-0.5 font-mono">{guide.phone ?? "Không có SĐT"}</p>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">Chưa phân công</p>
+                      <p className="text-xs text-gray-500">Bỏ hướng dẫn viên khỏi chuyến này</p>
                     </div>
                   </label>
-                ))}
+
+                  {guides.map((guide) => (
+                    <label
+                      key={guide.id}
+                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer border-gray-200"
+                    >
+                      <input
+                        type="radio"
+                        name="guideSelect"
+                        checked={
+                          selectedTour.schedules?.find(
+                            (schedule) => schedule.id === selectedScheduleId,
+                          )?.guide_id === guide.id
+                        }
+                        onChange={() => handleConfirmAssign(guide.id)}
+                        className="h-4 w-4 text-primary-600 focus:ring-primary-500"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-gray-900">{guide.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{guide.email}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </Modal>

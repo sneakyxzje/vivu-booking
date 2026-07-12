@@ -99,7 +99,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/tours', [AdminTourController::class, 'index']);
         Route::get('/tours/create', [AdminTourController::class, 'create']);
         Route::post('/tours', [AdminTourController::class, 'store']);
-        Route::put('/tours/{id}/assign-guide', [AdminTourController::class, 'assignGuide']);
+        Route::put('/tour-schedules/{id}/assign-guide', [AdminTourController::class, 'assignScheduleGuide']);
 
         Route::apiResource('guides', AdminGuideController::class);
 

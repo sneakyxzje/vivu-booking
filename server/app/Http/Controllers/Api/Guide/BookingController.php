@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\Guide;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
-use App\Models\Tour;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -12,16 +11,17 @@ class BookingController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $tourIds = Tour::where('guide_id', $request->user()->id)->pluck('id');
+        $guideId = $request->user()->id;
 
         $bookings = Booking::query()
-            ->with(['tour:id,title,guide_id', 'schedule:id,start_date'])
-            ->whereIn('tour_id', $tourIds)
+            ->with(['tour:id,title', 'schedule:id,start_date,guide_id'])
+            ->whereHas('schedule', fn ($query) => $query->where('guide_id', $guideId))
             ->latest()
             ->get()
             ->map(fn (Booking $booking) => [
                 'id' => $booking->id,
                 'tour_id' => $booking->tour_id,
+                'tour_schedule_id' => $booking->tour_schedule_id,
                 'tour_title' => $booking->tour?->title ?? '',
                 'customer_name' => $booking->customer_name,
                 'customer_email' => $booking->customer_email,
@@ -35,7 +35,7 @@ class BookingController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Lấy danh sách đặt chỗ được phân công thành công',
+            'message' => 'Lấy danh sách đặt chỗ của các chuyến được phân công thành công',
             'data' => $bookings,
         ]);
     }
@@ -43,13 +43,13 @@ class BookingController extends Controller
     public function confirm(Request $request, int $id): JsonResponse
     {
         $booking = Booking::query()
-            ->whereHas('tour', fn ($query) => $query->where('guide_id', $request->user()->id))
+            ->whereHas('schedule', fn ($query) => $query->where('guide_id', $request->user()->id))
             ->find($id);
 
-        if (!$booking) {
+        if (! $booking) {
             return response()->json([
                 'success' => false,
-                'message' => 'Không tìm thấy đặt chỗ thuộc tour được phân công',
+                'message' => 'Không tìm thấy đặt chỗ thuộc chuyến được phân công',
             ], 404);
         }
 
