@@ -16,6 +16,11 @@ const adminService = {
     const response = await api.get("/admin/tours");
     return response.data?.data ?? [];
   },
+  getTourById: async (id: number): Promise<Tour | null> => {
+    const response = await api.get(`/admin/tours/${id}`);
+    return response.data?.data ?? null;
+  },
+
   // --- BOOKINGS ---
   getBookings: async (page = 1): Promise<PaginatedResponse<Booking> | null> => {
     const response = await api.get(`/admin/bookings?page=${page}`);
