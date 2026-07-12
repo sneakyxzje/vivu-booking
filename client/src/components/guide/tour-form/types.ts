@@ -14,6 +14,7 @@ export interface ItineraryFormItem {
 export interface ScheduleFormItem {
   start_date: string;
   max_people: string;
+  guide_id: string;
 }
 
 export interface TourFormState {
