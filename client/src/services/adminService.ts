@@ -1,6 +1,6 @@
 import api from "./api";
 import { extractObject } from "@/utils/apiHelpers";
-import type { Booking, Guide } from "@/types";
+import type { Booking, Guide, Tour } from "@/types";
 
 export interface PaginatedResponse<T> {
   current_page: number;
@@ -11,6 +11,11 @@ export interface PaginatedResponse<T> {
 }
 
 const adminService = {
+  // --- TOURS ---
+  getTours: async (): Promise<Tour[]> => {
+    const response = await api.get("/admin/tours");
+    return response.data?.data ?? [];
+  },
   // --- BOOKINGS ---
   getBookings: async (page = 1): Promise<PaginatedResponse<Booking> | null> => {
     const response = await api.get(`/admin/bookings?page=${page}`);
@@ -58,3 +63,4 @@ const adminService = {
 };
 
 export default adminService;
+

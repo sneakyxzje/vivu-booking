@@ -75,7 +75,7 @@ class BookingController extends Controller
                 ]);
             }
 
-            if ($schedule->status !== 'active') {
+            if ($schedule->status !== 'active' || $schedule->tour?->status !== 'active') {
                 throw ValidationException::withMessages([
                     'tour_schedule_id' => 'Lịch khởi hành này hiện không khả dụng.',
                 ]);
@@ -107,8 +107,14 @@ class BookingController extends Controller
                 'status' => 'pending',
                 'note' => $data['note'] ?? null,
             ]);
-
             $schedule->increment('booked_people', $data['guests']);
+            $schedule->refresh();
+
+            if ($schedule->booked_people >= $schedule->max_people) {
+                $schedule->update(['status' => 'full']);
+            }
+
+            $this->refreshTourAvailability($tour);
 
             return $booking->load(['tour', 'schedule']);
         });
@@ -151,7 +157,7 @@ class BookingController extends Controller
         if ($bookingId) {
             DB::transaction(function () use ($bookingId, $isSuccessful, $isValidSignature, $request) {
                 $booking = Booking::query()
-                    ->with('schedule')
+                    ->with(['schedule', 'tour.schedules'])
                     ->lockForUpdate()
                     ->find($bookingId);
 
@@ -179,9 +185,15 @@ class BookingController extends Controller
                     'paid_at' => $isSuccessful ? now() : null,
                     'confirmed_at' => $isSuccessful ? now() : null,
                 ]);
-
                 if (!$isSuccessful && $booking->schedule) {
                     $booking->schedule->decrement('booked_people', $booking->guests);
+                    $booking->schedule->refresh();
+
+                    if ($booking->schedule->status === 'full' && $booking->schedule->booked_people < $booking->schedule->max_people) {
+                        $booking->schedule->update(['status' => 'active']);
+                    }
+
+                    $this->refreshTourAvailability($booking->tour);
                 }
             });
         }
@@ -217,4 +229,20 @@ class BookingController extends Controller
 
         return hash_equals($calculatedHash, $secureHash);
     }
+    private function refreshTourAvailability($tour): void
+    {
+        if (!$tour || $tour->status === 'inactive') {
+            return;
+        }
+
+        $tour->loadMissing('schedules');
+
+        $hasAvailableSchedule = $tour->schedules->contains(function ($schedule) {
+            return $schedule->status === 'active'
+                && (int) $schedule->booked_people < (int) $schedule->max_people;
+        });
+
+        $tour->update(['status' => $hasAvailableSchedule ? 'active' : 'full']);
+    }
 }
+

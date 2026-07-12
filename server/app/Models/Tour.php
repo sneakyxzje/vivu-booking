@@ -18,7 +18,8 @@ use Illuminate\Database\Eloquent\Model;
     'start_location',
     'end_location',
     'is_featured',
-    'status'
+    'status',
+    'guide_id'
 ])]
 class Tour extends Model
 {
@@ -64,3 +65,4 @@ class Tour extends Model
         return $this->hasMany(TourSchedule::class);
     }
 }
+

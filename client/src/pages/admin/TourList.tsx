@@ -1,17 +1,16 @@
 import { useEffect, useState, useMemo, type ChangeEvent } from "react";
 import type { Guide } from "@/types";
 import adminService from "@/services/adminService";
-import tourService from "@/services/tourService";
 import { Toast } from "@/components/admin/CustomAlert";
 import { TableActions } from "@/components/admin/TableActions";
 import { Modal } from "@/components/admin/Modal";
 
-type TourStatus = "active" | "inactive";
+type TourStatus = "active" | "inactive" | "full";
 
 interface Tour {
   id: number;
   title: string;
-  price: string;
+  price: number;
   status: TourStatus;
   start_location: string;
   guide_id?: number | null;
@@ -44,10 +43,8 @@ export default function TourList() {
   const fetchTours = async () => {
     setLoading(true);
     try {
-      const res = await tourService.getAll();
-      if (res.success) {
-        setTours(res.data as unknown as Tour[] || []);
-      }
+      const data = await adminService.getTours();
+      setTours(data as unknown as Tour[] || []);
     } catch (err) {
       console.error("Error loading tours: ", err);
     } finally {
@@ -85,11 +82,12 @@ export default function TourList() {
     const total = tours.length;
     const active = tours.filter((t) => t.status === "active").length;
     const inactive = tours.filter((t) => t.status === "inactive").length;
+    const full = tours.filter((t) => t.status === "full").length;
     const avgPrice = tours.length
       ? Math.round(tours.reduce((sum, t) => sum + Number(t.price), 0) / tours.length)
       : 0;
 
-    return { total, active, inactive, avgPrice };
+    return { total, active, inactive, full, avgPrice };
   }, [tours]);
 
   // Mở modal chỉ định HDV
@@ -153,7 +151,7 @@ export default function TourList() {
       </div>
 
       {/* KPI STATS CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-5">
         {/* Tổng số Tour */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
           <div className="p-3.5 bg-primary-50 text-primary-600 rounded-md group-hover:bg-primary-100 transition-colors">
@@ -190,6 +188,19 @@ export default function TourList() {
           <div>
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Tạm dừng</p>
             <h3 className="text-xl font-bold text-rose-600 mt-1">{stats.inactive} Tour</h3>
+          </div>
+        </div>
+
+        {/* Hết chỗ */}
+        <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
+          <div className="p-3.5 bg-red-50 text-red-600 rounded-xl group-hover:bg-red-100 transition-colors">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Hết chỗ</p>
+            <h3 className="text-xl font-bold text-red-600 mt-1">{stats.full} Tour</h3>
           </div>
         </div>
 
@@ -305,8 +316,8 @@ export default function TourList() {
                               : "bg-rose-50 text-rose-700 border-rose-200"
                               }`}
                           >
-                            <span className={`w-1.5 h-1.5 rounded-full ${tour.status === "active" ? "bg-emerald-500" : "bg-rose-500"}`}></span>
-                            {tour.status === "active" ? "Hoạt động" : "Tạm dừng"}
+                            <span className={`w-1.5 h-1.5 rounded-full ${tour.status === "active" ? "bg-emerald-500" : tour.status === "full" ? "bg-red-500" : "bg-rose-500"}`}></span>
+                            {tour.status === "active" ? "Hoạt động" : tour.status === "full" ? "Hết chỗ" : "Tạm dừng"}
                           </span>
                         </td>
                         {/* Hành động (3-dots dropdown) */}
@@ -446,3 +457,6 @@ export default function TourList() {
     </div>
   );
 }
+
+
+

@@ -27,7 +27,7 @@ class TourService
 
         // 2. Chuẩn bị dữ liệu và set default cho các optional fields
         $tourData = [
-            'host_id' => $hostId,
+            'admin_id' => $hostId,
             'title' => $data['title'],
             'slug' => $slug,
             'description' => $data['description'] ?? null,
@@ -39,7 +39,7 @@ class TourService
             'start_location' => $data['start_location'],
             'end_location' => $data['end_location'] ?? null,
             'is_featured' => $data['is_featured'] ?? false,
-            'status' => $data['status'] ?? 'pending',
+            'status' => $data['status'] ?? 'active',
         ];
 
         // 3. Tạo Tour thông qua Repository
@@ -85,3 +85,4 @@ class TourService
         return $tour->load(['categories', 'services', 'images', 'itineraries', 'schedules']);
     }
 }
+

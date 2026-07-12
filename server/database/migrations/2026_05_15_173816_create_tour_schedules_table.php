@@ -17,7 +17,7 @@ return new class extends Migration
             $table->date('start_date');
             $table->integer('max_people')->default(10);
             $table->integer('booked_people')->default(0);
-            $table->enum('status', ['active', 'canceled', 'completed'])->default('active');
+            $table->enum('status', ['active', 'inactive', 'full'])->default('active');
             $table->timestamps();
         });
     }
@@ -30,3 +30,4 @@ return new class extends Migration
         Schema::dropIfExists('tour_schedules');
     }
 };
+

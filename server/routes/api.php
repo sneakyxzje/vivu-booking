@@ -80,7 +80,8 @@ Route::middleware('auth:sanctum')->group(function () {
     */
     Route::middleware('role:guide')->prefix('guide')->group(function () {
         Route::get('/dashboard', [GuideController::class, 'dashboardData']);
-        Route::apiResource('/my-tours', GuideTourController::class);
+        Route::get('/my-tours', [GuideTourController::class, 'index']);
+        Route::get('/my-tours/{id}', [GuideTourController::class, 'show']);
         Route::get('/bookings', [GuideBookingController::class, 'index']);
         Route::put('/bookings/{id}/confirm', [GuideBookingController::class, 'confirm']);
     });
@@ -95,9 +96,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboardData']);
         Route::get('/users', [AdminUserController::class, 'index']);
         Route::put('/users/{id}/status', [AdminUserController::class, 'toggleStatus']);
+        Route::get('/tours', [AdminTourController::class, 'index']);
         Route::get('/tours/create', [AdminTourController::class, 'create']);
         Route::post('/tours', [AdminTourController::class, 'store']);
-        Route::put('/tours/{id}/approve', [AdminTourController::class, 'approve']);
         Route::put('/tours/{id}/assign-guide', [AdminTourController::class, 'assignGuide']);
 
         Route::apiResource('guides', AdminGuideController::class);
@@ -112,3 +113,5 @@ Route::middleware('auth:sanctum')->group(function () {
         });
     });
 });
+
+

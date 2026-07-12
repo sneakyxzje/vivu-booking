@@ -110,10 +110,6 @@ const router = createBrowserRouter([
             path: "/guide/tours",
             element: <GuideTours />,
           },
-          // {
-          //   path: "/guide/tours/:id/edit",
-          //   element: <GuideTourForm />,
-          // },
           {
             path: "/guide/bookings",
             element: <GuideBookings />,
@@ -169,3 +165,4 @@ const router = createBrowserRouter([
 export const App: React.FC = () => <RouterProvider router={router} />;
 
 export default App;
+

@@ -290,11 +290,11 @@ export const CreateTourForm: React.FC = () => {
 
     try {
       if (isEdit && id) {
-        await guideService.updateTour(Number(id), form);
+        throw new Error("Edit tour is not implemented yet.");
       } else {
         await tourService.createTour(form);
       }
-      navigate("/guide/tours");
+      navigate("/admin/tours");
     } catch {
       setError("Không thể lưu tour. Vui lòng thử lại.");
     } finally {
@@ -319,7 +319,7 @@ export const CreateTourForm: React.FC = () => {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Link
-            to="/guide/tours"
+            to="/admin/tours"
             className="inline-flex items-center gap-2 text-sm font-semibold text-primary-600 hover:text-primary-700"
           >
             <svg
@@ -343,7 +343,7 @@ export const CreateTourForm: React.FC = () => {
           <p className="mt-1 text-sm text-gray-500">
             {isEdit
               ? "Cập nhật thông tin tour đang quản lý."
-              : "Tour sẽ được gửi duyệt sau khi lưu."}
+              : "Tour sẽ được kích hoạt sau khi admin lưu."}
           </p>
         </div>
       </div>
@@ -423,7 +423,7 @@ export const CreateTourForm: React.FC = () => {
 
           <div className="flex flex-col-reverse gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:flex-row sm:justify-end md:px-6">
             <Link
-              to="/guide/tours"
+              to="/admin/tours"
               className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-100"
             >
               Hủy
@@ -458,7 +458,7 @@ export const CreateTourForm: React.FC = () => {
                 ? "Đang lưu..."
                 : isEdit
                   ? "Cập nhật tour"
-                  : "Gửi tour chờ duyệt"}
+                  : "Tạo tour"}
             </button>
           </div>
         </form>
@@ -482,3 +482,4 @@ export const CreateTourForm: React.FC = () => {
 };
 
 export default CreateTourForm;
+
