@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { MyBookingsTab } from "@/components/profile/MyBookingsTab";
+import bookingService from "@/services/bookingService";
+import type { Booking } from "@/types";
 import {
   User,
   Ticket,
@@ -23,6 +25,29 @@ export const Profile: React.FC = () => {
 
   const currentTabParam = searchParams.get("tab") || "bookings";
   const [activeTab, setActiveTab] = useState<string>(currentTabParam);
+
+  // Dynamic booking counts
+  const [totalBookings, setTotalBookings] = useState<number>(0);
+  const [upcomingBookings, setUpcomingBookings] = useState<number>(0);
+
+  useEffect(() => {
+    const fetchBookingCounts = async () => {
+      try {
+        const response = await bookingService.getMyBookings();
+        if (response.data && Array.isArray(response.data.data)) {
+          const list: Booking[] = response.data.data;
+          setTotalBookings(list.length);
+          setUpcomingBookings(
+            list.filter((b) => b.status === "confirmed" || b.status === "pending").length
+          );
+        }
+      } catch (err) {
+        console.error("Lỗi nạp số liệu booking:", err);
+      }
+    };
+
+    fetchBookingCounts();
+  }, []);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -105,16 +130,20 @@ export const Profile: React.FC = () => {
               </div>
             </div>
 
-            {/* Clean Stats Cards */}
-            <div className="flex items-center gap-3 bg-gray-50 p-2.5 rounded-2xl border border-gray-200/60 w-full md:w-auto justify-around">
+            {/* Clean Dynamic Stats Cards */}
+            <div className="flex items-center gap-3 bg-gray-50/80 p-2.5 rounded-2xl border border-gray-200/70 w-full md:w-auto justify-around">
               <div className="text-center px-5 py-2">
-                <span className="block text-xl font-bold text-gray-900">Tour</span>
-                <span className="text-xs text-gray-500 font-medium">Đã đăng ký</span>
+                <span className="block text-2xl font-extrabold text-gray-900 font-plus-jakarta">
+                  {totalBookings}
+                </span>
+                <span className="text-xs text-gray-500 font-medium">Tour đã đăng ký</span>
               </div>
               <div className="w-px h-8 bg-gray-200" />
               <div className="text-center px-5 py-2">
-                <span className="block text-xl font-bold text-primary-600">Vivu</span>
-                <span className="text-xs text-gray-500 font-medium">Booking Safe</span>
+                <span className="block text-2xl font-extrabold text-primary-600 font-plus-jakarta">
+                  {upcomingBookings}
+                </span>
+                <span className="text-xs text-gray-500 font-medium">Tour sắp đi</span>
               </div>
             </div>
 
