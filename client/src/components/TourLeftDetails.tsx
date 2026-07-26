@@ -8,6 +8,7 @@ import {
   HotelIcon,
   LandmarkIcon,
 } from "@/components/Icons";
+import { TourReviewsSection } from "@/components/TourReviewsSection";
 
 interface TourLeftDetailsProps {
   tour: Tour;
@@ -649,6 +650,9 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Đánh giá và bình luận tour công khai */}
+      <TourReviewsSection tourTitle={tour.title} />
     </div>
   );
 };
