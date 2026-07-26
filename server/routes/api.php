@@ -70,6 +70,7 @@ Route::middleware('auth:sanctum')->group(function () {
     */
     Route::middleware('role:customer')->group(function () {
         Route::get('/my-bookings', [CustomerBookingController::class, 'myBookings']);
+        Route::put('/my-bookings/{id}/cancel', [CustomerBookingController::class, 'cancelBooking']);
         Route::post('/tours/{id}/reviews', [TourController::class, 'review']);
     });
 

@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
     'total_amount',
     'status',
     'note',
+    'cancel_reason',
     'vnpay_transaction_no',
     'paid_at',
     'confirmed_at',

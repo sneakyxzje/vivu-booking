@@ -109,6 +109,7 @@ class AdminTourController extends Controller
             'number_of_nights' => ['required', 'integer', 'min:0'],
             'start_location' => ['required', 'string', 'max:255'],
             'end_location' => ['nullable', 'string', 'max:255'],
+            'vehicle_info' => ['nullable', 'string', 'max:500'],
             'category_ids' => ['nullable', 'array'],
             'category_ids.*' => ['exists:categories,id'],
             'service_ids' => ['nullable', 'array'],
