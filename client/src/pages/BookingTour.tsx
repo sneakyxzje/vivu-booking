@@ -159,6 +159,96 @@ const BookingForm = ({
             onChange={handleInputChange("note")}
           />
         </div>
+
+        {/* SECTION: THÔNG TIN CHI TIẾT HÀNH KHÁCH THAM GIA (CHỨC NĂNG 3) */}
+        <div className="md:col-span-2 pt-4 border-t border-gray-100 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary-600"></span>
+                Danh sách thông tin hành khách tham gia ({form.guests} người)
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Vui lòng điền đầy đủ họ tên và giấy tờ cá nhân để Vivu Booking làm bảo hiểm du lịch & xếp vị trí xe.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {Array.from({ length: Math.max(1, form.guests) }).map((_, index) => (
+              <div
+                key={index}
+                className="bg-slate-50/80 p-4.5 rounded-2xl border border-slate-200/90 space-y-3 relative"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-primary-600 text-white font-bold flex items-center justify-center text-[10px]">
+                      {index + 1}
+                    </span>
+                    Hành khách #{index + 1}
+                  </span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${index === 0 ? 'bg-primary-100 text-primary-700' : 'bg-gray-200 text-gray-600'}`}>
+                    {index === 0 ? "Người đại diện đặt tour" : "Hành khách đi cùng"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                      Họ và tên đầy đủ <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: NGUYEN VAN A"
+                      defaultValue={index === 0 ? form.customerName : ""}
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                      Loại khách & Ngày sinh
+                    </label>
+                    <div className="flex gap-2">
+                      <select className="w-1/2 px-2.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 text-gray-700">
+                        <option value="adult">Người lớn (&gt; 12 tuổi)</option>
+                        <option value="child">Trẻ em (2-11 tuổi)</option>
+                        <option value="infant">Em bé (&lt; 2 tuổi)</option>
+                      </select>
+                      <input
+                        type="date"
+                        className="w-1/2 px-2.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 text-gray-700"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                      Số CCCD / CMND / Hộ chiếu
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Nhập số giấy tờ cá nhân..."
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                      Yêu cầu / Ghi chú đặc biệt
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: Ăn chay, say xe..."
+                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Tổng tiền */}
