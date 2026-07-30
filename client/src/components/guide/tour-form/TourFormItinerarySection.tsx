@@ -10,7 +10,7 @@ interface Props {
   onRemove: (index: number) => void;
   onChange: (
     index: number,
-    field: "day_number" | "title" | "content",
+    field: "day_number" | "title" | "start_point" | "end_point" | "route_points" | "rest_stops" | "content",
     value: string,
   ) => void;
 }
@@ -84,6 +84,48 @@ export const TourFormItinerarySection: React.FC<Props> = ({
               />
             </div>
           </div>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className={labelClass}>Điểm đầu trong ngày</label>
+              <input
+                value={item.start_point}
+                onChange={(e) => onChange(index, "start_point", e.target.value)}
+                placeholder="VD: Hà Nội"
+                className={fieldClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Điểm đến trong ngày</label>
+              <input
+                value={item.end_point}
+                onChange={(e) => onChange(index, "end_point", e.target.value)}
+                placeholder="VD: Hạ Long"
+                className={fieldClass}
+              />
+            </div>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className={labelClass}>Các chặng đi qua</label>
+              <textarea
+                rows={2}
+                value={item.route_points}
+                onChange={(e) => onChange(index, "route_points", e.target.value)}
+                placeholder="VD: Hải Dương, Uông Bí, Bãi Cháy"
+                className={`${fieldClass} resize-y`}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Điểm nghỉ chân</label>
+              <textarea
+                rows={2}
+                value={item.rest_stops}
+                onChange={(e) => onChange(index, "rest_stops", e.target.value)}
+                placeholder="VD: Trạm dừng Sao Đỏ"
+                className={`${fieldClass} resize-y`}
+              />
+            </div>
+          </div>
           <div className="mt-3">
             <label className={labelClass}>Nội dung</label>
             <textarea
@@ -100,3 +142,4 @@ export const TourFormItinerarySection: React.FC<Props> = ({
     </div>
   </div>
 );
+

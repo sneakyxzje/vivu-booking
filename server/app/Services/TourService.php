@@ -66,6 +66,10 @@ class TourService
                 $tour->itineraries()->create([
                     'day_number' => $itinerary['day_number'],
                     'title' => $itinerary['title'],
+                    'start_point' => $itinerary['start_point'] ?? null,
+                    'end_point' => $itinerary['end_point'] ?? null,
+                    'route_points' => $itinerary['route_points'] ?? null,
+                    'rest_stops' => $itinerary['rest_stops'] ?? null,
                     'content' => $itinerary['content'],
                 ]);
             }
