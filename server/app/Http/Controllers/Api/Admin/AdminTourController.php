@@ -117,6 +117,10 @@ class AdminTourController extends Controller
             'itineraries' => ['nullable', 'array'],
             'itineraries.*.day_number' => ['required_with:itineraries', 'integer', 'min:1'],
             'itineraries.*.title' => ['required_with:itineraries', 'string', 'max:255'],
+            'itineraries.*.start_point' => ['nullable', 'string', 'max:255'],
+            'itineraries.*.end_point' => ['nullable', 'string', 'max:255'],
+            'itineraries.*.route_points' => ['nullable', 'string'],
+            'itineraries.*.rest_stops' => ['nullable', 'string'],
             'itineraries.*.content' => ['required_with:itineraries', 'string'],
             'schedules' => ['nullable', 'array'],
             'schedules.*.start_date' => ['required_with:schedules', 'date', 'after_or_equal:today'],
@@ -187,6 +191,10 @@ class AdminTourController extends Controller
                 $tour->itineraries()->create([
                     'day_number' => $item['day_number'],
                     'title' => $item['title'],
+                    'start_point' => $item['start_point'] ?? null,
+                    'end_point' => $item['end_point'] ?? null,
+                    'route_points' => $item['route_points'] ?? null,
+                    'rest_stops' => $item['rest_stops'] ?? null,
                     'content' => $item['content'],
                 ]);
             }
@@ -378,6 +386,4 @@ class AdminTourController extends Controller
         return $start->lte($assignedEnd) && $end->gte($assignedStart);
     }
 }
-
-
 

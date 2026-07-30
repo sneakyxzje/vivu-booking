@@ -32,7 +32,15 @@ const emptyForm: TourFormState = {
   images: [] as File[],
   image_previews: [] as string[],
   itineraries: [
-    { day_number: "1", title: "", content: "" } as ItineraryFormItem,
+    {
+      day_number: "1",
+      title: "",
+      start_point: "",
+      end_point: "",
+      route_points: "",
+      rest_stops: "",
+      content: "",
+    } as ItineraryFormItem,
   ],
   schedules: [{ start_date: "", max_people: "10", guide_id: "" } as ScheduleFormItem],
   category_ids: [] as number[],
@@ -179,6 +187,10 @@ export const CreateTourForm: React.FC = () => {
             tour.itineraries?.map((item) => ({
               day_number: String(item.day_number),
               title: item.title,
+              start_point: item.start_point ?? "",
+              end_point: item.end_point ?? "",
+              route_points: item.route_points ?? "",
+              rest_stops: item.rest_stops ?? "",
               content: item.content ?? "",
             })) ?? emptyForm.itineraries,
           schedules:
@@ -257,7 +269,7 @@ export const CreateTourForm: React.FC = () => {
 
   const updateItinerary = (
     index: number,
-    field: "day_number" | "title" | "content",
+    field: "day_number" | "title" | "start_point" | "end_point" | "route_points" | "rest_stops" | "content",
     value: string,
   ) => {
     setForm((prev) => ({
@@ -287,6 +299,10 @@ export const CreateTourForm: React.FC = () => {
           {
             day_number: String(prev.itineraries.length + 1),
             title: "",
+            start_point: "",
+            end_point: "",
+            route_points: "",
+            rest_stops: "",
             content: "",
           },
         ],
