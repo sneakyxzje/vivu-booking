@@ -145,6 +145,57 @@ class BookingController extends Controller
         ]);
     }
 
+    public function cancelBooking(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'cancel_reason' => 'required|string|max:500',
+        ], [
+            'cancel_reason.required' => 'Vui lòng nhập lý do hủy đơn hàng.',
+        ]);
+
+        $booking = Booking::with(['schedule', 'tour'])->where('id', $id)
+            ->where('customer_id', $request->user()->id)
+            ->first();
+
+        if (!$booking) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy đơn đặt tour của bạn.',
+            ], 404);
+        }
+
+        if ($booking->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Chỉ có thể hủy đơn đặt tour đang ở trạng thái chờ duyệt (pending).',
+            ], 400);
+        }
+
+        DB::transaction(function () use ($booking, $validated) {
+            $booking->update([
+                'status' => 'cancelled',
+                'cancel_reason' => $validated['cancel_reason'],
+            ]);
+
+            if ($booking->schedule) {
+                $booking->schedule->decrement('booked_people', $booking->guests);
+                $booking->schedule->refresh();
+
+                if ($booking->schedule->status === 'full' && $booking->schedule->booked_people < $booking->schedule->max_people) {
+                    $booking->schedule->update(['status' => 'active']);
+                }
+
+                $this->refreshTourAvailability($booking->tour);
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Hủy đơn đặt tour thành công.',
+            'data' => $booking->refresh(),
+        ]);
+    }
+
     public function vnpayReturn(Request $request)
     {
         $frontendUrl = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');

@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
     'number_of_nights',
     'start_location',
     'end_location',
+    'vehicle_info',
     'is_featured',
     'status'
 ])]
