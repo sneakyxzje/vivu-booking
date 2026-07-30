@@ -344,12 +344,50 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
                     <div
                       className={`transition-all duration-500 overflow-hidden ${
                         isExpanded
-                          ? "max-h-96 opacity-100 border-t border-gray-100"
+                          ? "max-h-[720px] opacity-100 border-t border-gray-100"
                           : "max-h-0 opacity-0"
                       }`}
                     >
-                      <div className="p-5 text-gray-600 leading-relaxed text-sm md:text-base whitespace-pre-line">
-                        {item.content}
+                      <div className="space-y-4 p-5 text-sm md:text-base">
+                        {(item.start_point || item.end_point || item.route_points || item.rest_stops) && (
+                          <div className="grid grid-cols-1 gap-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm sm:grid-cols-2">
+                            {item.start_point && (
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                                  Điểm đầu
+                                </p>
+                                <p className="mt-1 font-semibold text-gray-800">{item.start_point}</p>
+                              </div>
+                            )}
+                            {item.end_point && (
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                                  Điểm đến
+                                </p>
+                                <p className="mt-1 font-semibold text-gray-800">{item.end_point}</p>
+                              </div>
+                            )}
+                            {item.route_points && (
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                                  Chặng đi qua
+                                </p>
+                                <p className="mt-1 whitespace-pre-line text-gray-600">{item.route_points}</p>
+                              </div>
+                            )}
+                            {item.rest_stops && (
+                              <div>
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                                  Nghỉ chân
+                                </p>
+                                <p className="mt-1 whitespace-pre-line text-gray-600">{item.rest_stops}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div className="text-gray-600 leading-relaxed whitespace-pre-line">
+                          {item.content}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -656,3 +694,4 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
     </div>
   );
 };
+

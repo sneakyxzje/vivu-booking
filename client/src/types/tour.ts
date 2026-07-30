@@ -24,6 +24,10 @@ export interface TourItinerary {
   tour_id: number;
   day_number: number;
   title: string;
+  start_point?: string | null;
+  end_point?: string | null;
+  route_points?: string | null;
+  rest_stops?: string | null;
   content: string;
 }
 
@@ -81,6 +85,4 @@ export interface TourFilterParams {
   page?: number;
   per_page?: number;
 }
-
-
 

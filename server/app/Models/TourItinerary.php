@@ -9,6 +9,10 @@ use Illuminate\Database\Eloquent\Model;
     'tour_id',
     'day_number',
     'title',
+    'start_point',
+    'end_point',
+    'route_points',
+    'rest_stops',
     'content'
 ])]
 class TourItinerary extends Model
@@ -18,3 +22,4 @@ class TourItinerary extends Model
         return $this->belongsTo(Tour::class);
     }
 }
+
