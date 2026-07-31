@@ -223,7 +223,7 @@ export default function GuideManagement() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {/* Tổng số HDV */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
-          <div className="p-3.5 bg-primary-50 text-primary-600 rounded-md group-hover:bg-primary-100 transition-colors">
+          <div className="w-12 h-12 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-blue-100/50 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -234,14 +234,14 @@ export default function GuideManagement() {
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Tổng số HDV</p>
-            <h3 className="text-xl font-bold text-gray-900 mt-1">{stats.total} nhân sự</h3>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tổng số HDV</p>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 tracking-tight font-plus-jakarta">{stats.total} nhân sự</h3>
           </div>
         </div>
 
         {/* Đang hoạt động */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
-          <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-md group-hover:bg-emerald-100 transition-colors">
+          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-emerald-100/50 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -252,14 +252,14 @@ export default function GuideManagement() {
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Đang hoạt động (Trang này)</p>
-            <h3 className="text-xl font-bold text-gray-900 mt-1 text-emerald-650">{stats.active} HDV</h3>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Đang hoạt động (Trang này)</p>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 tracking-tight font-plus-jakarta">{stats.active} HDV</h3>
           </div>
         </div>
 
         {/* Tạm dừng hoạt động */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
-          <div className="p-3.5 bg-rose-50 text-rose-600 rounded-md group-hover:bg-rose-100 transition-colors">
+          <div className="w-12 h-12 bg-rose-50 text-rose-600 border border-rose-100 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-rose-100/50 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -270,8 +270,8 @@ export default function GuideManagement() {
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Tạm dừng (Trang này)</p>
-            <h3 className="text-xl font-bold text-gray-900 mt-1 text-rose-605">{stats.inactive} nhân sự</h3>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tạm dừng (Trang này)</p>
+            <h3 className="text-xl font-bold text-gray-900 mt-1 tracking-tight font-plus-jakarta">{stats.inactive} nhân sự</h3>
           </div>
         </div>
       </div>

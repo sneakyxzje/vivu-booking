@@ -72,3 +72,12 @@
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
 }
+
+/* Prevent outer browser window scrollbar when admin layout is active */
+html.admin-layout-active,
+body.admin-layout-active,
+html.admin-layout-active #root,
+body.admin-layout-active #root {
+  height: 100%;
+  overflow: hidden;
+}

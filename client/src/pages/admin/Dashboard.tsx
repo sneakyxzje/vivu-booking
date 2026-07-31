@@ -156,15 +156,15 @@ export default function Dashboard() {
           return (
             <div
               key={index}
-              className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5"
+              className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group"
             >
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{item.title}</p>
-                <div className={`p-2 rounded ${item.color} border shrink-0`}>
+                <div className={`w-10 h-10 rounded-lg ${item.color} border flex items-center justify-center shrink-0 group-hover:bg-opacity-80 transition-colors`}>
                   <Icon className="w-5 h-5" />
                 </div>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mt-3">{item.value}</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mt-3 tracking-tight font-plus-jakarta">{item.value}</h3>
               <p className="flex items-center gap-1.5 mt-2.5 text-xs font-semibold">
                 {item.isPositive ? (
                   <span className="inline-flex items-center gap-0.5 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
