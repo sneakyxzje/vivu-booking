@@ -4,6 +4,7 @@ export type BookingStatus = "pending" | "confirmed" | "cancelled";
 
 export interface Booking {
   id: number;
+  public_token: string;
   tour_id: number;
   customer_id: number | null;
   guest_id: string | null;
@@ -13,7 +14,13 @@ export interface Booking {
   customer_phone: string | null;
   departure_date: string;
   guests: number;
+  adult_count?: number;
+  child_count?: number;
+  infant_count?: number;
   total_amount: number;
+  discount_code_id?: number | null;
+  discount_code?: string | null;
+  discount_amount?: number;
   status: BookingStatus;
   note: string | null;
   vnpay_transaction_no: string | null;
@@ -23,3 +30,4 @@ export interface Booking {
   updated_at: string;
   tour?: Tour;
 }
+

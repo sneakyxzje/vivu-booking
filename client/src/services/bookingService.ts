@@ -7,8 +7,11 @@ export interface CreateBookingPayload {
   customer_name: string;
   customer_email: string;
   customer_phone?: string;
-  guests: number;
+  adult_count: number;
+  child_count: number;
+  infant_count: number;
   note?: string;
+  discount_code?: string;
 }
 
 export interface CreateBookingResponse {
@@ -20,9 +23,25 @@ export interface CreateBookingResponse {
   };
 }
 
+export interface ValidateDiscountResponse {
+  success: boolean;
+  message: string;
+  data: {
+    code: string;
+    name: string;
+    discount_amount: number;
+    final_amount: number;
+  };
+}
+
 const bookingService = {
   create: (payload: CreateBookingPayload) =>
     api.post<CreateBookingResponse>("/bookings", payload),
+
+  getById: (publicToken: string) =>
+    api.get<{ success: boolean; data: Booking }>(`/bookings/${publicToken}`),
+  validateDiscountCode: (payload: { code: string; order_amount: number }) =>
+    api.post<ValidateDiscountResponse>("/discount-codes/validate", payload),
 
   getMyBookings: () => api.get("/my-bookings"),
 };

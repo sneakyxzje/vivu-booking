@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
 #[Fillable([
+    'public_token',
     'tour_id',
     'customer_id',
     'guest_id',
@@ -15,7 +16,13 @@ use Illuminate\Database\Eloquent\Model;
     'customer_phone',
     'departure_date',
     'guests',
+    'adult_count',
+    'child_count',
+    'infant_count',
     'total_amount',
+    'discount_code_id',
+    'discount_code',
+    'discount_amount',
     'status',
     'note',
     'cancel_reason',
@@ -44,4 +51,11 @@ class Booking extends Model
     {
         return $this->hasMany(PaymentLog::class);
     }
+
+    public function discountCode()
+    {
+        return $this->belongsTo(DiscountCode::class);
+    }
 }
+
+

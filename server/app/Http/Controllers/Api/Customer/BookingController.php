@@ -3,16 +3,22 @@
 namespace App\Http\Controllers\Api\Customer;
 
 use App\Http\Controllers\Controller;
+use App\Mail\BookingCreatedMail;
+use App\Mail\BookingPaidMail;
 use App\Models\Booking;
+use App\Models\DiscountCode;
 use App\Models\PaymentLog;
 use App\Models\TourSchedule;
 use App\Services\VNPayService;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class BookingController extends Controller
 {
@@ -28,8 +34,11 @@ class BookingController extends Controller
             'customer_name' => 'required|string|max:255',
             'customer_email' => 'required|email|max:255',
             'customer_phone' => 'nullable|string|max:20',
-            'guests' => 'required|integer|min:1',
+            'adult_count' => 'required|integer|min:1',
+            'child_count' => 'nullable|integer|min:0',
+            'infant_count' => 'nullable|integer|min:0',
             'note' => 'nullable|string|max:1000',
+            'discount_code' => 'nullable|string|max:50',
         ]);
 
         $user = auth('sanctum')->user();
@@ -80,20 +89,27 @@ class BookingController extends Controller
                     'tour_schedule_id' => 'Lịch khởi hành này hiện không khả dụng.',
                 ]);
             }
-
+            $adultCount = (int) $data['adult_count'];
+            $childCount = (int) ($data['child_count'] ?? 0);
+            $infantCount = (int) ($data['infant_count'] ?? 0);
+            $totalGuests = $adultCount + $childCount + $infantCount;
             $availableSeats = $schedule->max_people - $schedule->booked_people;
 
-            if ($data['guests'] > $availableSeats) {
+            if ($totalGuests > $availableSeats) {
                 throw ValidationException::withMessages([
-                    'guests' => 'Số chỗ còn lại không đủ cho booking này.',
+                    'adult_count' => 'Số chỗ còn lại không đủ cho booking này.',
                 ]);
             }
 
             $tour = $schedule->tour;
-            $unitPrice = $tour->discount_price ?: $tour->price;
-            $totalAmount = $unitPrice * $data['guests'];
+            $subtotalAmount = ($adultCount * (float) $tour->adult_price)
+                + ($childCount * (float) $tour->child_price)
+                + ($infantCount * (float) $tour->infant_price);
+            $discount = $this->resolveDiscount($data['discount_code'] ?? null, (float) $subtotalAmount);
+            $totalAmount = max(0, $subtotalAmount - $discount['amount']);
 
             $booking = Booking::create([
+                'public_token' => (string) Str::uuid(),
                 'tour_id' => $tour->id,
                 'customer_id' => $user?->id,
                 'guest_id' => $user ? null : $guestId,
@@ -102,12 +118,22 @@ class BookingController extends Controller
                 'customer_email' => $data['customer_email'],
                 'customer_phone' => $data['customer_phone'] ?? null,
                 'departure_date' => $schedule->start_date,
-                'guests' => $data['guests'],
+                'guests' => $totalGuests,
+                'adult_count' => $adultCount,
+                'child_count' => $childCount,
+                'infant_count' => $infantCount,
                 'total_amount' => $totalAmount,
+                'discount_code_id' => $discount['model']?->id,
+                'discount_code' => $discount['model']?->code,
+                'discount_amount' => $discount['amount'],
                 'status' => 'pending',
                 'note' => $data['note'] ?? null,
             ]);
-            $schedule->increment('booked_people', $data['guests']);
+            if ($discount['model']) {
+                $discount['model']->increment('used_count');
+            }
+
+            $schedule->increment('booked_people', $totalGuests);
             $schedule->refresh();
 
             if ($schedule->booked_people >= $schedule->max_people) {
@@ -119,12 +145,15 @@ class BookingController extends Controller
             return $booking->load(['tour', 'schedule']);
         });
 
+        $paymentUrl = $this->vnpayService->createPayment($booking);
+        $this->sendBookingCreatedMailAfterResponse($booking, $paymentUrl);
+
         $response = response()->json([
             'success' => true,
             'message' => 'Đặt tour thành công. Vui lòng thanh toán để hoàn tất.',
             'data' => [
                 'booking' => $booking,
-                'payment_url' => $this->vnpayService->createPayment($booking),
+                'payment_url' => $paymentUrl,
             ],
         ], 201);
 
@@ -145,6 +174,30 @@ class BookingController extends Controller
         ]);
     }
 
+    public function show(string $publicToken): JsonResponse
+    {
+        $booking = Booking::query()
+            ->with(['tour', 'schedule'])
+            ->where('public_token', $publicToken)
+            ->first();
+
+        if (!$booking) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy thông tin đặt tour.',
+            ], 404);
+        }
+
+        if ($booking->status === 'pending') {
+            $booking->setAttribute('payment_url', $this->vnpayService->createPayment($booking));
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $booking,
+        ]);
+    }
+
     public function cancelBooking(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
@@ -153,7 +206,7 @@ class BookingController extends Controller
             'cancel_reason.required' => 'Vui lòng nhập lý do hủy đơn hàng.',
         ]);
 
-        $booking = Booking::with(['schedule', 'tour'])->where('id', $id)
+        $booking = Booking::with(['schedule', 'tour', 'discountCode'])->where('id', $id)
             ->where('customer_id', $request->user()->id)
             ->first();
 
@@ -187,6 +240,8 @@ class BookingController extends Controller
 
                 $this->refreshTourAvailability($booking->tour);
             }
+
+            $this->releaseDiscountUsage($booking);
         });
 
         return response()->json([
@@ -205,10 +260,12 @@ class BookingController extends Controller
             && $request->query('vnp_ResponseCode') === '00'
             && $request->query('vnp_TransactionStatus') === '00';
 
+        $paidBooking = null;
+
         if ($bookingId) {
-            DB::transaction(function () use ($bookingId, $isSuccessful, $isValidSignature, $request) {
+            $paidBooking = DB::transaction(function () use ($bookingId, $isSuccessful, $isValidSignature, $request) {
                 $booking = Booking::query()
-                    ->with(['schedule', 'tour.schedules'])
+                    ->with(['schedule', 'tour.schedules', 'discountCode'])
                     ->lockForUpdate()
                     ->find($bookingId);
 
@@ -225,7 +282,7 @@ class BookingController extends Controller
                 ]);
 
                 if (!$booking || $booking->status !== 'pending') {
-                    return;
+                    return null;
                 }
 
                 $booking->update([
@@ -236,7 +293,14 @@ class BookingController extends Controller
                     'paid_at' => $isSuccessful ? now() : null,
                     'confirmed_at' => $isSuccessful ? now() : null,
                 ]);
-                if (!$isSuccessful && $booking->schedule) {
+
+                if ($isSuccessful) {
+                    return $booking->fresh(['tour', 'schedule', 'discountCode']);
+                }
+
+                $this->releaseDiscountUsage($booking);
+
+                if ($booking->schedule) {
                     $booking->schedule->decrement('booked_people', $booking->guests);
                     $booking->schedule->refresh();
 
@@ -246,13 +310,61 @@ class BookingController extends Controller
 
                     $this->refreshTourAvailability($booking->tour);
                 }
+
+                return null;
             });
+        }
+
+        if ($paidBooking) {
+            $this->sendBookingPaidMailAfterResponse($paidBooking);
+        }
+
+        if ($bookingId) {
+            $publicToken = $paidBooking?->public_token
+                ?? Booking::query()->where('id', $bookingId)->value('public_token');
+
+            if ($publicToken) {
+                return redirect()->away(URL::query($frontendUrl . '/booking-success/' . $publicToken, [
+                    'payment_status' => $isSuccessful ? 'success' : 'failed',
+                ]));
+            }
         }
 
         return redirect()->away(URL::query($frontendUrl . '/payment-result', [
             'status' => $isSuccessful ? 'success' : 'failed',
-            'booking_id' => $bookingId,
         ]));
+    }
+
+    private function resolveDiscount(?string $code, float $subtotalAmount): array
+    {
+        if (! $code) {
+            return ['model' => null, 'amount' => 0.0];
+        }
+
+        $discountCode = DiscountCode::query()
+            ->where('code', Str::upper($code))
+            ->lockForUpdate()
+            ->first();
+
+        if (! $discountCode || ! $discountCode->isUsableFor($subtotalAmount)) {
+            throw ValidationException::withMessages([
+                'discount_code' => 'Mã giảm giá không hợp lệ hoặc không còn khả dụng.',
+            ]);
+        }
+
+        return [
+            'model' => $discountCode,
+            'amount' => $discountCode->calculateDiscount($subtotalAmount),
+        ];
+    }
+
+    private function releaseDiscountUsage(Booking $booking): void
+    {
+        if (! $booking->discountCode || $booking->discountCode->used_count <= 0) {
+            return;
+        }
+
+        $booking->discountCode->decrement('used_count');
     }
 
     private function hasValidVnpaySignature(Request $request): bool
@@ -280,6 +392,45 @@ class BookingController extends Controller
 
         return hash_equals($calculatedHash, $secureHash);
     }
+
+    private function sendBookingCreatedMailAfterResponse(Booking $booking, ?string $paymentUrl): void
+    {
+        app()->terminating(function () use ($booking, $paymentUrl) {
+            $this->sendBookingCreatedMail($booking, $paymentUrl);
+        });
+    }
+    private function sendBookingCreatedMail(Booking $booking, ?string $paymentUrl): void
+    {
+        try {
+            Mail::to($booking->customer_email)->send(new BookingCreatedMail($booking, $paymentUrl));
+        } catch (Throwable $exception) {
+            Log::warning('Could not send booking confirmation email.', [
+                'booking_id' => $booking->id,
+                'customer_email' => $booking->customer_email,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function sendBookingPaidMailAfterResponse(Booking $booking): void
+    {
+        app()->terminating(function () use ($booking) {
+            $this->sendBookingPaidMail($booking);
+        });
+    }
+    private function sendBookingPaidMail(Booking $booking): void
+    {
+        try {
+            Mail::to($booking->customer_email)->send(new BookingPaidMail($booking));
+        } catch (Throwable $exception) {
+            Log::warning('Could not send paid booking confirmation email.', [
+                'booking_id' => $booking->id,
+                'customer_email' => $booking->customer_email,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
     private function refreshTourAvailability($tour): void
     {
         if (!$tour || $tour->status === 'inactive') {
@@ -296,4 +447,3 @@ class BookingController extends Controller
         $tour->update(['status' => $hasAvailableSchedule ? 'active' : 'full']);
     }
 }
-
