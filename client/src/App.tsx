@@ -19,6 +19,7 @@ import TourList from "@/pages/admin/TourList";
 import AdminTourDetail from "@/pages/admin/TourDetail";
 import BookingManagement from "@/pages/admin/BookingManagement";
 import GuideManagement from "@/pages/admin/GuideManagement";
+import DiscountCodeManagement from "@/pages/admin/DiscountCodeManagement";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
 import { GuideTours } from "@/pages/guide/GuideTours";
 import { GuideBookings } from "@/pages/guide/GuideBookings";
@@ -149,12 +150,20 @@ const router = createBrowserRouter([
             element: <CreateTourForm />,
           },
           {
+            path: "/admin/tours/:id/edit",
+            element: <CreateTourForm />,
+          },
+          {
             path: "/admin/tours/:id",
             element: <AdminTourDetail />,
           },
           {
             path: "/admin/bookings",
             element: <BookingManagement />,
+          },
+          {
+            path: "/admin/discount-codes",
+            element: <DiscountCodeManagement />,
           },
           {
             path: "/admin/guides",
@@ -175,4 +184,6 @@ const router = createBrowserRouter([
 export const App: React.FC = () => <RouterProvider router={router} />;
 
 export default App;
+
+
 

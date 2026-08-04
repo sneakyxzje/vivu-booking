@@ -61,6 +61,24 @@ const navItems = [
     ),
   },
   {
+    to: "/admin/discount-codes",
+    label: "Mã giảm giá",
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M9 14l6-6m-5.5.5h.01m5 5h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+        />
+      </svg>
+    ),
+  },  {
     to: "/admin/guides",
     label: "Quản lý HDV",
     icon: (
@@ -287,3 +305,4 @@ export const AdminLayout: React.FC = () => {
 };
 
 export default AdminLayout;
+
