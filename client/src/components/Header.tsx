@@ -1,11 +1,21 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
 export const Header: React.FC = () => {
+  const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState("");
 
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+
+    const keyword = searchKeyword.trim();
+    navigate(keyword ? `/tours?q=${encodeURIComponent(keyword)}` : "/tours");
+    setMobileOpen(false);
+  };
   const navLinks = [
     { to: "/tours", label: "Tour trọn gói" },
     { to: "/flights", label: "Vé máy bay" },
@@ -34,6 +44,9 @@ export const Header: React.FC = () => {
             <input 
               type="text" 
               placeholder="Tìm kiếm" 
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               className="bg-transparent border-none focus:outline-none focus:ring-0 px-2 w-full text-sm text-gray-700"
             />
           </div>
@@ -132,6 +145,9 @@ export const Header: React.FC = () => {
             <input 
               type="text" 
               placeholder="Tìm kiếm" 
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               className="bg-transparent border-none focus:outline-none focus:ring-0 px-2 w-full text-sm text-gray-700"
             />
           </div>

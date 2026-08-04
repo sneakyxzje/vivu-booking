@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Star, CheckCircle2, ThumbsUp, MessageSquare, Filter, User } from "lucide-react";
+import { Star, CheckCircle2, ThumbsUp, MessageSquare, Filter } from "lucide-react";
 
 interface Review {
   id: number;
@@ -45,7 +45,7 @@ const mockReviews: Review[] = [
   },
 ];
 
-export const TourReviewsSection: React.FC<{ tourTitle?: string }> = ({ tourTitle }) => {
+export const TourReviewsSection: React.FC<{ tourTitle?: string }> = () => {
   const [reviews, setReviews] = useState<Review[]>(mockReviews);
   const [activeFilter, setActiveFilter] = useState<number | "all">("all");
   

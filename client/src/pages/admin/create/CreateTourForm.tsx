@@ -20,8 +20,9 @@ import type { Guide } from "@/types";
 const emptyForm: TourFormState = {
   title: "",
   description: "",
-  price: "",
-  discount_price: "",
+  adult_price: "",
+  child_price: "",
+  infant_price: "0",
   thumbnail: "",
   number_of_days: "1",
   number_of_nights: "0",
@@ -79,8 +80,8 @@ export const CreateTourForm: React.FC = () => {
   const [guideAvailabilityLoading, setGuideAvailabilityLoading] = useState(false);
 
   const previewPrice = useMemo(
-    () => formatPreviewPrice(form.discount_price || form.price),
-    [form.discount_price, form.price],
+    () => formatPreviewPrice(form.adult_price),
+    [form.adult_price],
   );
 
   const selectedCategories = useMemo(
@@ -162,7 +163,7 @@ export const CreateTourForm: React.FC = () => {
 
     const loadTour = async () => {
       try {
-        const tour = await guideService.getTourById(Number(id));
+        const tour = await adminService.getTourById(Number(id));
         if (!tour) {
           setError("Không tìm thấy tour.");
           return;
@@ -170,10 +171,9 @@ export const CreateTourForm: React.FC = () => {
         setForm({
           title: tour.title,
           description: tour.description ?? "",
-          price: String(tour.price),
-          discount_price: tour.discount_price
-            ? String(tour.discount_price)
-            : "",
+          adult_price: String(tour.adult_price ?? tour.discount_price ?? tour.price ?? ""),
+          child_price: String(tour.child_price ?? ""),
+          infant_price: String(tour.infant_price ?? 0),
           thumbnail: tour.thumbnail ?? "",
           number_of_days: String(tour.number_of_days),
           number_of_nights: String(tour.number_of_nights),
@@ -185,6 +185,7 @@ export const CreateTourForm: React.FC = () => {
           image_previews: [],
           itineraries:
             tour.itineraries?.map((item) => ({
+              id: item.id,
               day_number: String(item.day_number),
               title: item.title,
               start_point: item.start_point ?? "",
@@ -195,6 +196,7 @@ export const CreateTourForm: React.FC = () => {
             })) ?? emptyForm.itineraries,
           schedules:
             tour.schedules?.map((item) => ({
+              id: item.id,
               start_date: item.start_date,
               max_people: String(item.max_people ?? 10),
               guide_id: String(item.guide_id ?? ""),
@@ -385,11 +387,12 @@ export const CreateTourForm: React.FC = () => {
       }
 
       if (isEdit && id) {
-        throw new Error("Edit tour is not implemented yet.");
+        await adminService.updateTour(Number(id), form);
       } else {
         await tourService.createTour(form);
       }
-      navigate("/admin/tours");    } catch (submitError: unknown) {
+      navigate("/admin/tours");
+    } catch (submitError: unknown) {
       const response = (
         submitError as {
           response?: {
@@ -483,8 +486,9 @@ export const CreateTourForm: React.FC = () => {
               fieldClass={fieldClass}
               title={form.title}
               description={form.description}
-              price={form.price}
-              discountPrice={form.discount_price}
+              adultPrice={form.adult_price}
+              childPrice={form.child_price}
+              infantPrice={form.infant_price}
               numberOfDays={form.number_of_days}
               numberOfNights={form.number_of_nights}
               startLocation={form.start_location}

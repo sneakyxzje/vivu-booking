@@ -46,10 +46,9 @@ export const buildTourPayload = (form: unknown) => {
 
   data.append("title", String(f.title ?? ""));
   data.append("description", String(f.description ?? ""));
-  data.append("price", String(Number(f.price)));
-  if (f.discount_price) {
-    data.append("discount_price", String(Number(f.discount_price)));
-  }
+  data.append("adult_price", String(Number(f.adult_price)));
+  data.append("child_price", String(Number(f.child_price)));
+  data.append("infant_price", String(Number(f.infant_price)));
   data.append("number_of_days", String(Number(f.number_of_days)));
   data.append("number_of_nights", String(Number(f.number_of_nights)));
   data.append("start_location", String(f.start_location ?? ""));
@@ -80,6 +79,9 @@ export const buildTourPayload = (form: unknown) => {
       | { day_number: string; title: string; start_point?: string; end_point?: string; route_points?: string; rest_stops?: string; content: string }[]
       | undefined) ?? []
   ).forEach((item, index) => {
+    if ("id" in item && item.id) {
+      data.append(`itineraries[${index}][id]`, String(item.id));
+    }
     data.append(`itineraries[${index}][day_number]`, String(item.day_number));
     data.append(`itineraries[${index}][title]`, item.title);
     data.append(`itineraries[${index}][start_point]`, item.start_point ?? "");
@@ -90,9 +92,12 @@ export const buildTourPayload = (form: unknown) => {
   });
 
   (
-    (f.schedules as { start_date: string; max_people: string; guide_id?: string }[] | undefined) ??
+    (f.schedules as { id?: number; start_date: string; max_people: string; guide_id?: string }[] | undefined) ??
     []
   ).forEach((item, index) => {
+    if (item.id) {
+      data.append(`schedules[${index}][id]`, String(item.id));
+    }
     data.append(`schedules[${index}][start_date]`, item.start_date);
     data.append(`schedules[${index}][max_people]`, String(item.max_people));
     if (item.guide_id) {
