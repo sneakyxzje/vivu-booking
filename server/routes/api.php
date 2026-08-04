@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\TourController;
+use App\Http\Controllers\Api\DiscountCodeController;
 use App\Models\Category;
 use App\Models\Service;
 
@@ -28,6 +29,7 @@ use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminTourController;
 use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
+use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -49,6 +51,8 @@ Route::get('/services', fn() => response()->json([
     'data' => Service::orderBy('name')->get(),
 ]));
 Route::post('/bookings', [CustomerBookingController::class, 'store']);
+Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']);
+Route::post('/discount-codes/validate', [DiscountCodeController::class, 'validateCode']);
 Route::get('/vnpay/return', [CustomerBookingController::class, 'vnpayReturn']);
 
 /*
@@ -101,6 +105,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/tours/create', [AdminTourController::class, 'create']);
         Route::get('/tours/{id}', [AdminTourController::class, 'show']);
         Route::post('/tours', [AdminTourController::class, 'store']);
+        Route::put('/tours/{id}', [AdminTourController::class, 'update']);
+        Route::post('/tours/{id}', [AdminTourController::class, 'update']);
         Route::get('/available-guides', [AdminTourController::class, 'availableGuides']);
         Route::put('/tour-schedules/{id}/assign-guide', [AdminTourController::class, 'assignScheduleGuide']);
 
@@ -108,6 +114,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/bookings', [AdminBookingController::class, 'index']);
         Route::get('/bookings/{id}', [AdminBookingController::class, 'show']);
+        Route::apiResource('discount-codes', AdminDiscountCodeController::class);
 
         Route::get('/admin-only', function () {
             return response()->json([
@@ -116,5 +123,9 @@ Route::middleware('auth:sanctum')->group(function () {
         });
     });
 });
+
+
+
+
 
 
