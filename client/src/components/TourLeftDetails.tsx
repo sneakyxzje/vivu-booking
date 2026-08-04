@@ -125,7 +125,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
     },
     {
       q: "Có chính sách giảm giá riêng cho trẻ em không?",
-      a: "Có, trẻ em dưới 5 tuổi được miễn phí dịch vụ (ngủ chung phòng và bố mẹ tự lo ăn uống cho bé). Trẻ em từ 5 - 11 tuổi được áp dụng chính sách giảm 25% giá tour người lớn. Trẻ em từ 12 tuổi trở lên tính phí như người lớn.",
+      a: "Có, em bé dưới 2 tuổi được miễn phí dịch vụ (ngủ chung phòng và bố mẹ tự lo ăn uống cho bé). Trẻ em từ 2 - 12 tuổi được áp dụng chính sách giá trẻ em. Người lớn từ 12 tuổi trở lên tính theo giá người lớn.",
     },
     {
       q: "Tôi có thể tự thay đổi hoặc thêm bớt địa điểm tham quan không?",

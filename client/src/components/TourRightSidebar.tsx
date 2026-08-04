@@ -42,6 +42,16 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
     }
   };
 
+  const handleBooking = () => {
+    if (!selectedSchedule || availableSlots <= 0 || tour.status === "inactive") return;
+
+    const params = new URLSearchParams({
+      schedule_id: String(selectedSchedule.id),
+    });
+
+    navigate(`/tours/${tour.id}/booking?${params.toString()}`);
+  };
+
   return (
     <div className="lg:col-span-4 lg:sticky lg:top-24">
       <div className="bg-white rounded-3xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.025)] p-6 md:p-7 space-y-6">
@@ -52,7 +62,7 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
           </p>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl md:text-3xl font-black text-red-600 font-plus-jakarta">
-              {formatPrice(tour.discount_price || tour.price)}
+              {formatPrice(tour.adult_price || tour.discount_price || tour.price)}
             </span>
             {tour.discount_price && (
               <span className="text-sm text-gray-400 line-through font-medium font-mono">
@@ -118,7 +128,7 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
         {/* Book button */}
         <button
           disabled={!selectedSchedule || availableSlots <= 0 || tour.status === "inactive"}
-          onClick={() => navigate(`/tours/${tour.id}/booking`)}
+          onClick={handleBooking}
           className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-4 rounded-xl shadow-md hover:shadow-lg transform active:scale-97 transition-all duration-300 disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none text-center block text-sm cursor-pointer"
         >
           {!selectedSchedule

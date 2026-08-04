@@ -99,8 +99,9 @@ class AdminTourController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'price' => ['required', 'numeric', 'min:0'],
-            'discount_price' => ['nullable', 'numeric', 'min:0'],
+            'adult_price' => ['required', 'numeric', 'min:0'],
+            'child_price' => ['required', 'numeric', 'min:0'],
+            'infant_price' => ['required', 'numeric', 'min:0'],
             'thumbnail' => ['nullable', 'string'],
             'thumbnail_file' => ['nullable', 'image', 'max:5120'],
             'images' => ['nullable', 'array'],
@@ -130,19 +131,9 @@ class AdminTourController extends Controller
 
         $numberOfDay = (int) $validated['number_of_days'];
         $numberOfNight = (int) $validated['number_of_nights'];
-        $price = (float) $validated['price'];
-        $salePrice = isset($validated['discount_price'])
-            ? (float) $validated['discount_price']
-            : null;
-
         if ($numberOfNight > $numberOfDay) {
             return $this->error('Số đêm không được lớn hơn số ngày', 400);
         }
-
-        if ($salePrice !== null && $salePrice > $price) {
-            return $this->error('Giá giảm không được lớn hơn giá gốc', 400);
-        }
-
         $categoryIds = $validated['category_ids'] ?? [];
         $serviceIds = $validated['service_ids'] ?? [];
         $itineraries = $validated['itineraries'] ?? [];
@@ -171,6 +162,8 @@ class AdminTourController extends Controller
 
             $tour = Tour::create([
                 ...$validated,
+                'price' => $validated['adult_price'],
+                'discount_price' => null,
                 'admin_id' => $request->user()->id,
                 'status' => 'active',
                 'is_featured' => false,
@@ -229,6 +222,165 @@ class AdminTourController extends Controller
         return $this->success([
             'tour' => new TourResource($tour),
         ], 'Tạo tour thành công và đã được kích hoạt');
+    }
+
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $tour = Tour::with(['itineraries', 'schedules'])->find($id);
+
+        if (! $tour) {
+            return $this->error('Không tìm thấy tour', 404);
+        }
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'adult_price' => ['required', 'numeric', 'min:0'],
+            'child_price' => ['required', 'numeric', 'min:0'],
+            'infant_price' => ['required', 'numeric', 'min:0'],
+            'thumbnail' => ['nullable', 'string'],
+            'thumbnail_file' => ['nullable', 'image', 'max:5120'],
+            'images' => ['nullable', 'array'],
+            'images.*' => ['image', 'max:5120'],
+            'number_of_days' => ['required', 'integer', 'min:1'],
+            'number_of_nights' => ['required', 'integer', 'min:0'],
+            'start_location' => ['required', 'string', 'max:255'],
+            'end_location' => ['nullable', 'string', 'max:255'],
+            'vehicle_info' => ['nullable', 'string', 'max:500'],
+            'category_ids' => ['nullable', 'array'],
+            'category_ids.*' => ['exists:categories,id'],
+            'service_ids' => ['nullable', 'array'],
+            'service_ids.*' => ['exists:services,id'],
+            'itineraries' => ['nullable', 'array'],
+            'itineraries.*.id' => ['nullable', 'exists:tour_itineraries,id'],
+            'itineraries.*.day_number' => ['required_with:itineraries', 'integer', 'min:1'],
+            'itineraries.*.title' => ['required_with:itineraries', 'string', 'max:255'],
+            'itineraries.*.start_point' => ['nullable', 'string', 'max:255'],
+            'itineraries.*.end_point' => ['nullable', 'string', 'max:255'],
+            'itineraries.*.route_points' => ['nullable', 'string'],
+            'itineraries.*.rest_stops' => ['nullable', 'string'],
+            'itineraries.*.content' => ['required_with:itineraries', 'string'],
+            'schedules' => ['nullable', 'array'],
+            'schedules.*.id' => ['nullable', 'exists:tour_schedules,id'],
+            'schedules.*.start_date' => ['required_with:schedules', 'date'],
+            'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
+            'schedules.*.guide_id' => ['nullable', 'exists:users,id'],
+        ]);
+
+        $numberOfDay = (int) $validated['number_of_days'];
+        $numberOfNight = (int) $validated['number_of_nights'];
+
+        if ($numberOfNight > $numberOfDay) {
+            return $this->error('Số đêm không được lớn hơn số ngày', 400);
+        }
+
+        $categoryIds = $validated['category_ids'] ?? [];
+        $serviceIds = $validated['service_ids'] ?? [];
+        $itineraries = $validated['itineraries'] ?? [];
+        $schedules = $validated['schedules'] ?? [];
+
+        if (count($itineraries) > $numberOfDay) {
+            return $this->error("Lịch trình chỉ được tối đa {$numberOfDay} ngày", 422);
+        }
+
+        foreach ($itineraries as $itinerary) {
+            if ((int) $itinerary['day_number'] > $numberOfDay) {
+                return $this->error("Ngày trong lịch trình không được vượt quá {$numberOfDay}", 422);
+            }
+        }
+
+        $tour = DB::transaction(function () use ($request, $tour, $validated, $categoryIds, $serviceIds, $itineraries, $schedules) {
+            if ($request->hasFile('thumbnail_file')) {
+                $validated['thumbnail'] = $this->cloudinaryService->uploadImage(
+                    $request->file('thumbnail_file')
+                );
+            }
+
+            unset($validated['thumbnail_file']);
+            unset($validated['images'], $validated['category_ids'], $validated['service_ids'], $validated['itineraries'], $validated['schedules']);
+
+            $tour->update([
+                ...$validated,
+                'price' => $validated['adult_price'],
+                'discount_price' => null,
+                'slug' => $this->buildUniqueSlug($validated['title'], $tour->id),
+            ]);
+
+            $tour->categories()->sync($categoryIds);
+            $tour->services()->sync($serviceIds);
+
+            $tour->itineraries()->delete();
+            foreach ($itineraries as $item) {
+                $tour->itineraries()->create([
+                    'day_number' => $item['day_number'],
+                    'title' => $item['title'],
+                    'start_point' => $item['start_point'] ?? null,
+                    'end_point' => $item['end_point'] ?? null,
+                    'route_points' => $item['route_points'] ?? null,
+                    'rest_stops' => $item['rest_stops'] ?? null,
+                    'content' => $item['content'],
+                ]);
+            }
+
+            $keptScheduleIds = [];
+            foreach ($schedules as $item) {
+                $scheduleId = isset($item['id']) ? (int) $item['id'] : null;
+                $schedule = $scheduleId
+                    ? $tour->schedules()->whereKey($scheduleId)->first()
+                    : null;
+
+                $payload = [
+                    'start_date' => $item['start_date'],
+                    'guide_id' => $item['guide_id'] ?? null,
+                    'max_people' => $item['max_people'],
+                    'status' => 'active',
+                ];
+
+                if ($schedule) {
+                    if ($schedule->booked_people > (int) $item['max_people']) {
+                        throw ValidationException::withMessages([
+                            'schedules' => 'Số chỗ tối đa không được nhỏ hơn số khách đã đặt.',
+                        ]);
+                    }
+
+                    $payload['status'] = $schedule->booked_people >= (int) $item['max_people'] ? 'full' : 'active';
+                    $schedule->update($payload);
+                    $keptScheduleIds[] = $schedule->id;
+                    continue;
+                }
+
+                $created = $tour->schedules()->create([
+                    ...$payload,
+                    'booked_people' => 0,
+                ]);
+                $keptScheduleIds[] = $created->id;
+            }
+
+            $tour->schedules()
+                ->whereNotIn('id', $keptScheduleIds)
+                ->where('booked_people', 0)
+                ->delete();
+
+            if ($request->hasFile('images')) {
+                foreach ($request->file('images') as $image) {
+                    $imagePath = $this->cloudinaryService->uploadImage(
+                        $image,
+                        'vivu-booking/tour-gallery'
+                    );
+
+                    TourImage::create([
+                        'tour_id' => $tour->id,
+                        'image_path' => $imagePath,
+                    ]);
+                }
+            }
+
+            return $tour->fresh(['categories', 'services', 'images', 'itineraries', 'schedules.guide:id,name,email,phone,status']);
+        });
+
+        return $this->success([
+            'tour' => new TourResource($tour),
+        ], 'Cập nhật tour thành công');
     }
 
     public function assignScheduleGuide(Request $request, int $id): JsonResponse
@@ -384,6 +536,24 @@ class AdminTourController extends Controller
             ->addDays(max(0, (int) $schedule->tour->number_of_days - 1));
 
         return $start->lte($assignedEnd) && $end->gte($assignedStart);
+    }
+
+    private function buildUniqueSlug(string $title, int $ignoreId): string
+    {
+        $baseSlug = Str::slug($title);
+        $slug = $baseSlug;
+        $counter = 1;
+
+        while (
+            Tour::query()
+                ->where('slug', $slug)
+                ->whereKeyNot($ignoreId)
+                ->exists()
+        ) {
+            $slug = $baseSlug . '-' . $counter++;
+        }
+
+        return $slug;
     }
 }
 

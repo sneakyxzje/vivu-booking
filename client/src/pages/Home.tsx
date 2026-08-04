@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import tourService from "@/services/tourService";
 import type { Tour } from "@/types";
 import { TourCard } from "@/components/TourCard";
@@ -194,6 +194,7 @@ const TourGridEmpty: React.FC<TourGridEmptyProps> = ({ onClearFilters }) => (
 // ── HOME PAGE ───────────────────────────────────────────────────────────────────
 
 export const Home: React.FC = () => {
+  const navigate = useNavigate();
   const [tours, setTours] = useState<Tour[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -284,7 +285,18 @@ export const Home: React.FC = () => {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    applyFilters();
+
+    const params = new URLSearchParams();
+    const keyword = searchDest.trim();
+    const startLocation = searchStart.trim();
+
+    if (keyword) params.set("q", keyword);
+    if (startLocation) params.set("start_location", startLocation);
+    if (selectedDuration !== "all") params.set("duration", selectedDuration);
+    if (selectedCategory !== "all") params.set("categories", selectedCategory);
+
+    const queryString = params.toString();
+    navigate(queryString ? `/tours?${queryString}` : "/tours");
   };
 
   const handleCategoryChange = (id: string) => {

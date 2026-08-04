@@ -5,8 +5,9 @@ interface Props {
   fieldClass: string;
   title: string;
   description: string;
-  price: string;
-  discountPrice: string;
+  adultPrice: string;
+  childPrice: string;
+  infantPrice: string;
   numberOfDays: string;
   numberOfNights: string;
   startLocation: string;
@@ -19,8 +20,9 @@ export const TourFormBasicSection: React.FC<Props> = ({
   fieldClass,
   title,
   description,
-  price,
-  discountPrice,
+  adultPrice,
+  childPrice,
+  infantPrice,
   numberOfDays,
   numberOfNights,
   startLocation,
@@ -52,31 +54,49 @@ export const TourFormBasicSection: React.FC<Props> = ({
         className={`${fieldClass} resize-y`}
       />
     </div>
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <div>
         <label className={labelClass}>
-          Giá gốc (VND) <span className="text-red-500">*</span>
+          Giá người lớn (12+ tuổi) <span className="text-red-500">*</span>
         </label>
         <input
-          name="price"
+          name="adult_price"
           type="number"
           min={0}
           required
-          value={price}
+          value={adultPrice}
           onChange={onChange}
-          placeholder="3500000"
+          placeholder="4000000"
           className={fieldClass}
         />
       </div>
       <div>
-        <label className={labelClass}>Giá giảm (VND)</label>
+        <label className={labelClass}>
+          Giá trẻ em (2-12 tuổi) <span className="text-red-500">*</span>
+        </label>
         <input
-          name="discount_price"
+          name="child_price"
           type="number"
           min={0}
-          value={discountPrice}
+          required
+          value={childPrice}
           onChange={onChange}
-          placeholder="3200000"
+          placeholder="2800000"
+          className={fieldClass}
+        />
+      </div>
+      <div>
+        <label className={labelClass}>
+          Giá em bé (&lt; 5 tuổi) <span className="text-red-500">*</span>
+        </label>
+        <input
+          name="infant_price"
+          type="number"
+          min={0}
+          required
+          value={infantPrice}
+          onChange={onChange}
+          placeholder="0"
           className={fieldClass}
         />
       </div>

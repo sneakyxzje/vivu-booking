@@ -136,7 +136,7 @@ export const GuideTours: React.FC = () => {
                       {tour.start_location}
                     </td>
                     <td className="px-4 py-4 font-medium text-gray-900">
-                      {formatPrice(tour.discount_price ?? tour.price)}
+                      {formatPrice(tour.adult_price ?? tour.discount_price ?? tour.price)}
                     </td>
                     <td className="px-4 py-4 text-gray-600">
                       {tour.number_of_days}N

@@ -1,6 +1,6 @@
 import api from "./api";
 import { extractArray, extractObject } from "@/utils/apiHelpers";
-import type { Tour } from "../types";
+import type { Category, Service, Tour } from "../types";
 import { buildTourPayload } from "@/services/guideService";
 
 const tourService = {
@@ -21,6 +21,16 @@ const tourService = {
     }
 
     return { success: true, data: tour };
+  },
+
+  getCategories: async (): Promise<Category[]> => {
+    const response = await api.get("/categories");
+    return extractArray<Category>(response);
+  },
+
+  getServices: async (): Promise<Service[]> => {
+    const response = await api.get("/services");
+    return extractArray<Service>(response);
   },
 
   review: (tourId: number, payload: { rating: number; comment: string }) =>
