@@ -54,6 +54,12 @@ class AuthController extends Controller
             ], 401);
         }
 
+        if ($user->status !== 'active') {
+            return response()->json([
+                'message' => 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.'
+            ], 403);
+        }
+
         $token = $user->createToken('login_token')->plainTextToken;
 
         return response()->json([
