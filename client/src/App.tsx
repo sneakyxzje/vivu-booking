@@ -59,22 +59,6 @@ const router = createBrowserRouter([
         element: <PaymentResult />,
       },
       {
-        path: "/flights",
-        element: <div>Vé máy bay — TODO</div>,
-      },
-      {
-        path: "/hotels",
-        element: <div>Khách sạn — TODO</div>,
-      },
-      {
-        path: "/combos",
-        element: <div>Combo du lịch — TODO</div>,
-      },
-      {
-        path: "/services",
-        element: <div>Dịch vụ cộng thêm — TODO</div>,
-      },
-      {
         path: "/login",
         element: <Login />,
       },
