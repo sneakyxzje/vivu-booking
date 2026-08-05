@@ -18,14 +18,15 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6',
-            'role' => 'nullable|in:customer,guide,admin'
         ]);
 
+        // Đăng ký công khai luôn là customer. Tài khoản guide do admin tạo
+        // qua AdminGuideController, admin do seeder tạo — không nhận role từ request.
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
-            'role' => $data['role'] ?? 'customer'
+            'role' => 'customer'
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
