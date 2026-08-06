@@ -50,6 +50,18 @@ const adminService = {
     return extractObject<Booking>(response);
   },
 
+  confirmBooking: async (id: number): Promise<Booking | null> => {
+    const response = await api.put(`/admin/bookings/${id}/confirm`);
+    return extractObject<Booking>(response);
+  },
+
+  cancelBooking: async (id: number, reason: string): Promise<Booking | null> => {
+    const response = await api.put(`/admin/bookings/${id}/cancel`, {
+      cancel_reason: reason,
+    });
+    return extractObject<Booking>(response);
+  },
+
   // --- GUIDES ---
   getGuides: async (page = 1): Promise<PaginatedResponse<Guide> | null> => {
     const response = await api.get(`/admin/guides?page=${page}`);
