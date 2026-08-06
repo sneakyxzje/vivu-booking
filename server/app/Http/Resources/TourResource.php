@@ -30,6 +30,8 @@ class TourResource extends JsonResource
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'total_booked' => $this->when(isset($this->total_booked), (int) $this->total_booked),
+            'rating' => $this->when($this->rating !== null, fn () => round((float) $this->rating, 1)),
+            'review_count' => $this->when(isset($this->reviews_count), (int) $this->reviews_count),
             'admin' => $this->whenLoaded('admin'),
             'categories' => $this->whenLoaded('categories'),
             'services' => $this->whenLoaded('services'),
