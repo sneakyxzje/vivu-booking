@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\Customer\ReviewController;
 use App\Http\Controllers\Api\Guide\GuideController;
 use App\Http\Controllers\Api\Guide\TourController as GuideTourController;
 use App\Http\Controllers\Api\Guide\BookingController as GuideBookingController;
+use App\Http\Controllers\Api\Guide\AttendanceController;
 
 // Admin
 use App\Http\Controllers\Api\Admin\AdminController;
@@ -96,6 +97,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/my-tours/{id}', [GuideTourController::class, 'show']);
         Route::get('/bookings', [GuideBookingController::class, 'index']);
         Route::put('/bookings/{id}/confirm', [GuideBookingController::class, 'confirm']);
+        Route::get('/schedules/{schedule}/attendance', [AttendanceController::class, 'show']);
+        Route::put('/schedules/{schedule}/itineraries/{itinerary}/attendance', [AttendanceController::class, 'update']);
+        Route::post('/schedules/{schedule}/itineraries/{itinerary}/checkin-photo', [AttendanceController::class, 'uploadPhoto']);
     });
 
     /*
