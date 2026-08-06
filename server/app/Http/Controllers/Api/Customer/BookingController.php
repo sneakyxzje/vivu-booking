@@ -384,6 +384,15 @@ class BookingController extends Controller
                     ]);
                 }
 
+                if ($isSuccessful && !$wasAutoExpired && !$booking->paid_at) {
+                    Log::warning('Thanh toán thành công cho đơn không còn hiệu lực (đã bị hủy) — cần hoàn tiền thủ công.', [
+                        'booking_id' => $booking->id,
+                        'booking_status' => $booking->status,
+                        'transaction_no' => $request->query('vnp_TransactionNo'),
+                        'amount' => $request->query('vnp_Amount') ? $request->query('vnp_Amount') / 100 : null,
+                    ]);
+                }
+
                 return null;
             });
         }
