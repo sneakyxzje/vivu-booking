@@ -71,25 +71,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::put('/profile', [UserController::class, 'updateProfile']);
 
+    // Đánh giá tour (mọi user đã đăng nhập)
+    Route::post('/reviews', [ReviewController::class, 'store']);
+    Route::delete('/reviews/{id}', [ReviewController::class, 'destroy']);
+
     /*
     |--------------------------------------------------------------------------
     | CUSTOMER
     |--------------------------------------------------------------------------
     */
-    Route::middleware('auth:sanctum')->group(function () {
-
-    Route::post('/reviews', [ReviewController::class,'store']);
-
-    Route::delete('/reviews/{id}', [ReviewController::class,'destroy']);
-
-});
-    Route::middleware('auth:sanctum')->group(function () {
-
-    Route::post('/reviews',[ReviewController::class,'store']);
-
-    Route::delete('/reviews/{id}',[ReviewController::class,'destroy']);
-
-});
+    Route::middleware('role:customer')->group(function () {
+        Route::get('/my-bookings', [CustomerBookingController::class, 'myBookings']);
+        Route::put('/my-bookings/{id}/cancel', [CustomerBookingController::class, 'cancelBooking']);
+    });
 
     /*
     |--------------------------------------------------------------------------
