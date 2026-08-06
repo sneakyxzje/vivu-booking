@@ -23,6 +23,31 @@ const tourService = {
     return { success: true, data: tour };
   },
 
+  getReviews: async (tourId: number) => {
+    const response = await api.get(`/reviews/${tourId}`);
+    return response.data;
+  },
+
+  review: async (
+    tourId: number,
+    payload: {
+      rating: number;
+      comment: string;
+    }
+  ) => {
+    const response = await api.post("/reviews", {
+      tour_id: tourId,
+      rating: payload.rating,
+      comment: payload.comment,
+    });
+
+    return response.data;
+  },
+
+  deleteReview: async (id: number) => {
+    return api.delete(`/reviews/${id}`);
+  },
+
   getCategories: async (): Promise<Category[]> => {
     const response = await api.get("/categories");
     return extractArray<Category>(response);
@@ -32,9 +57,6 @@ const tourService = {
     const response = await api.get("/services");
     return extractArray<Service>(response);
   },
-
-  review: (tourId: number, payload: { rating: number; comment: string }) =>
-    api.post(`/tours/${tourId}/reviews`, payload),
 
   createTour: async (payload: unknown): Promise<{ success: boolean }> => {
     const response = await api.post("/admin/tours", buildTourPayload(payload), {

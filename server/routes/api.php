@@ -17,6 +17,7 @@ use App\Models\Service;
 
 // Customer
 use App\Http\Controllers\Api\Customer\BookingController as CustomerBookingController;
+use App\Http\Controllers\Api\Customer\ReviewController;
 
 // Guide
 use App\Http\Controllers\Api\Guide\GuideController;
@@ -56,6 +57,7 @@ Route::post('/bookings', [CustomerBookingController::class, 'store']);
 Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']);
 Route::post('/discount-codes/validate', [DiscountCodeController::class, 'validateCode']);
 Route::get('/vnpay/return', [CustomerBookingController::class, 'vnpayReturn']);
+Route::get('/reviews/{tour}', [ReviewController::class,'index']);
 
 /*
 |--------------------------------------------------------------------------
@@ -74,11 +76,20 @@ Route::middleware('auth:sanctum')->group(function () {
     | CUSTOMER
     |--------------------------------------------------------------------------
     */
-    Route::middleware('role:customer')->group(function () {
-        Route::get('/my-bookings', [CustomerBookingController::class, 'myBookings']);
-        Route::put('/my-bookings/{id}/cancel', [CustomerBookingController::class, 'cancelBooking']);
-        Route::post('/tours/{id}/reviews', [TourController::class, 'review']);
-    });
+    Route::middleware('auth:sanctum')->group(function () {
+
+    Route::post('/reviews', [ReviewController::class,'store']);
+
+    Route::delete('/reviews/{id}', [ReviewController::class,'destroy']);
+
+});
+    Route::middleware('auth:sanctum')->group(function () {
+
+    Route::post('/reviews',[ReviewController::class,'store']);
+
+    Route::delete('/reviews/{id}',[ReviewController::class,'destroy']);
+
+});
 
     /*
     |--------------------------------------------------------------------------

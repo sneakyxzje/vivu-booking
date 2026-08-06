@@ -739,7 +739,10 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
       </div>
 
       {/* Đánh giá và bình luận tour công khai */}
-      <TourReviewsSection tourTitle={tour.title} />
+      <TourReviewsSection 
+      tourId={tour.id}
+      tourTitle={tour.title}
+    />
     </div>
   );
 };
