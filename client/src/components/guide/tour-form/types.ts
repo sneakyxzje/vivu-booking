@@ -34,6 +34,8 @@ export interface TourFormState {
   number_of_nights: string;
   start_location: string;
   end_location: string;
+  vehicle_info: string;
+  pickup_location: string;
   thumbnail_file: File | null;
   thumbnail_preview: string;
   images: File[];

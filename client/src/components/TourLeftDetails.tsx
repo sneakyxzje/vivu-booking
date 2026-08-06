@@ -508,48 +508,51 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
       {/* Vị trí và điểm đón khách */}
       <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm space-y-6">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta">
-          Vị trí & Điểm đón khách khởi hành
+          Điểm đón & Thông tin di chuyển
         </h2>
-        <div className="space-y-4">
-          <div className="relative h-[240px] rounded-lg overflow-hidden border border-gray-200/60 shadow-inner group">
-            <img
-              src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=800&q=80"
-              alt="Map"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-black/10"></div>
-            <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-lg border border-gray-200/60 flex items-center gap-1.5 text-xs font-bold text-gray-800">
-              <MapPinIcon className="w-4 h-4 text-primary-600" />
-              <span>Xem bản đồ chi tiết trên Google Maps</span>
+        <div className="space-y-4 text-sm">
+          <div className="flex gap-3">
+            <MapPinIcon className="w-5 h-5 text-primary-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-gray-800">Điểm đón khách:</p>
+              <p className="text-gray-500 mt-0.5">
+                {tour.pickup_location ||
+                  `Tập trung tại ${tour.start_location}. Chi tiết điểm đón sẽ được gửi qua email sau khi đặt tour.`}
+              </p>
             </div>
           </div>
-
-          <div className="space-y-3.5 text-sm">
-            <div className="flex gap-3">
-              <div className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center shrink-0 font-bold text-xs mt-0.5 font-mono">
-                A
-              </div>
-              <div>
-                <p className="font-bold text-gray-800">Điểm đón khách chính:</p>
-                <p className="text-gray-500 text-xs mt-0.5">
-                  Nhà hát Lớn Hà Nội - Số 1 Tràng Tiền, Hoàn Kiếm, Hà Nội (Dành cho
-                  đoàn khởi hành từ miền Bắc).
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <div className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center shrink-0 font-bold text-xs mt-0.5 font-mono">
-                B
-              </div>
-              <div>
-                <p className="font-bold text-gray-800">Điểm đón khách phụ:</p>
-                <p className="text-gray-500 text-xs mt-0.5">
-                  Ga Quốc Tế - Cột số 9, Sân bay Tân Sơn Nhất, TP. Hồ Chí Minh
-                  (Dành cho đoàn khởi hành từ miền Nam).
-                </p>
-              </div>
+          <div className="flex gap-3">
+            <CompassIcon className="w-5 h-5 text-primary-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-gray-800">Hành trình:</p>
+              <p className="text-gray-500 mt-0.5">
+                {tour.start_location}
+                {tour.end_location ? ` → ${tour.end_location}` : ""} ·{" "}
+                {tour.number_of_days} ngày {tour.number_of_nights} đêm
+              </p>
             </div>
           </div>
+          {tour.vehicle_info && (
+            <div className="flex gap-3">
+              <svg
+                className="w-5 h-5 text-primary-600 shrink-0 mt-0.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                />
+              </svg>
+              <div>
+                <p className="font-bold text-gray-800">Phương tiện di chuyển:</p>
+                <p className="text-gray-500 mt-0.5">{tour.vehicle_info}</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

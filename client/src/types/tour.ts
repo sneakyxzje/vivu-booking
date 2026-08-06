@@ -76,6 +76,7 @@ export interface Tour {
   start_location: string;
   end_location: string | null;
   vehicle_info?: string | null;
+  pickup_location?: string | null;
   is_featured: boolean;
   status: "active" | "inactive" | "full";
   created_at?: string;

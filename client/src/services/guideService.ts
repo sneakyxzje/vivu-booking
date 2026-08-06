@@ -60,6 +60,8 @@ export const buildTourPayload = (form: unknown) => {
   data.append("number_of_nights", String(Number(f.number_of_nights)));
   data.append("start_location", String(f.start_location ?? ""));
   data.append("end_location", String(f.end_location ?? ""));
+  data.append("vehicle_info", String(f.vehicle_info ?? ""));
+  data.append("pickup_location", String(f.pickup_location ?? ""));
 
   if (f.thumbnail) {
     data.append("thumbnail", String(f.thumbnail));
