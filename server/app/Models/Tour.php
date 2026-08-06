@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Model;
     'start_location',
     'end_location',
     'vehicle_info',
+    'pickup_location',
     'is_featured',
     'status'
 ])]

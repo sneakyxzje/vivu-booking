@@ -25,6 +25,7 @@ class TourResource extends JsonResource
             'start_location' => $this->start_location,
             'end_location' => $this->end_location,
             'vehicle_info' => $this->vehicle_info,
+            'pickup_location' => $this->pickup_location,
             'is_featured' => (bool) $this->is_featured,
             'status' => $this->status,
             'created_at' => $this->created_at?->toIso8601String(),
