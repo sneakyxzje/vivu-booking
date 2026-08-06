@@ -21,6 +21,7 @@ type Booking = {
   discount_code?: string | null;
   discount_amount?: number;
   status: string;
+  expires_at?: string | null;
   note?: string | null;
   payment_url?: string;
   vnpay_transaction_no?: string | null;
@@ -94,6 +95,7 @@ export default function BookingSuccess() {
   const [searchParams] = useSearchParams();
   const [booking, setBooking] = useState<Booking | null>((state as Booking | null) ?? null);
   const [loading, setLoading] = useState(!state && Boolean(id));
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const paymentStatus = searchParams.get("payment_status");
 
   useEffect(() => {
@@ -112,6 +114,44 @@ export default function BookingSuccess() {
 
     loadBooking();
   }, [id, state]);
+
+  // Đếm ngược thời gian giữ chỗ; hết giờ thì tải lại đơn (server sẽ trả trạng thái đã hủy)
+  useEffect(() => {
+    if (!booking?.expires_at || !isPendingStatus(booking.status)) {
+      setRemainingSeconds(null);
+      return;
+    }
+
+    const expiresAt = new Date(booking.expires_at).getTime();
+    if (Number.isNaN(expiresAt)) return;
+
+    const tick = () => {
+      const secondsLeft = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      setRemainingSeconds(secondsLeft);
+
+      if (secondsLeft <= 0) {
+        window.clearInterval(timer);
+        const token = id ?? booking.public_token;
+        if (token) {
+          bookingService
+            .getById(token)
+            .then((response) => setBooking(response.data.data as Booking))
+            .catch(() => undefined);
+        }
+      }
+    };
+
+    const timer = window.setInterval(tick, 1000);
+    tick();
+
+    return () => window.clearInterval(timer);
+  }, [booking?.expires_at, booking?.status, booking?.public_token, id]);
+
+  const formatRemaining = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const rest = seconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
+  };
 
   if (loading) {
     return (
@@ -241,6 +281,16 @@ export default function BookingSuccess() {
                       <p className="text-xs text-emerald-700 leading-relaxed mt-0.5">Để hoàn tất đặt tour và giữ chỗ chính thức, vui lòng thanh toán qua cổng VNPay.</p>
                     </div>
                   </div>
+                  {remainingSeconds !== null && (
+                    <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${remainingSeconds <= 120 ? "bg-rose-50 border-rose-200" : "bg-amber-50 border-amber-200"}`}>
+                      <span className={`text-xs font-semibold ${remainingSeconds <= 120 ? "text-rose-700" : "text-amber-700"}`}>
+                        Chỗ của bạn đang được giữ. Quá hạn đơn sẽ tự hủy để nhường chỗ.
+                      </span>
+                      <span className={`text-base font-black font-mono tabular-nums ${remainingSeconds <= 120 ? "text-rose-600" : "text-amber-700"}`}>
+                        {formatRemaining(remainingSeconds)}
+                      </span>
+                    </div>
+                  )}
                   <a href={booking.payment_url} className="block w-full bg-emerald-600 hover:bg-emerald-750 text-white font-bold py-4 text-center rounded-xl shadow-md hover:shadow-lg transition-all duration-300 text-sm cursor-pointer">
                     Thanh toán trực tuyến ngay
                   </a>
