@@ -111,6 +111,7 @@ export const GuideTours: React.FC = () => {
                   <th className="px-4 py-3 font-semibold">Địa điểm</th>
                   <th className="px-4 py-3 font-semibold">Giá</th>
                   <th className="px-4 py-3 font-semibold">Thời lượng</th>
+                  <th className="px-4 py-3 font-semibold">Dịch vụ đi kèm</th>
                   <th className="px-4 py-3 font-semibold">Trạng thái</th>
                 </tr>
               </thead>
@@ -143,6 +144,30 @@ export const GuideTours: React.FC = () => {
                       {tour.number_of_nights > 0
                         ? ` ${tour.number_of_nights}Đ`
                         : ""}
+                    </td>
+                    {/* Dịch vụ đi kèm tour - HDV cần biết để chuẩn bị */}
+                    <td className="px-4 py-4">
+                      {tour.services && tour.services.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 max-w-[200px]">
+                          {tour.services.slice(0, 3).map((s) => (
+                            <span
+                              key={s.id}
+                              title={s.description ?? s.name}
+                              className="inline-flex items-center gap-1 bg-primary-50 text-primary-700 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-primary-100"
+                            >
+                              {s.icon && <span>{s.icon}</span>}
+                              {s.name}
+                            </span>
+                          ))}
+                          {tour.services.length > 3 && (
+                            <span className="text-[10px] text-gray-400 font-medium">
+                              +{tour.services.length - 3} khác
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">Chưa có</span>
+                      )}
                     </td>
                     <td className="px-4 py-4">
                       <TourStatusBadge status={tour.status} />
