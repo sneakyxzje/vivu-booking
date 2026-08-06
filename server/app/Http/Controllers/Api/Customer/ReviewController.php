@@ -29,61 +29,41 @@ class ReviewController extends Controller
      * Thêm đánh giá
      */
     public function store(Request $request)
-    {
-        $request->validate([
-            'tour_id' => 'required|exists:tours,id',
-            'rating' => 'required|integer|min:1|max:5',
-            'comment' => 'required|string|max:1000',
-        ]);
+{
+    $request->validate([
+        'tour_id' => 'required|exists:tours,id',
+        'rating' => 'required|integer|min:1|max:5',
+        'comment' => 'required|string|max:1000',
+    ]);
 
-        $user = auth()->user();
+    $user = auth()->user();
 
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Bạn chưa đăng nhập.'
-            ],401);
-        }
-       
-
-        // Kiểm tra đã đánh giá chưa
-
-        $exist = Review::where('tour_id',$request->tour_id)
-            ->where('user_id',$user->id)
-            ->exists();
-
-        if($exist){
-
-            return response()->json([
-                'success'=>false,
-                'message'=>'Bạn đã đánh giá tour này.'
-            ],409);
-
-        }
-
-        $review = Review::create([
-
-            'tour_id'=>$request->tour_id,
-
-            'user_id'=>$user->id,
-
-            'rating'=>$request->rating,
-
-            'comment'=>$request->comment
-
-        ]);
-
+    if (!$user) {
         return response()->json([
-
-            'success'=>true,
-
-            'message'=>'Đánh giá thành công',
-
-            'data'=>$review
-
-        ],201);
-
+            'success' => false,
+            'message' => 'Bạn chưa đăng nhập.'
+        ],401);
     }
+
+
+    // Không kiểm tra đã đánh giá hay chưa
+    // Cho phép 1 user đánh giá nhiều lần
+
+
+    $review = Review::create([
+        'tour_id' => $request->tour_id,
+        'user_id' => $user->id,
+        'rating' => $request->rating,
+        'comment' => $request->comment
+    ]);
+
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Đánh giá thành công',
+        'data' => $review
+    ],201);
+}
 
     /**
      * Xóa đánh giá
