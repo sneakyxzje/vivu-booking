@@ -10,7 +10,19 @@ export interface Service {
   id: number;
   name: string;
   icon?: string;
+  description?: string | null;
+  price?: number | null;
+  is_active?: boolean;
+  tours_count?: number;
+}
+
+// Payload dùng cho form Admin tạo/sửa dịch vụ
+export interface ServicePayload {
+  name: string;
+  icon?: string;
   description?: string;
+  price?: number | null;
+  is_active: boolean;
 }
 
 export interface TourImage {
@@ -63,6 +75,7 @@ export interface Tour {
   number_of_nights: number;
   start_location: string;
   end_location: string | null;
+  vehicle_info?: string | null;
   is_featured: boolean;
   status: "active" | "inactive" | "full";
   created_at?: string;

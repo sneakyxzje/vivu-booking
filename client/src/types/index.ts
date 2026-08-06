@@ -8,6 +8,7 @@ export type {
 export type {
   Category,
   Service,
+  ServicePayload,
   TourImage,
   TourItinerary,
   TourSchedule,

@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\Admin\AdminTourController;
 use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
+use App\Http\Controllers\Api\Admin\AdminServiceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -48,7 +49,8 @@ Route::get('/categories', fn() => response()->json([
 ]));
 Route::get('/services', fn() => response()->json([
     'success' => true,
-    'data' => Service::orderBy('name')->get(),
+    // Chỉ trả về dịch vụ đang hoạt động (is_active = true) cho phía khách hàng xem
+    'data' => Service::where('is_active', true)->orderBy('name')->get(),
 ]));
 Route::post('/bookings', [CustomerBookingController::class, 'store']);
 Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']);
@@ -115,6 +117,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/bookings', [AdminBookingController::class, 'index']);
         Route::get('/bookings/{id}', [AdminBookingController::class, 'show']);
         Route::apiResource('discount-codes', AdminDiscountCodeController::class);
+
+        // Quản lý dịch vụ phát sinh (khách sạn, ăn uống, ...)
+        Route::apiResource('services', AdminServiceController::class);
     });
 });
 
