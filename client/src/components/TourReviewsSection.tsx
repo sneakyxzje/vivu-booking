@@ -15,44 +15,10 @@ interface Review {
   likes: number;
 }
 
-const mockReviews: Review[] = [
-  {
-    id: 1,
-    userName: "Nguyễn Hoàng Nam",
-    userAvatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120",
-    rating: 5,
-    date: "15/07/2026",
-    comment: "Chuyến đi tuyệt vời! Khách sạn 4 sao sạch đẹp, ăn uống phong phú hải sản rất tươi. Hướng dẫn viên anh Nam cực kỳ nhiệt tình và am hiểu văn hóa địa phương. Xe du lịch đời mới đi êm ái, bác tài vui tính.",
-    verifiedBooking: true,
-    likes: 12,
-  },
-  {
-    id: 2,
-    userName: "Trần Thị Mai Anh",
-    userAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120",
-    rating: 5,
-    date: "02/07/2026",
-    comment: "Lịch trình hợp lý, không bị gấp gáp. Cả gia đình mình có trẻ nhỏ và người lớn tuổi nhưng ai cũng hài lòng. Rất cảm ơn Vivu Booking đã chu đáo sắp xếp phòng liền kề cho gia đình.",
-    verifiedBooking: true,
-    likes: 8,
-  },
-  {
-    id: 3,
-    userName: "Lê Minh Tuấn",
-    userAvatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=120",
-    rating: 4,
-    date: "20/06/2026",
-    comment: "Tour tổ chức chuyên nghiệp, xe đón đúng giờ. Điểm trừ nhẹ là ngày thứ 2 thời tiết hơi nắng nhưng HDV đã linh hoạt điều chỉnh cho đoàn nghỉ ngơi hợp lý. 9/10 điểm!",
-    verifiedBooking: true,
-    likes: 5,
-  },
-];
-
-
 export const TourReviewsSection: React.FC<{
   tourId: number;
   tourTitle?: string;
-}> = ({ tourId, tourTitle }) => {
+}> = ({ tourId }) => {
   const [reviews, setReviews] = useState<Review[]>([]);
 
   const [activeFilter, setActiveFilter] = useState<number | "all">("all");
