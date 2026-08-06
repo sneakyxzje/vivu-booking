@@ -19,6 +19,11 @@ export default function BookingManagement() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const [cancelMode, setCancelMode] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState("");
+
   // Fetch dữ liệu từ Backend API (Có phân trang)
   useEffect(() => {
     const fetchBookings = async () => {
@@ -115,6 +120,52 @@ export default function BookingManagement() {
   const closeDetails = () => {
     setIsModalOpen(false);
     setSelectedBooking(null);
+    setCancelMode(false);
+    setCancelReason("");
+    setActionError("");
+  };
+
+  // Cập nhật đơn trong cả modal lẫn danh sách sau khi admin thao tác
+  const applyBookingUpdate = (updated: Booking) => {
+    setSelectedBooking(updated);
+    setBookings((prev) => prev.map((b) => (b.id === updated.id ? { ...b, ...updated } : b)));
+  };
+
+  const extractApiError = (err: unknown, fallback: string) => {
+    const response = (err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }).response?.data;
+    return response?.errors ? Object.values(response.errors).flat()[0] ?? fallback : response?.message ?? fallback;
+  };
+
+  const handleConfirm = async () => {
+    if (!selectedBooking) return;
+    setActionLoading(true);
+    setActionError("");
+    try {
+      const updated = await adminService.confirmBooking(selectedBooking.id);
+      if (updated) applyBookingUpdate(updated);
+    } catch (err) {
+      setActionError(extractApiError(err, "Không thể xác nhận đơn. Vui lòng thử lại."));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!selectedBooking || !cancelReason.trim()) return;
+    setActionLoading(true);
+    setActionError("");
+    try {
+      const updated = await adminService.cancelBooking(selectedBooking.id, cancelReason.trim());
+      if (updated) {
+        applyBookingUpdate(updated);
+        setCancelMode(false);
+        setCancelReason("");
+      }
+    } catch (err) {
+      setActionError(extractApiError(err, "Không thể hủy đơn. Vui lòng thử lại."));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
@@ -482,7 +533,7 @@ export default function BookingManagement() {
         )}
       </div>
 
-      {/* DETAIL MODAL POPUP (CHỈ XEM CHI TIẾT) */}
+      {/* DETAIL MODAL POPUP (XEM + XỬ LÝ ĐƠN) */}
       <Modal
         isOpen={isModalOpen && !!selectedBooking}
         onClose={closeDetails}
@@ -490,12 +541,32 @@ export default function BookingManagement() {
         subtitle={`Khởi tạo lúc: ${selectedBooking?.created_at}`}
         size="3xl"
         footer={
-          <button
-            onClick={closeDetails}
-            className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-md text-gray-700 hover:bg-gray-100 transition-colors focus:outline-none cursor-pointer"
-          >
-            Đóng
-          </button>
+          <div className="flex items-center justify-end gap-2.5">
+            {selectedBooking?.status === "pending" && !cancelMode && (
+              <button
+                onClick={handleConfirm}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-emerald-600 text-sm font-semibold rounded-md text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {actionLoading ? "Đang xử lý..." : "Xác nhận đơn"}
+              </button>
+            )}
+            {(selectedBooking?.status === "pending" || selectedBooking?.status === "confirmed") && !cancelMode && (
+              <button
+                onClick={() => { setCancelMode(true); setActionError(""); }}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-white border border-rose-200 text-sm font-semibold rounded-md text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Hủy đơn
+              </button>
+            )}
+            <button
+              onClick={closeDetails}
+              className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-md text-gray-700 hover:bg-gray-100 transition-colors focus:outline-none cursor-pointer"
+            >
+              Đóng
+            </button>
+          </div>
         }
       >
         {selectedBooking && (
@@ -587,6 +658,14 @@ export default function BookingManagement() {
               </p>
             </div>
 
+            {/* Lý do hủy (nếu đơn đã hủy) */}
+            {selectedBooking.status === "cancelled" && selectedBooking.cancel_reason && (
+              <div className="bg-rose-50/60 p-4 rounded-lg border border-rose-200">
+                <h5 className="text-xs font-semibold text-rose-500 uppercase tracking-wider mb-2">Lý do hủy đơn</h5>
+                <p className="text-sm text-rose-800 leading-relaxed">{selectedBooking.cancel_reason}</p>
+              </div>
+            )}
+
             {/* Trạng thái duyệt của Admin */}
             <div className="pt-4 border-t border-gray-200 flex justify-between items-center">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Trạng thái duyệt</span>
@@ -603,6 +682,48 @@ export default function BookingManagement() {
                 {selectedBooking.status === "pending" && "Chờ xác nhận"}
               </span>
             </div>
+
+            {actionError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                {actionError}
+              </div>
+            )}
+
+            {/* Form nhập lý do hủy */}
+            {cancelMode && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-4 space-y-3">
+                <label className="block text-sm font-semibold text-rose-800">
+                  Lý do hủy đơn <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  rows={2}
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="VD: Khách yêu cầu hoàn do thay đổi lịch trình, tour bị hoãn..."
+                  className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm outline-none focus:border-rose-400"
+                />
+                <p className="text-xs text-rose-600">
+                  Hủy đơn sẽ trả lại chỗ cho lịch khởi hành và hoàn lượt mã giảm giá (nếu có).
+                  {selectedBooking.vnpay_transaction_no && " Đơn này ĐÃ thanh toán qua VNPay — cần hoàn tiền cho khách thủ công."}
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => { setCancelMode(false); setCancelReason(""); }}
+                    disabled={actionLoading}
+                    className="px-3.5 py-2 bg-white border border-gray-200 text-xs font-semibold rounded-md text-gray-600 hover:bg-gray-100 cursor-pointer"
+                  >
+                    Không hủy nữa
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    disabled={actionLoading || !cancelReason.trim()}
+                    className="px-3.5 py-2 bg-rose-600 text-xs font-semibold rounded-md text-white hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
+                  >
+                    {actionLoading ? "Đang hủy..." : "Xác nhận hủy đơn"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Modal>

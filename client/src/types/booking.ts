@@ -22,6 +22,8 @@ export interface Booking {
   discount_code?: string | null;
   discount_amount?: number;
   status: BookingStatus;
+  expires_at?: string | null;
+  cancel_reason?: string | null;
   note: string | null;
   vnpay_transaction_no: string | null;
   paid_at: string | null;
