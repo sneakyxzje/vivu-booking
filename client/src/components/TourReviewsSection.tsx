@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Star, CheckCircle2, ThumbsUp, MessageSquare, Filter, User } from "lucide-react";
+import tourService from "@/services/tourService";
 
 interface Review {
   id: number;
@@ -45,8 +46,11 @@ const mockReviews: Review[] = [
   },
 ];
 
-export const TourReviewsSection: React.FC<{ tourTitle?: string }> = ({ tourTitle }) => {
-  const [reviews, setReviews] = useState<Review[]>(mockReviews);
+export const TourReviewsSection: React.FC<{
+  tourId: number;
+  tourTitle?: string;
+}> = ({ tourId, tourTitle }) => {
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [activeFilter, setActiveFilter] = useState<number | "all">("all");
   
   // New review form
@@ -56,34 +60,71 @@ export const TourReviewsSection: React.FC<{ tourTitle?: string }> = ({ tourTitle
   const [submitting, setSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  const loadReviews = async () => {
+  try {
+    const res = await tourService.getReviews(tourId);
+
+    const list = Array.isArray(res)
+      ? res
+      : res.data || [];
+
+    setReviews(
+      list.map((item: any) => ({
+        id: item.id,
+        userName: item.user?.name ?? "Khách hàng",
+        userAvatar: item.user?.avatar,
+        rating: item.rating,
+        date: new Date(item.created_at).toLocaleDateString("vi-VN"),
+        comment: item.comment,
+        verifiedBooking: true,
+        likes: item.likes ?? 0,
+      }))
+    );
+  } catch (err) {
+    console.error(err);
+  }
+};
+useEffect(() => {
+  loadReviews();
+}, [tourId]);
   const filteredReviews = reviews.filter((r) => {
     if (activeFilter === "all") return true;
     return r.rating === activeFilter;
   });
 
-  const handleAddReview = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
+  const handleAddReview = async (e: React.FormEvent) => {
+  e.preventDefault();
 
+  console.log("tourId =", tourId);
+
+  if (!newComment.trim()) return;
+
+  try {
     setSubmitting(true);
+    console.log("COMPONENT TOUR ID:", tourId);
+    await tourService.review(tourId, {
+  rating: newRating,
+  comment: newComment,
+});
+
+    setNewComment("");
+    setNewRating(5);
+    setNewUserName("");
+
+    setShowSuccess(true);
+
+    loadReviews();
+
     setTimeout(() => {
-      const created: Review = {
-        id: Date.now(),
-        userName: newUserName.trim() || "Khách hàng Vivu",
-        rating: newRating,
-        date: new Date().toLocaleDateString("vi-VN"),
-        comment: newComment,
-        verifiedBooking: true,
-        likes: 0,
-      };
-      setReviews([created, ...reviews]);
-      setNewComment("");
-      setNewUserName("");
-      setSubmitting(false);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 4000);
-    }, 600);
-  };
+      setShowSuccess(false);
+    }, 3000);
+  } catch (error) {
+    console.error(error);
+    alert("Không thể gửi đánh giá.");
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const handleLike = (id: number) => {
     setReviews((prev) =>
