@@ -1,6 +1,6 @@
 import api from "./api";
 import { extractObject } from "@/utils/apiHelpers";
-import type { Booking, Guide, Tour, DiscountCode, DiscountCodePayload } from "@/types";
+import type { Booking, Guide, Tour, DiscountCode, DiscountCodePayload, Service, ServicePayload } from "@/types";
 import { buildTourPayload } from "@/services/guideService";
 
 export interface PaginatedResponse<T> {
@@ -102,6 +102,27 @@ const adminService = {
     const response = await api.put(`/admin/tour-schedules/${scheduleId}/assign-guide`, {
       guide_id: guideId,
     });
+    return response.data?.success !== false;
+  },
+
+  // --- EXTRA SERVICES (Dịch vụ phát sinh theo tour) ---
+  getServices: async (page = 1): Promise<PaginatedResponse<Service> | null> => {
+    const response = await api.get(`/admin/services?page=${page}`);
+    return extractObject<PaginatedResponse<Service>>(response);
+  },
+
+  createService: async (payload: ServicePayload): Promise<Service | null> => {
+    const response = await api.post("/admin/services", payload);
+    return extractObject<Service>(response);
+  },
+
+  updateService: async (id: number, payload: Partial<ServicePayload>): Promise<Service | null> => {
+    const response = await api.put(`/admin/services/${id}`, payload);
+    return extractObject<Service>(response);
+  },
+
+  deleteService: async (id: number): Promise<boolean> => {
+    const response = await api.delete(`/admin/services/${id}`);
     return response.data?.success !== false;
   },
 };
