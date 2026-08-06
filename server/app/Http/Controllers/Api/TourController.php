@@ -41,6 +41,8 @@ class TourController extends Controller
                 'itineraries',
                 'schedules',
             ])
+            ->withAvg('reviews as rating', 'rating')
+            ->withCount('reviews')
             ->whereIn('status', ['active', 'full']);
 
         if (!empty($filters['q'])) {
@@ -137,7 +139,10 @@ class TourController extends Controller
             'images',
             'itineraries',
             'schedules'
-        ])->whereIn('status', ['active', 'full'])->find($id);
+        ])
+            ->withAvg('reviews as rating', 'rating')
+            ->withCount('reviews')
+            ->whereIn('status', ['active', 'full'])->find($id);
 
         if (!$tour) {
             return response()->json([
