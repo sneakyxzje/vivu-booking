@@ -5,11 +5,16 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TourResource;
 use App\Models\Tour;
+use App\Services\BookingHoldService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
 class TourController extends Controller
 {
+    public function __construct(private BookingHoldService $holdService)
+    {
+    }
+
     /**
      * Danh sách tour kèm tìm kiếm, lọc và sắp xếp.
      */
@@ -122,6 +127,10 @@ class TourController extends Controller
      */
     public function show(int $id): JsonResponse
     {
+        // Nhả chỗ của các đơn quá hạn trước khi trả dữ liệu, để số
+        // "còn lại X chỗ" khách nhìn thấy luôn là số thật.
+        $this->holdService->releaseOverdueForTour($id);
+
         $tour = Tour::with([
             'categories',
             'services',

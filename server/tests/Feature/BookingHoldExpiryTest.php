@@ -127,6 +127,18 @@ class BookingHoldExpiryTest extends TestCase
         $this->assertSame(0, (int) $schedule->booked_people);
     }
 
+    public function test_mo_trang_chi_tiet_tour_thi_so_cho_hien_thi_la_so_that(): void
+    {
+        $schedule = $this->taoTourVaLich(maxPeople: 5, bookedPeople: 3);
+        $don = $this->taoDonGiuCho($schedule, guests: 3, expiresAt: now()->subMinute());
+
+        $this->getJson('/api/tours/' . $schedule->tour_id)->assertOk();
+
+        $schedule->refresh();
+        $this->assertSame(0, (int) $schedule->booked_people);
+        $this->assertSame('cancelled', $don->fresh()->status);
+    }
+
     public function test_lenh_don_dep_mo_lai_lich_va_tour_da_full(): void
     {
         $schedule = $this->taoTourVaLich(maxPeople: 5, bookedPeople: 5);
