@@ -28,6 +28,8 @@ const emptyForm: TourFormState = {
   number_of_nights: "0",
   start_location: "",
   end_location: "",
+  vehicle_info: "",
+  pickup_location: "",
   thumbnail_file: null as File | null,
   thumbnail_preview: "",
   images: [] as File[],
@@ -197,6 +199,8 @@ export const CreateTourForm: React.FC = () => {
           number_of_nights: String(tour.number_of_nights),
           start_location: tour.start_location,
           end_location: tour.end_location ?? "",
+          vehicle_info: tour.vehicle_info ?? "",
+          pickup_location: tour.pickup_location ?? "",
           thumbnail_file: null,
           thumbnail_preview: "",
           images: [],
@@ -554,6 +558,8 @@ export const CreateTourForm: React.FC = () => {
               numberOfNights={form.number_of_nights}
               startLocation={form.start_location}
               endLocation={form.end_location}
+              vehicleInfo={form.vehicle_info}
+              pickupLocation={form.pickup_location}
               onChange={handleChange}
             />
 

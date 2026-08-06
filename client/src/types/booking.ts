@@ -1,4 +1,4 @@
-import type { Tour } from "./tour";
+import type { Tour, TourSchedule } from "./tour";
 
 export type BookingStatus = "pending" | "confirmed" | "cancelled";
 
@@ -31,5 +31,6 @@ export interface Booking {
   created_at: string;
   updated_at: string;
   tour?: Tour;
+  schedule?: TourSchedule;
 }
 

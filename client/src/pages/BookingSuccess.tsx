@@ -36,11 +36,20 @@ type Booking = {
     thumbnail: string | null;
     price: number;
     discount_price?: number | null;
+    start_location?: string | null;
+    end_location?: string | null;
+    vehicle_info?: string | null;
+    pickup_location?: string | null;
   };
   schedule?: {
     id: number;
   public_token?: string;
     start_date: string;
+    guide?: {
+      id: number;
+      name: string;
+      phone?: string | null;
+    } | null;
   };
 };
 
@@ -301,6 +310,42 @@ export default function BookingSuccess() {
                   <a href={booking.payment_url} className="block w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 text-center rounded-xl shadow-md hover:shadow-lg transition-all duration-300 text-sm cursor-pointer">
                     Thanh toán trực tuyến ngay
                   </a>
+                </div>
+              )}
+
+              {!cancelled && (
+                <div className="mt-8 p-5 bg-blue-50/60 border border-blue-100 rounded-lg space-y-3 text-sm">
+                  <h4 className="font-bold text-blue-900">Hướng dẫn tập trung & di chuyển</h4>
+                  <div className="space-y-1.5 text-gray-700">
+                    <p>
+                      <span className="text-gray-500">Điểm đón:</span>{" "}
+                      <strong className="text-gray-900">
+                        {booking.tour?.pickup_location ||
+                          `${booking.tour?.start_location ?? "Điểm khởi hành"} (chi tiết sẽ gửi qua email)`}
+                      </strong>
+                    </p>
+                    <p>
+                      <span className="text-gray-500">Thời gian khởi hành:</span>{" "}
+                      <strong className="text-gray-900">{formatDateTime(booking.departure_date)}</strong>
+                      <span className="text-gray-500"> — vui lòng có mặt trước ít nhất 30 phút</span>
+                    </p>
+                    {booking.tour?.vehicle_info && (
+                      <p>
+                        <span className="text-gray-500">Phương tiện:</span>{" "}
+                        <strong className="text-gray-900">{booking.tour.vehicle_info}</strong>
+                      </p>
+                    )}
+                    <p>
+                      <span className="text-gray-500">Hướng dẫn viên:</span>{" "}
+                      <strong className="text-gray-900">
+                        {booking.schedule?.guide?.name ?? "Đang sắp xếp"}
+                      </strong>
+                      {booking.schedule?.guide?.phone ? ` — ${booking.schedule.guide.phone}` : ""}
+                    </p>
+                  </div>
+                  <p className="text-xs text-blue-700">
+                    Mang theo giấy tờ tùy thân và mã booking BK{booking.id} khi lên xe. Mọi thắc mắc vui lòng liên hệ hotline hoặc hướng dẫn viên.
+                  </p>
                 </div>
               )}
             </div>

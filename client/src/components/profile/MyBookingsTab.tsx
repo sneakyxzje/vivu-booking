@@ -21,26 +21,7 @@ import {
   Navigation
 } from "lucide-react";
 
-export interface ExtendedBooking extends Booking {
-  vehicle?: {
-    model: string;
-    licensePlate: string;
-    driverName: string;
-    driverPhone: string;
-    pickupLocation: string;
-    pickupTime: string;
-  };
-  guide?: {
-    name: string;
-    phone: string;
-    avatar?: string;
-  };
-  passengers?: Array<{
-    name: string;
-    dob: string;
-    idNumber: string;
-  }>;
-}
+export type ExtendedBooking = Booking;
 
 export const MyBookingsTab: React.FC = () => {
   const [bookings, setBookings] = useState<ExtendedBooking[]>([]);
@@ -61,26 +42,7 @@ export const MyBookingsTab: React.FC = () => {
       try {
         const response = await bookingService.getMyBookings();
         if (response.data && Array.isArray(response.data.data)) {
-          const enriched: ExtendedBooking[] = response.data.data.map((b: Booking) => ({
-            ...b,
-            vehicle: {
-              model: "Thaco Town 35 Chỗ (Hạng Sang)",
-              licensePlate: "29B-888.99",
-              driverName: "Nguyễn Văn Tài (Tài xế)",
-              driverPhone: "0912 345 678",
-              pickupLocation: "Nhà Văn Hóa Thanh Niên, TP.HCM",
-              pickupTime: "06:00 AM",
-            },
-            guide: {
-              name: "Trần Văn Nam (HDV Chuyên nghiệp)",
-              phone: "0987 654 321",
-              avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-            },
-            passengers: [
-              { name: b.customer_name, dob: "1995-05-12", idNumber: "07909500XXXX" }
-            ]
-          }));
-          setBookings(enriched);
+          setBookings(response.data.data as Booking[]);
         } else {
           setBookings([]);
         }
@@ -387,30 +349,23 @@ export const MyBookingsTab: React.FC = () => {
                 </h4>
                 <span className="text-[10px] font-bold bg-primary-600 text-white px-2.5 py-0.5 rounded-md shadow-xs">Xe du lịch đưa đón</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-gray-700 pt-1">
+              <div className="grid grid-cols-1 gap-3 text-xs text-gray-700 pt-1">
                 <div>
-                  <span className="text-gray-500 block">Loại xe:</span>
-                  <strong className="text-gray-900 font-semibold">{selectedBooking.vehicle?.model}</strong>
-                </div>
-                <div>
-                  <span className="text-gray-500 block">Biển số xe:</span>
-                  <strong className="text-primary-700 font-bold bg-primary-50 px-2 py-0.5 rounded border border-primary-200 inline-block mt-0.5">
-                    {selectedBooking.vehicle?.licensePlate}
+                  <span className="text-gray-500 block">Phương tiện di chuyển:</span>
+                  <strong className="text-gray-900 font-semibold">
+                    {selectedBooking.tour?.vehicle_info || "Thông tin xe sẽ được cập nhật trước ngày khởi hành."}
                   </strong>
                 </div>
-                <div>
-                  <span className="text-gray-500 block">Tài xế phụ trách:</span>
-                  <strong className="text-gray-900">{selectedBooking.vehicle?.driverName}</strong>
-                </div>
-                <div>
-                  <span className="text-gray-500 block">SĐT Tài xế:</span>
-                  <strong className="text-primary-600 font-semibold">{selectedBooking.vehicle?.driverPhone}</strong>
-                </div>
-                <div className="sm:col-span-2 pt-2.5 border-t border-blue-100 flex items-start gap-2 text-xs">
+                <div className="pt-2.5 border-t border-blue-100 flex items-start gap-2 text-xs">
                   <MapPin className="w-4 h-4 text-primary-600 shrink-0 mt-0.5" />
                   <div>
-                    <span className="text-gray-500">Địa điểm & Thời gian đón:</span>
-                    <p className="font-semibold text-gray-900">{selectedBooking.vehicle?.pickupTime} — {selectedBooking.vehicle?.pickupLocation}</p>
+                    <span className="text-gray-500">Điểm đón & thời gian tập trung:</span>
+                    <p className="font-semibold text-gray-900">
+                      {formatDateTime(selectedBooking.departure_date)} —{" "}
+                      {selectedBooking.tour?.pickup_location ||
+                        `${selectedBooking.tour?.start_location ?? "Điểm khởi hành"} (chi tiết gửi qua email)`}
+                    </p>
+                    <p className="text-gray-500 mt-1">Vui lòng có mặt trước giờ khởi hành ít nhất 30 phút.</p>
                   </div>
                 </div>
               </div>
@@ -419,45 +374,46 @@ export const MyBookingsTab: React.FC = () => {
             {/* GUIDE INFO CARD */}
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200/70 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <img
-                  src={selectedBooking.guide?.avatar}
-                  alt="Guide Avatar"
-                  className="w-12 h-12 rounded-full object-cover border-2 border-primary-500 shadow-xs"
-                />
+                <div className="w-12 h-12 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-base border-2 border-primary-200">
+                  {selectedBooking.schedule?.guide?.name?.charAt(0)?.toUpperCase() ?? "?"}
+                </div>
                 <div>
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hướng dẫn viên</span>
-                  <h5 className="font-bold text-gray-900 text-sm">{selectedBooking.guide?.name}</h5>
-                  <p className="text-xs text-primary-600 font-semibold">{selectedBooking.guide?.phone}</p>
+                  <h5 className="font-bold text-gray-900 text-sm">
+                    {selectedBooking.schedule?.guide?.name ?? "Đang sắp xếp hướng dẫn viên"}
+                  </h5>
+                  <p className="text-xs text-primary-600 font-semibold">
+                    {selectedBooking.schedule?.guide?.phone ?? "Thông tin liên hệ sẽ gửi trước ngày đi"}
+                  </p>
                 </div>
               </div>
-              <a
-                href={`tel:${selectedBooking.guide?.phone}`}
-                className="px-3.5 py-2 bg-primary-600 text-white rounded-xl text-xs font-semibold hover:bg-primary-700 transition-colors flex items-center gap-1.5 shadow-xs"
-              >
-                <Phone className="w-3.5 h-3.5" /> Gọi HDV
-              </a>
+              {selectedBooking.schedule?.guide?.phone && (
+                <a
+                  href={`tel:${selectedBooking.schedule.guide.phone}`}
+                  className="px-3.5 py-2 bg-primary-600 text-white rounded-xl text-xs font-semibold hover:bg-primary-700 transition-colors flex items-center gap-1.5 shadow-xs"
+                >
+                  <Phone className="w-3.5 h-3.5" /> Gọi HDV
+                </a>
+              )}
             </div>
 
-            {/* PASSENGERS LIST (CHỨC NĂNG 3) */}
+            {/* THÔNG TIN ĐOÀN KHÁCH */}
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-primary-600" /> Danh sách hành khách ({selectedBooking.guests} người)
+                <UserCheck className="w-4 h-4 text-primary-600" /> Đoàn khách ({selectedBooking.guests} người)
               </h4>
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200/70 space-y-2">
-                {selectedBooking.passengers?.map((p, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-200/60 last:border-none">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 font-bold flex items-center justify-center text-[10px]">
-                        {idx + 1}
-                      </span>
-                      <span className="font-bold text-gray-800">{p.name}</span>
-                    </div>
-                    <div className="flex items-center gap-4 text-gray-500">
-                      <span>Ngày sinh: {p.dob}</span>
-                      <span>CCCD: {p.idNumber}</span>
-                    </div>
-                  </div>
-                ))}
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200/70 text-xs text-gray-700 space-y-1.5">
+                <p>
+                  <span className="text-gray-500">Cơ cấu đoàn:</span>{" "}
+                  <strong className="text-gray-900">
+                    {selectedBooking.adult_count ?? 0} người lớn, {selectedBooking.child_count ?? 0} trẻ em, {selectedBooking.infant_count ?? 0} em bé
+                  </strong>
+                </p>
+                <p>
+                  <span className="text-gray-500">Người liên hệ:</span>{" "}
+                  <strong className="text-gray-900">{selectedBooking.customer_name}</strong>
+                  {selectedBooking.customer_phone ? ` — ${selectedBooking.customer_phone}` : ""}
+                </p>
               </div>
             </div>
 
