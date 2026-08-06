@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import bookingService from "@/services/bookingService";
 import type { Booking } from "@/types";
+import { formatDateTime } from "@/utils/format";
 import { Modal } from "@/components/Modal";
 import {
   Ticket,
@@ -240,7 +241,7 @@ export const MyBookingsTab: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3 text-xs text-gray-600">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-primary-600 shrink-0" />
-                      <span>Ngày khởi hành: <strong className="text-gray-900 font-semibold">{item.departure_date}</strong></span>
+                      <span>Khởi hành: <strong className="text-gray-900 font-semibold">{formatDateTime(item.departure_date)}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-primary-600 shrink-0" />

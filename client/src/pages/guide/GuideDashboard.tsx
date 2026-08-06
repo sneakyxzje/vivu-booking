@@ -7,7 +7,7 @@ import {
   BookingStatusBadge,
   TourStatusBadge,
 } from "@/components/guide/GuideStatusBadge";
-import { formatDate, formatPrice } from "@/utils/format";
+import { formatDateTime, formatPrice } from "@/utils/format";
 
 export const GuideDashboard: React.FC = () => {
   const [stats, setStats] = useState<GuideDashboardStats | null>(null);
@@ -180,7 +180,7 @@ export const GuideDashboard: React.FC = () => {
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {b.tour_title} · {b.guests} khách ·{" "}
-                      {formatDate(b.departure_date)}
+                      {formatDateTime(b.departure_date)}
                     </p>
                   </div>
                   <BookingStatusBadge status={b.status} />

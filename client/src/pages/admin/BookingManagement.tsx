@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import type { Booking } from "@/types";
 import adminService from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
+import { formatDateTime } from "@/utils/format";
 
 export default function BookingManagement() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -353,7 +354,7 @@ export default function BookingManagement() {
                               </svg>
                               <span>Khởi hành:</span>
                               <span className="font-semibold text-gray-600">
-                                {booking.departure_date}
+                                {formatDateTime(booking.departure_date)}
                               </span>
                             </div>
                           </div>
@@ -521,7 +522,7 @@ export default function BookingManagement() {
                 <div>
                   <span className="text-gray-400">Ngày đi:</span>{" "}
                   <span className="font-bold text-primary-600">
-                    {selectedBooking.departure_date}
+                    {formatDateTime(selectedBooking.departure_date)}
                   </span>
                 </div>
                 <div>

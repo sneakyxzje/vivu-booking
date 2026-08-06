@@ -10,12 +10,10 @@ import {
 import adminService from "@/services/adminService";
 import type { Guide, Tour, TourSchedule } from "@/types";
 import { Toast } from "@/components/admin/CustomAlert";
-
-const formatDate = (value: string) =>
-  new Date(value + "T00:00:00").toLocaleDateString("vi-VN");
+import { formatDateTime, parseDate } from "@/utils/format";
 
 const getEndDate = (startDate: string, numberOfDays: number) => {
-  const date = new Date(startDate + "T00:00:00");
+  const date = parseDate(startDate);
   date.setDate(date.getDate() + Math.max(0, numberOfDays - 1));
   return date.toLocaleDateString("vi-VN");
 };
@@ -255,7 +253,7 @@ export default function AdminTourDetail() {
                   <div>
                     <p className="text-xs text-gray-500">Thời gian chuyến</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {formatDate(schedule.start_date)} -{" "}
+                      {formatDateTime(schedule.start_date)} -{" "}
                       {getEndDate(schedule.start_date, tour.number_of_days)}
                     </p>
                   </div>

@@ -52,7 +52,7 @@ const formatCurrency = (value?: number) =>
 const formatDateTime = (dateStr?: string | null) => {
   if (!dateStr) return "-";
   try {
-    const d = new Date(dateStr);
+    const d = new Date(dateStr.trim().replace(" ", "T"));
     return new Intl.DateTimeFormat("vi-VN", {
       dateStyle: "medium",
       timeStyle: "short",
@@ -220,7 +220,7 @@ export default function BookingSuccess() {
               <div className="divide-y divide-gray-100 text-sm">
                 <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Mã đặt chỗ</span><span className="font-bold text-primary-600 tracking-wider">BK{booking.id}</span></div>
                 <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Thời gian đặt tour</span><span className="font-semibold text-gray-800 font-mono">{formatDateTime(booking.created_at)}</span></div>
-                <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Ngày khởi hành</span><span className="font-bold text-gray-800 font-mono">{booking.departure_date || booking.schedule?.start_date || "-"}</span></div>
+                <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Ngày khởi hành</span><span className="font-bold text-gray-800 font-mono">{formatDateTime(booking.departure_date || booking.schedule?.start_date)}</span></div>
                 <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Số lượng hành khách</span><span className="font-bold text-gray-800">{guestBreakdown} ({booking.guests} khách)</span></div>
                 <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Tạm tính</span><span className="font-extrabold text-gray-900">{formatCurrency(subtotalAmount)}</span></div>
                 {discountAmount > 0 && <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Giảm giá {booking.discount_code ? `(${booking.discount_code})` : ""}</span><span className="font-extrabold text-emerald-600">- {formatCurrency(discountAmount)}</span></div>}
@@ -262,7 +262,7 @@ export default function BookingSuccess() {
                 </div>
                 <hr className="border-gray-200/60" />
                 <div className="space-y-3.5 text-xs text-gray-600">
-                  <div className="flex justify-between items-center"><span className="font-medium text-gray-400">Ngày khởi hành</span><span className="font-bold text-gray-800 font-mono">{booking.departure_date || "-"}</span></div>
+                  <div className="flex justify-between items-center"><span className="font-medium text-gray-400">Ngày khởi hành</span><span className="font-bold text-gray-800 font-mono">{formatDateTime(booking.departure_date)}</span></div>
                   <div className="flex justify-between items-center"><span className="font-medium text-gray-400">Số khách</span><span className="font-bold text-gray-800">{booking.guests} khách</span></div>
                   <div className="flex justify-between items-center"><span className="font-medium text-gray-400">Trạng thái</span><span>{getStatusBadge(booking.status)}</span></div>
                   <div className="border-t border-gray-200/60 pt-4 flex justify-between items-baseline"><span className="font-bold text-gray-800 text-sm">Tổng cộng</span><span className="text-xl font-black text-red-650 font-mono">{formatCurrency(booking.total_amount)}</span></div>
