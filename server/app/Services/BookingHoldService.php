@@ -83,6 +83,31 @@ class BookingHoldService
     }
 
     /**
+     * Nhả chỗ quá hạn cho mọi lịch khởi hành của một tour.
+     * Câu SELECT đầu rất rẻ (đã đánh index status + expires_at) nên khi
+     * không có đơn quá hạn, hàm thoát ngay mà không mở transaction nào.
+     */
+    public function releaseOverdueForTour(int $tourId): int
+    {
+        $scheduleIds = Booking::query()
+            ->where('tour_id', $tourId)
+            ->where('status', 'pending')
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<=', now())
+            ->whereNotNull('tour_schedule_id')
+            ->distinct()
+            ->pluck('tour_schedule_id');
+
+        $released = 0;
+
+        foreach ($scheduleIds as $scheduleId) {
+            $released += $this->releaseOverdueForSchedule((int) $scheduleId);
+        }
+
+        return $released;
+    }
+
+    /**
      * Quét toàn bộ đơn quá hạn (dùng cho scheduled command).
      */
     public function releaseAllOverdue(): int
