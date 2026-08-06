@@ -19,6 +19,8 @@ import TourList from "@/pages/admin/TourList";
 import AdminTourDetail from "@/pages/admin/TourDetail";
 import BookingManagement from "@/pages/admin/BookingManagement";
 import GuideManagement from "@/pages/admin/GuideManagement";
+import DiscountCodeManagement from "@/pages/admin/DiscountCodeManagement";
+import ServiceManagement from "@/pages/admin/ServiceManagement";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
 import { GuideTours } from "@/pages/guide/GuideTours";
 import { GuideBookings } from "@/pages/guide/GuideBookings";
@@ -56,22 +58,6 @@ const router = createBrowserRouter([
       {
         path: "/payment-result",
         element: <PaymentResult />,
-      },
-      {
-        path: "/flights",
-        element: <div>Vé máy bay — TODO</div>,
-      },
-      {
-        path: "/hotels",
-        element: <div>Khách sạn — TODO</div>,
-      },
-      {
-        path: "/combos",
-        element: <div>Combo du lịch — TODO</div>,
-      },
-      {
-        path: "/services",
-        element: <div>Dịch vụ cộng thêm — TODO</div>,
       },
       {
         path: "/login",
@@ -149,6 +135,10 @@ const router = createBrowserRouter([
             element: <CreateTourForm />,
           },
           {
+            path: "/admin/tours/:id/edit",
+            element: <CreateTourForm />,
+          },
+          {
             path: "/admin/tours/:id",
             element: <AdminTourDetail />,
           },
@@ -157,8 +147,16 @@ const router = createBrowserRouter([
             element: <BookingManagement />,
           },
           {
+            path: "/admin/discount-codes",
+            element: <DiscountCodeManagement />,
+          },
+          {
             path: "/admin/guides",
             element: <GuideManagement />,
+          },
+          {
+            path: "/admin/services",
+            element: <ServiceManagement />,
           },
         ],
       },
@@ -175,4 +173,6 @@ const router = createBrowserRouter([
 export const App: React.FC = () => <RouterProvider router={router} />;
 
 export default App;
+
+
 

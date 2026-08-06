@@ -10,11 +10,21 @@ class RoleMiddleware
     public function handle(Request $request, Closure $next, $role)
 
     {
-        if ($request->user()->role !== $role) {
+        $user = $request->user();
+
+        if ($user->role !== $role) {
 
             return response()->json([
                 'success' => false,
                 'message' => 'Forbidden'
+            ], 403);
+        }
+
+        // Khóa tài khoản phải có hiệu lực ngay cả với token đã phát hành trước đó.
+        if ($user->status !== 'active') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tài khoản của bạn đã bị khóa.'
             ], 403);
         }
 

@@ -14,8 +14,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Phone,
-  Star,
-  Sparkles
+  Star
 } from "lucide-react";
 
 export const Profile: React.FC = () => {
@@ -344,3 +343,4 @@ export const Profile: React.FC = () => {
 };
 
 export default Profile;
+

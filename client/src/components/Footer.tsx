@@ -57,9 +57,6 @@ export const Footer: React.FC = () => {
             <ul className="space-y-4 text-[15px]">
               {[
                 { to: "/tours", label: "Tour trọn gói" },
-                { to: "/flights", label: "Vé máy bay" },
-                { to: "/hotels", label: "Khách sạn" },
-                { to: "/combos", label: "Combo du lịch" },
               ].map((link) => (
                 <li key={link.to}>
                   <Link

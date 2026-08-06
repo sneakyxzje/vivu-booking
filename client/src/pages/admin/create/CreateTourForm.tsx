@@ -20,8 +20,9 @@ import type { Guide } from "@/types";
 const emptyForm: TourFormState = {
   title: "",
   description: "",
-  price: "",
-  discount_price: "",
+  adult_price: "",
+  child_price: "",
+  infant_price: "0",
   thumbnail: "",
   number_of_days: "1",
   number_of_nights: "0",
@@ -37,7 +38,7 @@ const emptyForm: TourFormState = {
       title: "",
       start_point: "",
       end_point: "",
-      route_points: "",
+      route_points: [""],
       rest_stops: "",
       content: "",
     } as ItineraryFormItem,
@@ -51,6 +52,15 @@ const fieldClass =
   "block w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100";
 
 const labelClass = "block text-sm font-semibold text-gray-800 mb-2";
+
+const parseRoutePoints = (value?: string | null): string[] => {
+  const points = (value ?? "")
+    .split(/[,\n]/)
+    .map((point) => point.trim())
+    .filter(Boolean);
+
+  return points.length ? points : [""];
+};
 
 const formatPreviewPrice = (value: string) => {
   const amount = Number(value);
@@ -79,8 +89,8 @@ export const CreateTourForm: React.FC = () => {
   const [guideAvailabilityLoading, setGuideAvailabilityLoading] = useState(false);
 
   const previewPrice = useMemo(
-    () => formatPreviewPrice(form.discount_price || form.price),
-    [form.discount_price, form.price],
+    () => formatPreviewPrice(form.adult_price),
+    [form.adult_price],
   );
 
   const selectedCategories = useMemo(
@@ -162,7 +172,7 @@ export const CreateTourForm: React.FC = () => {
 
     const loadTour = async () => {
       try {
-        const tour = await guideService.getTourById(Number(id));
+        const tour = await adminService.getTourById(Number(id));
         if (!tour) {
           setError("Không tìm thấy tour.");
           return;
@@ -170,10 +180,9 @@ export const CreateTourForm: React.FC = () => {
         setForm({
           title: tour.title,
           description: tour.description ?? "",
-          price: String(tour.price),
-          discount_price: tour.discount_price
-            ? String(tour.discount_price)
-            : "",
+          adult_price: String(tour.adult_price ?? tour.discount_price ?? tour.price ?? ""),
+          child_price: String(tour.child_price ?? ""),
+          infant_price: String(tour.infant_price ?? 0),
           thumbnail: tour.thumbnail ?? "",
           number_of_days: String(tour.number_of_days),
           number_of_nights: String(tour.number_of_nights),
@@ -185,16 +194,18 @@ export const CreateTourForm: React.FC = () => {
           image_previews: [],
           itineraries:
             tour.itineraries?.map((item) => ({
+              id: item.id,
               day_number: String(item.day_number),
               title: item.title,
               start_point: item.start_point ?? "",
               end_point: item.end_point ?? "",
-              route_points: item.route_points ?? "",
+              route_points: parseRoutePoints(item.route_points),
               rest_stops: item.rest_stops ?? "",
               content: item.content ?? "",
             })) ?? emptyForm.itineraries,
           schedules:
             tour.schedules?.map((item) => ({
+              id: item.id,
               start_date: item.start_date,
               max_people: String(item.max_people ?? 10),
               guide_id: String(item.guide_id ?? ""),
@@ -269,7 +280,7 @@ export const CreateTourForm: React.FC = () => {
 
   const updateItinerary = (
     index: number,
-    field: "day_number" | "title" | "start_point" | "end_point" | "route_points" | "rest_stops" | "content",
+    field: "day_number" | "title" | "start_point" | "end_point" | "rest_stops" | "content",
     value: string,
   ) => {
     setForm((prev) => ({
@@ -277,6 +288,49 @@ export const CreateTourForm: React.FC = () => {
       itineraries: prev.itineraries.map((item, i) =>
         i === index ? { ...item, [field]: value } : item,
       ),
+    }));
+  };
+
+  const updateRoutePoint = (
+    itineraryIndex: number,
+    pointIndex: number,
+    value: string,
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      itineraries: prev.itineraries.map((item, i) =>
+        i === itineraryIndex
+          ? {
+              ...item,
+              route_points: item.route_points.map((point, p) =>
+                p === pointIndex ? value : point,
+              ),
+            }
+          : item,
+      ),
+    }));
+  };
+
+  const addRoutePoint = (itineraryIndex: number) => {
+    setForm((prev) => ({
+      ...prev,
+      itineraries: prev.itineraries.map((item, i) =>
+        i === itineraryIndex
+          ? { ...item, route_points: [...item.route_points, ""] }
+          : item,
+      ),
+    }));
+  };
+
+  const removeRoutePoint = (itineraryIndex: number, pointIndex: number) => {
+    setForm((prev) => ({
+      ...prev,
+      itineraries: prev.itineraries.map((item, i) => {
+        if (i !== itineraryIndex) return item;
+
+        const remaining = item.route_points.filter((_, p) => p !== pointIndex);
+        return { ...item, route_points: remaining.length ? remaining : [""] };
+      }),
     }));
   };
 
@@ -301,7 +355,7 @@ export const CreateTourForm: React.FC = () => {
             title: "",
             start_point: "",
             end_point: "",
-            route_points: "",
+            route_points: [""],
             rest_stops: "",
             content: "",
           },
@@ -385,11 +439,12 @@ export const CreateTourForm: React.FC = () => {
       }
 
       if (isEdit && id) {
-        throw new Error("Edit tour is not implemented yet.");
+        await adminService.updateTour(Number(id), form);
       } else {
         await tourService.createTour(form);
       }
-      navigate("/admin/tours");    } catch (submitError: unknown) {
+      navigate("/admin/tours");
+    } catch (submitError: unknown) {
       const response = (
         submitError as {
           response?: {
@@ -483,8 +538,9 @@ export const CreateTourForm: React.FC = () => {
               fieldClass={fieldClass}
               title={form.title}
               description={form.description}
-              price={form.price}
-              discountPrice={form.discount_price}
+              adultPrice={form.adult_price}
+              childPrice={form.child_price}
+              infantPrice={form.infant_price}
               numberOfDays={form.number_of_days}
               numberOfNights={form.number_of_nights}
               startLocation={form.start_location}
@@ -511,6 +567,9 @@ export const CreateTourForm: React.FC = () => {
               onAdd={addItinerary}
               onRemove={removeItinerary}
               onChange={updateItinerary}
+              onRoutePointChange={updateRoutePoint}
+              onRoutePointAdd={addRoutePoint}
+              onRoutePointRemove={removeRoutePoint}
             />
 
             <TourFormScheduleSection

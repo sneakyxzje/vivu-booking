@@ -8,6 +8,7 @@ export type {
 export type {
   Category,
   Service,
+  ServicePayload,
   TourImage,
   TourItinerary,
   TourSchedule,
@@ -22,6 +23,5 @@ export type {
 } from "./guide";
 export type { Booking } from "./booking";
 
-
-
+export type { DiscountCode, DiscountCodePayload, DiscountCodeType } from "./discount";
 

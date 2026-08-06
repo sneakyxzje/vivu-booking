@@ -4,23 +4,33 @@ import type { Tour, TourSchedule } from "@/types";
 import type { AxiosError } from "axios";
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 type BookingFormState = {
   customerName: string;
   customerPhone: string;
   customerEmail: string;
   tourScheduleId: string;
-  guests: number;
+  adultCount: number;
+  childCount: number;
+  infantCount: number;
   note: string;
+  discountCode: string;
 };
 
 type BookingFormProps = {
   form: BookingFormState;
+  tour: Tour;
   message: string | null;
   schedules: TourSchedule[];
   submitting: boolean;
+  subtotalAmount: number;
+  discountAmount: number;
   totalAmount: number;
+  appliedDiscountCode: string | null;
+  discountApplying: boolean;
+  onApplyDiscount: () => void;
+  onClearDiscount: () => void;
   onChange: (field: keyof BookingFormState, value: string | number) => void;
   onSubmit: (event: FormEvent) => void;
 };
@@ -29,13 +39,18 @@ type BookingSidebarProps = {
   tour: Tour;
 };
 
+type PassengerType = "adult" | "child" | "infant";
+
 const initialForm: BookingFormState = {
   customerName: "",
   customerPhone: "",
   customerEmail: "",
   tourScheduleId: "",
-  guests: 1,
+  adultCount: 1,
+  childCount: 0,
+  infantCount: 0,
   note: "",
+  discountCode: "",
 };
 
 const formatCurrency = (value: number) =>
@@ -52,19 +67,80 @@ const PageState = ({ children }: { children: string }) => (
 
 const BookingForm = ({
   form,
+  tour,
   message,
   schedules,
   submitting,
+  subtotalAmount,
+  discountAmount,
   totalAmount,
+  appliedDiscountCode,
+  discountApplying,
+  onApplyDiscount,
+  onClearDiscount,
   onChange,
   onSubmit,
 }: BookingFormProps) => {
+  const totalGuestCount = form.adultCount + form.childCount + form.infantCount;
+  const selectedSchedule = schedules.find((schedule) => String(schedule.id) === form.tourScheduleId);
+  const availableSlots = selectedSchedule ? selectedSchedule.max_people - selectedSchedule.booked_people : 0;
+  const isOverCapacity = Boolean(selectedSchedule) && totalGuestCount > availableSlots;
+  const defaultPassengerTypes = useMemo<PassengerType[]>(
+    () => [
+      ...Array.from({ length: form.adultCount }, () => "adult" as const),
+      ...Array.from({ length: form.childCount }, () => "child" as const),
+      ...Array.from({ length: form.infantCount }, () => "infant" as const),
+    ],
+    [form.adultCount, form.childCount, form.infantCount],
+  );
+  const [passengerTypes, setPassengerTypes] = useState<PassengerType[]>(defaultPassengerTypes);
+
+  useEffect(() => {
+    setPassengerTypes((current) =>
+      defaultPassengerTypes.map((fallback, index) => current[index] ?? fallback),
+    );
+  }, [defaultPassengerTypes]);
+
   const handleInputChange =
     (field: keyof BookingFormState) =>
     (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-      const value = field === "guests" ? Number(event.target.value) : event.target.value;
+      const numberFields: Array<keyof BookingFormState> = ["adultCount", "childCount", "infantCount"];
+      const value = numberFields.includes(field) ? Number(event.target.value) : event.target.value;
       onChange(field, value);
     };
+  const updateGuestCount = (
+    field: "adultCount" | "childCount" | "infantCount",
+    delta: number,
+  ) => {
+    const minimum = field === "adultCount" ? 1 : 0;
+    const nextValue = Math.max(minimum, Number(form[field] || 0) + delta);
+    const nextTotal = totalGuestCount - Number(form[field] || 0) + nextValue;
+
+    if (delta > 0 && selectedSchedule && nextTotal > availableSlots) return;
+
+    onChange(field, nextValue);
+  };
+
+  const guestRows = [
+    {
+      field: "adultCount" as const,
+      label: "Người lớn",
+      note: "12+ tuổi",
+      price: Number(tour.adult_price || tour.discount_price || tour.price || 0),
+    },
+    {
+      field: "childCount" as const,
+      label: "Trẻ em",
+      note: "2-12 tuổi",
+      price: Number(tour.child_price || 0),
+    },
+    {
+      field: "infantCount" as const,
+      label: "Em bé",
+      note: "Dưới 2 tuổi",
+      price: Number(tour.infant_price || 0),
+    },
+  ];
 
   return (
     <form onSubmit={onSubmit} className="bg-white p-6 md:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
@@ -129,21 +205,114 @@ const BookingForm = ({
             ))}
           </select>
         </div>
+        {/* Số khách theo loại */}
+        <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4.5 space-y-3">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Số lượng khách theo loại <span className="text-rose-500">*</span>
+            </label>
+            {selectedSchedule && (
+              <span className="text-xs font-semibold text-gray-500">
+                Còn lại {availableSlots} chỗ
+              </span>
+            )}
+          </div>
 
-        {/* Số khách */}
-        <div className="space-y-1.5">
+          <div className="grid gap-3">
+            {guestRows.map((item) => (
+              <div
+                key={item.field}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 px-3.5 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-gray-900">{item.label}</p>
+                  <p className="text-xs font-medium text-gray-500">
+                    {item.note} · {formatCurrency(item.price)}
+                  </p>
+                </div>
+                <div className="flex h-10 items-center rounded-xl border border-slate-200 bg-white">
+                  <button
+                    type="button"
+                    onClick={() => updateGuestCount(item.field, -1)}
+                    disabled={item.field === "adultCount" ? form[item.field] <= 1 : form[item.field] <= 0}
+                    className="h-10 w-10 text-lg font-bold text-gray-500 hover:text-primary-600 disabled:opacity-35 disabled:hover:text-gray-500"
+                    aria-label={`Giảm ${item.label}`}
+                  >
+                    -
+                  </button>
+                  <span className="w-10 text-center text-sm font-extrabold text-gray-900">
+                    {form[item.field]}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => updateGuestCount(item.field, 1)}
+                    disabled={!selectedSchedule || totalGuestCount >= availableSlots}
+                    className="h-10 w-10 text-lg font-bold text-gray-500 hover:text-primary-600 disabled:opacity-35 disabled:hover:text-gray-500"
+                    aria-label={`Tăng ${item.label}`}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-2xl bg-primary-50/70 border border-primary-100 px-4 py-3 space-y-2">
+            <div className="flex items-center justify-between text-sm text-primary-800">
+              <span className="font-semibold">Tổng số khách</span>
+              <span className="font-extrabold">{totalGuestCount} khách</span>
+            </div>
+            <div className="flex items-center justify-between border-t border-primary-100 pt-2">
+              <span className="text-sm font-semibold text-primary-800">Tổng giá trị thanh toán</span>
+              <span className="text-xl font-extrabold text-primary-600">{formatCurrency(totalAmount)}</span>
+            </div>
+            {isOverCapacity && (
+              <p className="text-xs font-semibold text-rose-600">
+                Số khách đang vượt quá số chỗ còn lại của lịch khởi hành.
+              </p>
+            )}
+          </div>
+        </div>
+
+
+
+        {/* Mã giảm giá */}
+        <div className="space-y-1.5 md:col-span-2">
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-0.5">
-            Số lượng hành khách <span className="text-rose-500">*</span>
+            Mã giảm giá
           </label>
-          <input
-            className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-medium transition-all"
-            type="number"
-            placeholder="Số lượng hành khách"
-            min={1}
-            value={form.guests}
-            onChange={handleInputChange("guests")}
-            required
-          />
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              className="flex-1 px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-semibold uppercase transition-all"
+              placeholder="Nhập mã giảm giá"
+              value={form.discountCode}
+              onChange={handleInputChange("discountCode")}
+              disabled={Boolean(appliedDiscountCode)}
+            />
+            {appliedDiscountCode ? (
+              <button
+                type="button"
+                onClick={onClearDiscount}
+                className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50"
+              >
+                Bỏ mã
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onApplyDiscount}
+                disabled={discountApplying || !form.discountCode.trim()}
+                className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {discountApplying ? "Đang áp dụng..." : "Áp dụng"}
+              </button>
+            )}
+          </div>
+          {appliedDiscountCode && (
+            <p className="text-xs font-semibold text-emerald-600">
+              Đã áp dụng mã {appliedDiscountCode}, giảm {formatCurrency(discountAmount)}.
+            </p>
+          )}
         </div>
 
         {/* Ghi chú */}
@@ -166,7 +335,7 @@ const BookingForm = ({
             <div>
               <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-primary-600"></span>
-                Danh sách thông tin hành khách tham gia ({form.guests} người)
+                Danh sách thông tin hành khách tham gia ({totalGuestCount} người)
               </h3>
               <p className="text-xs text-gray-500 mt-1">
                 Vui lòng điền đầy đủ họ tên và giấy tờ cá nhân để Vivu Booking làm bảo hiểm du lịch & xếp vị trí xe.
@@ -175,11 +344,15 @@ const BookingForm = ({
           </div>
 
           <div className="space-y-4">
-            {Array.from({ length: Math.max(1, form.guests) }).map((_, index) => (
-              <div
-                key={index}
-                className="bg-slate-50/80 p-4.5 rounded-2xl border border-slate-200/90 space-y-3 relative"
-              >
+            {Array.from({ length: Math.max(1, totalGuestCount) }).map((_, index) => {
+              const passengerType = passengerTypes[index] ?? defaultPassengerTypes[index] ?? "adult";
+              const requiresIdentityDocument = passengerType === "adult";
+
+              return (
+                <div
+                  key={index}
+                  className="bg-slate-50/80 p-4.5 rounded-2xl border border-slate-200/90 space-y-3 relative"
+                >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
                     <span className="w-5 h-5 rounded-full bg-primary-600 text-white font-bold flex items-center justify-center text-[10px]">
@@ -211,9 +384,20 @@ const BookingForm = ({
                       Loại khách & Ngày sinh
                     </label>
                     <div className="flex gap-2">
-                      <select className="w-1/2 px-2.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 text-gray-700">
-                        <option value="adult">Người lớn (&gt; 12 tuổi)</option>
-                        <option value="child">Trẻ em (2-11 tuổi)</option>
+                      <select
+                        className="w-1/2 px-2.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 text-gray-700"
+                        value={passengerType}
+                        onChange={(event) => {
+                          const nextType = event.target.value as PassengerType;
+                          setPassengerTypes((current) => {
+                            const next = [...current];
+                            next[index] = nextType;
+                            return next;
+                          });
+                        }}
+                      >
+                        <option value="adult">Người lớn (12+ tuổi)</option>
+                        <option value="child">Trẻ em (2-12 tuổi)</option>
                         <option value="infant">Em bé (&lt; 2 tuổi)</option>
                       </select>
                       <input
@@ -223,16 +407,18 @@ const BookingForm = ({
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                      Số CCCD / CMND / Hộ chiếu
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Nhập số giấy tờ cá nhân..."
-                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    />
-                  </div>
+                  {requiresIdentityDocument && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                        Số CCCD / CMND / Hộ chiếu
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Nhập số giấy tờ cá nhân..."
+                        className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-[11px] font-semibold text-gray-600 mb-1">
@@ -245,16 +431,29 @@ const BookingForm = ({
                     />
                   </div>
                 </div>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
 
       {/* Tổng tiền */}
-      <div className="bg-primary-50/60 border border-primary-100/50 px-6 py-4.5 rounded-2xl flex items-center justify-between">
-        <span className="text-sm font-semibold text-primary-800">Tổng giá trị thanh toán</span>
-        <span className="text-xl font-extrabold text-primary-600">{formatCurrency(totalAmount)}</span>
+      <div className="bg-primary-50/60 border border-primary-100/50 px-6 py-4.5 rounded-2xl space-y-2">
+        <div className="flex items-center justify-between text-sm text-primary-800">
+          <span className="font-semibold">Tạm tính</span>
+          <span className="font-bold">{formatCurrency(subtotalAmount)}</span>
+        </div>
+        {discountAmount > 0 && (
+          <div className="flex items-center justify-between text-sm text-emerald-700">
+            <span className="font-semibold">Giảm giá</span>
+            <span className="font-bold">- {formatCurrency(discountAmount)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between border-t border-primary-100 pt-2">
+          <span className="text-sm font-semibold text-primary-800">Tổng giá trị thanh toán</span>
+          <span className="text-xl font-extrabold text-primary-600">{formatCurrency(totalAmount)}</span>
+        </div>
       </div>
 
       {message ? (
@@ -268,7 +467,7 @@ const BookingForm = ({
 
       <button
         className="w-full rounded-2xl bg-primary-600 py-3.5 font-bold text-white shadow-md hover:bg-primary-700 hover:shadow-lg transition-all active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none text-sm"
-        disabled={submitting || !form.tourScheduleId}
+        disabled={submitting || !form.tourScheduleId || isOverCapacity}
       >
         {submitting ? "Đang xử lý đặt tour..." : "Xác nhận đặt tour"}
       </button>
@@ -341,30 +540,32 @@ const ScheduleCard = ({ schedules, selectedScheduleId }: { schedules: TourSchedu
 );
 
 const PriceSummaryCard = ({ tour }: BookingSidebarProps) => {
-  const unitPrice = tour.discount_price || tour.price;
+  const prices = [
+    { label: "Người lớn", note: "12+ tuổi", value: tour.adult_price },
+    { label: "Trẻ em", note: "2-12 tuổi", value: tour.child_price },
+    { label: "Em bé", note: "< 2 tuổi", value: tour.infant_price },
+  ];
 
   return (
     <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-3">
       <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-lg font-bold uppercase tracking-wider">
-        Tóm tắt giá
+        Bảng giá
       </span>
-      <div className="flex justify-between items-baseline mt-2 pt-1">
-        <span className="text-xs font-semibold text-gray-550 uppercase tracking-wider">Mỗi khách hàng:</span>
-        <div className="text-right">
-          <span className="text-lg font-extrabold text-primary-600">
-            {formatCurrency(unitPrice)}
-          </span>
-          {tour.discount_price ? (
-            <span className="block text-xs text-gray-400 line-through mt-0.5 font-medium">
-              {formatCurrency(tour.price)}
+      <div className="space-y-2 mt-2 pt-1">
+        {prices.map((item) => (
+          <div key={item.label} className="flex justify-between items-baseline gap-3 text-sm">
+            <span className="font-semibold text-gray-600">
+              {item.label} <span className="text-xs font-medium text-gray-400">({item.note})</span>
             </span>
-          ) : null}
-        </div>
+            <span className="font-extrabold text-primary-600 whitespace-nowrap">
+              {formatCurrency(Number(item.value || 0))}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );
 };
-
 const BookingSidebar = ({ tour, selectedScheduleId }: BookingSidebarProps & { selectedScheduleId: string }) => {
   const schedules = tour.schedules ?? [];
 
@@ -379,11 +580,15 @@ const BookingSidebar = ({ tour, selectedScheduleId }: BookingSidebarProps & { se
 
 export const BookingTour = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const [tour, setTour] = useState<Tour | null>(null);
   const [form, setForm] = useState<BookingFormState>(initialForm);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [appliedDiscountCode, setAppliedDiscountCode] = useState<string | null>(null);
+  const [discountApplying, setDiscountApplying] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -392,12 +597,22 @@ export const BookingTour = () => {
         if (!id) return;
 
         const response = await tourService.getById(id);
-        const firstSchedule = response.data.schedules?.[0];
+        const scheduleIdFromQuery = searchParams.get("schedule_id");
+        const selectedSchedule = response.data.schedules?.find(
+          (schedule) => String(schedule.id) === scheduleIdFromQuery,
+        );
+        const firstSchedule = selectedSchedule ?? response.data.schedules?.[0];
+        const adultCount = Math.max(1, Number(searchParams.get("adult_count") ?? initialForm.adultCount));
+        const childCount = Math.max(0, Number(searchParams.get("child_count") ?? initialForm.childCount));
+        const infantCount = Math.max(0, Number(searchParams.get("infant_count") ?? initialForm.infantCount));
 
         setTour(response.data);
         setForm((current) => ({
           ...current,
           tourScheduleId: firstSchedule ? String(firstSchedule.id) : "",
+          adultCount: Number.isFinite(adultCount) ? adultCount : initialForm.adultCount,
+          childCount: Number.isFinite(childCount) ? childCount : initialForm.childCount,
+          infantCount: Number.isFinite(infantCount) ? infantCount : initialForm.infantCount,
         }));
       } finally {
         setLoading(false);
@@ -408,41 +623,56 @@ export const BookingTour = () => {
   }, [id]);
 
   const schedules = tour?.schedules ?? [];
-  const unitPrice = tour ? tour.discount_price || tour.price : 0;
+  const subtotalAmount = useMemo(
+    () =>
+      tour
+        ? form.adultCount * Number(tour.adult_price || 0)
+          + form.childCount * Number(tour.child_price || 0)
+          + form.infantCount * Number(tour.infant_price || 0)
+        : 0,
+    [form.adultCount, form.childCount, form.infantCount, tour],
+  );
   const totalAmount = useMemo(
-    () => unitPrice * Number(form.guests || 1),
-    [form.guests, unitPrice],
+    () => Math.max(0, subtotalAmount - discountAmount),
+    [discountAmount, subtotalAmount],
   );
 
   const updateForm = (field: keyof BookingFormState, value: string | number) => {
     setForm((current) => ({ ...current, [field]: value }));
+    if (["adultCount", "childCount", "infantCount", "discountCode"].includes(field)) {
+      setAppliedDiscountCode(null);
+      setDiscountAmount(0);
+    }
   };
-  // const handleSubmit = async (event: FormEvent) => {
-  //   event.preventDefault();
-  //   if (!tour) return;
 
-  //   setSubmitting(true);
-  //   setMessage(null);
+  const applyDiscountCode = async () => {
+    if (!form.discountCode.trim() || subtotalAmount <= 0) return;
 
-  //   try {
-  //     const response = await bookingService.create({
-  //       tour_id: tour.id,
-  //       tour_schedule_id: Number(form.tourScheduleId),
-  //       customer_name: form.customerName,
-  //       customer_email: form.customerEmail,
-  //       customer_phone: form.customerPhone,
-  //       guests: Number(form.guests),
-  //       note: form.note,
-  //     });
+    setDiscountApplying(true);
+    setMessage(null);
 
-  //     const paymentUrl = response.data.data.payment_url;
+    try {
+      const response = await bookingService.validateDiscountCode({
+        code: form.discountCode.trim(),
+        order_amount: subtotalAmount,
+      });
+      setAppliedDiscountCode(response.data.data.code);
+      setDiscountAmount(Number(response.data.data.discount_amount));
+      setForm((current) => ({ ...current, discountCode: response.data.data.code }));
+    } catch (error) {
+      setAppliedDiscountCode(null);
+      setDiscountAmount(0);
+      setMessage(getErrorMessage(error));
+    } finally {
+      setDiscountApplying(false);
+    }
+  };
 
-  //     if (paymentUrl) {
-  //       window.location.href = paymentUrl;
-  //       return;
-  //     }
-
-
+  const clearDiscountCode = () => {
+    setAppliedDiscountCode(null);
+    setDiscountAmount(0);
+    setForm((current) => ({ ...current, discountCode: "" }));
+  };
 const handleSubmit = async (event: FormEvent) => {
   event.preventDefault();
 
@@ -458,8 +688,11 @@ const handleSubmit = async (event: FormEvent) => {
       customer_name: form.customerName,
       customer_email: form.customerEmail,
       customer_phone: form.customerPhone,
-      guests: Number(form.guests),
+      adult_count: Number(form.adultCount),
+      child_count: Number(form.childCount),
+      infant_count: Number(form.infantCount),
       note: form.note,
+      discount_code: appliedDiscountCode ?? undefined,
     });
 
     const booking = {
@@ -467,7 +700,7 @@ const handleSubmit = async (event: FormEvent) => {
       payment_url: response.data.data.payment_url,
     };
 
-    navigate(`/booking-success/${booking.id}`, {
+    navigate(`/booking-success/${booking.public_token ?? booking.id}`, {
       state: booking,
     });
   } catch (error) {
@@ -501,10 +734,17 @@ const handleSubmit = async (event: FormEvent) => {
 
             <BookingForm
               form={form}
+              tour={tour}
               message={message}
               schedules={schedules}
               submitting={submitting}
+              subtotalAmount={subtotalAmount}
+              discountAmount={discountAmount}
               totalAmount={totalAmount}
+              appliedDiscountCode={appliedDiscountCode}
+              discountApplying={discountApplying}
+              onApplyDiscount={applyDiscountCode}
+              onClearDiscount={clearDiscountCode}
               onChange={updateForm}
               onSubmit={handleSubmit}
             />

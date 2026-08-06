@@ -5,6 +5,7 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  phone?: string | null;
 }
 
 export interface LoginPayload {
@@ -25,3 +26,4 @@ export interface AuthResponse {
   token: string;
   user: AuthUser;
 }
+

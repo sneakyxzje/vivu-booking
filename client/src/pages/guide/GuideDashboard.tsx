@@ -143,7 +143,7 @@ export const GuideDashboard: React.FC = () => {
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {tour.start_location} ·{" "}
-                      {formatPrice(tour.discount_price ?? tour.price)}
+                      {formatPrice(tour.adult_price ?? tour.discount_price ?? tour.price)}
                     </p>
                   </div>
                   <TourStatusBadge status={tour.status} />

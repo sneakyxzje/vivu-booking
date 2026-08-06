@@ -1,6 +1,6 @@
 import api from "./api";
 import { extractArray, extractObject } from "@/utils/apiHelpers";
-import type { Tour } from "../types";
+import type { Category, Service, Tour } from "../types";
 import { buildTourPayload } from "@/services/guideService";
 
 const tourService = {
@@ -24,35 +24,39 @@ const tourService = {
   },
 
   getReviews: async (tourId: number) => {
-  const response = await api.get(`/reviews/${tourId}`);
-  return response.data;
-},
+    const response = await api.get(`/reviews/${tourId}`);
+    return response.data;
+  },
 
-review: async (
-  tourId: number,
-  payload: {
-    rating: number;
-    comment: string;
-  }
-) => {
+  review: async (
+    tourId: number,
+    payload: {
+      rating: number;
+      comment: string;
+    }
+  ) => {
+    const response = await api.post("/reviews", {
+      tour_id: tourId,
+      rating: payload.rating,
+      comment: payload.comment,
+    });
 
-  console.log("SEND REVIEW:", {
-    tourId,
-    payload
-  });
+    return response.data;
+  },
 
-  const response = await api.post("/reviews", {
-    tour_id: tourId,
-    rating: payload.rating,
-    comment: payload.comment,
-  });
+  deleteReview: async (id: number) => {
+    return api.delete(`/reviews/${id}`);
+  },
 
-  return response.data;
-},
+  getCategories: async (): Promise<Category[]> => {
+    const response = await api.get("/categories");
+    return extractArray<Category>(response);
+  },
 
-deleteReview: async (id: number) => {
-  return api.delete(`/reviews/${id}`);
-},
+  getServices: async (): Promise<Service[]> => {
+    const response = await api.get("/services");
+    return extractArray<Service>(response);
+  },
 
   createTour: async (payload: unknown): Promise<{ success: boolean }> => {
     const response = await api.post("/admin/tours", buildTourPayload(payload), {

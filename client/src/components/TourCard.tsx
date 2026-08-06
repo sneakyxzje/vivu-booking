@@ -1,4 +1,3 @@
-import React from "react";
 import { Link } from "react-router-dom";
 import type { Tour } from "@/types";
 import {
@@ -14,9 +13,6 @@ const formatPrice = (value: number): string =>
     currency: "VND",
     maximumFractionDigits: 0,
   }).format(value);
-
-const getDiscountPercent = (original: number, discount: number): number =>
-  Math.round(((original - discount) / original) * 100);
 
 interface StarRatingProps {
   rating: number;
@@ -35,48 +31,21 @@ const StarRating: React.FC<StarRatingProps> = ({ rating, reviewCount }) => (
   </div>
 );
 
-interface PriceDisplayProps {
-  price: number;
-  discountPrice: number | null;
-}
-
-const PriceDisplay: React.FC<PriceDisplayProps> = ({
-  price,
-  discountPrice,
-}) => {
-  const hasDiscount = discountPrice !== null && discountPrice < price;
-
-  if (hasDiscount) {
-    return (
-      <div>
-        <div className="text-gray-400 text-[11px] line-through font-medium">
-          {formatPrice(price)}
-        </div>
-        <div className="text-red-600 font-extrabold text-[16px] tracking-tight">
-          {formatPrice(discountPrice!)}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div className="text-gray-400 text-[11px] font-medium">Giá từ</div>
-      <div className="text-primary-600 font-extrabold text-[16px] tracking-tight">
-        {formatPrice(price)}
-      </div>
+const PriceDisplay: React.FC<{ price: number }> = ({ price }) => (
+  <div>
+    <div className="text-gray-400 text-[11px] font-medium">Giá từ</div>
+    <div className="text-primary-600 font-extrabold text-[16px] tracking-tight">
+      {formatPrice(price)}
     </div>
-  );
-};
+    <div className="text-gray-400 text-[11px] font-medium">/ khách người lớn</div>
+  </div>
+);
 
 interface TourCardProps {
   tour: Tour;
 }
 
 export const TourCard: React.FC<TourCardProps> = ({ tour }) => {
-  const hasDiscount =
-    tour.discount_price !== null && tour.discount_price < tour.price;
-
   const categoryName =
     tour.categories && tour.categories[0]
       ? tour.categories[0].name
@@ -84,6 +53,7 @@ export const TourCard: React.FC<TourCardProps> = ({ tour }) => {
 
   const rating = tour.rating ?? 4.8;
   const reviewCount = tour.review_count ?? 45;
+  const adultPrice = tour.adult_price ?? tour.discount_price ?? tour.price;
 
   return (
     <article className="group bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col h-full">
@@ -99,11 +69,6 @@ export const TourCard: React.FC<TourCardProps> = ({ tour }) => {
         />
 
         <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
-          {hasDiscount && (
-            <span className="bg-red-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md">
-              GIẢM {getDiscountPercent(tour.price, tour.discount_price!)}%
-            </span>
-          )}
           {tour.is_featured && (
             <span className="bg-amber-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md">
               ★ Bán chạy
@@ -162,10 +127,7 @@ export const TourCard: React.FC<TourCardProps> = ({ tour }) => {
         <div className="border-t border-gray-100 my-4 shrink-0" />
 
         <div className="flex items-center justify-between mt-auto shrink-0">
-          <PriceDisplay
-            price={tour.price}
-            discountPrice={tour.discount_price}
-          />
+          <PriceDisplay price={adultPrice} />
 
           <Link
             to={`/tours/${tour.id}`}

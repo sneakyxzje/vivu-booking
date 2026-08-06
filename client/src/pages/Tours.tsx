@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import tourService from "@/services/tourService";
-import type { Tour } from "@/types";
+import type { Category, Service, Tour } from "@/types";
 import { TourCard } from "@/components/TourCard";
 import {
   MagnifyingGlassIcon,
@@ -10,33 +11,50 @@ import {
 
 import { TourFilters } from "@/components/TourFilters";
 
+const DEFAULT_MAX_PRICE = 20000000;
+
 export const Tours: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlKeyword = searchParams.get("q") ?? "";
+  const urlStartLocation = searchParams.get("start_location") ?? "";
+  const urlDuration = searchParams.get("duration") ?? "all";
+  const urlCategories = searchParams.get("categories") ?? "";
   const [tours, setTours] = useState<Tour[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [searchKeyword, setSearchKeyword] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [searchKeyword, setSearchKeyword] = useState(urlKeyword);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(urlCategories ? urlCategories.split(",").filter(Boolean) : []);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [selectedDuration, setSelectedDuration] = useState<string>("all");
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 20000000]); // 0 - 20tr
-  const [minRating, setMinRating] = useState<number>(0);
+  const [selectedDuration, setSelectedDuration] = useState<string>(urlDuration);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, DEFAULT_MAX_PRICE]);
+  const [sortBy, setSortBy] = useState<"featured" | "price_asc" | "price_desc">("featured");
 
-  const [sortBy, setSortBy] = useState<
-    "featured" | "price_asc" | "price_desc" | "rating"
-  >("featured");
+  const filterParams = useMemo(() => {
+    const params: Record<string, string | number> = {
+      sort: sortBy,
+    };
 
-  const fetchTours = async () => {
+    if (searchKeyword.trim()) params.q = searchKeyword.trim();
+    if (urlStartLocation.trim()) params.start_location = urlStartLocation.trim();
+    if (selectedCategories.length > 0) params.categories = selectedCategories.join(",");
+    if (selectedServices.length > 0) params.services = selectedServices.join(",");
+    if (selectedDuration !== "all") params.duration = selectedDuration;
+    if (priceRange[0] > 0) params.min_price = priceRange[0];
+    if (priceRange[1] < DEFAULT_MAX_PRICE) params.max_price = priceRange[1];
+
+    return params;
+  }, [searchKeyword, selectedCategories, selectedServices, selectedDuration, priceRange, sortBy, urlStartLocation]);
+
+  const fetchTours = async (params = filterParams) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await tourService.getAll();
-      if (res.success) {
-        setTours(res.data);
-      } else {
-        setError("Không thể tải danh sách tour.");
-      }
-    } catch (err) {
+      const res = await tourService.getAll(params);
+      setTours(res.data);
+    } catch {
       setError("Đã xảy ra lỗi kết nối.");
     } finally {
       setLoading(false);
@@ -44,79 +62,35 @@ export const Tours: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchTours();
+    setSearchKeyword(urlKeyword);
+    setSelectedCategories(urlCategories ? urlCategories.split(",").filter(Boolean) : []);
+    setSelectedDuration(urlDuration);
+  }, [urlKeyword, urlCategories, urlDuration]);
+  useEffect(() => {
+    const loadFilterOptions = async () => {
+      try {
+        const [categoryData, serviceData] = await Promise.all([
+          tourService.getCategories(),
+          tourService.getServices(),
+        ]);
+        setCategories(categoryData);
+        setServices(serviceData);
+      } catch {
+        setCategories([]);
+        setServices([]);
+      }
+    };
+
+    loadFilterOptions();
   }, []);
 
-  const filteredTours = useMemo(() => {
-    let result = [...tours];
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      fetchTours(filterParams);
+    }, 300);
 
-    if (searchKeyword.trim()) {
-      const q = searchKeyword.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          t.start_location.toLowerCase().includes(q) ||
-          (t.end_location && t.end_location.toLowerCase().includes(q)),
-      );
-    }
-
-    if (selectedCategories.length > 0) {
-      result = result.filter((t) =>
-        t.categories?.some((c) => selectedCategories.includes(c.slug)),
-      );
-    }
-
-    if (selectedServices.length > 0) {
-      result = result.filter((t) => t.services && t.services.length > 0);
-    }
-
-    if (selectedDuration !== "all") {
-      if (selectedDuration === "1")
-        result = result.filter((t) => t.number_of_days === 1);
-      if (selectedDuration === "2-3")
-        result = result.filter(
-          (t) => t.number_of_days >= 2 && t.number_of_days <= 3,
-        );
-      if (selectedDuration === "4+")
-        result = result.filter((t) => t.number_of_days >= 4);
-    }
-
-    result = result.filter((t) => {
-      const p = t.discount_price ?? t.price;
-      return p >= priceRange[0] && p <= priceRange[1];
-    });
-
-    if (minRating > 0) {
-      result = result.filter((t) => (t.rating || 0) >= minRating);
-    }
-
-    result.sort((a, b) => {
-      if (sortBy === "price_asc") {
-        return (a.discount_price ?? a.price) - (b.discount_price ?? b.price);
-      }
-      if (sortBy === "price_desc") {
-        return (b.discount_price ?? b.price) - (a.discount_price ?? a.price);
-      }
-      if (sortBy === "rating") {
-        return (b.rating ?? 0) - (a.rating ?? 0);
-      }
-      // featured
-      if (a.is_featured && !b.is_featured) return -1;
-      if (!a.is_featured && b.is_featured) return 1;
-      return 0;
-    });
-
-    return result;
-  }, [
-    tours,
-    searchKeyword,
-    selectedCategories,
-    selectedServices,
-    selectedDuration,
-    priceRange,
-    minRating,
-    sortBy,
-  ]);
+    return () => window.clearTimeout(timeoutId);
+  }, [filterParams]);
 
   const toggleCategory = (slug: string) => {
     setSelectedCategories((prev) =>
@@ -135,10 +109,18 @@ export const Tours: React.FC = () => {
     setSelectedCategories([]);
     setSelectedServices([]);
     setSelectedDuration("all");
-    setPriceRange([0, 20000000]);
-    setMinRating(0);
+    setPriceRange([0, DEFAULT_MAX_PRICE]);
     setSortBy("featured");
+    setSearchParams({});
   };
+
+  const hasActiveFilters = Boolean(
+    searchKeyword.trim()
+    || selectedCategories.length
+    || selectedServices.length
+    || selectedDuration !== "all"
+    || priceRange[1] < DEFAULT_MAX_PRICE,
+  );
 
   return (
     <div className="bg-gray-50 min-h-screen py-8">
@@ -155,6 +137,8 @@ export const Tours: React.FC = () => {
         <div className="flex flex-col lg:flex-row gap-8">
           <aside className="w-full lg:w-[320px] shrink-0">
             <TourFilters
+              categories={categories}
+              services={services}
               selectedCategories={selectedCategories}
               toggleCategory={toggleCategory}
               selectedServices={selectedServices}
@@ -163,8 +147,7 @@ export const Tours: React.FC = () => {
               setSelectedDuration={setSelectedDuration}
               priceRange={priceRange}
               setPriceRange={setPriceRange}
-              minRating={minRating}
-              setMinRating={setMinRating}
+              maxPrice={DEFAULT_MAX_PRICE}
               onReset={resetFilters}
             />
           </aside>
@@ -183,37 +166,32 @@ export const Tours: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-3 w-full md:w-auto">
-                <span className="text-sm text-gray-500 font-medium whitespace-nowrap">
-                  Sắp xếp:
-                </span>
+                <span className="text-sm text-gray-500 font-medium whitespace-nowrap">Sắp xếp:</span>
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                   className="bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-4 text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
                 >
                   <option value="featured">Phổ biến nhất</option>
                   <option value="price_asc">Giá tăng dần</option>
                   <option value="price_desc">Giá giảm dần</option>
-                  <option value="rating">Đánh giá cao</option>
                 </select>
               </div>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-6 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <h2 className="text-xl font-bold text-gray-800">
-                Tìm thấy{" "}
-                <span className="text-primary-600">{filteredTours.length}</span>{" "}
-                kết quả phù hợp
+                Tìm thấy <span className="text-primary-600">{tours.length}</span> kết quả phù hợp
               </h2>
+              {hasActiveFilters && (
+                <p className="text-xs font-medium text-gray-500">Kết quả đang được lọc theo điều kiện bạn chọn.</p>
+              )}
             </div>
 
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 animate-pulse">
                 {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <div
-                    key={n}
-                    className="bg-white rounded-3xl border border-gray-100 shadow-sm h-[400px]"
-                  />
+                  <div key={n} className="bg-white rounded-3xl border border-gray-100 shadow-sm h-[400px]" />
                 ))}
               </div>
             ) : error ? (
@@ -221,56 +199,22 @@ export const Tours: React.FC = () => {
                 <ExclamationTriangleIcon className="w-12 h-12 text-red-400 mb-4" />
                 <h3 className="text-lg font-bold text-gray-800">Lỗi dữ liệu</h3>
                 <p className="text-sm text-gray-500 mt-2">{error}</p>
-                <button
-                  onClick={fetchTours}
-                  className="mt-6 bg-primary-600 text-white font-semibold text-sm px-5 py-2.5 rounded-full hover:bg-primary-700 transition-colors"
-                >
+                <button onClick={() => fetchTours(filterParams)} className="mt-6 bg-primary-600 text-white font-semibold text-sm px-5 py-2.5 rounded-full hover:bg-primary-700 transition-colors">
                   Thử lại
                 </button>
               </div>
-            ) : filteredTours.length === 0 ? (
+            ) : tours.length === 0 ? (
               <div className="text-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center">
                 <InboxIcon className="w-12 h-12 text-gray-300 mb-4" />
-                <h3 className="text-lg font-bold text-gray-800">
-                  Không có Tour phù hợp
-                </h3>
-                <p className="text-sm text-gray-500 mt-2">
-                  Thử nới lỏng bộ lọc hoặc thay đổi từ khóa tìm kiếm nhé.
-                </p>
-                <button
-                  onClick={resetFilters}
-                  className="mt-6 bg-primary-50 text-primary-600 font-semibold text-sm px-5 py-2.5 rounded-full hover:bg-primary-100 transition-colors"
-                >
+                <h3 className="text-lg font-bold text-gray-800">Không có Tour phù hợp</h3>
+                <p className="text-sm text-gray-500 mt-2">Thử nới lỏng bộ lọc hoặc thay đổi từ khóa tìm kiếm nhé.</p>
+                <button onClick={resetFilters} className="mt-6 bg-primary-50 text-primary-600 font-semibold text-sm px-5 py-2.5 rounded-full hover:bg-primary-100 transition-colors">
                   Xóa toàn bộ lọc
                 </button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {filteredTours.map((tour) => (
-                  <TourCard key={tour.id} tour={tour} />
-                ))}
-              </div>
-            )}
-
-            {!loading && filteredTours.length > 0 && (
-              <div className="mt-12 flex justify-center">
-                <div className="inline-flex gap-2 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
-                  <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-50 text-gray-400 font-bold cursor-not-allowed">
-                    &lt;
-                  </button>
-                  <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-primary-600 text-white font-bold shadow-md shadow-primary-600/20">
-                    1
-                  </button>
-                  <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-white text-gray-600 hover:bg-gray-50 font-bold transition-colors">
-                    2
-                  </button>
-                  <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-white text-gray-600 hover:bg-gray-50 font-bold transition-colors">
-                    3
-                  </button>
-                  <button className="w-10 h-10 flex items-center justify-center rounded-xl bg-white text-gray-600 hover:bg-gray-50 font-bold transition-colors">
-                    &gt;
-                  </button>
-                </div>
+                {tours.map((tour) => <TourCard key={tour.id} tour={tour} />)}
               </div>
             )}
           </main>

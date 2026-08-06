@@ -125,7 +125,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
     },
     {
       q: "Có chính sách giảm giá riêng cho trẻ em không?",
-      a: "Có, trẻ em dưới 5 tuổi được miễn phí dịch vụ (ngủ chung phòng và bố mẹ tự lo ăn uống cho bé). Trẻ em từ 5 - 11 tuổi được áp dụng chính sách giảm 25% giá tour người lớn. Trẻ em từ 12 tuổi trở lên tính phí như người lớn.",
+      a: "Có, em bé dưới 2 tuổi được miễn phí dịch vụ (ngủ chung phòng và bố mẹ tự lo ăn uống cho bé). Trẻ em từ 2 - 12 tuổi được áp dụng chính sách giá trẻ em. Người lớn từ 12 tuổi trở lên tính theo giá người lớn.",
     },
     {
       q: "Tôi có thể tự thay đổi hoặc thêm bớt địa điểm tham quan không?",
@@ -222,23 +222,45 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
         <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 font-plus-jakarta">
           Dịch vụ & Tiện ích đi kèm
         </h2>
+
+        {/* Thông tin xe đi kèm */}
+        {tour.vehicle_info && (
+          <div className="mb-4 flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-100 rounded-2xl">
+            <span className="text-xl shrink-0">🚌</span>
+            <div>
+              <p className="text-xs font-bold uppercase text-amber-600 tracking-wide">Phương tiện di chuyển</p>
+              <p className="text-sm font-semibold text-gray-800 mt-0.5">{tour.vehicle_info}</p>
+            </div>
+          </div>
+        )}
+
         {tour.services?.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {tour.services.map((service: Service) => (
               <div
                 key={service.id}
-                className="flex items-center gap-3.5 p-3.5 bg-gray-50 border border-gray-100 rounded-2xl hover:bg-primary-50/20 transition-all duration-300 group"
+                className="flex items-start gap-3.5 p-3.5 bg-gray-50 border border-gray-100 rounded-2xl hover:bg-primary-50/20 transition-all duration-300 group"
               >
-                <div className="p-2 bg-white rounded-xl shadow-xs group-hover:scale-105 transition-transform duration-300">
-                  {getServiceIcon(service.name)}
+                <div className="p-2 bg-white rounded-xl shadow-xs group-hover:scale-105 transition-transform duration-300 shrink-0">
+                  {service.icon ? (
+                    <span className="text-xl leading-none">{service.icon}</span>
+                  ) : (
+                    getServiceIcon(service.name)
+                  )}
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-gray-800">
                     {service.name}
                   </p>
                   {service.description && (
-                    <p className="text-xs text-gray-400 mt-0.5 font-mono">
+                    <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
                       {service.description}
+                    </p>
+                  )}
+                  {/* Hiển thị giá nếu dịch vụ có phí phát sinh riêng */}
+                  {service.price != null && (
+                    <p className="text-xs font-semibold text-primary-600 mt-1">
+                      +{Number(service.price).toLocaleString("vi-VN")}đ / khách
                     </p>
                   )}
                 </div>
@@ -368,11 +390,38 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
                               </div>
                             )}
                             {item.route_points && (
-                              <div>
+                              <div className="sm:col-span-2">
                                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
                                   Chặng đi qua
                                 </p>
-                                <p className="mt-1 whitespace-pre-line text-gray-600">{item.route_points}</p>
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                  {item.route_points
+                                    .split(/[,\n]/)
+                                    .map((point) => point.trim())
+                                    .filter(Boolean)
+                                    .map((point, pointIndex, points) => (
+                                      <React.Fragment key={pointIndex}>
+                                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
+                                          {point}
+                                        </span>
+                                        {pointIndex < points.length - 1 && (
+                                          <svg
+                                            className="h-3.5 w-3.5 shrink-0 text-gray-400"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2.5}
+                                              d="M9 5l7 7-7 7"
+                                            />
+                                          </svg>
+                                        )}
+                                      </React.Fragment>
+                                    ))}
+                                </div>
                               </div>
                             )}
                             {item.rest_stops && (

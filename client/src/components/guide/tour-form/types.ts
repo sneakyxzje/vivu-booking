@@ -6,16 +6,18 @@ export interface SelectOption {
 }
 
 export interface ItineraryFormItem {
+  id?: number;
   day_number: string;
   title: string;
   start_point: string;
   end_point: string;
-  route_points: string;
+  route_points: string[];
   rest_stops: string;
   content: string;
 }
 
 export interface ScheduleFormItem {
+  id?: number;
   start_date: string;
   max_people: string;
   guide_id: string;
@@ -24,8 +26,9 @@ export interface ScheduleFormItem {
 export interface TourFormState {
   title: string;
   description: string;
-  price: string;
-  discount_price: string;
+  adult_price: string;
+  child_price: string;
+  infant_price: string;
   thumbnail: string;
   number_of_days: string;
   number_of_nights: string;

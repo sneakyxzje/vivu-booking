@@ -1,6 +1,7 @@
 import api from "./api";
 import { extractObject } from "@/utils/apiHelpers";
-import type { Booking, Guide, Tour } from "@/types";
+import type { Booking, Guide, Tour, DiscountCode, DiscountCodePayload, Service, ServicePayload } from "@/types";
+import { buildTourPayload } from "@/services/guideService";
 
 export interface PaginatedResponse<T> {
   current_page: number;
@@ -19,6 +20,16 @@ const adminService = {
   getTourById: async (id: number): Promise<Tour | null> => {
     const response = await api.get(`/admin/tours/${id}`);
     return response.data?.data ?? null;
+  },
+
+  updateTour: async (id: number, payload: unknown): Promise<{ success: boolean }> => {
+    const data = buildTourPayload(payload);
+    data.append("_method", "PUT");
+
+    const response = await api.post(`/admin/tours/${id}`, data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return { success: response.data?.success !== false };
   },
 
   getAvailableGuides: async (startDate: string, numberOfDays: number): Promise<Guide[]> => {
@@ -65,6 +76,27 @@ const adminService = {
     return response.data?.success !== false;
   },
 
+  // --- DISCOUNT CODES ---
+  getDiscountCodes: async (page = 1): Promise<PaginatedResponse<DiscountCode> | null> => {
+    const response = await api.get(`/admin/discount-codes?page=${page}`);
+    return extractObject<PaginatedResponse<DiscountCode>>(response);
+  },
+
+  createDiscountCode: async (payload: DiscountCodePayload): Promise<DiscountCode | null> => {
+    const response = await api.post("/admin/discount-codes", payload);
+    return extractObject<DiscountCode>(response);
+  },
+
+  updateDiscountCode: async (id: number, payload: DiscountCodePayload): Promise<DiscountCode | null> => {
+    const response = await api.put(`/admin/discount-codes/${id}`, payload);
+    return extractObject<DiscountCode>(response);
+  },
+
+  deleteDiscountCode: async (id: number): Promise<boolean> => {
+    const response = await api.delete(`/admin/discount-codes/${id}`);
+    return response.data?.success !== false;
+  },
+
   // --- ASSIGN GUIDE TO SCHEDULE ---
   assignGuideToSchedule: async (scheduleId: number, guideId: number | null) => {
     const response = await api.put(`/admin/tour-schedules/${scheduleId}/assign-guide`, {
@@ -72,7 +104,30 @@ const adminService = {
     });
     return response.data?.success !== false;
   },
+
+  // --- EXTRA SERVICES (Dịch vụ phát sinh theo tour) ---
+  getServices: async (page = 1): Promise<PaginatedResponse<Service> | null> => {
+    const response = await api.get(`/admin/services?page=${page}`);
+    return extractObject<PaginatedResponse<Service>>(response);
+  },
+
+  createService: async (payload: ServicePayload): Promise<Service | null> => {
+    const response = await api.post("/admin/services", payload);
+    return extractObject<Service>(response);
+  },
+
+  updateService: async (id: number, payload: Partial<ServicePayload>): Promise<Service | null> => {
+    const response = await api.put(`/admin/services/${id}`, payload);
+    return extractObject<Service>(response);
+  },
+
+  deleteService: async (id: number): Promise<boolean> => {
+    const response = await api.delete(`/admin/services/${id}`);
+    return response.data?.success !== false;
+  },
 };
 
 export default adminService;
+
+
 

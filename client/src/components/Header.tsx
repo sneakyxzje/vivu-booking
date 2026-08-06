@@ -1,17 +1,23 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
 export const Header: React.FC = () => {
+  const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState("");
 
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+
+    const keyword = searchKeyword.trim();
+    navigate(keyword ? `/tours?q=${encodeURIComponent(keyword)}` : "/tours");
+    setMobileOpen(false);
+  };
   const navLinks = [
     { to: "/tours", label: "Tour trọn gói" },
-    { to: "/flights", label: "Vé máy bay" },
-    { to: "/hotels", label: "Khách sạn" },
-    { to: "/combos", label: "Combo du lịch" },
-    { to: "/services", label: "Dịch vụ cộng thêm", hasDropdown: true },
   ];
 
   return (
@@ -34,6 +40,9 @@ export const Header: React.FC = () => {
             <input 
               type="text" 
               placeholder="Tìm kiếm" 
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               className="bg-transparent border-none focus:outline-none focus:ring-0 px-2 w-full text-sm text-gray-700"
             />
           </div>
@@ -47,11 +56,6 @@ export const Header: React.FC = () => {
                 className="text-[15px] font-medium text-gray-800 hover:text-primary-600 transition-colors flex items-center gap-1 whitespace-nowrap"
               >
                 {link.label}
-                {link.hasDropdown && (
-                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                )}
               </Link>
             ))}
           </nav>
@@ -132,6 +136,9 @@ export const Header: React.FC = () => {
             <input 
               type="text" 
               placeholder="Tìm kiếm" 
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               className="bg-transparent border-none focus:outline-none focus:ring-0 px-2 w-full text-sm text-gray-700"
             />
           </div>
@@ -145,11 +152,6 @@ export const Header: React.FC = () => {
                 className="text-[15px] font-medium text-gray-800 hover:text-primary-600 hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors flex justify-between items-center"
               >
                 {link.label}
-                {link.hasDropdown && (
-                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                )}
               </Link>
             ))}
           </nav>

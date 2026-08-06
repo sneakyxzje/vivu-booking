@@ -1,6 +1,8 @@
+
 import React, { useEffect, useState } from "react";
-import { Star, CheckCircle2, ThumbsUp, MessageSquare, Filter, User } from "lucide-react";
+import { Star, CheckCircle2, ThumbsUp, MessageSquare, Filter } from "lucide-react";
 import tourService from "@/services/tourService";
+
 
 interface Review {
   id: number;
@@ -46,11 +48,13 @@ const mockReviews: Review[] = [
   },
 ];
 
+
 export const TourReviewsSection: React.FC<{
   tourId: number;
   tourTitle?: string;
 }> = ({ tourId, tourTitle }) => {
   const [reviews, setReviews] = useState<Review[]>([]);
+
   const [activeFilter, setActiveFilter] = useState<number | "all">("all");
   
   // New review form
