@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Model;
     'discount_code',
     'discount_amount',
     'status',
+    'expires_at',
     'note',
     'cancel_reason',
     'vnpay_transaction_no',
@@ -32,6 +33,20 @@ use Illuminate\Database\Eloquent\Model;
 ])]
 class Booking extends Model
 {
+    protected function casts(): array
+    {
+        return [
+            'expires_at' => 'datetime',
+        ];
+    }
+
+    public function isOverdue(): bool
+    {
+        return $this->status === 'pending'
+            && $this->expires_at !== null
+            && $this->expires_at->isPast();
+    }
+
     public function tour()
     {
         return $this->belongsTo(Tour::class);
