@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import type { Tour } from "@/types";
+import { formatDateTime } from "@/utils/format";
 import {
   ShieldCheckIcon,
   SupportIcon,
@@ -87,7 +88,7 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
               >
                 {tour.schedules.map((schedule: any) => (
                   <option key={schedule.id} value={schedule.id}>
-                    {schedule.start_date}
+                    {formatDateTime(schedule.start_date)}
                   </option>
                 ))}
               </select>

@@ -53,6 +53,15 @@ const fieldClass =
 
 const labelClass = "block text-sm font-semibold text-gray-800 mb-2";
 
+const toDateTimeLocalValue = (value?: string | null): string => {
+  if (!value) return "";
+
+  const normalized = value.trim().replace(" ", "T");
+  return normalized.length >= 16
+    ? normalized.slice(0, 16)
+    : `${normalized.slice(0, 10)}T00:00`;
+};
+
 const parseRoutePoints = (value?: string | null): string[] => {
   const points = (value ?? "")
     .split(/[,\n]/)
@@ -206,7 +215,7 @@ export const CreateTourForm: React.FC = () => {
           schedules:
             tour.schedules?.map((item) => ({
               id: item.id,
-              start_date: item.start_date,
+              start_date: toDateTimeLocalValue(item.start_date),
               max_people: String(item.max_people ?? 10),
               guide_id: String(item.guide_id ?? ""),
             })) ?? emptyForm.schedules,

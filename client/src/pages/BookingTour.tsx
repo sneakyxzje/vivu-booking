@@ -1,6 +1,7 @@
 import bookingService from "@/services/bookingService";
 import tourService from "@/services/tourService";
 import type { Tour, TourSchedule } from "@/types";
+import { formatDateTime } from "@/utils/format";
 import type { AxiosError } from "axios";
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -200,7 +201,7 @@ const BookingForm = ({
           >
             {schedules.map((schedule) => (
               <option key={schedule.id} value={schedule.id}>
-                Khởi hành ngày: {schedule.start_date} (Còn lại: {schedule.max_people - schedule.booked_people} chỗ)
+                Khởi hành: {formatDateTime(schedule.start_date)} (Còn lại: {schedule.max_people - schedule.booked_people} chỗ)
               </option>
             ))}
           </select>
@@ -515,7 +516,7 @@ const ScheduleCard = ({ schedules, selectedScheduleId }: { schedules: TourSchedu
             >
               <div className="flex items-center justify-between">
                 <span className={`text-sm font-bold ${isSelected ? "text-primary-800" : "text-gray-800"}`}>
-                  {schedule.start_date}
+                  {formatDateTime(schedule.start_date)}
                 </span>
                 {isSelected && (
                   <span className="text-[10px] bg-primary-600 text-white px-2 py-0.5 rounded-full font-bold">

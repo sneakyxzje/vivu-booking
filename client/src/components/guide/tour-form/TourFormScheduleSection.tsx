@@ -2,19 +2,23 @@ import React from "react";
 import type { Guide } from "@/types";
 import type { ScheduleFormItem } from "./types";
 
-const getTodayInputValue = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-  return [year, month, day].join("-");
+const getNowInputValue = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
-const minStartDate = getTodayInputValue();
+const minStartDate = getNowInputValue();
 
 const getPeriod = (startDate: string, numberOfDays: number) => {
   if (!startDate) return null;
-  const start = new Date(startDate + "T00:00:00");
+  const start = new Date(
+    startDate.includes("T") ? startDate : startDate + "T00:00:00",
+  );
   const end = new Date(start);
   end.setDate(end.getDate() + Math.max(0, numberOfDays - 1));
   return { start, end };
@@ -101,9 +105,9 @@ export const TourFormScheduleSection: React.FC<Props> = ({
               className="grid grid-cols-1 gap-3 rounded-lg border border-gray-100 bg-white p-4 lg:grid-cols-[minmax(0,1fr)_140px_minmax(220px,1fr)_auto]"
             >
               <div>
-                <label className={labelClass}>Ngày khởi hành</label>
+                <label className={labelClass}>Thời gian khởi hành</label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   min={minStartDate}
                   required
                   value={item.start_date}
@@ -140,7 +144,7 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                 >
                   <option value="">
                     {!item.start_date
-                      ? "Chọn ngày khởi hành trước"
+                      ? "Chọn thời gian khởi hành trước"
                       : availabilityLoading
                         ? "Đang kiểm tra lịch..."
                         : "Chưa phân công"}
