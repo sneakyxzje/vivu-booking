@@ -20,6 +20,7 @@ import AdminTourDetail from "@/pages/admin/TourDetail";
 import BookingManagement from "@/pages/admin/BookingManagement";
 import GuideManagement from "@/pages/admin/GuideManagement";
 import DiscountCodeManagement from "@/pages/admin/DiscountCodeManagement";
+import ServiceManagement from "@/pages/admin/ServiceManagement";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
 import { GuideTours } from "@/pages/guide/GuideTours";
 import { GuideBookings } from "@/pages/guide/GuideBookings";
@@ -152,6 +153,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/guides",
             element: <GuideManagement />,
+          },
+          {
+            path: "/admin/services",
+            element: <ServiceManagement />,
           },
         ],
       },
