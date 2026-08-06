@@ -144,17 +144,6 @@ class TourController extends Controller
         ]);
     }
 
-    /**
-     * Đánh giá tour
-     */
-    public function review(Request $request, int $id): JsonResponse
-    {
-        return response()->json([
-            'success' => true,
-            'message' => 'Placeholder: Submit review for tour ' . $id
-        ]);
-    }
-
     private function parseCsvFilter(?string $value): array
     {
         if (!$value) {
