@@ -22,6 +22,7 @@ type Booking = {
   discount_amount?: number;
   status: string;
   expires_at?: string | null;
+  cancel_reason?: string | null;
   note?: string | null;
   payment_url?: string;
   vnpay_transaction_no?: string | null;
@@ -98,15 +99,17 @@ export default function BookingSuccess() {
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const paymentStatus = searchParams.get("payment_status");
 
+  // Luôn tải bản mới nhất từ server (kể cả khi đã có dữ liệu từ trang đặt tour),
+  // để trạng thái đơn phản ánh đúng khi bị admin hủy hoặc hết hạn giữ chỗ.
   useEffect(() => {
-    if (state || !id) return;
+    if (!id) return;
 
     const loadBooking = async () => {
       try {
         const response = await bookingService.getById(id);
         setBooking(response.data.data as Booking);
       } catch {
-        setBooking(null);
+        if (!state) setBooking(null);
       } finally {
         setLoading(false);
       }
@@ -190,14 +193,18 @@ export default function BookingSuccess() {
   const guestBreakdown = `${booking.adult_count ?? 0} người lớn, ${booking.child_count ?? 0} trẻ em, ${booking.infant_count ?? 0} em bé`;
   const headerTitle = paid
     ? "Thanh toán thành công!"
-    : cancelled || paymentStatus === "failed"
-      ? "Thanh toán chưa hoàn tất"
-      : "Đặt tour thành công!";
+    : cancelled
+      ? "Đơn đặt tour đã bị hủy"
+      : paymentStatus === "failed"
+        ? "Thanh toán chưa hoàn tất"
+        : "Đặt tour thành công!";
   const headerDescription = paid
     ? `Booking BK${booking.id} đã được xác nhận. Thông tin hóa đơn và phiếu xác nhận đã được gửi về ${booking.customer_email}.`
-    : cancelled || paymentStatus === "failed"
-      ? "Giao dịch chưa hoàn tất hoặc đã bị hủy. Bạn có thể chọn tour khác hoặc liên hệ hỗ trợ để được kiểm tra."
-      : `Chúng tôi đã ghi nhận yêu cầu đặt tour và gửi hướng dẫn thanh toán về ${booking.customer_email}. Vui lòng hoàn tất thanh toán để giữ chỗ.`;
+    : cancelled
+      ? `Đơn BK${booking.id} đã bị hủy${booking.cancel_reason ? ` — lý do: ${booking.cancel_reason}` : ""}. Nếu bạn đã thanh toán cho đơn này, chúng tôi sẽ liên hệ hoàn tiền. Cần hỗ trợ vui lòng liên hệ hotline.`
+      : paymentStatus === "failed"
+        ? "Giao dịch chưa hoàn tất hoặc đã bị hủy. Bạn có thể chọn tour khác hoặc liên hệ hỗ trợ để được kiểm tra."
+        : `Chúng tôi đã ghi nhận yêu cầu đặt tour và gửi hướng dẫn thanh toán về ${booking.customer_email}. Vui lòng hoàn tất thanh toán để giữ chỗ.`;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 font-inter">
