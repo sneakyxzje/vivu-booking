@@ -49,7 +49,8 @@ Route::get('/categories', fn() => response()->json([
 ]));
 Route::get('/services', fn() => response()->json([
     'success' => true,
-    'data' => Service::orderBy('name')->get(),
+    // Chỉ trả về dịch vụ đang hoạt động (is_active = true) cho phía khách hàng xem
+    'data' => Service::where('is_active', true)->orderBy('name')->get(),
 ]));
 Route::post('/bookings', [CustomerBookingController::class, 'store']);
 Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']);
