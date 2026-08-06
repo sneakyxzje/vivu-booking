@@ -86,7 +86,7 @@ export default function TourDetail() {
 
     if (allImages.length === 1) {
       return (
-        <div className="relative h-[320px] md:h-[480px] rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-gray-100 group">
+        <div className="relative h-[320px] md:h-[480px] rounded-xl overflow-hidden shadow-sm border border-gray-100 group">
           <img
             src={allImages[0]}
             alt={tour.title}
@@ -98,7 +98,7 @@ export default function TourDetail() {
 
     if (allImages.length === 2) {
       return (
-        <div className="grid grid-cols-2 gap-3 h-[240px] md:h-[380px] rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-gray-100">
+        <div className="grid grid-cols-2 gap-3 h-[240px] md:h-[380px] rounded-xl overflow-hidden shadow-sm border border-gray-100">
           {allImages.map((img, idx) => (
             <div key={idx} className="relative overflow-hidden group h-full">
               <img
@@ -114,7 +114,7 @@ export default function TourDetail() {
 
     if (allImages.length === 3 || allImages.length === 4) {
       return (
-        <div className="grid grid-cols-3 gap-3 h-[280px] md:h-[420px] rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-gray-100">
+        <div className="grid grid-cols-3 gap-3 h-[280px] md:h-[420px] rounded-xl overflow-hidden shadow-sm border border-gray-100">
           <div className="col-span-2 relative overflow-hidden group h-full">
             <img
               src={allImages[0]}
@@ -138,7 +138,7 @@ export default function TourDetail() {
     }
 
     return (
-      <div className="grid grid-cols-4 grid-rows-2 gap-3 h-[300px] md:h-[480px] rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-gray-100">
+      <div className="grid grid-cols-4 grid-rows-2 gap-3 h-[300px] md:h-[480px] rounded-xl overflow-hidden shadow-sm border border-gray-100">
         <div className="col-span-2 row-span-2 relative overflow-hidden group h-full">
           <img
             src={allImages[0]}
@@ -199,7 +199,7 @@ export default function TourDetail() {
           )}
         </div>
 
-        <h1 className="text-2xl md:text-4xl font-extrabold text-gray-900 tracking-tight leading-tight font-plus-jakarta">
+        <h1 className="text-2xl md:text-4xl font-bold text-gray-900 tracking-tight leading-tight font-plus-jakarta">
           {tour.title}
         </h1>
 

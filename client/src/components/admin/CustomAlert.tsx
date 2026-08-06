@@ -51,7 +51,7 @@ export const Toast: React.FC<ToastProps> = ({
 
   return (
     <div className="fixed bottom-5 right-5 z-55 max-w-sm w-full animate-slide-in pointer-events-auto">
-      <div className={`flex items-center gap-3 p-4 rounded-2xl border shadow-lg ${bgClass} transition-all duration-300`}>
+      <div className={`flex items-center gap-3 p-4 rounded-lg border shadow-lg ${bgClass} transition-all duration-300`}>
         <div className="shrink-0">{icon}</div>
         <p className="text-sm font-semibold flex-1">{message}</p>
         <button
@@ -124,9 +124,9 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in pointer-events-auto">
-      <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-gray-100 p-6 flex flex-col items-center text-center animate-scale-up">
+      <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl border border-gray-100 p-6 flex flex-col items-center text-center animate-scale-up">
         {/* Icon */}
-        <div className={`p-3.5 rounded-2xl ${iconBg} mb-4`}>{icon}</div>
+        <div className={`p-3.5 rounded-lg ${iconBg} mb-4`}>{icon}</div>
 
         {/* Title */}
         <h4 className="text-lg font-bold text-gray-900 mb-1">{title}</h4>

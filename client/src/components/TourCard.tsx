@@ -34,7 +34,7 @@ const StarRating: React.FC<StarRatingProps> = ({ rating, reviewCount }) => (
 const PriceDisplay: React.FC<{ price: number }> = ({ price }) => (
   <div>
     <div className="text-gray-400 text-[11px] font-medium">Giá từ</div>
-    <div className="text-primary-600 font-extrabold text-[16px] tracking-tight">
+    <div className="text-primary-600 font-bold text-[16px] tracking-tight">
       {formatPrice(price)}
     </div>
     <div className="text-gray-400 text-[11px] font-medium">/ khách người lớn</div>
@@ -51,12 +51,12 @@ export const TourCard: React.FC<TourCardProps> = ({ tour }) => {
       ? tour.categories[0].name
       : "Tour Trọn Gói";
 
-  const rating = tour.rating ?? 4.8;
-  const reviewCount = tour.review_count ?? 45;
+  const rating = tour.rating ?? null;
+  const reviewCount = tour.review_count ?? 0;
   const adultPrice = tour.adult_price ?? tour.discount_price ?? tour.price;
 
   return (
-    <article className="group bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col h-full">
+    <article className="group bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col h-full">
       <div className="relative h-52 overflow-hidden bg-gray-100 shrink-0">
         <img
           src={
@@ -65,7 +65,7 @@ export const TourCard: React.FC<TourCardProps> = ({ tour }) => {
           }
           alt={tour.title}
           loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
 
         <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
@@ -103,7 +103,11 @@ export const TourCard: React.FC<TourCardProps> = ({ tour }) => {
         </Link>
 
         <div className="mb-4">
-          <StarRating rating={rating} reviewCount={reviewCount} />
+          {rating !== null && reviewCount > 0 ? (
+            <StarRating rating={rating} reviewCount={reviewCount} />
+          ) : (
+            <span className="text-xs text-gray-400">Chưa có đánh giá</span>
+          )}
         </div>
 
         {tour.services && tour.services.length > 0 && (

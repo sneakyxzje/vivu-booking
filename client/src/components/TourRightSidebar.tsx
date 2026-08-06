@@ -55,14 +55,14 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
 
   return (
     <div className="lg:col-span-4 lg:sticky lg:top-24">
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.025)] p-6 md:p-7 space-y-6">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 md:p-7 space-y-6">
         {/* Price section */}
         <div>
           <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">
             Giá tour trọn gói chỉ từ
           </p>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl md:text-3xl font-black text-red-600 font-plus-jakarta">
+            <span className="text-2xl md:text-3xl font-bold text-red-600 font-plus-jakarta">
               {formatPrice(tour.adult_price || tour.discount_price || tour.price)}
             </span>
             {tour.discount_price && (
@@ -157,8 +157,8 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
       </div>
 
       {/* Operator Card */}
-      <div className="mt-6 bg-white border border-gray-100 p-5 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex items-center gap-4">
-        <div className="w-12 h-12 bg-primary-50 rounded-2xl flex items-center justify-center text-primary-600 font-bold font-plus-jakarta text-lg">
+      <div className="mt-6 bg-white border border-gray-100 p-5 rounded-xl shadow-sm flex items-center gap-4">
+        <div className="w-12 h-12 bg-primary-50 rounded-lg flex items-center justify-center text-primary-600 font-bold font-plus-jakarta text-lg">
           VB
         </div>
         <div>

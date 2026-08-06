@@ -115,11 +115,11 @@ export const GuideBookings: React.FC = () => {
       {loading ? (
         <div className="text-center py-16 text-gray-500">Đang tải...</div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-500">
+        <div className="bg-white rounded-lg border border-gray-100 p-12 text-center text-gray-500">
           Không có đặt chỗ nào.
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

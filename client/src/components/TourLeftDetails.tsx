@@ -4,7 +4,6 @@ import {
   MapPinIcon,
   ClockIcon,
   CompassIcon,
-  StarIcon,
   HotelIcon,
   LandmarkIcon,
 } from "@/components/Icons";
@@ -136,9 +135,9 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
   return (
     <div className="lg:col-span-8 space-y-8">
       {/* General Highlight Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-white p-5 rounded-3xl border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-white p-5 rounded-xl border border-gray-100 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-primary-50 rounded-2xl text-primary-600">
+          <div className="p-2.5 bg-primary-50 rounded-lg text-primary-600">
             <ClockIcon className="w-5 h-5" />
           </div>
           <div>
@@ -152,7 +151,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-primary-50 rounded-2xl text-primary-600">
+          <div className="p-2.5 bg-primary-50 rounded-lg text-primary-600">
             <MapPinIcon className="w-5 h-5" />
           </div>
           <div>
@@ -166,7 +165,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-primary-50 rounded-2xl text-primary-600">
+          <div className="p-2.5 bg-primary-50 rounded-lg text-primary-600">
             <CompassIcon className="w-5 h-5" />
           </div>
           <div>
@@ -180,7 +179,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-primary-50 rounded-2xl text-primary-600">
+          <div className="p-2.5 bg-primary-50 rounded-lg text-primary-600">
             <svg
               className="w-5 h-5"
               fill="none"
@@ -207,7 +206,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
       </div>
 
       {/* Giới thiệu */}
-      <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
+      <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-4 font-plus-jakarta">
           Giới thiệu Tour
         </h2>
@@ -218,14 +217,14 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
       </div>
 
       {/* Dịch vụ tiện ích */}
-      <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
+      <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 font-plus-jakarta">
           Dịch vụ & Tiện ích đi kèm
         </h2>
 
         {/* Thông tin xe đi kèm */}
         {tour.vehicle_info && (
-          <div className="mb-4 flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-100 rounded-2xl">
+          <div className="mb-4 flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-100 rounded-lg">
             <span className="text-xl shrink-0">🚌</span>
             <div>
               <p className="text-xs font-bold uppercase text-amber-600 tracking-wide">Phương tiện di chuyển</p>
@@ -239,7 +238,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
             {tour.services.map((service: Service) => (
               <div
                 key={service.id}
-                className="flex items-start gap-3.5 p-3.5 bg-gray-50 border border-gray-100 rounded-2xl hover:bg-primary-50/20 transition-all duration-300 group"
+                className="flex items-start gap-3.5 p-3.5 bg-gray-50 border border-gray-100 rounded-lg hover:bg-primary-50/20 transition-all duration-300 group"
               >
                 <div className="p-2 bg-white rounded-xl shadow-xs group-hover:scale-105 transition-transform duration-300 shrink-0">
                   {service.icon ? (
@@ -275,11 +274,11 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
       </div>
 
       {/* Hướng dẫn viên đồng hành */}
-      <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
+      <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 font-plus-jakarta">
           Hướng dẫn viên đồng hành
         </h2>
-        <div className="flex flex-col sm:flex-row items-center gap-6 p-5 bg-primary-50/20 border border-primary-100/50 rounded-2xl">
+        <div className="flex flex-col sm:flex-row items-center gap-6 p-5 bg-primary-50/20 border border-primary-100/50 rounded-lg">
           <div className="w-20 h-20 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-md">
             <img
               src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80"
@@ -307,7 +306,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
       </div>
 
       {/* Lịch trình (Accordion) */}
-      <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
+      <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta">
             Lịch trình di chuyển chi tiết
@@ -336,7 +335,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
                   </div>
 
                   {/* Accordion Card */}
-                  <div className="border border-gray-100 bg-gray-50/50 rounded-2xl overflow-hidden transition-all duration-300">
+                  <div className="border border-gray-100 bg-gray-50/50 rounded-lg overflow-hidden transition-all duration-300">
                     <button
                       type="button"
                       onClick={() => toggleDay(item.day_number)}
@@ -372,7 +371,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
                     >
                       <div className="space-y-4 p-5 text-sm md:text-base">
                         {(item.start_point || item.end_point || item.route_points || item.rest_stops) && (
-                          <div className="grid grid-cols-1 gap-3 rounded-2xl border border-gray-100 bg-white p-4 text-sm sm:grid-cols-2">
+                          <div className="grid grid-cols-1 gap-3 rounded-lg border border-gray-100 bg-white p-4 text-sm sm:grid-cols-2">
                             {item.start_point && (
                               <div>
                                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
@@ -451,146 +450,8 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
         </div>
       </div>
 
-      {/* Đánh giá và nhận xét của du khách */}
-      <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-6">
-        <h2 className="text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta">
-          Đánh giá & Nhận xét từ du khách
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center p-6 bg-gray-50 rounded-2xl border border-gray-100">
-          <div className="text-center md:border-r border-gray-200/60 pb-4 md:pb-0">
-            <h3 className="text-4xl font-extrabold text-gray-900">5.0</h3>
-            <div className="flex items-center justify-center text-amber-500 my-1">
-              <StarIcon className="w-5 h-5" />
-              <StarIcon className="w-5 h-5" />
-              <StarIcon className="w-5 h-5" />
-              <StarIcon className="w-5 h-5" />
-              <StarIcon className="w-5 h-5" />
-            </div>
-            <p className="text-xs text-gray-400 font-medium font-mono">
-              42 đánh giá thực tế
-            </p>
-          </div>
-
-          <div className="col-span-2 space-y-2.5">
-            <div>
-              <div className="flex justify-between text-xs font-bold text-gray-600 mb-1">
-                <span>Dịch vụ ăn uống</span>
-                <span className="font-mono">4.8/5</span>
-              </div>
-              <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                <div
-                  className="bg-primary-600 h-full rounded-full"
-                  style={{ width: "96%" }}
-                ></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-xs font-bold text-gray-600 mb-1">
-                <span>Nơi lưu trú (Khách sạn/Resort)</span>
-                <span className="font-mono">4.9/5</span>
-              </div>
-              <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                <div
-                  className="bg-primary-600 h-full rounded-full"
-                  style={{ width: "98%" }}
-                ></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-xs font-bold text-gray-600 mb-1">
-                <span>Hướng dẫn viên đồng hành</span>
-                <span className="font-mono">5.0/5</span>
-              </div>
-              <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                <div
-                  className="bg-primary-600 h-full rounded-full"
-                  style={{ width: "100%" }}
-                ></div>
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-xs font-bold text-gray-600 mb-1">
-                <span>Phương tiện di chuyển</span>
-                <span className="font-mono">4.9/5</span>
-              </div>
-              <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                <div
-                  className="bg-primary-600 h-full rounded-full"
-                  style={{ width: "98%" }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Review Comments list */}
-        <div className="space-y-4">
-          <div className="p-5 border border-gray-100 rounded-2xl space-y-3 bg-white">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-sm">
-                  NH
-                </div>
-                <div>
-                  <h5 className="font-bold text-gray-900 text-sm">
-                    Nguyễn Hoàng Nam
-                  </h5>
-                  <p className="text-[10px] text-gray-400 font-mono">
-                    Đã đi tour vào tháng 06/2026
-                  </p>
-                </div>
-              </div>
-              <span className="flex text-amber-500">
-                <StarIcon />
-                <StarIcon />
-                <StarIcon />
-                <StarIcon />
-                <StarIcon />
-              </span>
-            </div>
-            <p className="text-sm text-gray-600 leading-relaxed">
-              "Chuyến đi cực kỳ tuyệt vời và đáng đồng tiền bát gạo. Khách sạn
-              sang trọng sạch sẽ, ăn uống ngon hợp khẩu vị. Bạn Quân HDV vô
-              cùng thân thiện, am hiểu sâu sắc lịch sử văn hóa các điểm đến và
-              chụp hình rất đẹp cho cả đoàn!"
-            </p>
-          </div>
-
-          <div className="p-5 border border-gray-100 rounded-2xl space-y-3 bg-white">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-sm">
-                  LT
-                </div>
-                <div>
-                  <h5 className="font-bold text-gray-900 text-sm">
-                    Lê Thị Thanh Thảo
-                  </h5>
-                  <p className="text-[10px] text-gray-400 font-mono">
-                    Đã đi tour vào tháng 06/2026
-                  </p>
-                </div>
-              </div>
-              <span className="flex text-amber-500">
-                <StarIcon />
-                <StarIcon />
-                <StarIcon />
-                <StarIcon />
-                <StarIcon />
-              </span>
-            </div>
-            <p className="text-sm text-gray-600 leading-relaxed">
-              "Gia đình tôi rất hài lòng về dịch vụ của Vivu Booking. Xe đưa đón
-              đưa đón tận nơi rất êm ái, lịch trình khoa học không bị dồn dập
-              quá sức cho người lớn tuổi. Ăn uống thực đơn phong phú."
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Các câu hỏi thường gặp */}
-      <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-6">
+      <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm space-y-6">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta">
           Các câu hỏi thường gặp (FAQs)
         </h2>
@@ -601,7 +462,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
             return (
               <div
                 key={idx}
-                className="border border-gray-100 rounded-2xl overflow-hidden bg-white"
+                className="border border-gray-100 rounded-lg overflow-hidden bg-white"
               >
                 <button
                   type="button"
@@ -634,7 +495,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
                       : "max-h-0 opacity-0"
                   }`}
                 >
-                  <p className="p-5 text-sm text-gray-600 leading-relaxed bg-gray-55/30">
+                  <p className="p-5 text-sm text-gray-600 leading-relaxed bg-gray-50">
                     {faq.a}
                   </p>
                 </div>
@@ -645,16 +506,16 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
       </div>
 
       {/* Vị trí và điểm đón khách */}
-      <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-6">
+      <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm space-y-6">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta">
           Vị trí & Điểm đón khách khởi hành
         </h2>
         <div className="space-y-4">
-          <div className="relative h-[240px] rounded-2xl overflow-hidden border border-gray-200/60 shadow-inner group">
+          <div className="relative h-[240px] rounded-lg overflow-hidden border border-gray-200/60 shadow-inner group">
             <img
               src="https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=800&q=80"
               alt="Map"
-              className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-700"
+              className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-black/10"></div>
             <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-lg border border-gray-200/60 flex items-center gap-1.5 text-xs font-bold text-gray-800">
@@ -665,24 +526,24 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
 
           <div className="space-y-3.5 text-sm">
             <div className="flex gap-3">
-              <div className="w-5 h-5 rounded-full bg-primary-100 text-primary-750 flex items-center justify-center shrink-0 font-bold text-xs mt-0.5 font-mono">
+              <div className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center shrink-0 font-bold text-xs mt-0.5 font-mono">
                 A
               </div>
               <div>
                 <p className="font-bold text-gray-800">Điểm đón khách chính:</p>
-                <p className="text-gray-555 text-xs mt-0.5">
+                <p className="text-gray-500 text-xs mt-0.5">
                   Nhà hát Lớn Hà Nội - Số 1 Tràng Tiền, Hoàn Kiếm, Hà Nội (Dành cho
                   đoàn khởi hành từ miền Bắc).
                 </p>
               </div>
             </div>
             <div className="flex gap-3">
-              <div className="w-5 h-5 rounded-full bg-primary-100 text-primary-750 flex items-center justify-center shrink-0 font-bold text-xs mt-0.5 font-mono">
+              <div className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center shrink-0 font-bold text-xs mt-0.5 font-mono">
                 B
               </div>
               <div>
                 <p className="font-bold text-gray-800">Điểm đón khách phụ:</p>
-                <p className="text-gray-555 text-xs mt-0.5">
+                <p className="text-gray-500 text-xs mt-0.5">
                   Ga Quốc Tế - Cột số 9, Sân bay Tân Sơn Nhất, TP. Hồ Chí Minh
                   (Dành cho đoàn khởi hành từ miền Nam).
                 </p>
@@ -693,7 +554,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
       </div>
 
       {/* Chính sách và điều khoản */}
-      <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-6">
+      <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm space-y-6">
         <h2 className="text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta">
           Chính sách & Quy định của Vivu Booking
         </h2>

@@ -62,6 +62,15 @@ useEffect(() => {
     return r.rating === activeFilter;
   });
 
+  const averageRating = reviews.length
+    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    : 0;
+  const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => {
+    const count = reviews.filter((r) => r.rating === star).length;
+    const pct = reviews.length ? Math.round((count / reviews.length) * 100) : 0;
+    return { star, count, pct };
+  });
+
   const handleAddReview = async (e: React.FormEvent) => {
   e.preventDefault();
 
@@ -103,7 +112,7 @@ useEffect(() => {
   };
 
   return (
-    <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-8">
+    <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm space-y-8">
       
       {/* Header */}
       <div>
@@ -115,32 +124,33 @@ useEffect(() => {
         <h2 className="text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta mt-2">
           Đánh giá & Bình luận từ du khách
         </h2>
-        <p className="text-xs text-gray-500 mt-1">100% đánh giá từ các khách hàng đã tham gia tour thực tế</p>
+        <p className="text-xs text-gray-500 mt-1">Đánh giá từ khách hàng đã trải nghiệm dịch vụ của Vivu Booking</p>
       </div>
 
       {/* RATING SUMMARY DASHBOARD */}
-      <div className="bg-gray-50/80 rounded-2xl p-6 border border-gray-200/60 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+      <div className="bg-gray-50/80 rounded-lg p-6 border border-gray-200/60 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
         
         {/* Overall Score */}
         <div className="text-center md:border-r border-gray-200/80 pr-0 md:pr-6">
-          <div className="text-4xl md:text-5xl font-extrabold text-gray-900 font-plus-jakarta">4.8</div>
+          <div className="text-4xl md:text-5xl font-bold text-gray-900 font-plus-jakarta">
+            {reviews.length ? averageRating.toFixed(1) : "—"}
+          </div>
           <div className="flex items-center justify-center gap-1 my-2">
             {[1, 2, 3, 4, 5].map((s) => (
-              <Star key={s} className="w-5 h-5 fill-amber-400 text-amber-400" />
+              <Star
+                key={s}
+                className={`w-5 h-5 ${s <= Math.round(averageRating) ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
+              />
             ))}
           </div>
-          <span className="text-xs font-medium text-gray-500">Dựa trên {reviews.length} đánh giá đã xác thực</span>
+          <span className="text-xs font-medium text-gray-500">
+            {reviews.length ? `Dựa trên ${reviews.length} đánh giá` : "Chưa có đánh giá nào"}
+          </span>
         </div>
 
         {/* Rating Breakdown Bars */}
         <div className="md:col-span-2 space-y-2 text-xs">
-          {[
-            { star: 5, pct: "85%", count: 18 },
-            { star: 4, pct: "10%", count: 2 },
-            { star: 3, pct: "5%", count: 1 },
-            { star: 2, pct: "0%", count: 0 },
-            { star: 1, pct: "0%", count: 0 },
-          ].map((bar) => (
+          {ratingBreakdown.map((bar) => (
             <div key={bar.star} className="flex items-center gap-3">
               <span className="font-semibold text-gray-700 w-10 flex items-center gap-1">
                 {bar.star} <Star className="w-3 h-3 fill-amber-400 text-amber-400 inline" />
@@ -148,10 +158,10 @@ useEffect(() => {
               <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-amber-400 rounded-full transition-all duration-500"
-                  style={{ width: bar.pct }}
+                  style={{ width: `${bar.pct}%` }}
                 />
               </div>
-              <span className="text-gray-400 w-8 text-right">{bar.pct}</span>
+              <span className="text-gray-400 w-8 text-right">{bar.pct}%</span>
             </div>
           ))}
         </div>
@@ -185,7 +195,7 @@ useEffect(() => {
       {/* REVIEWS LIST */}
       <div className="space-y-4">
         {filteredReviews.map((rev) => (
-          <div key={rev.id} className="bg-gray-50/50 rounded-2xl p-5 border border-gray-100 space-y-3">
+          <div key={rev.id} className="bg-gray-50/50 rounded-lg p-5 border border-gray-100 space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-700 font-bold flex items-center justify-center overflow-hidden border border-primary-200">
@@ -235,7 +245,7 @@ useEffect(() => {
       </div>
 
       {/* WRITE A REVIEW FORM */}
-      <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200/80 space-y-4">
+      <div className="bg-gray-50 rounded-lg p-6 border border-gray-200/80 space-y-4">
         <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2 uppercase tracking-wider">
           <MessageSquare className="w-4 h-4 text-primary-600" /> Viết nhận xét về tour này
         </h3>

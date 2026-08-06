@@ -63,7 +63,7 @@ export const GuideTours: React.FC = () => {
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col sm:flex-row gap-4">
+      <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-4 flex flex-col sm:flex-row gap-4">
         <input
           type="search"
           placeholder="Tìm theo tên tour, địa điểm..."
@@ -98,11 +98,11 @@ export const GuideTours: React.FC = () => {
       {loading ? (
         <div className="text-center py-16 text-gray-500">Đang tải...</div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center text-gray-500">
+        <div className="bg-white rounded-lg border border-gray-100 p-12 text-center text-gray-500">
           Chưa có tour nào được phân công.
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>

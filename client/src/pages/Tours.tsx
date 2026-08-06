@@ -126,7 +126,7 @@ export const Tours: React.FC = () => {
     <div className="bg-gray-50 min-h-screen py-8">
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
             Khám phá Tour Du Lịch
           </h1>
           <p className="text-gray-500 mt-2 text-sm">
@@ -153,7 +153,7 @@ export const Tours: React.FC = () => {
           </aside>
 
           <main className="flex-1">
-            <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
               <div className="relative w-full md:w-[400px]">
                 <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
@@ -161,7 +161,7 @@ export const Tours: React.FC = () => {
                   placeholder="Tìm kiếm điểm đến, tên tour..."
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400"
                 />
               </div>
 
@@ -191,11 +191,11 @@ export const Tours: React.FC = () => {
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 animate-pulse">
                 {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <div key={n} className="bg-white rounded-3xl border border-gray-100 shadow-sm h-[400px]" />
+                  <div key={n} className="bg-white rounded-xl border border-gray-100 shadow-sm h-[400px]" />
                 ))}
               </div>
             ) : error ? (
-              <div className="text-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center">
+              <div className="text-center py-20 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col items-center">
                 <ExclamationTriangleIcon className="w-12 h-12 text-red-400 mb-4" />
                 <h3 className="text-lg font-bold text-gray-800">Lỗi dữ liệu</h3>
                 <p className="text-sm text-gray-500 mt-2">{error}</p>
@@ -204,7 +204,7 @@ export const Tours: React.FC = () => {
                 </button>
               </div>
             ) : tours.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center">
+              <div className="text-center py-20 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col items-center">
                 <InboxIcon className="w-12 h-12 text-gray-300 mb-4" />
                 <h3 className="text-lg font-bold text-gray-800">Không có Tour phù hợp</h3>
                 <p className="text-sm text-gray-500 mt-2">Thử nới lỏng bộ lọc hoặc thay đổi từ khóa tìm kiếm nhé.</p>

@@ -88,7 +88,7 @@ export const Profile: React.FC = () => {
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* LIGHT, ELEGANT PROFILE HEADER CARD */}
-        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-gray-200/80 shadow-sm mb-5">
+        <div className="bg-white rounded-xl p-5 sm:p-6 border border-gray-200/80 shadow-sm mb-5">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
 
             {/* User Avatar & Info */}
@@ -130,16 +130,16 @@ export const Profile: React.FC = () => {
             </div>
 
             {/* Clean Dynamic Stats Cards */}
-            <div className="flex items-center gap-3 bg-gray-50/80 p-2.5 rounded-2xl border border-gray-200/70 w-full md:w-auto justify-around">
+            <div className="flex items-center gap-3 bg-gray-50/80 p-2.5 rounded-lg border border-gray-200/70 w-full md:w-auto justify-around">
               <div className="text-center px-5 py-2">
-                <span className="block text-2xl font-extrabold text-gray-900 font-plus-jakarta">
+                <span className="block text-2xl font-bold text-gray-900 font-plus-jakarta">
                   {totalBookings}
                 </span>
                 <span className="text-xs text-gray-500 font-medium">Tour đã đăng ký</span>
               </div>
               <div className="w-px h-8 bg-gray-200" />
               <div className="text-center px-5 py-2">
-                <span className="block text-2xl font-extrabold text-primary-600 font-plus-jakarta">
+                <span className="block text-2xl font-bold text-primary-600 font-plus-jakarta">
                   {upcomingBookings}
                 </span>
                 <span className="text-xs text-gray-500 font-medium">Tour sắp đi</span>
@@ -154,7 +154,7 @@ export const Profile: React.FC = () => {
 
           {/* SIDEBAR NAVIGATION */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl p-3 shadow-sm border border-gray-200/80 sticky top-28 space-y-1">
+            <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200/80 sticky top-28 space-y-1">
               <button
                 onClick={() => handleTabChange("bookings")}
                 className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-medium text-xs sm:text-sm transition-all ${activeTab === "bookings"
@@ -217,7 +217,7 @@ export const Profile: React.FC = () => {
 
             {/* TAB 2: THÔNG TIN CÁ NHÂN (INFO) */}
             {activeTab === "info" && (
-              <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-200/80">
+              <div className="bg-white rounded-lg p-6 sm:p-8 shadow-sm border border-gray-200/80">
                 <div className="border-b border-gray-100 pb-5 mb-6">
                   <h2 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
                     <User className="w-5 h-5 text-primary-600" /> Hồ sơ thông tin cá nhân
@@ -286,7 +286,7 @@ export const Profile: React.FC = () => {
 
             {/* TAB 3: ĐỔI MẬT KHẨU (SECURITY) */}
             {activeTab === "security" && (
-              <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-200/80">
+              <div className="bg-white rounded-lg p-6 sm:p-8 shadow-sm border border-gray-200/80">
                 <div className="border-b border-gray-100 pb-5 mb-6">
                   <h2 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
                     <ShieldCheck className="w-5 h-5 text-primary-600" /> Đổi mật khẩu & Bảo mật
