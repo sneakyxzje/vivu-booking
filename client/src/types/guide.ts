@@ -37,6 +37,57 @@ export interface Guide {
   created_at: string;
 }
 
+export interface AttendanceItinerary {
+  id: number;
+  day_number: number;
+  title: string;
+  start_point?: string | null;
+  end_point?: string | null;
+  route_points?: string | null;
+}
+
+export interface AttendanceGuest {
+  id: number;
+  customer_name: string;
+  customer_phone: string | null;
+  guests: number;
+  adult_count?: number;
+  child_count?: number;
+  infant_count?: number;
+}
+
+export interface AttendanceCheckin {
+  booking_id: number;
+  tour_itinerary_id: number;
+  present: boolean;
+  checked_at?: string | null;
+}
+
+export interface CheckpointPhoto {
+  id: number;
+  tour_itinerary_id: number;
+  image_path: string;
+  created_at?: string;
+}
+
+export interface AttendanceData {
+  schedule: {
+    id: number;
+    start_date: string;
+    max_people: number;
+    booked_people: number;
+  };
+  tour: {
+    id: number;
+    title: string;
+    number_of_days: number;
+  };
+  itineraries: AttendanceItinerary[];
+  guests: AttendanceGuest[];
+  checkins: AttendanceCheckin[];
+  photos: CheckpointPhoto[];
+}
+
 export type { Tour };
 
 

@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import guideService from "@/services/guideService";
 import type { Tour } from "@/types";
 import { TourStatusBadge } from "@/components/guide/GuideStatusBadge";
+import { formatDateTime } from "@/utils/format";
 
 const formatPrice = (v: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -113,6 +114,7 @@ export const GuideTours: React.FC = () => {
                   <th className="px-4 py-3 font-semibold">Thời lượng</th>
                   <th className="px-4 py-3 font-semibold">Dịch vụ đi kèm</th>
                   <th className="px-4 py-3 font-semibold">Trạng thái</th>
+                  <th className="px-4 py-3 font-semibold">Điểm danh</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -171,6 +173,23 @@ export const GuideTours: React.FC = () => {
                     </td>
                     <td className="px-4 py-4">
                       <TourStatusBadge status={tour.status} />
+                    </td>
+                    <td className="px-4 py-4">
+                      {tour.schedules && tour.schedules.length > 0 ? (
+                        <div className="flex flex-col gap-1.5">
+                          {tour.schedules.map((schedule) => (
+                            <Link
+                              key={schedule.id}
+                              to={`/guide/attendance/${schedule.id}`}
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-primary-600 bg-primary-50 hover:bg-primary-100 px-2.5 py-1.5 rounded-lg whitespace-nowrap"
+                            >
+                              {formatDateTime(schedule.start_date)}
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">Chưa có lịch</span>
+                      )}
                     </td>
                   </tr>
                 ))}
