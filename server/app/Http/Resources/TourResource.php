@@ -24,6 +24,7 @@ class TourResource extends JsonResource
             'number_of_nights' => (int) $this->number_of_nights,
             'start_location' => $this->start_location,
             'end_location' => $this->end_location,
+            'vehicle_info' => $this->vehicle_info,
             'is_featured' => (bool) $this->is_featured,
             'status' => $this->status,
             'created_at' => $this->created_at?->toIso8601String(),
