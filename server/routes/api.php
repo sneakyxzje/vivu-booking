@@ -121,6 +121,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/bookings', [AdminBookingController::class, 'index']);
         Route::get('/bookings/{id}', [AdminBookingController::class, 'show']);
+        Route::put('/bookings/{id}/confirm', [AdminBookingController::class, 'confirm']);
+        Route::put('/bookings/{id}/cancel', [AdminBookingController::class, 'cancel']);
         Route::apiResource('discount-codes', AdminDiscountCodeController::class);
 
         // Quản lý dịch vụ phát sinh (khách sạn, ăn uống, ...)
