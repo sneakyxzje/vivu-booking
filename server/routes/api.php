@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\Admin\AdminTourController;
 use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
+use App\Http\Controllers\Api\Admin\AdminServiceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -115,6 +116,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/bookings', [AdminBookingController::class, 'index']);
         Route::get('/bookings/{id}', [AdminBookingController::class, 'show']);
         Route::apiResource('discount-codes', AdminDiscountCodeController::class);
+
+        // Quản lý dịch vụ phát sinh (khách sạn, ăn uống, ...)
+        Route::apiResource('services', AdminServiceController::class);
     });
 });
 
