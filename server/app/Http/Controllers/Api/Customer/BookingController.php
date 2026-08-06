@@ -9,6 +9,7 @@ use App\Models\Booking;
 use App\Models\DiscountCode;
 use App\Models\PaymentLog;
 use App\Models\TourSchedule;
+use App\Services\BookingHoldService;
 use App\Services\VNPayService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -22,8 +23,10 @@ use Throwable;
 
 class BookingController extends Controller
 {
-    public function __construct(private VNPayService $vnpayService)
-    {
+    public function __construct(
+        private VNPayService $vnpayService,
+        private BookingHoldService $holdService,
+    ) {
     }
 
     public function store(Request $request): JsonResponse
@@ -70,6 +73,10 @@ class BookingController extends Controller
                 );
             }
         }
+
+        // Nhả chỗ của các đơn quá hạn thanh toán trước khi kiểm tra chỗ trống,
+        // để khách mới dùng được ngay slot vừa được trả lại.
+        $this->holdService->releaseOverdueForSchedule((int) $data['tour_schedule_id']);
 
         $booking = DB::transaction(function () use ($data, $user, $guestId) {
             $schedule = TourSchedule::query()
@@ -127,6 +134,7 @@ class BookingController extends Controller
                 'discount_code' => $discount['model']?->code,
                 'discount_amount' => $discount['amount'],
                 'status' => 'pending',
+                'expires_at' => now()->addMinutes($this->holdService->holdMinutes()),
                 'note' => $data['note'] ?? null,
             ]);
             if ($discount['model']) {
@@ -140,7 +148,7 @@ class BookingController extends Controller
                 $schedule->update(['status' => 'full']);
             }
 
-            $this->refreshTourAvailability($tour);
+            $this->holdService->refreshTourAvailability($schedule);
 
             return $booking->load(['tour', 'schedule']);
         });
@@ -150,7 +158,9 @@ class BookingController extends Controller
 
         $response = response()->json([
             'success' => true,
-            'message' => 'Đặt tour thành công. Vui lòng thanh toán để hoàn tất.',
+            'message' => 'Đặt tour thành công. Vui lòng thanh toán trong '
+                . $this->holdService->holdMinutes()
+                . ' phút để giữ chỗ.',
             'data' => [
                 'booking' => $booking,
                 'payment_url' => $paymentUrl,
@@ -162,6 +172,14 @@ class BookingController extends Controller
 
     public function myBookings(Request $request): JsonResponse
     {
+        Booking::query()
+            ->where('customer_id', $request->user()->id)
+            ->where('status', 'pending')
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<=', now())
+            ->get()
+            ->each(fn (Booking $booking) => $this->holdService->releaseIfOverdue($booking));
+
         $bookings = Booking::query()
             ->with(['tour', 'schedule'])
             ->where('customer_id', $request->user()->id)
@@ -187,6 +205,8 @@ class BookingController extends Controller
                 'message' => 'Không tìm thấy thông tin đặt tour.',
             ], 404);
         }
+
+        $this->holdService->releaseIfOverdue($booking);
 
         if ($booking->status === 'pending') {
             $booking->setAttribute('payment_url', $this->vnpayService->createPayment($booking));
@@ -224,25 +244,36 @@ class BookingController extends Controller
             ], 400);
         }
 
-        DB::transaction(function () use ($booking, $validated) {
-            $booking->update([
+        $cancelled = DB::transaction(function () use ($booking, $validated) {
+            $schedule = $booking->tour_schedule_id
+                ? TourSchedule::query()
+                    ->whereKey($booking->tour_schedule_id)
+                    ->lockForUpdate()
+                    ->first()
+                : null;
+
+            $fresh = Booking::query()->whereKey($booking->id)->lockForUpdate()->first();
+
+            if (!$fresh || $fresh->status !== 'pending') {
+                return false;
+            }
+
+            $fresh->update([
                 'status' => 'cancelled',
                 'cancel_reason' => $validated['cancel_reason'],
             ]);
 
-            if ($booking->schedule) {
-                $booking->schedule->decrement('booked_people', $booking->guests);
-                $booking->schedule->refresh();
+            $this->holdService->releaseHold($fresh, $schedule);
 
-                if ($booking->schedule->status === 'full' && $booking->schedule->booked_people < $booking->schedule->max_people) {
-                    $booking->schedule->update(['status' => 'active']);
-                }
-
-                $this->refreshTourAvailability($booking->tour);
-            }
-
-            $this->releaseDiscountUsage($booking);
+            return true;
         });
+
+        if (!$cancelled) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Chỉ có thể hủy đơn đặt tour đang ở trạng thái chờ duyệt (pending).',
+            ], 400);
+        }
 
         return response()->json([
             'success' => true,
@@ -265,7 +296,6 @@ class BookingController extends Controller
         if ($bookingId) {
             $paidBooking = DB::transaction(function () use ($bookingId, $isSuccessful, $isValidSignature, $request) {
                 $booking = Booking::query()
-                    ->with(['schedule', 'tour.schedules', 'discountCode'])
                     ->lockForUpdate()
                     ->find($bookingId);
 
@@ -281,34 +311,77 @@ class BookingController extends Controller
                     'raw_payload' => $request->query(),
                 ]);
 
-                if (!$booking || $booking->status !== 'pending') {
+                if (!$booking) {
                     return null;
                 }
 
-                $booking->update([
-                    'status' => $isSuccessful ? 'confirmed' : 'cancelled',
-                    'vnpay_transaction_no' => $isSuccessful
-                        ? $request->query('vnp_TransactionNo')
-                        : null,
-                    'paid_at' => $isSuccessful ? now() : null,
-                    'confirmed_at' => $isSuccessful ? now() : null,
-                ]);
+                $schedule = $booking->tour_schedule_id
+                    ? TourSchedule::query()
+                        ->whereKey($booking->tour_schedule_id)
+                        ->lockForUpdate()
+                        ->first()
+                    : null;
 
-                if ($isSuccessful) {
-                    return $booking->fresh(['tour', 'schedule', 'discountCode']);
-                }
+                if ($booking->status === 'pending') {
+                    $booking->update([
+                        'status' => $isSuccessful ? 'confirmed' : 'cancelled',
+                        'vnpay_transaction_no' => $isSuccessful
+                            ? $request->query('vnp_TransactionNo')
+                            : null,
+                        'paid_at' => $isSuccessful ? now() : null,
+                        'confirmed_at' => $isSuccessful ? now() : null,
+                    ]);
 
-                $this->releaseDiscountUsage($booking);
-
-                if ($booking->schedule) {
-                    $booking->schedule->decrement('booked_people', $booking->guests);
-                    $booking->schedule->refresh();
-
-                    if ($booking->schedule->status === 'full' && $booking->schedule->booked_people < $booking->schedule->max_people) {
-                        $booking->schedule->update(['status' => 'active']);
+                    if ($isSuccessful) {
+                        return $booking->fresh(['tour', 'schedule', 'discountCode']);
                     }
 
-                    $this->refreshTourAvailability($booking->tour);
+                    $this->holdService->releaseHold($booking, $schedule);
+
+                    return null;
+                }
+
+                // Tiền về đúng lúc đơn vừa bị tự hủy vì quá hạn: nếu chỗ vẫn còn
+                // thì khôi phục đơn, hết chỗ thì giữ nguyên hủy và cảnh báo hoàn tiền.
+                $wasAutoExpired = $booking->status === 'cancelled'
+                    && $booking->cancel_reason === BookingHoldService::EXPIRED_REASON
+                    && !$booking->paid_at;
+
+                if ($isSuccessful && $wasAutoExpired) {
+                    $availableSeats = $schedule
+                        ? (int) $schedule->max_people - (int) $schedule->booked_people
+                        : 0;
+
+                    if ($schedule && $schedule->status !== 'inactive' && $booking->guests <= $availableSeats) {
+                        $schedule->increment('booked_people', $booking->guests);
+                        $schedule->refresh();
+
+                        if ($schedule->booked_people >= $schedule->max_people) {
+                            $schedule->update(['status' => 'full']);
+                        }
+
+                        $this->holdService->refreshTourAvailability($schedule);
+
+                        // Lấy lại lượt mã giảm giá đã hoàn khi tự hủy
+                        $booking->loadMissing('discountCode');
+                        $booking->discountCode?->increment('used_count');
+
+                        $booking->update([
+                            'status' => 'confirmed',
+                            'cancel_reason' => null,
+                            'vnpay_transaction_no' => $request->query('vnp_TransactionNo'),
+                            'paid_at' => now(),
+                            'confirmed_at' => now(),
+                        ]);
+
+                        return $booking->fresh(['tour', 'schedule', 'discountCode']);
+                    }
+
+                    Log::warning('Thanh toán thành công cho đơn đã quá hạn nhưng không còn chỗ — cần hoàn tiền thủ công.', [
+                        'booking_id' => $booking->id,
+                        'transaction_no' => $request->query('vnp_TransactionNo'),
+                        'amount' => $request->query('vnp_Amount') ? $request->query('vnp_Amount') / 100 : null,
+                    ]);
                 }
 
                 return null;
@@ -356,15 +429,6 @@ class BookingController extends Controller
             'model' => $discountCode,
             'amount' => $discountCode->calculateDiscount($subtotalAmount),
         ];
-    }
-
-    private function releaseDiscountUsage(Booking $booking): void
-    {
-        if (! $booking->discountCode || $booking->discountCode->used_count <= 0) {
-            return;
-        }
-
-        $booking->discountCode->decrement('used_count');
     }
 
     private function hasValidVnpaySignature(Request $request): bool
@@ -431,19 +495,4 @@ class BookingController extends Controller
         }
     }
 
-    private function refreshTourAvailability($tour): void
-    {
-        if (!$tour || $tour->status === 'inactive') {
-            return;
-        }
-
-        $tour->loadMissing('schedules');
-
-        $hasAvailableSchedule = $tour->schedules->contains(function ($schedule) {
-            return $schedule->status === 'active'
-                && (int) $schedule->booked_people < (int) $schedule->max_people;
-        });
-
-        $tour->update(['status' => $hasAvailableSchedule ? 'active' : 'full']);
-    }
 }

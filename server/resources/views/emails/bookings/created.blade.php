@@ -57,6 +57,14 @@
                                 </tr>
                             </table>
 
+                            @if($booking->expires_at)
+                                <p style="margin:14px 0 0;font-size:13px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;">
+                                    Vui long thanh toan truoc
+                                    <strong>{{ $booking->expires_at->timezone('Asia/Ho_Chi_Minh')->format('H:i d/m/Y') }}</strong>
+                                    (gio Viet Nam). Qua thoi han nay, don se tu huy de nhuong cho cho khach khac.
+                                </p>
+                            @endif
+
                             @if($paymentUrl)
                                 <p style="margin:22px 0;">
                                     <a href="{{ $paymentUrl }}" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 18px;border-radius:10px;">

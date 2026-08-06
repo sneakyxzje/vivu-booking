@@ -2,8 +2,13 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Carbon;
+
 class VNPayService
 {
+    // VNPay yêu cầu vnp_CreateDate / vnp_ExpireDate theo giờ Việt Nam (GMT+7)
+    private const VNPAY_TIMEZONE = 'Asia/Ho_Chi_Minh';
+
     public function createPayment($order)
     {
         $vnp_TmnCode = env('VNPAY_TMN_CODE');
@@ -18,12 +23,17 @@ class VNPayService
         $vnp_Locale = 'vn';
         $vnp_IpAddr = request()->ip();
 
+        $expiresAt = $order->expires_at
+            ? Carbon::parse($order->expires_at)
+            : now()->addMinutes((int) config('booking.payment_ttl_minutes', 10));
+
         $inputData = [
             "vnp_Version" => "2.1.0",
             "vnp_TmnCode" => $vnp_TmnCode,
             "vnp_Amount" => $vnp_Amount,
             "vnp_Command" => "pay",
-            "vnp_CreateDate" => date('YmdHis'),
+            "vnp_CreateDate" => now()->timezone(self::VNPAY_TIMEZONE)->format('YmdHis'),
+            "vnp_ExpireDate" => $expiresAt->copy()->timezone(self::VNPAY_TIMEZONE)->format('YmdHis'),
             "vnp_CurrCode" => "VND",
             "vnp_IpAddr" => $vnp_IpAddr,
             "vnp_Locale" => $vnp_Locale,
