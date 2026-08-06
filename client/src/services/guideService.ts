@@ -76,7 +76,7 @@ export const buildTourPayload = (form: unknown) => {
 
   (
     (f.itineraries as
-      | { day_number: string; title: string; start_point?: string; end_point?: string; route_points?: string; rest_stops?: string; content: string }[]
+      | { day_number: string; title: string; start_point?: string; end_point?: string; route_points?: string[]; rest_stops?: string; content: string }[]
       | undefined) ?? []
   ).forEach((item, index) => {
     if ("id" in item && item.id) {
@@ -86,7 +86,13 @@ export const buildTourPayload = (form: unknown) => {
     data.append(`itineraries[${index}][title]`, item.title);
     data.append(`itineraries[${index}][start_point]`, item.start_point ?? "");
     data.append(`itineraries[${index}][end_point]`, item.end_point ?? "");
-    data.append(`itineraries[${index}][route_points]`, item.route_points ?? "");
+    data.append(
+      `itineraries[${index}][route_points]`,
+      (item.route_points ?? [])
+        .map((point) => point.trim())
+        .filter(Boolean)
+        .join(", "),
+    );
     data.append(`itineraries[${index}][rest_stops]`, item.rest_stops ?? "");
     data.append(`itineraries[${index}][content]`, item.content);
   });

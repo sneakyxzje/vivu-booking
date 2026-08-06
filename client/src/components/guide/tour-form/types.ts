@@ -11,7 +11,7 @@ export interface ItineraryFormItem {
   title: string;
   start_point: string;
   end_point: string;
-  route_points: string;
+  route_points: string[];
   rest_stops: string;
   content: string;
 }

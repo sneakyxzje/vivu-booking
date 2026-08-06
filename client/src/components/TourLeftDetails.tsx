@@ -390,11 +390,38 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
                               </div>
                             )}
                             {item.route_points && (
-                              <div>
+                              <div className="sm:col-span-2">
                                 <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
                                   Chặng đi qua
                                 </p>
-                                <p className="mt-1 whitespace-pre-line text-gray-600">{item.route_points}</p>
+                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                  {item.route_points
+                                    .split(/[,\n]/)
+                                    .map((point) => point.trim())
+                                    .filter(Boolean)
+                                    .map((point, pointIndex, points) => (
+                                      <React.Fragment key={pointIndex}>
+                                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
+                                          {point}
+                                        </span>
+                                        {pointIndex < points.length - 1 && (
+                                          <svg
+                                            className="h-3.5 w-3.5 shrink-0 text-gray-400"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2.5}
+                                              d="M9 5l7 7-7 7"
+                                            />
+                                          </svg>
+                                        )}
+                                      </React.Fragment>
+                                    ))}
+                                </div>
                               </div>
                             )}
                             {item.rest_stops && (

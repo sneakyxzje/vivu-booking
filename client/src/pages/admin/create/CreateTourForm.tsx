@@ -38,7 +38,7 @@ const emptyForm: TourFormState = {
       title: "",
       start_point: "",
       end_point: "",
-      route_points: "",
+      route_points: [""],
       rest_stops: "",
       content: "",
     } as ItineraryFormItem,
@@ -52,6 +52,15 @@ const fieldClass =
   "block w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100";
 
 const labelClass = "block text-sm font-semibold text-gray-800 mb-2";
+
+const parseRoutePoints = (value?: string | null): string[] => {
+  const points = (value ?? "")
+    .split(/[,\n]/)
+    .map((point) => point.trim())
+    .filter(Boolean);
+
+  return points.length ? points : [""];
+};
 
 const formatPreviewPrice = (value: string) => {
   const amount = Number(value);
@@ -190,7 +199,7 @@ export const CreateTourForm: React.FC = () => {
               title: item.title,
               start_point: item.start_point ?? "",
               end_point: item.end_point ?? "",
-              route_points: item.route_points ?? "",
+              route_points: parseRoutePoints(item.route_points),
               rest_stops: item.rest_stops ?? "",
               content: item.content ?? "",
             })) ?? emptyForm.itineraries,
@@ -271,7 +280,7 @@ export const CreateTourForm: React.FC = () => {
 
   const updateItinerary = (
     index: number,
-    field: "day_number" | "title" | "start_point" | "end_point" | "route_points" | "rest_stops" | "content",
+    field: "day_number" | "title" | "start_point" | "end_point" | "rest_stops" | "content",
     value: string,
   ) => {
     setForm((prev) => ({
@@ -279,6 +288,49 @@ export const CreateTourForm: React.FC = () => {
       itineraries: prev.itineraries.map((item, i) =>
         i === index ? { ...item, [field]: value } : item,
       ),
+    }));
+  };
+
+  const updateRoutePoint = (
+    itineraryIndex: number,
+    pointIndex: number,
+    value: string,
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      itineraries: prev.itineraries.map((item, i) =>
+        i === itineraryIndex
+          ? {
+              ...item,
+              route_points: item.route_points.map((point, p) =>
+                p === pointIndex ? value : point,
+              ),
+            }
+          : item,
+      ),
+    }));
+  };
+
+  const addRoutePoint = (itineraryIndex: number) => {
+    setForm((prev) => ({
+      ...prev,
+      itineraries: prev.itineraries.map((item, i) =>
+        i === itineraryIndex
+          ? { ...item, route_points: [...item.route_points, ""] }
+          : item,
+      ),
+    }));
+  };
+
+  const removeRoutePoint = (itineraryIndex: number, pointIndex: number) => {
+    setForm((prev) => ({
+      ...prev,
+      itineraries: prev.itineraries.map((item, i) => {
+        if (i !== itineraryIndex) return item;
+
+        const remaining = item.route_points.filter((_, p) => p !== pointIndex);
+        return { ...item, route_points: remaining.length ? remaining : [""] };
+      }),
     }));
   };
 
@@ -303,7 +355,7 @@ export const CreateTourForm: React.FC = () => {
             title: "",
             start_point: "",
             end_point: "",
-            route_points: "",
+            route_points: [""],
             rest_stops: "",
             content: "",
           },
@@ -515,6 +567,9 @@ export const CreateTourForm: React.FC = () => {
               onAdd={addItinerary}
               onRemove={removeItinerary}
               onChange={updateItinerary}
+              onRoutePointChange={updateRoutePoint}
+              onRoutePointAdd={addRoutePoint}
+              onRoutePointRemove={removeRoutePoint}
             />
 
             <TourFormScheduleSection

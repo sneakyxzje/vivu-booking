@@ -10,9 +10,12 @@ interface Props {
   onRemove: (index: number) => void;
   onChange: (
     index: number,
-    field: "day_number" | "title" | "start_point" | "end_point" | "route_points" | "rest_stops" | "content",
+    field: "day_number" | "title" | "start_point" | "end_point" | "rest_stops" | "content",
     value: string,
   ) => void;
+  onRoutePointChange: (index: number, pointIndex: number, value: string) => void;
+  onRoutePointAdd: (index: number) => void;
+  onRoutePointRemove: (index: number, pointIndex: number) => void;
 }
 
 export const TourFormItinerarySection: React.FC<Props> = ({
@@ -23,6 +26,9 @@ export const TourFormItinerarySection: React.FC<Props> = ({
   onAdd,
   onRemove,
   onChange,
+  onRoutePointChange,
+  onRoutePointAdd,
+  onRoutePointRemove,
 }) => (
   <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
     <div className="mb-4 flex items-center justify-between gap-3">
@@ -104,27 +110,54 @@ export const TourFormItinerarySection: React.FC<Props> = ({
               />
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className={labelClass}>Các chặng đi qua</label>
-              <textarea
-                rows={2}
-                value={item.route_points}
-                onChange={(e) => onChange(index, "route_points", e.target.value)}
-                placeholder="VD: Hải Dương, Uông Bí, Bãi Cháy"
-                className={`${fieldClass} resize-y`}
-              />
+          <div className="mt-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <label className={`${labelClass} mb-0`}>Các chặng đi qua</label>
+              <button
+                type="button"
+                onClick={() => onRoutePointAdd(index)}
+                className="rounded-lg bg-primary-50 px-2.5 py-1.5 text-xs font-semibold text-primary-600 hover:bg-primary-100"
+              >
+                + Thêm chặng
+              </button>
             </div>
-            <div>
-              <label className={labelClass}>Điểm nghỉ chân</label>
-              <textarea
-                rows={2}
-                value={item.rest_stops}
-                onChange={(e) => onChange(index, "rest_stops", e.target.value)}
-                placeholder="VD: Trạm dừng Sao Đỏ"
-                className={`${fieldClass} resize-y`}
-              />
+            <div className="space-y-2">
+              {item.route_points.map((point, pointIndex) => (
+                <div key={pointIndex} className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
+                    {pointIndex + 1}
+                  </span>
+                  <input
+                    value={point}
+                    onChange={(e) =>
+                      onRoutePointChange(index, pointIndex, e.target.value)
+                    }
+                    placeholder={`VD: ${["Hải Dương", "Uông Bí", "Bãi Cháy"][pointIndex] ?? "Điểm dừng tiếp theo"}`}
+                    className={fieldClass}
+                  />
+                  {item.route_points.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => onRoutePointRemove(index, pointIndex)}
+                      className="shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-red-500 hover:bg-red-50 hover:text-red-600"
+                      aria-label={`Xóa chặng ${pointIndex + 1}`}
+                    >
+                      Xóa
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
+          </div>
+          <div className="mt-3">
+            <label className={labelClass}>Điểm nghỉ chân</label>
+            <textarea
+              rows={2}
+              value={item.rest_stops}
+              onChange={(e) => onChange(index, "rest_stops", e.target.value)}
+              placeholder="VD: Trạm dừng Sao Đỏ"
+              className={`${fieldClass} resize-y`}
+            />
           </div>
           <div className="mt-3">
             <label className={labelClass}>Nội dung</label>
