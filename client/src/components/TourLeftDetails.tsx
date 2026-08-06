@@ -222,23 +222,45 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
         <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 font-plus-jakarta">
           Dịch vụ & Tiện ích đi kèm
         </h2>
+
+        {/* Thông tin xe đi kèm */}
+        {tour.vehicle_info && (
+          <div className="mb-4 flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-100 rounded-2xl">
+            <span className="text-xl shrink-0">🚌</span>
+            <div>
+              <p className="text-xs font-bold uppercase text-amber-600 tracking-wide">Phương tiện di chuyển</p>
+              <p className="text-sm font-semibold text-gray-800 mt-0.5">{tour.vehicle_info}</p>
+            </div>
+          </div>
+        )}
+
         {tour.services?.length ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {tour.services.map((service: Service) => (
               <div
                 key={service.id}
-                className="flex items-center gap-3.5 p-3.5 bg-gray-50 border border-gray-100 rounded-2xl hover:bg-primary-50/20 transition-all duration-300 group"
+                className="flex items-start gap-3.5 p-3.5 bg-gray-50 border border-gray-100 rounded-2xl hover:bg-primary-50/20 transition-all duration-300 group"
               >
-                <div className="p-2 bg-white rounded-xl shadow-xs group-hover:scale-105 transition-transform duration-300">
-                  {getServiceIcon(service.name)}
+                <div className="p-2 bg-white rounded-xl shadow-xs group-hover:scale-105 transition-transform duration-300 shrink-0">
+                  {service.icon ? (
+                    <span className="text-xl leading-none">{service.icon}</span>
+                  ) : (
+                    getServiceIcon(service.name)
+                  )}
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-gray-800">
                     {service.name}
                   </p>
                   {service.description && (
-                    <p className="text-xs text-gray-400 mt-0.5 font-mono">
+                    <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
                       {service.description}
+                    </p>
+                  )}
+                  {/* Hiển thị giá nếu dịch vụ có phí phát sinh riêng */}
+                  {service.price != null && (
+                    <p className="text-xs font-semibold text-primary-600 mt-1">
+                      +{Number(service.price).toLocaleString("vi-VN")}đ / khách
                     </p>
                   )}
                 </div>
