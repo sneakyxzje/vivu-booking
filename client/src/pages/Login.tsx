@@ -62,7 +62,7 @@ export const Login: React.FC = () => {
     <div className="min-h-[calc(100vh-8rem)] bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
       
       <div className="w-full max-w-[480px]">
-        <div className="bg-white rounded-2xl shadow-xl p-8 md:p-10 border border-gray-100">
+        <div className="bg-white rounded-lg shadow-xl p-8 md:p-10 border border-gray-100">
           {/* Header */}
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-gray-900">

@@ -98,7 +98,7 @@ export const GuideDashboard: React.FC = () => {
         {statCards.map((card) => (
           <div
             key={card.label}
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
+            className="bg-white rounded-lg border border-gray-100 shadow-sm p-5"
           >
             <p className="text-sm text-gray-500 mb-2">{card.label}</p>
             <p
@@ -116,7 +116,7 @@ export const GuideDashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <h2 className="font-semibold text-gray-900">Tour hết chỗ</h2>
             <Link
@@ -153,7 +153,7 @@ export const GuideDashboard: React.FC = () => {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <h2 className="font-semibold text-gray-900">
               Đặt chỗ chờ xác nhận

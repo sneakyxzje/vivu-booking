@@ -144,7 +144,7 @@ const BookingForm = ({
   ];
 
   return (
-    <form onSubmit={onSubmit} className="bg-white p-6 md:p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+    <form onSubmit={onSubmit} className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-sm space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Họ tên */}
         <div className="space-y-1.5">
@@ -207,7 +207,7 @@ const BookingForm = ({
           </select>
         </div>
         {/* Số khách theo loại */}
-        <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4.5 space-y-3">
+        <div className="md:col-span-2 rounded-lg border border-slate-200 bg-white p-4.5 space-y-3">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
               Số lượng khách theo loại <span className="text-rose-500">*</span>
@@ -223,7 +223,7 @@ const BookingForm = ({
             {guestRows.map((item) => (
               <div
                 key={item.field}
-                className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 px-3.5 py-3"
+                className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/80 px-3.5 py-3"
               >
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-gray-900">{item.label}</p>
@@ -241,7 +241,7 @@ const BookingForm = ({
                   >
                     -
                   </button>
-                  <span className="w-10 text-center text-sm font-extrabold text-gray-900">
+                  <span className="w-10 text-center text-sm font-bold text-gray-900">
                     {form[item.field]}
                   </span>
                   <button
@@ -258,14 +258,14 @@ const BookingForm = ({
             ))}
           </div>
 
-          <div className="rounded-2xl bg-primary-50/70 border border-primary-100 px-4 py-3 space-y-2">
+          <div className="rounded-lg bg-primary-50/70 border border-primary-100 px-4 py-3 space-y-2">
             <div className="flex items-center justify-between text-sm text-primary-800">
               <span className="font-semibold">Tổng số khách</span>
-              <span className="font-extrabold">{totalGuestCount} khách</span>
+              <span className="font-bold">{totalGuestCount} khách</span>
             </div>
             <div className="flex items-center justify-between border-t border-primary-100 pt-2">
               <span className="text-sm font-semibold text-primary-800">Tổng giá trị thanh toán</span>
-              <span className="text-xl font-extrabold text-primary-600">{formatCurrency(totalAmount)}</span>
+              <span className="text-xl font-bold text-primary-600">{formatCurrency(totalAmount)}</span>
             </div>
             {isOverCapacity && (
               <p className="text-xs font-semibold text-rose-600">
@@ -352,7 +352,7 @@ const BookingForm = ({
               return (
                 <div
                   key={index}
-                  className="bg-slate-50/80 p-4.5 rounded-2xl border border-slate-200/90 space-y-3 relative"
+                  className="bg-slate-50/80 p-4.5 rounded-lg border border-slate-200/90 space-y-3 relative"
                 >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
@@ -440,7 +440,7 @@ const BookingForm = ({
       </div>
 
       {/* Tổng tiền */}
-      <div className="bg-primary-50/60 border border-primary-100/50 px-6 py-4.5 rounded-2xl space-y-2">
+      <div className="bg-primary-50/60 border border-primary-100/50 px-6 py-4.5 rounded-lg space-y-2">
         <div className="flex items-center justify-between text-sm text-primary-800">
           <span className="font-semibold">Tạm tính</span>
           <span className="font-bold">{formatCurrency(subtotalAmount)}</span>
@@ -453,12 +453,12 @@ const BookingForm = ({
         )}
         <div className="flex items-center justify-between border-t border-primary-100 pt-2">
           <span className="text-sm font-semibold text-primary-800">Tổng giá trị thanh toán</span>
-          <span className="text-xl font-extrabold text-primary-600">{formatCurrency(totalAmount)}</span>
+          <span className="text-xl font-bold text-primary-600">{formatCurrency(totalAmount)}</span>
         </div>
       </div>
 
       {message ? (
-        <div className="rounded-2xl bg-rose-50 border border-rose-100 p-4 text-xs font-medium text-rose-700 flex items-center gap-2">
+        <div className="rounded-lg bg-rose-50 border border-rose-100 p-4 text-xs font-medium text-rose-700 flex items-center gap-2">
           <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
           </svg>
@@ -467,7 +467,7 @@ const BookingForm = ({
       ) : null}
 
       <button
-        className="w-full rounded-2xl bg-primary-600 py-3.5 font-bold text-white shadow-md hover:bg-primary-700 hover:shadow-lg transition-all active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none text-sm"
+        className="w-full rounded-lg bg-primary-600 py-3.5 font-bold text-white shadow-md hover:bg-primary-700 hover:shadow-lg transition-all active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none text-sm"
         disabled={submitting || !form.tourScheduleId || isOverCapacity}
       >
         {submitting ? "Đang xử lý đặt tour..." : "Xác nhận đặt tour"}
@@ -477,7 +477,7 @@ const BookingForm = ({
 };
 
 const TourSummaryCard = ({ tour }: BookingSidebarProps) => (
-  <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-3">
+  <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-3">
     <span className="text-[10px] bg-primary-50 text-primary-700 border border-primary-200 px-2.5 py-0.5 rounded-lg font-bold uppercase tracking-wider">
       Thông tin Tour
     </span>
@@ -497,7 +497,7 @@ const TourSummaryCard = ({ tour }: BookingSidebarProps) => (
 );
 
 const ScheduleCard = ({ schedules, selectedScheduleId }: { schedules: TourSchedule[]; selectedScheduleId: string }) => (
-  <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+  <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
     <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-lg font-bold uppercase tracking-wider">
       Lịch khởi hành
     </span>
@@ -508,7 +508,7 @@ const ScheduleCard = ({ schedules, selectedScheduleId }: { schedules: TourSchedu
           return (
             <div
               key={schedule.id}
-              className={`p-3.5 rounded-2xl border transition-all duration-300 ${
+              className={`p-3.5 rounded-lg border transition-all duration-300 ${
                 isSelected
                   ? "bg-primary-50/50 border-primary-300 text-primary-900 shadow-xs"
                   : "bg-gray-50/40 border-slate-200 text-gray-600"
@@ -548,7 +548,7 @@ const PriceSummaryCard = ({ tour }: BookingSidebarProps) => {
   ];
 
   return (
-    <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-3">
+    <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-3">
       <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-lg font-bold uppercase tracking-wider">
         Bảng giá
       </span>
@@ -558,7 +558,7 @@ const PriceSummaryCard = ({ tour }: BookingSidebarProps) => {
             <span className="font-semibold text-gray-600">
               {item.label} <span className="text-xs font-medium text-gray-400">({item.note})</span>
             </span>
-            <span className="font-extrabold text-primary-600 whitespace-nowrap">
+            <span className="font-bold text-primary-600 whitespace-nowrap">
               {formatCurrency(Number(item.value || 0))}
             </span>
           </div>

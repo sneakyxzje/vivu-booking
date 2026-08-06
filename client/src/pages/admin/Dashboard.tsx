@@ -310,7 +310,7 @@ export default function Dashboard() {
                 <tr key={bk.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-3.5 px-6 text-center text-gray-400 font-mono">#{bk.id}</td>
                   <td className="py-3.5 px-6 font-semibold text-gray-950">{bk.customer}</td>
-                  <td className="py-3.5 px-6 text-gray-650">{bk.tour}</td>
+                  <td className="py-3.5 px-6 text-gray-600">{bk.tour}</td>
                   <td className="py-3.5 px-6 text-right font-bold text-gray-900 font-mono">
                     {bk.price.toLocaleString()} đ
                   </td>

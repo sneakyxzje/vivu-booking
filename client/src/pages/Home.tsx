@@ -119,7 +119,7 @@ interface SectionHeadingProps {
 
 const SectionHeading: React.FC<SectionHeadingProps> = ({ title, subtitle }) => (
   <div className="text-center max-w-xl mx-auto mb-12">
-    <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">
+    <h2 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
       {title}
     </h2>
     {subtitle && <p className="text-sm text-gray-500 mt-2">{subtitle}</p>}
@@ -133,7 +133,7 @@ const TourGridSkeleton: React.FC = () => (
     {[1, 2, 3, 4].map((n) => (
       <div
         key={n}
-        className="bg-white rounded-3xl overflow-hidden border border-gray-100 shadow-sm animate-pulse"
+        className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm animate-pulse"
       >
         <div className="h-52 bg-gray-200" />
         <div className="p-5 space-y-4">
@@ -156,7 +156,7 @@ interface TourGridErrorProps {
 }
 
 const TourGridError: React.FC<TourGridErrorProps> = ({ message, onRetry }) => (
-  <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm max-w-lg mx-auto flex flex-col items-center">
+  <div className="text-center py-16 bg-white rounded-xl border border-gray-100 shadow-sm max-w-lg mx-auto flex flex-col items-center">
     <ExclamationTriangleIcon className="w-12 h-12 text-red-400 mb-4" />
     <h3 className="text-lg font-bold text-gray-800">Tải dữ liệu thất bại</h3>
     <p className="text-sm text-gray-500 mt-2">{message}</p>
@@ -174,7 +174,7 @@ interface TourGridEmptyProps {
 }
 
 const TourGridEmpty: React.FC<TourGridEmptyProps> = ({ onClearFilters }) => (
-  <div className="text-center py-16 bg-white rounded-3xl border border-gray-100 shadow-sm max-w-lg mx-auto flex flex-col items-center">
+  <div className="text-center py-16 bg-white rounded-xl border border-gray-100 shadow-sm max-w-lg mx-auto flex flex-col items-center">
     <InboxIcon className="w-12 h-12 text-gray-300 mb-4" />
     <h3 className="text-lg font-bold text-gray-800">
       Không tìm thấy tour phù hợp
@@ -327,7 +327,7 @@ export const Home: React.FC = () => {
           <img
             src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80"
             alt="Bãi biển Việt Nam"
-            className="w-full h-full object-cover object-center opacity-55 scale-105 transition-transform duration-[10000ms] hover:scale-100"
+            className="w-full h-full object-cover object-center opacity-55"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-black/35" />
         </div>
@@ -336,9 +336,9 @@ export const Home: React.FC = () => {
           <span className="inline-block px-4 py-1.5 rounded-full bg-primary-500/20 text-blue-200 text-xs font-semibold tracking-wider uppercase mb-4 border border-blue-400/20 backdrop-blur-md">
             Mạng bán tour trực tuyến hàng đầu
           </span>
-          <h1 className="text-4xl md:text-6xl font-extrabold text-white tracking-tight leading-none mb-6">
+          <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight leading-none mb-6">
             Khám phá Việt Nam <br className="hidden md:inline" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 via-blue-100 to-white">
+            <span className="text-blue-100">
               Cùng Vivu Booking
             </span>
           </h1>
@@ -348,7 +348,7 @@ export const Home: React.FC = () => {
           </p>
 
           {/* Search Panel */}
-          <div className="w-full max-w-4xl mx-auto bg-white/95 hover:bg-white rounded-3xl shadow-2xl p-4 md:p-6 backdrop-blur-lg border border-white/20 transition-all duration-300">
+          <div className="w-full max-w-4xl mx-auto bg-white/95 hover:bg-white rounded-xl shadow-2xl p-4 md:p-6 backdrop-blur-lg border border-white/20 transition-all duration-300">
             <form
               onSubmit={handleSearchSubmit}
               className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end"
@@ -358,7 +358,7 @@ export const Home: React.FC = () => {
                 <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">
                   Điểm đến
                 </label>
-                <div className="flex items-center bg-gray-50 rounded-2xl px-3 py-2.5 border border-gray-100 focus-within:border-primary-500 focus-within:bg-white transition-all">
+                <div className="flex items-center bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100 focus-within:border-primary-500 focus-within:bg-white transition-all">
                   <MapPinIcon className="w-5 h-5 mr-2 text-gray-400 shrink-0" />
                   <input
                     type="text"
@@ -375,7 +375,7 @@ export const Home: React.FC = () => {
                 <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">
                   Khởi hành từ
                 </label>
-                <div className="flex items-center bg-gray-50 rounded-2xl px-3 py-2.5 border border-gray-100 focus-within:border-primary-500 focus-within:bg-white transition-all">
+                <div className="flex items-center bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100 focus-within:border-primary-500 focus-within:bg-white transition-all">
                   <PlaneIcon className="w-5 h-5 mr-2 text-gray-400 shrink-0" />
                   <input
                     type="text"
@@ -392,7 +392,7 @@ export const Home: React.FC = () => {
                 <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">
                   Thời gian
                 </label>
-                <div className="flex items-center bg-gray-50 rounded-2xl px-3 py-2.5 border border-gray-100 focus-within:border-primary-500 focus-within:bg-white transition-all">
+                <div className="flex items-center bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100 focus-within:border-primary-500 focus-within:bg-white transition-all">
                   <ClockIcon className="w-5 h-5 mr-2 text-gray-400 shrink-0" />
                   <select
                     value={selectedDuration}
@@ -410,7 +410,7 @@ export const Home: React.FC = () => {
               {/* Submit */}
               <button
                 type="submit"
-                className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-2xl py-3 px-6 shadow-lg shadow-primary-600/20 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+                className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-lg py-3 px-6 shadow-lg shadow-primary-600/20 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
               >
                 <MagnifyingGlassIcon className="w-5 h-5 text-white" />
                 Tìm kiếm
@@ -424,7 +424,7 @@ export const Home: React.FC = () => {
       <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 mt-12 mb-8">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-gray-200 pb-5">
           <div>
-            <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight">
               Lựa chọn điểm đến lý tưởng
             </h2>
             <p className="text-sm text-gray-500 mt-1">
@@ -498,9 +498,9 @@ export const Home: React.FC = () => {
             {BRAND_VALUES.map((val, idx) => (
               <div
                 key={idx}
-                className="bg-gray-50/50 hover:bg-white border border-gray-100 hover:border-blue-100 hover:shadow-xl rounded-3xl p-6 transition-all duration-300"
+                className="bg-gray-50/50 hover:bg-white border border-gray-100 hover:border-blue-100 hover:shadow-xl rounded-xl p-6 transition-all duration-300"
               >
-                <div className="bg-primary-50 w-14 h-14 rounded-2xl flex items-center justify-center mb-5 shadow-sm">
+                <div className="bg-primary-50 w-14 h-14 rounded-lg flex items-center justify-center mb-5 shadow-sm">
                   {val.icon}
                 </div>
                 <h3 className="font-bold text-gray-900 text-lg mb-2">
@@ -517,16 +517,14 @@ export const Home: React.FC = () => {
 
       {/* ── 5. PROMO BANNER ─────────────────────────────────────────────────── */}
       <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 mb-16">
-        <div className="bg-gradient-to-r from-primary-700 via-primary-600 to-blue-900 rounded-3xl overflow-hidden shadow-xl shadow-primary-600/10 text-white relative py-12 px-6 md:p-16 flex flex-col md:flex-row items-center justify-between gap-8">
+        <div className="bg-primary-700 rounded-xl overflow-hidden shadow-lg text-white relative py-12 px-6 md:p-16 flex flex-col md:flex-row items-center justify-between gap-8">
           {/* Decorative blobs */}
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-400/10 rounded-full blur-3xl -ml-20 -mb-20 pointer-events-none" />
 
           <div className="relative z-10 max-w-xl text-center md:text-left">
             <span className="bg-white/10 text-white text-[11px] font-bold tracking-widest uppercase px-3 py-1 rounded-full border border-white/20">
               Ưu đãi đặc biệt hè 2026
             </span>
-            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mt-4 mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mt-4 mb-4">
               Nhận ngay giảm giá 15%
               <br />
               cho lần đặt tour đầu tiên!
@@ -564,7 +562,7 @@ export const Home: React.FC = () => {
           {TESTIMONIALS.map((t, idx) => (
             <div
               key={idx}
-              className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300"
+              className="bg-white rounded-xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300"
             >
               <div className="flex text-amber-400 gap-0.5 mb-4">
                 {Array.from({ length: t.stars }).map((_, i) => (
@@ -598,11 +596,11 @@ export const Home: React.FC = () => {
 
       {/* ── 7. NEWSLETTER ───────────────────────────────────────────────────── */}
       <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white border border-gray-200/60 rounded-3xl p-8 md:p-12 shadow-sm text-center max-w-3xl mx-auto flex flex-col items-center">
-          <div className="bg-primary-50 p-4 rounded-2xl mb-4 text-primary-600 shadow-sm">
+        <div className="bg-white border border-gray-200/60 rounded-xl p-8 md:p-12 shadow-sm text-center max-w-3xl mx-auto flex flex-col items-center">
+          <div className="bg-primary-50 p-4 rounded-lg mb-4 text-primary-600 shadow-sm">
             <EnvelopeIcon className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight mt-1">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 tracking-tight mt-1">
             Đăng ký nhận cẩm nang du lịch
           </h2>
           <p className="text-gray-500 text-sm max-w-md mx-auto mt-2 mb-8 leading-relaxed">
@@ -620,11 +618,11 @@ export const Home: React.FC = () => {
               type="email"
               required
               placeholder="Nhập địa chỉ email của bạn..."
-              className="bg-gray-50 border border-gray-200 px-5 py-3 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white w-full text-gray-800 placeholder-gray-400 font-medium"
+              className="bg-gray-50 border border-gray-200 px-5 py-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white w-full text-gray-800 placeholder-gray-400 font-medium"
             />
             <button
               type="submit"
-              className="bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm px-6 py-3 rounded-2xl whitespace-nowrap shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+              className="bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm px-6 py-3 rounded-lg whitespace-nowrap shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
             >
               Đăng ký ngay
             </button>

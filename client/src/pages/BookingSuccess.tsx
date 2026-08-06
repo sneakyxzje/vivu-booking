@@ -78,7 +78,7 @@ const getStatusBadge = (status: string) => {
   }
   if (isPendingStatus(status)) {
     return (
-      <span className="bg-amber-50 text-amber-750 border border-amber-200 text-xs font-bold px-3 py-1 rounded-full animate-pulse">
+      <span className="bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-3 py-1 rounded-full animate-pulse">
         Chờ thanh toán
       </span>
     );
@@ -167,8 +167,8 @@ export default function BookingSuccess() {
   if (!booking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 font-inter">
-        <div className="rounded-3xl bg-white p-10 shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-gray-100 text-center max-w-md mx-4">
-          <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 mx-auto mb-4">
+        <div className="rounded-xl bg-white p-10 shadow-sm border border-gray-100 text-center max-w-md mx-4">
+          <div className="w-16 h-16 bg-rose-50 rounded-lg flex items-center justify-center text-rose-500 mx-auto mb-4">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
@@ -215,8 +215,8 @@ export default function BookingSuccess() {
           <span className="text-gray-900 font-medium">Hóa đơn đặt tour</span>
         </nav>
 
-        <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)] mb-8 flex flex-col md:flex-row items-center gap-6">
-          <div className={`w-16 h-16 rounded-2xl border flex items-center justify-center shrink-0 ${paid ? "bg-emerald-50 border-emerald-100 text-emerald-600" : cancelled ? "bg-rose-50 border-rose-100 text-rose-600" : "bg-amber-50 border-amber-100 text-amber-600"}`}>
+        <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm mb-8 flex flex-col md:flex-row items-center gap-6">
+          <div className={`w-16 h-16 rounded-lg border flex items-center justify-center shrink-0 ${paid ? "bg-emerald-50 border-emerald-100 text-emerald-600" : cancelled ? "bg-rose-50 border-rose-100 text-rose-600" : "bg-amber-50 border-amber-100 text-amber-600"}`}>
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {paid ? (
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
@@ -227,20 +227,20 @@ export default function BookingSuccess() {
           </div>
           <div className="text-center md:text-left flex-1">
             <div className="flex flex-col gap-2 md:flex-row md:items-center">
-              <h1 className="text-2xl md:text-2xl font-extrabold text-gray-900 font-plus-jakarta tracking-tight">{headerTitle}</h1>
+              <h1 className="text-2xl md:text-2xl font-bold text-gray-900 font-plus-jakarta tracking-tight">{headerTitle}</h1>
               <span className="md:ml-2">{getStatusBadge(booking.status)}</span>
             </div>
             <p className="mt-1.5 text-sm text-gray-500 leading-relaxed max-w-3xl">{headerDescription}</p>
           </div>
           <div className="text-center md:text-right shrink-0">
             <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Mã booking</p>
-            <p className="text-2xl font-black text-primary-600 font-mono">BK{booking.id}</p>
+            <p className="text-2xl font-bold text-primary-600 font-mono">BK{booking.id}</p>
           </div>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-12 items-start">
           <div className="lg:col-span-8 space-y-8">
-            <div className="rounded-3xl bg-white p-6 md:p-8 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
+            <div className="rounded-xl bg-white p-6 md:p-8 border border-gray-100 shadow-sm">
               <h2 className="mb-6 text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta">Thông tin liên lạc</h2>
               <div className="grid gap-6 sm:grid-cols-3 text-sm">
                 <div>
@@ -258,29 +258,29 @@ export default function BookingSuccess() {
               </div>
               <div className="mt-8 pt-6 border-t border-gray-100">
                 <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Ghi chú yêu cầu</p>
-                <p className="mt-1.5 text-sm text-gray-650 italic whitespace-pre-line leading-relaxed">{booking.note || "Không có ghi chú đặc biệt kèm theo."}</p>
+                <p className="mt-1.5 text-sm text-gray-600 italic whitespace-pre-line leading-relaxed">{booking.note || "Không có ghi chú đặc biệt kèm theo."}</p>
               </div>
             </div>
 
-            <div className="rounded-3xl bg-white p-6 md:p-8 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.015)]">
+            <div className="rounded-xl bg-white p-6 md:p-8 border border-gray-100 shadow-sm">
               <h2 className="mb-6 text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta">Chi tiết hóa đơn đặt chỗ</h2>
               <div className="divide-y divide-gray-100 text-sm">
                 <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Mã đặt chỗ</span><span className="font-bold text-primary-600 tracking-wider">BK{booking.id}</span></div>
                 <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Thời gian đặt tour</span><span className="font-semibold text-gray-800 font-mono">{formatDateTime(booking.created_at)}</span></div>
                 <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Ngày khởi hành</span><span className="font-bold text-gray-800 font-mono">{formatDateTime(booking.departure_date || booking.schedule?.start_date)}</span></div>
                 <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Số lượng hành khách</span><span className="font-bold text-gray-800">{guestBreakdown} ({booking.guests} khách)</span></div>
-                <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Tạm tính</span><span className="font-extrabold text-gray-900">{formatCurrency(subtotalAmount)}</span></div>
-                {discountAmount > 0 && <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Giảm giá {booking.discount_code ? `(${booking.discount_code})` : ""}</span><span className="font-extrabold text-emerald-600">- {formatCurrency(discountAmount)}</span></div>}
-                <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Tổng giá trị booking</span><span className="font-extrabold text-gray-900">{formatCurrency(booking.total_amount)}</span></div>
-                <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Số tiền đã thanh toán</span><span className="font-extrabold text-emerald-600 font-mono">{formatCurrency(paidAmount)}</span></div>
-                <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Số tiền cần thanh toán thêm</span><span className="font-black text-red-600 font-mono">{formatCurrency(remainingAmount)}</span></div>
+                <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Tạm tính</span><span className="font-bold text-gray-900">{formatCurrency(subtotalAmount)}</span></div>
+                {discountAmount > 0 && <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Giảm giá {booking.discount_code ? `(${booking.discount_code})` : ""}</span><span className="font-bold text-emerald-600">- {formatCurrency(discountAmount)}</span></div>}
+                <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Tổng giá trị booking</span><span className="font-bold text-gray-900">{formatCurrency(booking.total_amount)}</span></div>
+                <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Số tiền đã thanh toán</span><span className="font-bold text-emerald-600 font-mono">{formatCurrency(paidAmount)}</span></div>
+                <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Số tiền cần thanh toán thêm</span><span className="font-bold text-red-600 font-mono">{formatCurrency(remainingAmount)}</span></div>
                 <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Mã giao dịch VNPay</span><span className="font-bold text-gray-800 font-mono">{booking.vnpay_transaction_no || "-"}</span></div>
                 <div className="flex justify-between py-4"><span className="text-gray-500 font-medium">Thời gian thanh toán</span><span className="font-semibold text-gray-800 font-mono">{formatDateTime(booking.paid_at)}</span></div>
                 <div className="flex justify-between py-4 items-center"><span className="text-gray-500 font-medium">Trạng thái đặt chỗ</span><span>{getStatusBadge(booking.status)}</span></div>
               </div>
 
               {booking.payment_url && pending && (
-                <div className="mt-8 p-5 bg-emerald-50 border border-emerald-100 rounded-2xl space-y-4">
+                <div className="mt-8 p-5 bg-emerald-50 border border-emerald-100 rounded-lg space-y-4">
                   <div className="flex items-start gap-3.5">
                     <div className="p-2.5 bg-emerald-500 rounded-xl text-white shrink-0"><CreditCardIcon className="w-5 h-5" /></div>
                     <div>
@@ -293,12 +293,12 @@ export default function BookingSuccess() {
                       <span className={`text-xs font-semibold ${remainingSeconds <= 120 ? "text-rose-700" : "text-amber-700"}`}>
                         Chỗ của bạn đang được giữ. Quá hạn đơn sẽ tự hủy để nhường chỗ.
                       </span>
-                      <span className={`text-base font-black font-mono tabular-nums ${remainingSeconds <= 120 ? "text-rose-600" : "text-amber-700"}`}>
+                      <span className={`text-base font-bold font-mono tabular-nums ${remainingSeconds <= 120 ? "text-rose-600" : "text-amber-700"}`}>
                         {formatRemaining(remainingSeconds)}
                       </span>
                     </div>
                   )}
-                  <a href={booking.payment_url} className="block w-full bg-emerald-600 hover:bg-emerald-750 text-white font-bold py-4 text-center rounded-xl shadow-md hover:shadow-lg transition-all duration-300 text-sm cursor-pointer">
+                  <a href={booking.payment_url} className="block w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 text-center rounded-xl shadow-md hover:shadow-lg transition-all duration-300 text-sm cursor-pointer">
                     Thanh toán trực tuyến ngay
                   </a>
                 </div>
@@ -307,14 +307,14 @@ export default function BookingSuccess() {
           </div>
 
           <div className="lg:col-span-4 lg:sticky lg:top-24">
-            <div className="rounded-3xl bg-white p-6 md:p-7 border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.025)] space-y-6">
+            <div className="rounded-xl bg-white p-6 md:p-7 border border-gray-100 shadow-sm space-y-6">
               <h2 className="text-lg md:text-xl font-bold text-gray-900 font-plus-jakarta">Phiếu xác nhận booking</h2>
-              <div className="rounded-2xl border border-gray-100 p-4 space-y-4 bg-gray-50/50">
+              <div className="rounded-lg border border-gray-100 p-4 space-y-4 bg-gray-50/50">
                 <div className="relative h-44 rounded-xl overflow-hidden border border-gray-200">
                   <img src={booking.tour?.thumbnail || "https://placehold.co/600x400"} alt={booking.tour?.title || "Tour image"} className="h-full w-full object-cover" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold text-gray-900 line-clamp-2 leading-tight">{booking.tour?.title || `Booking Tour #${booking.id}`}</h3>
+                  <h3 className="text-base font-bold text-gray-900 line-clamp-2 leading-tight">{booking.tour?.title || `Booking Tour #${booking.id}`}</h3>
                   <p className="mt-1.5 text-xs text-primary-600 font-bold">Mã booking: BK{booking.id}</p>
                 </div>
                 <hr className="border-gray-200/60" />
@@ -322,10 +322,10 @@ export default function BookingSuccess() {
                   <div className="flex justify-between items-center"><span className="font-medium text-gray-400">Ngày khởi hành</span><span className="font-bold text-gray-800 font-mono">{formatDateTime(booking.departure_date)}</span></div>
                   <div className="flex justify-between items-center"><span className="font-medium text-gray-400">Số khách</span><span className="font-bold text-gray-800">{booking.guests} khách</span></div>
                   <div className="flex justify-between items-center"><span className="font-medium text-gray-400">Trạng thái</span><span>{getStatusBadge(booking.status)}</span></div>
-                  <div className="border-t border-gray-200/60 pt-4 flex justify-between items-baseline"><span className="font-bold text-gray-800 text-sm">Tổng cộng</span><span className="text-xl font-black text-red-650 font-mono">{formatCurrency(booking.total_amount)}</span></div>
+                  <div className="border-t border-gray-200/60 pt-4 flex justify-between items-baseline"><span className="font-bold text-gray-800 text-sm">Tổng cộng</span><span className="text-xl font-bold text-red-600 font-mono">{formatCurrency(booking.total_amount)}</span></div>
                 </div>
               </div>
-              <Link to="/" className="block w-full rounded-xl border border-gray-250 hover:bg-gray-50 text-center font-semibold py-3 text-sm text-gray-700 transition-all duration-300 cursor-pointer">Về trang chủ</Link>
+              <Link to="/" className="block w-full rounded-xl border border-gray-200 hover:bg-gray-50 text-center font-semibold py-3 text-sm text-gray-700 transition-all duration-300 cursor-pointer">Về trang chủ</Link>
               <Link to="/tours" className="block w-full rounded-xl bg-primary-600 hover:bg-primary-700 text-center font-semibold py-3 text-sm text-white transition-all duration-300 cursor-pointer">Xem tour khác</Link>
             </div>
           </div>

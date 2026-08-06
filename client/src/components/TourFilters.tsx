@@ -39,7 +39,7 @@ export const TourFilters: React.FC<TourFiltersProps> = ({
 }) => {
   return (
     <aside className="w-full lg:w-[320px] shrink-0">
-      <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 sticky top-24">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 sticky top-24">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-bold text-gray-900">Bộ lọc nâng cao</h2>
           <button onClick={onReset} className="text-xs font-bold text-primary-600 hover:text-primary-700 underline cursor-pointer">

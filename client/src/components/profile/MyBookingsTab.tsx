@@ -136,7 +136,7 @@ export const MyBookingsTab: React.FC = () => {
     <div className="space-y-6 font-inter">
       
       {/* Search & Filter Header Bar */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2 font-plus-jakarta">
             <Ticket className="w-5 h-5 text-primary-600" /> Quản lý tour đã đặt
@@ -182,13 +182,13 @@ export const MyBookingsTab: React.FC = () => {
 
       {/* Bookings List */}
       {loadingBookings ? (
-        <div className="bg-white p-12 rounded-2xl border border-gray-100 text-center space-y-3 shadow-sm">
+        <div className="bg-white p-12 rounded-lg border border-gray-100 text-center space-y-3 shadow-sm">
           <div className="w-8 h-8 border-3 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-xs text-gray-500 font-medium">Đang nạp dữ liệu các đơn đặt tour của bạn...</p>
         </div>
       ) : filteredBookings.length === 0 ? (
-        <div className="bg-white p-12 rounded-2xl border border-gray-100 text-center space-y-4 shadow-sm">
-          <div className="w-16 h-16 bg-primary-50 text-primary-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+        <div className="bg-white p-12 rounded-lg border border-gray-100 text-center space-y-4 shadow-sm">
+          <div className="w-16 h-16 bg-primary-50 text-primary-600 rounded-lg flex items-center justify-center mx-auto shadow-inner">
             <Ticket className="w-8 h-8" />
           </div>
           <div>
@@ -209,7 +209,7 @@ export const MyBookingsTab: React.FC = () => {
           {filteredBookings.map((item) => (
             <div
               key={item.id}
-              className="bg-white rounded-2xl p-5 border border-gray-200/80 shadow-sm hover:shadow-md hover:border-primary-200 transition-all flex flex-col md:flex-row gap-5"
+              className="bg-white rounded-lg p-5 border border-gray-200/80 shadow-sm hover:shadow-md hover:border-primary-200 transition-all flex flex-col md:flex-row gap-5"
             >
               {/* Tour Image */}
               <div className="w-full md:w-52 h-40 rounded-xl overflow-hidden relative shrink-0 bg-gray-100">
@@ -312,7 +312,7 @@ export const MyBookingsTab: React.FC = () => {
           <div className="space-y-6">
             
             {/* STEPPER TRACKING PROGRESS */}
-            <div className="bg-slate-50/80 rounded-2xl p-5 border border-slate-200/80">
+            <div className="bg-slate-50/80 rounded-lg p-5 border border-slate-200/80">
               <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-5 flex items-center gap-2">
                 <Navigation className="w-4 h-4 text-primary-600" /> Trạng thái tiến trình chuyến đi
               </h4>
@@ -380,7 +380,7 @@ export const MyBookingsTab: React.FC = () => {
             </div>
 
             {/* VEHICLE INFO CARD (CHỨC NĂNG 4) */}
-            <div className="bg-gradient-to-br from-blue-50/50 to-indigo-50/40 rounded-2xl p-5 border border-blue-100 space-y-3">
+            <div className="bg-blue-50/50 rounded-lg p-5 border border-blue-100 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
                   <Car className="w-4 h-4 text-primary-600" /> Thông tin xe đi cùng tour
@@ -417,7 +417,7 @@ export const MyBookingsTab: React.FC = () => {
             </div>
 
             {/* GUIDE INFO CARD */}
-            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200/70 flex items-center justify-between">
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200/70 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img
                   src={selectedBooking.guide?.avatar}
@@ -443,7 +443,7 @@ export const MyBookingsTab: React.FC = () => {
               <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
                 <UserCheck className="w-4 h-4 text-primary-600" /> Danh sách hành khách ({selectedBooking.guests} người)
               </h4>
-              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200/70 space-y-2">
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200/70 space-y-2">
                 {selectedBooking.passengers?.map((p, idx) => (
                   <div key={idx} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-200/60 last:border-none">
                     <div className="flex items-center gap-2">
