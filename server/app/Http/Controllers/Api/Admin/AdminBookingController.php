@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\BookingCancelledMail;
 use App\Models\Booking;
 use App\Models\TourSchedule;
 use App\Services\BookingHoldService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 class AdminBookingController extends Controller
 {
@@ -113,9 +117,26 @@ class AdminBookingController extends Controller
             return $this->error('Đơn này đã bị hủy trước đó.', 400);
         }
 
+        $this->sendCancelledMailAfterResponse($booking);
+
         return $this->success(
             $booking->fresh(['tour', 'customer', 'schedule', 'paymentLogs']),
             'Đã hủy đơn đặt tour và trả lại chỗ.'
         );
+    }
+
+    private function sendCancelledMailAfterResponse(Booking $booking): void
+    {
+        app()->terminating(function () use ($booking) {
+            try {
+                Mail::to($booking->customer_email)->send(new BookingCancelledMail($booking->fresh(['tour', 'schedule'])));
+            } catch (Throwable $exception) {
+                Log::warning('Không gửi được email thông báo hủy đơn.', [
+                    'booking_id' => $booking->id,
+                    'customer_email' => $booking->customer_email,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        });
     }
 }

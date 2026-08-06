@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Mail\BookingCancelledMail;
 use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourSchedule;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -96,6 +98,22 @@ class AdminBookingActionsTest extends TestCase
             ->assertJsonPath('data.status', 'cancelled');
 
         $this->assertSame(0, (int) $don->schedule->fresh()->booked_people);
+    }
+
+    public function test_huy_don_thi_gui_mail_thong_bao_cho_khach(): void
+    {
+        Mail::fake();
+        $don = $this->taoLichVaDon(maxPeople: 5, guests: 2, status: 'confirmed');
+        Sanctum::actingAs($this->taoUser('admin'));
+
+        $this->putJson("/api/admin/bookings/{$don->id}/cancel", [
+            'cancel_reason' => 'Tour bi hoan do thoi tiet',
+        ])->assertOk();
+
+        Mail::assertSent(BookingCancelledMail::class, function (BookingCancelledMail $mail) use ($don) {
+            return $mail->hasTo($don->customer_email)
+                && $mail->booking->id === $don->id;
+        });
     }
 
     public function test_khong_the_huy_don_da_huy(): void
