@@ -29,7 +29,7 @@
                                 </tr>
                                 <tr>
                                     <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Ngay khoi hanh</td>
-                                    <td style="padding:12px 14px;font-size:13px;font-weight:700;">{{ $booking->departure_date }}</td>
+                                    <td style="padding:12px 14px;font-size:13px;font-weight:700;">{{ \Carbon\Carbon::parse($booking->departure_date)->format('d/m/Y H:i') }}</td>
                                 </tr>
                                 <tr>
                                     <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">So luong khach</td>
