@@ -181,7 +181,7 @@ class BookingController extends Controller
             ->each(fn (Booking $booking) => $this->holdService->releaseIfOverdue($booking));
 
         $bookings = Booking::query()
-            ->with(['tour', 'schedule'])
+            ->with(['tour', 'schedule.guide:id,name,phone'])
             ->where('customer_id', $request->user()->id)
             ->latest()
             ->get();
@@ -195,7 +195,7 @@ class BookingController extends Controller
     public function show(string $publicToken): JsonResponse
     {
         $booking = Booking::query()
-            ->with(['tour', 'schedule'])
+            ->with(['tour', 'schedule.guide:id,name,phone'])
             ->where('public_token', $publicToken)
             ->first();
 

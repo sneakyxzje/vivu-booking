@@ -31,6 +31,18 @@
                                     <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Ngay khoi hanh</td>
                                     <td style="padding:12px 14px;font-size:13px;font-weight:700;">{{ \Carbon\Carbon::parse($booking->departure_date)->format('d/m/Y H:i') }}</td>
                                 </tr>
+                                @if($booking->tour?->pickup_location)
+                                    <tr>
+                                        <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Diem don khach</td>
+                                        <td style="padding:12px 14px;font-size:13px;font-weight:700;">{{ $booking->tour->pickup_location }}</td>
+                                    </tr>
+                                @endif
+                                @if($booking->tour?->vehicle_info)
+                                    <tr>
+                                        <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Phuong tien</td>
+                                        <td style="padding:12px 14px;font-size:13px;">{{ $booking->tour->vehicle_info }}</td>
+                                    </tr>
+                                @endif
                                 <tr>
                                     <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">So luong khach</td>
                                     <td style="padding:12px 14px;font-size:13px;">
@@ -51,6 +63,11 @@
                                     </td>
                                 </tr>
                             </table>
+
+                            <p style="margin:14px 0 0;font-size:13px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 14px;">
+                                Quy khach vui long co mat tai diem don truoc gio khoi hanh it nhat 30 phut
+                                va mang theo giay to tuy than. Huong dan vien se lien he truoc ngay di.
+                            </p>
 
                             <p style="margin:22px 0;">
                                 <a href="{{ $frontendBookingUrl }}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 18px;border-radius:10px;">
