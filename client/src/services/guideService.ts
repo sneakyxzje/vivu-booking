@@ -1,6 +1,13 @@
 import api from "./api";
 import { extractArray, extractObject } from "@/utils/apiHelpers";
-import type { GuideBooking, GuideDashboardStats, Tour } from "@/types/guide";
+import type {
+  AttendanceCheckin,
+  AttendanceData,
+  CheckpointPhoto,
+  GuideBooking,
+  GuideDashboardStats,
+  Tour,
+} from "@/types/guide";
 
 const defaultStats: GuideDashboardStats = {
   totalTours: 0,
@@ -171,6 +178,39 @@ const guideService = {
   confirmBooking: async (id: number): Promise<{ success: boolean }> => {
     const response = await api.put(`/guide/bookings/${id}/confirm`);
     return { success: response.data?.success !== false };
+  },
+
+  getAttendance: async (scheduleId: number): Promise<AttendanceData | null> => {
+    const response = await api.get(`/guide/schedules/${scheduleId}/attendance`);
+    return extractObject<AttendanceData>(response);
+  },
+
+  saveAttendance: async (
+    scheduleId: number,
+    itineraryId: number,
+    checkins: { booking_id: number; present: boolean }[],
+  ): Promise<AttendanceCheckin[]> => {
+    const response = await api.put(
+      `/guide/schedules/${scheduleId}/itineraries/${itineraryId}/attendance`,
+      { checkins },
+    );
+    return response.data?.data?.checkins ?? [];
+  },
+
+  uploadCheckinPhoto: async (
+    scheduleId: number,
+    itineraryId: number,
+    photo: File,
+  ): Promise<CheckpointPhoto | null> => {
+    const data = new FormData();
+    data.append("photo", photo);
+
+    const response = await api.post(
+      `/guide/schedules/${scheduleId}/itineraries/${itineraryId}/checkin-photo`,
+      data,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return extractObject<CheckpointPhoto>(response);
   },
 };
 

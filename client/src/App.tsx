@@ -24,6 +24,7 @@ import ServiceManagement from "@/pages/admin/ServiceManagement";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
 import { GuideTours } from "@/pages/guide/GuideTours";
 import { GuideBookings } from "@/pages/guide/GuideBookings";
+import { GuideAttendance } from "@/pages/guide/GuideAttendance";
 import TourDetail from "@/components/TourDetail";
 import { CreateTourForm } from "@/pages/admin/create/CreateTourForm";
 import BookingTour from "@/pages/BookingTour";
@@ -105,6 +106,10 @@ const router = createBrowserRouter([
           {
             path: "/guide/bookings",
             element: <GuideBookings />,
+          },
+          {
+            path: "/guide/attendance/:scheduleId",
+            element: <GuideAttendance />,
           },
         ],
       },
