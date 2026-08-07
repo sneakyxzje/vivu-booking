@@ -51,8 +51,9 @@ export default function BookingManagement() {
     const confirmed = bookings.filter((b) => b.status === "confirmed").length;
     const cancelled = bookings.filter((b) => b.status === "cancelled").length;
     const paid = bookings.filter((b) => b.vnpay_transaction_no !== null).length;
+    // Doanh thu = tổng giá trị các đơn đã xác nhận (thống nhất với dashboard admin & guide)
     const revenue = bookings
-      .filter((b) => b.status !== "cancelled" && b.vnpay_transaction_no !== null)
+      .filter((b) => b.status === "confirmed")
       .reduce((sum, b) => sum + Number(b.total_amount), 0);
 
     return { total, pending, confirmed, cancelled, paid, revenue };
