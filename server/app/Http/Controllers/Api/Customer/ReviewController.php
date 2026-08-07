@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api\Customer;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\Review;
 use App\Models\Booking;
+use App\Models\Review;
+use Illuminate\Http\Request;
 
 class ReviewController extends Controller
 {
@@ -45,18 +45,31 @@ class ReviewController extends Controller
         ],401);
     }
 
+    // Chỉ khách đã đặt và được xác nhận tour này mới được đánh giá
+    $hasConfirmedBooking = Booking::query()
+        ->where('tour_id', $request->tour_id)
+        ->where('customer_id', $user->id)
+        ->where('status', 'confirmed')
+        ->exists();
 
-    // Không kiểm tra đã đánh giá hay chưa
-    // Cho phép 1 user đánh giá nhiều lần
+    if (!$hasConfirmedBooking) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Chỉ khách hàng đã đặt và hoàn tất tour này mới có thể đánh giá.'
+        ], 403);
+    }
 
-
-    $review = Review::create([
-        'tour_id' => $request->tour_id,
-        'user_id' => $user->id,
-        'rating' => $request->rating,
-        'comment' => $request->comment
-    ]);
-
+    // Mỗi khách một đánh giá cho mỗi tour; gửi lại sẽ cập nhật đánh giá cũ
+    $review = Review::query()->updateOrCreate(
+        [
+            'tour_id' => $request->tour_id,
+            'user_id' => $user->id,
+        ],
+        [
+            'rating' => $request->rating,
+            'comment' => $request->comment,
+        ]
+    );
 
     return response()->json([
         'success' => true,

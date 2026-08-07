@@ -1,7 +1,9 @@
 
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Star, CheckCircle2, ThumbsUp, MessageSquare, Filter } from "lucide-react";
 import tourService from "@/services/tourService";
+import { useAuth } from "@/hooks/useAuth";
 
 
 interface Review {
@@ -24,11 +26,12 @@ export const TourReviewsSection: React.FC<{
   const [activeFilter, setActiveFilter] = useState<number | "all">("all");
   
   // New review form
+  const { user } = useAuth();
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState("");
-  const [newUserName, setNewUserName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const loadReviews = async () => {
   try {
@@ -80,15 +83,14 @@ useEffect(() => {
 
   try {
     setSubmitting(true);
-    console.log("COMPONENT TOUR ID:", tourId);
+    setSubmitError("");
     await tourService.review(tourId, {
-  rating: newRating,
-  comment: newComment,
-});
+      rating: newRating,
+      comment: newComment,
+    });
 
     setNewComment("");
     setNewRating(5);
-    setNewUserName("");
 
     setShowSuccess(true);
 
@@ -98,8 +100,8 @@ useEffect(() => {
       setShowSuccess(false);
     }, 3000);
   } catch (error) {
-    console.error(error);
-    alert("Không thể gửi đánh giá.");
+    const response = (error as { response?: { data?: { message?: string } } }).response?.data;
+    setSubmitError(response?.message ?? "Không thể gửi đánh giá. Vui lòng thử lại.");
   } finally {
     setSubmitting(false);
   }
@@ -250,43 +252,45 @@ useEffect(() => {
           <MessageSquare className="w-4 h-4 text-primary-600" /> Viết nhận xét về tour này
         </h3>
 
-        {showSuccess ? (
+        {!user ? (
+          <div className="p-4 bg-white border border-gray-200 rounded-xl text-xs text-gray-600 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <span>Bạn cần đăng nhập bằng tài khoản đã đặt tour này để viết đánh giá.</span>
+            <Link
+              to="/login"
+              className="inline-flex items-center justify-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors shrink-0"
+            >
+              Đăng nhập để đánh giá
+            </Link>
+          </div>
+        ) : showSuccess ? (
           <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Cảm ơn bạn đã gửi đánh giá! Nhận xét của bạn đã được hiển thị.
           </div>
         ) : (
           <form onSubmit={handleAddReview} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Họ và tên người đánh giá</label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Nguyễn Văn A..."
-                  value={newUserName}
-                  onChange={(e) => setNewUserName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                  required
-                />
+            {submitError && (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
+                {submitError}
               </div>
+            )}
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Đánh giá số sao</label>
-                <div className="flex items-center gap-1 pt-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setNewRating(star)}
-                      className="p-1 hover:scale-110 transition-transform"
-                    >
-                      <Star
-                        className={`w-6 h-6 ${
-                          star <= newRating ? "fill-amber-400 text-amber-400" : "text-gray-300"
-                        }`}
-                      />
-                    </button>
-                  ))}
-                </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Đánh giá số sao</label>
+              <div className="flex items-center gap-1 pt-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setNewRating(star)}
+                    className="p-1 hover:scale-110 transition-transform"
+                  >
+                    <Star
+                      className={`w-6 h-6 ${
+                        star <= newRating ? "fill-amber-400 text-amber-400" : "text-gray-300"
+                      }`}
+                    />
+                  </button>
+                ))}
               </div>
             </div>
 
