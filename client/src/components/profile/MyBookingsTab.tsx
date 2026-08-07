@@ -414,6 +414,24 @@ export const MyBookingsTab: React.FC = () => {
                   <strong className="text-gray-900">{selectedBooking.customer_name}</strong>
                   {selectedBooking.customer_phone ? ` — ${selectedBooking.customer_phone}` : ""}
                 </p>
+                {selectedBooking.passengers && selectedBooking.passengers.length > 0 && (
+                  <div className="pt-2 mt-1 border-t border-gray-200/60 space-y-1.5">
+                    {selectedBooking.passengers.map((passenger, idx) => (
+                      <div key={passenger.id} className="flex items-center justify-between py-0.5">
+                        <span className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 font-bold flex items-center justify-center text-[10px]">
+                            {idx + 1}
+                          </span>
+                          <strong className="text-gray-800">{passenger.name}</strong>
+                        </span>
+                        <span className="text-gray-500">
+                          {passenger.type === "adult" ? "Người lớn" : passenger.type === "child" ? "Trẻ em" : "Em bé"}
+                          {passenger.note ? ` · ${passenger.note}` : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

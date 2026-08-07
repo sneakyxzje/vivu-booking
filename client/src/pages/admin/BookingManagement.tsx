@@ -651,6 +651,33 @@ export default function BookingManagement() {
               </div>
             </div>
 
+            {/* Danh sách hành khách */}
+            {selectedBooking.passengers && selectedBooking.passengers.length > 0 && (
+              <div className="bg-gray-50/50 p-4 rounded-lg border border-gray-200">
+                <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                  Danh sách hành khách ({selectedBooking.passengers.length})
+                </h5>
+                <div className="space-y-2">
+                  {selectedBooking.passengers.map((passenger, idx) => (
+                    <div key={passenger.id} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-200/60 last:border-none">
+                      <span className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 font-bold flex items-center justify-center text-[10px]">
+                          {idx + 1}
+                        </span>
+                        <strong className="text-gray-800">{passenger.name}</strong>
+                        <span className="text-gray-400">
+                          ({passenger.type === "adult" ? "Người lớn" : passenger.type === "child" ? "Trẻ em" : "Em bé"})
+                        </span>
+                      </span>
+                      <span className="text-gray-500 font-mono">
+                        {passenger.identity_number ?? "—"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Passenger note */}
             <div className="bg-gray-50/50 p-4 rounded-lg border border-gray-200">
               <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Ghi chú từ khách hàng</h5>

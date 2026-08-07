@@ -39,6 +39,7 @@ class AttendanceController extends Controller
             ->where('tour_schedule_id', $schedule->id)
             ->where('status', 'confirmed')
             ->orderBy('customer_name')
+            ->with('passengers:id,booking_id,name,type,note')
             ->get(['id', 'customer_name', 'customer_phone', 'guests', 'adult_count', 'child_count', 'infant_count']);
 
         $checkins = BookingCheckin::query()
