@@ -53,6 +53,22 @@ class ReviewSeeder extends Seeder
                     'comment' => 'Chuyến đi vui, hướng dẫn viên am hiểu địa phương. Giá hợp lý so với chất lượng dịch vụ nhận được.',
                 ],
             ],
+            'tour-sapa-fansipan-2n1d' => [
+                [
+                    'rating' => 5,
+                    'comment' => 'May mắn săn được mây trên Fansipan! Xe giường nằm sạch, chạy êm, đúng giờ. Rất đáng tiền cho chuyến cuối tuần.',
+                ],
+                [
+                    'rating' => 4,
+                    'comment' => 'Bản Cát Cát đẹp, đồ ăn Tây Bắc ngon. Trừ điểm nhỏ vì sáng ngày hai hơi vội.',
+                ],
+            ],
+            'tour-phu-quoc-3n2d' => [
+                [
+                    'rating' => 5,
+                    'comment' => 'Tour 4 đảo tuyệt vời, san hô đẹp, hải sản tươi. Resort sát biển, hoàng hôn Sunset Sanato không thể quên.',
+                ],
+            ],
         ];
 
         foreach ($reviewsByTour as $slug => $reviews) {
