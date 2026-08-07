@@ -1,6 +1,14 @@
 import type { Booking } from "@/types";
 import api from "./api";
 
+export interface PassengerPayload {
+  name: string;
+  type: "adult" | "child" | "infant";
+  date_of_birth?: string | null;
+  identity_number?: string | null;
+  note?: string | null;
+}
+
 export interface CreateBookingPayload {
   tour_id: number;
   tour_schedule_id: number;
@@ -12,6 +20,7 @@ export interface CreateBookingPayload {
   infant_count: number;
   note?: string;
   discount_code?: string;
+  passengers?: PassengerPayload[];
 }
 
 export interface CreateBookingResponse {

@@ -54,6 +54,12 @@ export interface AttendanceGuest {
   adult_count?: number;
   child_count?: number;
   infant_count?: number;
+  passengers?: {
+    id: number;
+    name: string;
+    type: "adult" | "child" | "infant";
+    note?: string | null;
+  }[];
 }
 
 export interface AttendanceCheckin {

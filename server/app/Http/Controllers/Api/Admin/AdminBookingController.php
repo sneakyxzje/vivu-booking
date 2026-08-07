@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\BookingCancelledMail;
+use App\Mail\BookingConfirmedMail;
 use App\Models\Booking;
 use App\Models\TourSchedule;
 use App\Services\BookingHoldService;
@@ -31,7 +32,7 @@ class AdminBookingController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $booking = Booking::with(['tour', 'customer', 'schedule', 'paymentLogs'])->find($id);
+        $booking = Booking::with(['tour', 'customer', 'schedule', 'paymentLogs', 'passengers'])->find($id);
 
         if (!$booking) {
             return $this->error('Không tìm thấy đơn đặt hàng', 404);
@@ -65,6 +66,8 @@ class AdminBookingController extends Controller
         if (!$booking) {
             return $this->error('Chỉ có thể xác nhận đơn đang ở trạng thái chờ (pending).', 400);
         }
+
+        $this->sendConfirmedMailAfterResponse($booking);
 
         return $this->success(
             $booking->fresh(['tour', 'customer', 'schedule', 'paymentLogs']),
@@ -123,6 +126,21 @@ class AdminBookingController extends Controller
             $booking->fresh(['tour', 'customer', 'schedule', 'paymentLogs']),
             'Đã hủy đơn đặt tour và trả lại chỗ.'
         );
+    }
+
+    private function sendConfirmedMailAfterResponse(Booking $booking): void
+    {
+        app()->terminating(function () use ($booking) {
+            try {
+                Mail::to($booking->customer_email)->send(new BookingConfirmedMail($booking->fresh(['tour', 'schedule'])));
+            } catch (Throwable $exception) {
+                Log::warning('Không gửi được email xác nhận đơn.', [
+                    'booking_id' => $booking->id,
+                    'customer_email' => $booking->customer_email,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        });
     }
 
     private function sendCancelledMailAfterResponse(Booking $booking): void

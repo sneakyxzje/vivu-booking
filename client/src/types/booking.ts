@@ -32,5 +32,16 @@ export interface Booking {
   updated_at: string;
   tour?: Tour;
   schedule?: TourSchedule;
+  passengers?: BookingPassenger[];
+}
+
+export interface BookingPassenger {
+  id: number;
+  booking_id: number;
+  name: string;
+  type: "adult" | "child" | "infant";
+  date_of_birth?: string | null;
+  identity_number?: string | null;
+  note?: string | null;
 }
 

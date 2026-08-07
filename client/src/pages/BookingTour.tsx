@@ -33,7 +33,15 @@ type BookingFormProps = {
   onApplyDiscount: () => void;
   onClearDiscount: () => void;
   onChange: (field: keyof BookingFormState, value: string | number) => void;
-  onSubmit: (event: FormEvent) => void;
+  onSubmit: (event: FormEvent, passengers: PassengerFormItem[]) => void;
+};
+
+type PassengerFormItem = {
+  name: string;
+  type: PassengerType;
+  dateOfBirth: string;
+  identityNumber: string;
+  note: string;
 };
 
 type BookingSidebarProps = {
@@ -94,13 +102,30 @@ const BookingForm = ({
     ],
     [form.adultCount, form.childCount, form.infantCount],
   );
-  const [passengerTypes, setPassengerTypes] = useState<PassengerType[]>(defaultPassengerTypes);
+  const [passengers, setPassengers] = useState<PassengerFormItem[]>([]);
 
+  // Đồng bộ số dòng hành khách với số lượng khách đã chọn, giữ lại nội dung đã nhập
   useEffect(() => {
-    setPassengerTypes((current) =>
-      defaultPassengerTypes.map((fallback, index) => current[index] ?? fallback),
+    setPassengers((current) =>
+      defaultPassengerTypes.map((fallback, index) => ({
+        name: current[index]?.name ?? "",
+        type: current[index]?.type ?? fallback,
+        dateOfBirth: current[index]?.dateOfBirth ?? "",
+        identityNumber: current[index]?.identityNumber ?? "",
+        note: current[index]?.note ?? "",
+      })),
     );
   }, [defaultPassengerTypes]);
+
+  const updatePassenger = (
+    index: number,
+    field: keyof PassengerFormItem,
+    value: string,
+  ) => {
+    setPassengers((current) =>
+      current.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
+    );
+  };
 
   const handleInputChange =
     (field: keyof BookingFormState) =>
@@ -144,7 +169,10 @@ const BookingForm = ({
   ];
 
   return (
-    <form onSubmit={onSubmit} className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-sm space-y-6">
+    <form
+      onSubmit={(event) => onSubmit(event, passengers)}
+      className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-sm space-y-6"
+    >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Họ tên */}
         <div className="space-y-1.5">
@@ -345,8 +373,8 @@ const BookingForm = ({
           </div>
 
           <div className="space-y-4">
-            {Array.from({ length: Math.max(1, totalGuestCount) }).map((_, index) => {
-              const passengerType = passengerTypes[index] ?? defaultPassengerTypes[index] ?? "adult";
+            {passengers.map((passenger, index) => {
+              const passengerType = passenger.type;
               const requiresIdentityDocument = passengerType === "adult";
 
               return (
@@ -374,7 +402,8 @@ const BookingForm = ({
                     <input
                       type="text"
                       placeholder="VD: NGUYEN VAN A"
-                      defaultValue={index === 0 ? form.customerName : ""}
+                      value={passenger.name}
+                      onChange={(event) => updatePassenger(index, "name", event.target.value)}
                       className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
                       required
                     />
@@ -388,14 +417,7 @@ const BookingForm = ({
                       <select
                         className="w-1/2 px-2.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 text-gray-700"
                         value={passengerType}
-                        onChange={(event) => {
-                          const nextType = event.target.value as PassengerType;
-                          setPassengerTypes((current) => {
-                            const next = [...current];
-                            next[index] = nextType;
-                            return next;
-                          });
-                        }}
+                        onChange={(event) => updatePassenger(index, "type", event.target.value)}
                       >
                         <option value="adult">Người lớn (12+ tuổi)</option>
                         <option value="child">Trẻ em (2-12 tuổi)</option>
@@ -403,6 +425,8 @@ const BookingForm = ({
                       </select>
                       <input
                         type="date"
+                        value={passenger.dateOfBirth}
+                        onChange={(event) => updatePassenger(index, "dateOfBirth", event.target.value)}
                         className="w-1/2 px-2.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 text-gray-700"
                       />
                     </div>
@@ -416,6 +440,8 @@ const BookingForm = ({
                       <input
                         type="text"
                         placeholder="Nhập số giấy tờ cá nhân..."
+                        value={passenger.identityNumber}
+                        onChange={(event) => updatePassenger(index, "identityNumber", event.target.value)}
                         className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
                       />
                     </div>
@@ -428,6 +454,8 @@ const BookingForm = ({
                     <input
                       type="text"
                       placeholder="VD: Ăn chay, say xe..."
+                      value={passenger.note}
+                      onChange={(event) => updatePassenger(index, "note", event.target.value)}
                       className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
                     />
                   </div>
@@ -674,7 +702,7 @@ export const BookingTour = () => {
     setDiscountAmount(0);
     setForm((current) => ({ ...current, discountCode: "" }));
   };
-const handleSubmit = async (event: FormEvent) => {
+const handleSubmit = async (event: FormEvent, passengers: PassengerFormItem[]) => {
   event.preventDefault();
 
   if (!tour) return;
@@ -694,6 +722,15 @@ const handleSubmit = async (event: FormEvent) => {
       infant_count: Number(form.infantCount),
       note: form.note,
       discount_code: appliedDiscountCode ?? undefined,
+      passengers: passengers
+        .filter((passenger) => passenger.name.trim())
+        .map((passenger) => ({
+          name: passenger.name.trim(),
+          type: passenger.type,
+          date_of_birth: passenger.dateOfBirth || null,
+          identity_number: passenger.identityNumber.trim() || null,
+          note: passenger.note.trim() || null,
+        })),
     });
 
     const booking = {

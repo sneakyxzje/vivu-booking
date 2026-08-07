@@ -67,6 +67,11 @@ class Booking extends Model
         return $this->hasMany(PaymentLog::class);
     }
 
+    public function passengers()
+    {
+        return $this->hasMany(BookingPassenger::class);
+    }
+
     public function discountCode()
     {
         return $this->belongsTo(DiscountCode::class);

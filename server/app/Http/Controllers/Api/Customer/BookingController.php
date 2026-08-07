@@ -42,6 +42,12 @@ class BookingController extends Controller
             'infant_count' => 'nullable|integer|min:0',
             'note' => 'nullable|string|max:1000',
             'discount_code' => 'nullable|string|max:50',
+            'passengers' => 'nullable|array|max:50',
+            'passengers.*.name' => 'required_with:passengers|string|max:255',
+            'passengers.*.type' => 'required_with:passengers|in:adult,child,infant',
+            'passengers.*.date_of_birth' => 'nullable|date|before_or_equal:today',
+            'passengers.*.identity_number' => 'nullable|string|max:50',
+            'passengers.*.note' => 'nullable|string|max:255',
         ]);
 
         $user = auth('sanctum')->user();
@@ -137,6 +143,16 @@ class BookingController extends Controller
                 'expires_at' => now()->addMinutes($this->holdService->holdMinutes()),
                 'note' => $data['note'] ?? null,
             ]);
+            foreach ($data['passengers'] ?? [] as $passenger) {
+                $booking->passengers()->create([
+                    'name' => $passenger['name'],
+                    'type' => $passenger['type'],
+                    'date_of_birth' => $passenger['date_of_birth'] ?? null,
+                    'identity_number' => $passenger['identity_number'] ?? null,
+                    'note' => $passenger['note'] ?? null,
+                ]);
+            }
+
             if ($discount['model']) {
                 $discount['model']->increment('used_count');
             }
@@ -181,7 +197,7 @@ class BookingController extends Controller
             ->each(fn (Booking $booking) => $this->holdService->releaseIfOverdue($booking));
 
         $bookings = Booking::query()
-            ->with(['tour', 'schedule.guide:id,name,phone'])
+            ->with(['tour', 'schedule.guide:id,name,phone', 'passengers'])
             ->where('customer_id', $request->user()->id)
             ->latest()
             ->get();
@@ -195,7 +211,7 @@ class BookingController extends Controller
     public function show(string $publicToken): JsonResponse
     {
         $booking = Booking::query()
-            ->with(['tour', 'schedule.guide:id,name,phone'])
+            ->with(['tour', 'schedule.guide:id,name,phone', 'passengers'])
             ->where('public_token', $publicToken)
             ->first();
 

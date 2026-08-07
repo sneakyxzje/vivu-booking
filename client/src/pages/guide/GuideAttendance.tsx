@@ -232,6 +232,11 @@ export const GuideAttendance: React.FC = () => {
                                 ? ` (${guest.adult_count} người lớn, ${guest.child_count ?? 0} trẻ em, ${guest.infant_count ?? 0} em bé)`
                                 : ""}
                             </p>
+                            {guest.passengers && guest.passengers.length > 0 && (
+                              <p className="text-xs text-gray-400 mt-1 truncate">
+                                {guest.passengers.map((passenger) => passenger.name).join(", ")}
+                              </p>
+                            )}
                           </div>
                           <span className="flex items-center gap-2 shrink-0">
                             <span
