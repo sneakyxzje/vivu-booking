@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -16,116 +16,76 @@ import {
   Briefcase,
   Users,
   Compass,
-  ArrowUpRight,
-  ArrowDownRight,
   Calendar
 } from "lucide-react";
+import adminService, { type AdminDashboardData } from "@/services/adminService";
+import { formatDateTime, formatPrice } from "@/utils/format";
 
-// HELPER FOR GENERATING TRENDING MONTHLY PERFORMANCE (12 MONTHS)
-const generateMonthlyPerformance = () => {
-  const months = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12"];
-  const data = [];
-  // Generating organic cyclical curve for travel revenue
-  for (let i = 0; i < months.length; i++) {
-    const baseRev = 50 + Math.sin(i / 1.5) * 30 + (i * 2.5); // cyclical + uptrend
-    const revenue = Math.round(baseRev * 10) / 10; // in Millions VND
-    const bookings = Math.round(baseRev * 0.35 + Math.random() * 4);
-    data.push({
-      name: months[i],
-      revenue,
-      bookings,
-    });
-  }
-  return data;
-};
-
-// HELPER FOR GENERATING DESTINATION DISTRIBUTION
-const generateDestinations = () => {
-  const destinations = ["Hạ Long", "Đà Nẵng", "Phú Quốc", "Nha Trang", "Sapa", "Hà Giang"];
-  const colors = ["#6366f1", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
-  const data = [];
-  for (let i = 0; i < destinations.length; i++) {
-    const value = 25 + Math.round(Math.random() * 65);
-    data.push({
-      name: destinations[i],
-      value,
-      color: colors[i],
-    });
-  }
-  return data;
-};
-
-// HELPER FOR GENERATING RECENT TRANSACTIONS
-const generateRecentTransactions = () => {
-  const customers = [
-    "Nguyễn Minh Khang",
-    "Lê Thị Khánh Huyền",
-    "Phạm Hoàng Long",
-    "Trần Thanh Sơn",
-    "Đỗ Hải Đăng",
-    "Nguyễn Bích Ngọc"
-  ];
-  const tours = [
-    "Hạ Long Luxury Cruises 3N2Đ",
-    "Đà Nẵng - Bà Nà Hills - Hội An",
-    "Phú Quốc Đảo Ngọc Sunset Tour",
-    "Nha Trang Vịnh San Hô 4 Đảo",
-    "Khám phá Sapa Mù Sương Cát Cát",
-    "Vòng cung Đông Bắc Hà Giang Hùng Vĩ"
-  ];
-  const statuses = ["confirmed", "pending", "cancelled"] as const;
-  const data = [];
-  for (let i = 0; i < 6; i++) {
-    const price = 2500000 + (i * 800000) + (Math.round(Math.random() * 4) * 200000);
-    data.push({
-      id: 1000 + i,
-      customer: customers[i],
-      tour: tours[i],
-      price,
-      status: statuses[i % 3 === 0 ? 0 : i % 3 === 1 ? 1 : 2],
-      date: `2026-07-1${i} 08:24:00`,
-    });
-  }
-  return data;
-};
+const DESTINATION_COLORS = ["#6366f1", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
 export default function Dashboard() {
-  const [timeframe] = useState("Tháng này");
-  const monthlyData = generateMonthlyPerformance();
-  const destData = generateDestinations();
-  const bookingsData = generateRecentTransactions();
+  const [data, setData] = useState<AdminDashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Static Metrics Object with Trends
+  useEffect(() => {
+    adminService
+      .getDashboard()
+      .then((result) => setData(result))
+      .catch(() => setError("Không thể tải dữ liệu tổng quan."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 text-gray-500">
+        Đang tải dữ liệu tổng quan...
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex items-center justify-center h-64 text-red-500 text-sm">
+        {error || "Không thể tải dữ liệu tổng quan."}
+      </div>
+    );
+  }
+
+  const bookingSummary = data.booking_summary;
+  const monthlyData = data.monthly_performance;
+  const destData = data.destinations.map((item, index) => ({
+    ...item,
+    color: DESTINATION_COLORS[index % DESTINATION_COLORS.length],
+  }));
+  const bookingsData = data.recent_bookings;
+
   const metrics = [
     {
       title: "Tổng doanh thu",
-      value: "148,600,000đ",
-      trend: "+14.2% so với tháng trước",
-      isPositive: true,
+      value: formatPrice(bookingSummary.total_revenue),
+      trend: `Tháng này: ${formatPrice(bookingSummary.revenue_this_month)}`,
       icon: DollarSign,
       color: "bg-indigo-50 text-indigo-600 border-indigo-100"
     },
     {
       title: "Số đơn Booking",
-      value: "128 đơn đặt",
-      trend: "+8.6% so với tuần trước",
-      isPositive: true,
+      value: `${bookingSummary.total_bookings} đơn đặt`,
+      trend: `${bookingSummary.confirmed_bookings} đã xác nhận · ${bookingSummary.pending_bookings} đang chờ`,
       icon: Briefcase,
       color: "bg-cyan-50 text-cyan-600 border-cyan-100"
     },
     {
       title: "Khách hàng mới",
-      value: "450 thành viên",
-      trend: "-2.4% so với tháng trước",
-      isPositive: false,
+      value: `${bookingSummary.new_customers_this_month} thành viên`,
+      trend: "Đăng ký mới trong tháng này",
       icon: Users,
       color: "bg-emerald-50 text-emerald-600 border-emerald-100"
     },
     {
       title: "Tỷ lệ lấp đầy",
-      value: "92.4%",
-      trend: "+5.1% so với kỳ nghỉ trước",
-      isPositive: true,
+      value: `${bookingSummary.occupancy_rate}%`,
+      trend: "Số chỗ đã đặt trên tổng số chỗ mở bán",
       icon: Compass,
       color: "bg-amber-50 text-amber-600 border-amber-100"
     }
@@ -145,7 +105,7 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-2 bg-white px-3 py-1.5 border border-gray-200 rounded-md shadow-xs self-start sm:self-center">
           <Calendar className="w-4 h-4 text-gray-400" />
-          <span className="text-xs font-semibold text-gray-600 font-mono">{timeframe} (Jul 2026)</span>
+          <span className="text-xs font-semibold text-gray-600 font-mono">Năm {new Date().getFullYear()}</span>
         </div>
       </div>
 
@@ -165,20 +125,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <h3 className="text-2xl font-bold text-gray-900 mt-3">{item.value}</h3>
-              <p className="flex items-center gap-1.5 mt-2.5 text-xs font-semibold">
-                {item.isPositive ? (
-                  <span className="inline-flex items-center gap-0.5 text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                    Tăng
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-0.5 text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
-                    <ArrowDownRight className="w-3.5 h-3.5" />
-                    Giảm
-                  </span>
-                )}
-                <span className="text-gray-400 font-medium">{item.trend}</span>
-              </p>
+              <p className="mt-2.5 text-xs font-medium text-gray-400">{item.trend}</p>
             </div>
           );
         })}
@@ -245,6 +192,9 @@ export default function Dashboard() {
           </div>
 
           <div className="h-56 relative flex items-center justify-center">
+            {destData.length === 0 && (
+              <p className="absolute text-sm text-gray-400">Chưa có booking để thống kê.</p>
+            )}
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -279,7 +229,7 @@ export default function Dashboard() {
               <div key={index} className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded shrink-0" style={{ backgroundColor: item.color }} />
                 <span className="truncate">{item.name}</span>
-                <span className="text-gray-400 font-mono">({item.value}k)</span>
+                <span className="text-gray-400 font-mono">({item.value} khách)</span>
               </div>
             ))}
           </div>
@@ -306,6 +256,13 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm text-gray-700">
+              {bookingsData.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-sm text-gray-400">
+                    Chưa có giao dịch nào.
+                  </td>
+                </tr>
+              )}
               {bookingsData.map((bk) => (
                 <tr key={bk.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-3.5 px-6 text-center text-gray-400 font-mono">#{bk.id}</td>
@@ -314,7 +271,7 @@ export default function Dashboard() {
                   <td className="py-3.5 px-6 text-right font-bold text-gray-900 font-mono">
                     {bk.price.toLocaleString()} đ
                   </td>
-                  <td className="py-3.5 px-6 text-center text-gray-400 text-xs font-mono">{bk.date}</td>
+                  <td className="py-3.5 px-6 text-center text-gray-400 text-xs font-mono">{formatDateTime(bk.date)}</td>
                   <td className="py-3.5 px-6 text-center">
                     <span
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold border ${

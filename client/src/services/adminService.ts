@@ -11,7 +11,37 @@ export interface PaginatedResponse<T> {
   last_page: number;
 }
 
+export interface AdminDashboardData {
+  summary: Record<string, number>;
+  booking_summary: {
+    total_bookings: number;
+    pending_bookings: number;
+    confirmed_bookings: number;
+    cancelled_bookings: number;
+    total_revenue: number;
+    revenue_this_month: number;
+    new_customers_this_month: number;
+    occupancy_rate: number;
+  };
+  monthly_performance: { name: string; revenue: number; bookings: number }[];
+  destinations: { name: string; value: number }[];
+  recent_bookings: {
+    id: number;
+    customer: string;
+    tour: string;
+    price: number;
+    status: string;
+    date: string | null;
+  }[];
+}
+
 const adminService = {
+  // --- DASHBOARD ---
+  getDashboard: async (): Promise<AdminDashboardData | null> => {
+    const response = await api.get("/admin/dashboard");
+    return extractObject<AdminDashboardData>(response);
+  },
+
   // --- TOURS ---
   getTours: async (): Promise<Tour[]> => {
     const response = await api.get("/admin/tours");
