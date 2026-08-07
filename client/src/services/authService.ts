@@ -9,6 +9,15 @@ const authService = {
   logout: () => api.post("/logout"),
 
   getMe: () => api.get("/me"),
+
+  updateProfile: (payload: { name: string; phone?: string | null; address?: string | null }) =>
+    api.put("/profile", payload),
+
+  changePassword: (payload: {
+    current_password: string;
+    password: string;
+    password_confirmation: string;
+  }) => api.put("/profile/password", payload),
 };
 
 export default authService;

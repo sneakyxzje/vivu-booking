@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { MyBookingsTab } from "@/components/profile/MyBookingsTab";
 import bookingService from "@/services/bookingService";
+import authService from "@/services/authService";
 import type { Booking } from "@/types";
 import {
   User,
@@ -64,10 +65,29 @@ export const Profile: React.FC = () => {
   const [profileName, setProfileName] = useState(user?.name || "");
   const [profilePhone, setProfilePhone] = useState(user?.phone || "");
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const handleUpdateProfile = (e: React.FormEvent) => {
+  // Password Change State
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+
+  const extractApiError = (err: unknown, fallback: string) => {
+    const response = (err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }).response?.data;
+    return response?.errors ? Object.values(response.errors).flat()[0] ?? fallback : response?.message ?? fallback;
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (user) {
+    if (!user) return;
+    setSaving(true);
+    setSaveError("");
+    try {
+      await authService.updateProfile({ name: profileName, phone: profilePhone || null });
       updateUser({
         ...user,
         name: profileName,
@@ -75,6 +95,32 @@ export const Profile: React.FC = () => {
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      setSaveError(extractApiError(err, "Không thể cập nhật hồ sơ. Vui lòng thử lại."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordSaving(true);
+    setPasswordError("");
+    try {
+      await authService.changePassword({
+        current_password: currentPassword,
+        password: newPassword,
+        password_confirmation: confirmPassword,
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordSuccess(true);
+      setTimeout(() => setPasswordSuccess(false), 3000);
+    } catch (err) {
+      setPasswordError(extractApiError(err, "Không thể đổi mật khẩu. Vui lòng thử lại."));
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -230,6 +276,11 @@ export const Profile: React.FC = () => {
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Cập nhật thông tin cá nhân thành công!
                   </div>
                 )}
+                {saveError && (
+                  <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+                    {saveError}
+                  </div>
+                )}
 
                 <form onSubmit={handleUpdateProfile} className="space-y-6 max-w-xl">
                   <div className="space-y-2">
@@ -276,9 +327,10 @@ export const Profile: React.FC = () => {
 
                   <button
                     type="submit"
-                    className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-colors"
+                    disabled={saving}
+                    className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-colors disabled:opacity-50"
                   >
-                    Lưu thay đổi thông tin
+                    {saving ? "Đang lưu..." : "Lưu thay đổi thông tin"}
                   </button>
                 </form>
               </div>
@@ -294,12 +346,25 @@ export const Profile: React.FC = () => {
                   <p className="text-xs text-gray-500 mt-1">Đảm bảo an toàn cho tài khoản cá nhân của bạn</p>
                 </div>
 
-                <form className="space-y-5 max-w-xl" onSubmit={(e) => { e.preventDefault(); alert("Mật khẩu đã được cập nhật thành công!"); }}>
+                {passwordSuccess && (
+                  <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Đổi mật khẩu thành công!
+                  </div>
+                )}
+                {passwordError && (
+                  <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+                    {passwordError}
+                  </div>
+                )}
+
+                <form className="space-y-5 max-w-xl" onSubmit={handleChangePassword}>
                   <div className="space-y-2">
                     <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">Mật khẩu hiện tại</label>
                     <input
                       type="password"
                       placeholder="••••••••"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                       required
                     />
@@ -309,7 +374,10 @@ export const Profile: React.FC = () => {
                     <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">Mật khẩu mới</label>
                     <input
                       type="password"
-                      placeholder="••••••••"
+                      placeholder="Tối thiểu 6 ký tự"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      minLength={6}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                       required
                     />
@@ -319,7 +387,10 @@ export const Profile: React.FC = () => {
                     <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">Xác nhận mật khẩu mới</label>
                     <input
                       type="password"
-                      placeholder="••••••••"
+                      placeholder="Nhập lại mật khẩu mới"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      minLength={6}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
                       required
                     />
@@ -327,9 +398,10 @@ export const Profile: React.FC = () => {
 
                   <button
                     type="submit"
-                    className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-colors"
+                    disabled={passwordSaving}
+                    className="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-colors disabled:opacity-50"
                   >
-                    Cập nhật mật khẩu mới
+                    {passwordSaving ? "Đang cập nhật..." : "Cập nhật mật khẩu mới"}
                   </button>
                 </form>
               </div>
