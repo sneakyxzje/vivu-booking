@@ -105,22 +105,34 @@ class TourController extends Controller
             $query->where('adult_price', '<=', $filters['max_price']);
         }
 
-        if (isset($filters['min_rating']) && (float) $filters['min_rating'] > 0) {
-            // Rating thật chưa được lưu aggregate trong DB, giữ tham số để frontend/backlog không vỡ luồng.
-        }
-
         match ($filters['sort'] ?? 'featured') {
             'price_asc' => $query->orderBy('adult_price')->orderByDesc('created_at'),
             'price_desc' => $query->orderByDesc('adult_price')->orderByDesc('created_at'),
             'newest' => $query->latest(),
-            'rating' => $query->orderByDesc('is_featured')->latest(),
             default => $query->orderByDesc('is_featured')->latest(),
         };
+
+        $tours = $query->get();
+
+        // Lọc và sắp xếp theo điểm đánh giá thật (tính từ withAvg phía trên),
+        // xử lý bằng PHP để đồng nhất trên cả SQLite lẫn MySQL.
+        if (isset($filters['min_rating']) && (float) $filters['min_rating'] > 0) {
+            $minRating = (float) $filters['min_rating'];
+            $tours = $tours
+                ->filter(fn ($tour) => (float) ($tour->rating ?? 0) >= $minRating)
+                ->values();
+        }
+
+        if (($filters['sort'] ?? '') === 'rating') {
+            $tours = $tours
+                ->sortByDesc(fn ($tour) => (float) ($tour->rating ?? 0))
+                ->values();
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Lấy danh sách tour thành công',
-            'data' => TourResource::collection($query->get()),
+            'data' => TourResource::collection($tours),
         ]);
     }
 
