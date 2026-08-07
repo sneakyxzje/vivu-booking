@@ -100,13 +100,11 @@ export const Footer: React.FC = () => {
             Bản quyền &copy; {new Date().getFullYear()} thuộc về Vivu Booking
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500">Thanh toán an toàn</span>
-            {/* Payment methods placeholder */}
-            <div className="flex gap-2">
-              <div className="w-10 h-6 bg-gray-200 rounded"></div>
-              <div className="w-10 h-6 bg-gray-200 rounded"></div>
-              <div className="w-10 h-6 bg-gray-200 rounded"></div>
-            </div>
+            <span className="text-sm text-gray-500">Thanh toán an toàn qua</span>
+            <span className="inline-flex items-center rounded border border-gray-200 bg-white px-2.5 py-1 text-xs font-bold">
+              <span className="text-[#005baa]">VN</span>
+              <span className="text-[#ed1c24]">PAY</span>
+            </span>
           </div>
         </div>
       </div>

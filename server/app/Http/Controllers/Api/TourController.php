@@ -150,7 +150,8 @@ class TourController extends Controller
             'services',
             'images',
             'itineraries',
-            'schedules'
+            'schedules',
+            'schedules.guide:id,name',
         ])
             ->withAvg('reviews as rating', 'rating')
             ->withCount('reviews')

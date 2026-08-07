@@ -206,15 +206,22 @@ export default function TourDetail() {
         {/* Rating and Quick Stats */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 text-sm text-gray-600 border-b border-gray-200/60 pb-6">
           <div className="flex items-center gap-1">
-            <span className="flex items-center text-amber-500">
-              <StarIcon className="w-4 h-4" />
-              <StarIcon className="w-4 h-4" />
-              <StarIcon className="w-4 h-4" />
-              <StarIcon className="w-4 h-4" />
-              <StarIcon className="w-4 h-4" />
-            </span>
-            <span className="font-bold text-gray-900 ml-1">5.0</span>
-            <span className="text-gray-400 font-mono">(42 đánh giá)</span>
+            {tour.rating != null && (tour.review_count ?? 0) > 0 ? (
+              <>
+                <span className="flex items-center text-amber-500">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <StarIcon
+                      key={star}
+                      className={`w-4 h-4 ${star <= Math.round(tour.rating ?? 0) ? "" : "opacity-25"}`}
+                    />
+                  ))}
+                </span>
+                <span className="font-bold text-gray-900 ml-1">{tour.rating}</span>
+                <span className="text-gray-400 font-mono">({tour.review_count} đánh giá)</span>
+              </>
+            ) : (
+              <span className="text-gray-400">Chưa có đánh giá</span>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">

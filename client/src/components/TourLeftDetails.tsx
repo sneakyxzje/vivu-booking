@@ -278,31 +278,39 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
         <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 font-plus-jakarta">
           Hướng dẫn viên đồng hành
         </h2>
-        <div className="flex flex-col sm:flex-row items-center gap-6 p-5 bg-primary-50/20 border border-primary-100/50 rounded-lg">
-          <div className="w-20 h-20 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-md">
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80"
-              alt="Tour Guide"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="flex-1 text-center sm:text-left">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-              <h4 className="font-bold text-gray-900 text-base">Trần Minh Quân</h4>
-              <span className="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-200 w-fit mx-auto sm:mx-0">
-                HDV Quốc Tế
-              </span>
+        {(() => {
+          const guide =
+            selectedSchedule?.guide ??
+            tour.schedules?.find((schedule) => schedule.guide)?.guide;
+
+          if (!guide) {
+            return (
+              <p className="text-sm text-gray-500">
+                Hướng dẫn viên sẽ được phân công và thông báo trước ngày khởi hành.
+              </p>
+            );
+          }
+
+          return (
+            <div className="flex flex-col sm:flex-row items-center gap-6 p-5 bg-primary-50/20 border border-primary-100/50 rounded-lg">
+              <div className="w-20 h-20 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-2xl font-bold shrink-0 border-2 border-white shadow-md">
+                {guide.name?.charAt(0)?.toUpperCase()}
+              </div>
+              <div className="flex-1 text-center sm:text-left">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                  <h4 className="font-bold text-gray-900 text-base">{guide.name}</h4>
+                  <span className="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-200 w-fit mx-auto sm:mx-0">
+                    Hướng dẫn viên Vivu Booking
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Đồng hành cùng đoàn trong suốt hành trình, hỗ trợ thủ tục, thuyết minh
+                  điểm đến và điểm danh tại từng chặng của chuyến đi.
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-gray-500 font-medium mb-3 flex items-center justify-center sm:justify-start gap-3 font-mono">
-              <span className="font-inter">★ 5.0 (24 bình luận)</span>
-              <span>• 5 năm kinh nghiệm</span>
-              <span>• Ngôn ngữ: Tiếng Việt, Tiếng Anh</span>
-            </p>
-            <p className="text-sm text-gray-600 italic leading-relaxed">
-              "Tôi sẽ cùng đồng hành với mọi người trong suốt chuyến hành trình này, chia sẻ những câu chuyện văn hóa lịch sử bản địa thú vị và sẵn sàng hỗ trợ đoàn bất kỳ lúc nào."
-            </p>
-          </div>
-        </div>
+          );
+        })()}
       </div>
 
       {/* Lịch trình (Accordion) */}
