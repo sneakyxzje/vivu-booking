@@ -71,6 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::put('/profile', [UserController::class, 'updateProfile']);
+    Route::put('/profile/password', [UserController::class, 'changePassword']);
 
     // Đánh giá tour (mọi user đã đăng nhập)
     Route::post('/reviews', [ReviewController::class, 'store']);
