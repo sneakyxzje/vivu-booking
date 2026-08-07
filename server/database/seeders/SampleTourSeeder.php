@@ -25,6 +25,8 @@ class SampleTourSeeder extends Seeder
             return;
         }
 
+        $guide = User::query()->where('role', 'guide')->first();
+
         $categories = collect([
             ['name' => 'Biển đảo', 'slug' => 'bien-dao'],
             ['name' => 'Nghỉ dưỡng', 'slug' => 'nghi-duong'],
@@ -63,6 +65,8 @@ class SampleTourSeeder extends Seeder
                 'number_of_nights' => 2,
                 'start_location' => 'Hà Nội',
                 'end_location' => 'Hạ Long',
+                'vehicle_info' => 'Xe giường nằm 34 chỗ đời mới, có wifi và nước uống',
+                'pickup_location' => 'Nhà hát Lớn Hà Nội - Số 1 Tràng Tiền, Hoàn Kiếm (có mặt trước giờ khởi hành 30 phút)',
                 'is_featured' => true,
                 'status' => 'active',
                 'categories' => ['bien-dao', 'nghi-duong'],
@@ -77,8 +81,8 @@ class SampleTourSeeder extends Seeder
                     ['day_number' => 3, 'title' => 'Trả phòng', 'content' => 'Ăn sáng, trả phòng và quay về Hà Nội.'],
                 ],
                 'schedules' => [
-                    ['start_date' => now()->addDays(7)->toDateString(), 'max_people' => 20],
-                    ['start_date' => now()->addDays(14)->toDateString(), 'max_people' => 20],
+                    ['start_date' => now()->addDays(7)->setTime(5, 30)->format('Y-m-d H:i:s'), 'max_people' => 20],
+                    ['start_date' => now()->addDays(14)->setTime(5, 30)->format('Y-m-d H:i:s'), 'max_people' => 20],
                 ],
             ],
             [
@@ -95,6 +99,8 @@ class SampleTourSeeder extends Seeder
                 'number_of_nights' => 3,
                 'start_location' => 'TP. Hồ Chí Minh',
                 'end_location' => 'Đà Nẵng',
+                'vehicle_info' => 'Vé máy bay khứ hồi + xe du lịch 29 chỗ tại điểm đến',
+                'pickup_location' => 'Ga quốc nội, sân bay Tân Sơn Nhất - Cột số 9 (tập trung trước giờ bay 2 tiếng)',
                 'is_featured' => false,
                 'status' => 'active',
                 'categories' => ['nghi-duong', 'kham-pha'],
@@ -110,12 +116,12 @@ class SampleTourSeeder extends Seeder
                     ['day_number' => 4, 'title' => 'Kết thúc', 'content' => 'Ăn sáng, trả phòng và di chuyển về.'],
                 ],
                 'schedules' => [
-                    ['start_date' => now()->addDays(10)->toDateString(), 'max_people' => 25],
+                    ['start_date' => now()->addDays(10)->setTime(8, 0)->format('Y-m-d H:i:s'), 'max_people' => 25],
                 ],
             ],
         ];
 
-        DB::transaction(function () use ($admin, $categories, $services, $tours) {
+        DB::transaction(function () use ($admin, $guide, $categories, $services, $tours) {
             foreach ($tours as $tourData) {
                 $tour = Tour::query()->updateOrCreate(
                     ['slug' => $tourData['slug']],
@@ -133,6 +139,8 @@ class SampleTourSeeder extends Seeder
                         'number_of_nights' => $tourData['number_of_nights'],
                         'start_location' => $tourData['start_location'],
                         'end_location' => $tourData['end_location'],
+                        'vehicle_info' => $tourData['vehicle_info'],
+                        'pickup_location' => $tourData['pickup_location'],
                         'is_featured' => $tourData['is_featured'],
                         'status' => $tourData['status'],
                     ]
@@ -161,6 +169,7 @@ class SampleTourSeeder extends Seeder
                 foreach ($tourData['schedules'] as $item) {
                     $tour->schedules()->create([
                         'start_date' => $item['start_date'],
+                        'guide_id' => $guide?->id,
                         'max_people' => $item['max_people'],
                         'booked_people' => 0,
                         'status' => 'active',
