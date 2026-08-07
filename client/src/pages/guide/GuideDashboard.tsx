@@ -79,7 +79,7 @@ export const GuideDashboard: React.FC = () => {
     {
       label: "Doanh thu",
       value: formatPrice(stats.revenue),
-      sub: "Tháng này (ước tính)",
+      sub: "Từ các đơn đã xác nhận",
       color: "bg-emerald-50 text-emerald-600",
       isPrice: true,
     },
