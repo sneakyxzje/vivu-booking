@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import tourService from "@/services/tourService";
+import api from "@/services/api";
 import type { Tour } from "@/types";
 import { TourCard } from "@/components/TourCard";
 
@@ -204,6 +205,24 @@ export const Home: React.FC = () => {
   const [searchStart, setSearchStart] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedDuration, setSelectedDuration] = useState<string>("all");
+
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
+  const [newsletterDone, setNewsletterDone] = useState(false);
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newsletterEmail.trim()) return;
+    setNewsletterSubmitting(true);
+    try {
+      await api.post("/newsletter", { email: newsletterEmail.trim() });
+      setNewsletterDone(true);
+    } catch {
+      setNewsletterDone(false);
+    } finally {
+      setNewsletterSubmitting(false);
+    }
+  };
 
   const [filteredTours, setFilteredTours] = useState<Tour[]>([]);
 
@@ -607,26 +626,32 @@ export const Home: React.FC = () => {
             Chúng tôi sẽ gửi những kinh nghiệm du lịch bổ ích và thông tin
             khuyến mãi hấp dẫn mỗi tuần. Không spam, hủy bất kỳ lúc nào!
           </p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              alert("Đăng ký thành công!");
-            }}
-            className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto w-full"
-          >
-            <input
-              type="email"
-              required
-              placeholder="Nhập địa chỉ email của bạn..."
-              className="bg-gray-50 border border-gray-200 px-5 py-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white w-full text-gray-800 placeholder-gray-400 font-medium"
-            />
-            <button
-              type="submit"
-              className="bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm px-6 py-3 rounded-lg whitespace-nowrap shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
+          {newsletterDone ? (
+            <div className="max-w-md mx-auto w-full p-4 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-sm font-semibold">
+              Đăng ký nhận bản tin thành công. Cảm ơn bạn!
+            </div>
+          ) : (
+            <form
+              onSubmit={handleNewsletterSubmit}
+              className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto w-full"
             >
-              Đăng ký ngay
-            </button>
-          </form>
+              <input
+                type="email"
+                required
+                value={newsletterEmail}
+                onChange={(e) => setNewsletterEmail(e.target.value)}
+                placeholder="Nhập địa chỉ email của bạn..."
+                className="bg-gray-50 border border-gray-200 px-5 py-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white w-full text-gray-800 placeholder-gray-400 font-medium"
+              />
+              <button
+                type="submit"
+                disabled={newsletterSubmitting}
+                className="bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm px-6 py-3 rounded-lg whitespace-nowrap shadow-md transition-all cursor-pointer disabled:opacity-50"
+              >
+                {newsletterSubmitting ? "Đang đăng ký..." : "Đăng ký ngay"}
+              </button>
+            </form>
+          )}
         </div>
       </section>
     </div>

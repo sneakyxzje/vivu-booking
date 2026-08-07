@@ -59,6 +59,16 @@ Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']
 Route::post('/discount-codes/validate', [DiscountCodeController::class, 'validateCode']);
 Route::get('/vnpay/return', [CustomerBookingController::class, 'vnpayReturn']);
 Route::get('/reviews/{tour}', [ReviewController::class,'index']);
+Route::post('/newsletter', function (\Illuminate\Http\Request $request) {
+    $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
+
+    \App\Models\NewsletterSubscriber::query()->firstOrCreate(['email' => $validated['email']]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Đăng ký nhận bản tin thành công.',
+    ]);
+});
 
 /*
 |--------------------------------------------------------------------------
