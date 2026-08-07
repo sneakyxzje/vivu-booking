@@ -74,6 +74,7 @@ class AdminBookingActionsTest extends TestCase
 
     public function test_admin_xac_nhan_don_pending(): void
     {
+        Mail::fake();
         $don = $this->taoLichVaDon(maxPeople: 5, guests: 2, status: 'pending');
         Sanctum::actingAs($this->taoUser('admin'));
 
@@ -84,6 +85,11 @@ class AdminBookingActionsTest extends TestCase
         $don->refresh();
         $this->assertNull($don->expires_at);
         $this->assertNotNull($don->confirmed_at);
+
+        Mail::assertSent(
+            \App\Mail\BookingConfirmedMail::class,
+            fn (\App\Mail\BookingConfirmedMail $mail) => $mail->hasTo($don->customer_email)
+        );
     }
 
     public function test_admin_huy_don_confirmed_va_tra_lai_cho(): void

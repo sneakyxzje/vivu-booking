@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Api\Guide;
 
 use App\Http\Controllers\Controller;
+use App\Mail\BookingConfirmedMail;
 use App\Models\Booking;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 class BookingController extends Controller
 {
@@ -63,7 +67,20 @@ class BookingController extends Controller
         $booking->update([
             'status' => 'confirmed',
             'confirmed_at' => now(),
+            'expires_at' => null,
         ]);
+
+        app()->terminating(function () use ($booking) {
+            try {
+                Mail::to($booking->customer_email)->send(new BookingConfirmedMail($booking->fresh(['tour', 'schedule'])));
+            } catch (Throwable $exception) {
+                Log::warning('Không gửi được email xác nhận đặt chỗ.', [
+                    'booking_id' => $booking->id,
+                    'customer_email' => $booking->customer_email,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        });
 
         return response()->json([
             'success' => true,
