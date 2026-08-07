@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TourResource;
 use App\Http\Resources\UserResource;
+use App\Models\Booking;
 use App\Models\Category;
 use App\Models\Service;
 use App\Models\Tour;
@@ -69,8 +70,76 @@ class AdminController extends Controller
             ->limit(5)
             ->get();
 
+        // Thống kê booking/doanh thu: gom một lần rồi tính bằng PHP
+        // để chạy đồng nhất trên cả SQLite (dev) lẫn MySQL (production).
+        $allBookings = Booking::query()
+            ->with('tour:id,title,start_location')
+            ->get(['id', 'tour_id', 'customer_name', 'guests', 'total_amount', 'status', 'created_at']);
+
+        $confirmedBookings = $allBookings->where('status', 'confirmed');
+        $totalCapacity = (int) TourSchedule::sum('max_people');
+
+        $bookingSummary = [
+            'total_bookings' => $allBookings->count(),
+            'pending_bookings' => $allBookings->where('status', 'pending')->count(),
+            'confirmed_bookings' => $confirmedBookings->count(),
+            'cancelled_bookings' => $allBookings->where('status', 'cancelled')->count(),
+            'total_revenue' => (float) $confirmedBookings->sum('total_amount'),
+            'revenue_this_month' => (float) $confirmedBookings
+                ->filter(fn ($booking) => $booking->created_at?->greaterThanOrEqualTo(now()->startOfMonth()))
+                ->sum('total_amount'),
+            'new_customers_this_month' => User::where('role', 'customer')
+                ->where('created_at', '>=', now()->startOfMonth())
+                ->count(),
+            'occupancy_rate' => $totalCapacity > 0
+                ? round($summary['total_booked_slots'] / $totalCapacity * 100, 1)
+                : 0.0,
+        ];
+
+        $currentYear = now()->year;
+        $confirmedThisYear = $confirmedBookings
+            ->filter(fn ($booking) => (int) $booking->created_at?->year === $currentYear);
+
+        $monthlyPerformance = collect(range(1, 12))->map(function (int $month) use ($confirmedThisYear) {
+            $inMonth = $confirmedThisYear
+                ->filter(fn ($booking) => (int) $booking->created_at?->month === $month);
+
+            return [
+                'name' => 'T' . $month,
+                'revenue' => round((float) $inMonth->sum('total_amount') / 1_000_000, 1),
+                'bookings' => $inMonth->count(),
+            ];
+        })->values();
+
+        $destinations = $confirmedBookings
+            ->groupBy(fn ($booking) => $booking->tour?->start_location ?? 'Khác')
+            ->map(fn ($group, $location) => [
+                'name' => $location,
+                'value' => (int) $group->sum('guests'),
+            ])
+            ->sortByDesc('value')
+            ->take(6)
+            ->values();
+
+        $recentBookings = $allBookings
+            ->sortByDesc('created_at')
+            ->take(6)
+            ->map(fn ($booking) => [
+                'id' => $booking->id,
+                'customer' => $booking->customer_name,
+                'tour' => $booking->tour?->title ?? 'Tour #' . $booking->tour_id,
+                'price' => (float) $booking->total_amount,
+                'status' => $booking->status,
+                'date' => $booking->created_at?->toIso8601String(),
+            ])
+            ->values();
+
         return $this->success([
             'summary' => $summary,
+            'booking_summary' => $bookingSummary,
+            'monthly_performance' => $monthlyPerformance,
+            'destinations' => $destinations,
+            'recent_bookings' => $recentBookings,
             'top_selling_tours' => TourResource::collection($topSellingTours),
             'recent_full_tours' => TourResource::collection($recentFullTours),
             'recent_users' => UserResource::collection($recentUsers),
