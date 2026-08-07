@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SampleTourSeeder::class,
             ReviewSeeder::class,
+            DemoBookingSeeder::class,
         ]);
     }
 }
