@@ -328,6 +328,12 @@ export default function AdminTourDetail() {
                         : "Xác nhận"}
                     </button>
                   </div>
+                  <Link
+                    to={`/admin/tour-schedules/${schedule.id}/attendance`}
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:underline"
+                  >
+                    Xem điểm danh & ảnh check-in →
+                  </Link>
                 </div>
               </div>
             ))}

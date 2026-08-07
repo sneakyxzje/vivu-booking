@@ -139,6 +139,12 @@ const adminService = {
     return response.data?.success !== false;
   },
 
+  // --- ATTENDANCE (xem lại điểm danh của guide) ---
+  getScheduleAttendance: async (scheduleId: number) => {
+    const response = await api.get(`/admin/tour-schedules/${scheduleId}/attendance`);
+    return response.data?.data ?? null;
+  },
+
   // --- ASSIGN GUIDE TO SCHEDULE ---
   assignGuideToSchedule: async (scheduleId: number, guideId: number | null) => {
     const response = await api.put(`/admin/tour-schedules/${scheduleId}/assign-guide`, {
