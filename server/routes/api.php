@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\Admin\AdminTourController;
 use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
+use App\Http\Controllers\Api\Admin\AdminAttendanceController;
 use App\Http\Controllers\Api\Admin\AdminServiceController;
 
 /*
@@ -131,6 +132,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/tours/{id}', [AdminTourController::class, 'update']);
         Route::get('/available-guides', [AdminTourController::class, 'availableGuides']);
         Route::put('/tour-schedules/{id}/assign-guide', [AdminTourController::class, 'assignScheduleGuide']);
+        Route::get('/tour-schedules/{id}/attendance', [AdminAttendanceController::class, 'show']);
 
         Route::apiResource('guides', AdminGuideController::class);
 
