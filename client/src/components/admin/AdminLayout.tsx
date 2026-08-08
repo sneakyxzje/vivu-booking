@@ -147,7 +147,7 @@ export const AdminLayout: React.FC = () => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 transition-transform duration-300 ease-in-out md:static md:translate-x-0 shrink-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 transition-transform duration-300 ease-in-out shrink-0 md:sticky md:top-0 md:bottom-auto md:h-screen md:self-start md:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
       >
         <div className="p-5 border-b border-slate-800 flex items-center justify-between">
@@ -214,7 +214,7 @@ export const AdminLayout: React.FC = () => {
       </aside>
 
       {/* Content Container */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
         <header className="sticky top-0 z-30 flex h-16 w-full shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6">
           {/* Left: Mobile hamburger menu & page title info */}
@@ -312,12 +312,10 @@ export const AdminLayout: React.FC = () => {
           </div>
         </header>
 
-        {/* Main scrolling pane */}
-        <div className="flex-1 overflow-y-auto">
-          <main className="p-4 md:p-6 w-full">
-            <Outlet />
-          </main>
-        </div>
+        {/* Main content */}
+        <main className="flex-1 p-4 md:p-6 w-full">
+          <Outlet />
+        </main>
       </div>
     </div>
   );
