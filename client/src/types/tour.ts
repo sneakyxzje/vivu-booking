@@ -3,7 +3,16 @@ export interface Category {
   name: string;
   slug: string;
   icon?: string;
+  description?: string | null;
   is_active?: boolean;
+  tours_count?: number;
+}
+
+// Payload dùng cho form Admin tạo/sửa danh mục tour
+export interface CategoryPayload {
+  name: string;
+  description?: string;
+  is_active: boolean;
 }
 
 export interface Service {
