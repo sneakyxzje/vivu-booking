@@ -225,7 +225,19 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
         {/* Thông tin xe đi kèm */}
         {tour.vehicle_info && (
           <div className="mb-4 flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-100 rounded-lg">
-            <span className="text-xl shrink-0">🚌</span>
+            <svg
+              className="w-5 h-5 shrink-0 text-amber-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+              />
+            </svg>
             <div>
               <p className="text-xs font-bold uppercase text-amber-600 tracking-wide">Phương tiện di chuyển</p>
               <p className="text-sm font-semibold text-gray-800 mt-0.5">{tour.vehicle_info}</p>
@@ -241,11 +253,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
                 className="flex items-start gap-3.5 p-3.5 bg-gray-50 border border-gray-100 rounded-lg hover:bg-primary-50/20 transition-all duration-300 group"
               >
                 <div className="p-2 bg-white rounded-xl shadow-xs group-hover:scale-105 transition-transform duration-300 shrink-0">
-                  {service.icon ? (
-                    <span className="text-xl leading-none">{service.icon}</span>
-                  ) : (
-                    getServiceIcon(service.name)
-                  )}
+                  {getServiceIcon(service.name)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-gray-800">

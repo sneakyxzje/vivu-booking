@@ -71,7 +71,7 @@ export const TourCard: React.FC<TourCardProps> = ({ tour }) => {
         <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
           {tour.is_featured && (
             <span className="bg-amber-500 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg shadow-md">
-              ★ Bán chạy
+              Bán chạy
             </span>
           )}
         </div>
@@ -117,7 +117,7 @@ export const TourCard: React.FC<TourCardProps> = ({ tour }) => {
                 key={srv.id}
                 className="bg-gray-100 text-gray-600 text-[10px] font-medium px-2 py-0.5 rounded-md"
               >
-                ✓ {srv.name}
+                {srv.name}
               </span>
             ))}
             {tour.services.length > 2 && (

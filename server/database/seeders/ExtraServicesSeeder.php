@@ -15,56 +15,48 @@ class ExtraServicesSeeder extends Seeder
         $services = [
             [
                 'name'        => 'Khách sạn 3 sao',
-                'icon'        => '🏨',
                 'description' => 'Phòng nghỉ khách sạn 3 sao tiêu chuẩn, điều hòa, wifi, buffet sáng.',
                 'price'       => 500000,
                 'is_active'   => true,
             ],
             [
                 'name'        => 'Khách sạn 4 sao',
-                'icon'        => '🏩',
                 'description' => 'Phòng nghỉ khách sạn 4 sao cao cấp, hồ bơi, spa, breakfast.',
                 'price'       => 900000,
                 'is_active'   => true,
             ],
             [
                 'name'        => 'Ăn uống (3 bữa/ngày)',
-                'icon'        => '🍽️',
                 'description' => 'Bữa ăn đặc sản địa phương theo tiêu chuẩn tour, đã bao gồm trong giá.',
                 'price'       => null, // Bao gồm trong giá tour
                 'is_active'   => true,
             ],
             [
                 'name'        => 'Bảo hiểm du lịch',
-                'icon'        => '🛡️',
                 'description' => 'Bảo hiểm tai nạn và y tế trong suốt hành trình tour.',
                 'price'       => 50000,
                 'is_active'   => true,
             ],
             [
                 'name'        => 'Hướng dẫn viên chuyên nghiệp',
-                'icon'        => '👤',
                 'description' => 'HDV có kinh nghiệm, am hiểu văn hóa và địa danh du lịch.',
                 'price'       => null, // Bao gồm trong giá tour
                 'is_active'   => true,
             ],
             [
                 'name'        => 'Vé tham quan danh lam',
-                'icon'        => '🎫',
                 'description' => 'Phí vào cổng các điểm tham quan theo lịch trình tour.',
                 'price'       => null, // Bao gồm trong giá tour
                 'is_active'   => true,
             ],
             [
                 'name'        => 'Nước uống & snack trên xe',
-                'icon'        => '🧃',
                 'description' => 'Nước uống đóng chai và bánh snack phục vụ trên xe trong hành trình.',
                 'price'       => null,
                 'is_active'   => true,
             ],
             [
                 'name'        => 'Thuê xe đạp / xe điện',
-                'icon'        => '🚲',
                 'description' => 'Dịch vụ thuê xe đạp hoặc xe điện khám phá tại điểm đến.',
                 'price'       => 80000,
                 'is_active'   => true,
@@ -79,6 +71,6 @@ class ExtraServicesSeeder extends Seeder
             );
         }
 
-        $this->command->info('✅ Đã tạo ' . count($services) . ' dịch vụ phát sinh mẫu.');
+        $this->command->info('Đã tạo ' . count($services) . ' dịch vụ phát sinh mẫu.');
     }
 }

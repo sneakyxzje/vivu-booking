@@ -2,7 +2,6 @@ export interface Category {
   id: number;
   name: string;
   slug: string;
-  icon?: string;
   description?: string | null;
   is_active?: boolean;
   tours_count?: number;
@@ -18,7 +17,6 @@ export interface CategoryPayload {
 export interface Service {
   id: number;
   name: string;
-  icon?: string;
   description?: string | null;
   price?: number | null;
   is_active?: boolean;
@@ -28,7 +26,6 @@ export interface Service {
 // Payload dùng cho form Admin tạo/sửa dịch vụ
 export interface ServicePayload {
   name: string;
-  icon?: string;
   description?: string;
   price?: number | null;
   is_active: boolean;
