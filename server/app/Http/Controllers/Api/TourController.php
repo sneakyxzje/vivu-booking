@@ -55,18 +55,12 @@ class TourController extends Controller
                 ]);
             }
 
+            // Chỉ tìm theo tên tour và điểm đi/đến (đúng như gợi ý của ô tìm kiếm).
+            // Không quét mô tả, danh mục hay dịch vụ vì gõ "ăn sáng" sẽ ra gần hết tour.
             $query->where(function ($builder) use ($keyword) {
                 $builder->where('title', 'like', "%{$keyword}%")
-                    ->orWhere('description', 'like', "%{$keyword}%")
                     ->orWhere('start_location', 'like', "%{$keyword}%")
-                    ->orWhere('end_location', 'like', "%{$keyword}%")
-                    ->orWhereHas('categories', function ($categoryQuery) use ($keyword) {
-                        $categoryQuery->where('name', 'like', "%{$keyword}%")
-                            ->orWhere('slug', 'like', "%{$keyword}%");
-                    })
-                    ->orWhereHas('services', function ($serviceQuery) use ($keyword) {
-                        $serviceQuery->where('name', 'like', "%{$keyword}%");
-                    });
+                    ->orWhere('end_location', 'like', "%{$keyword}%");
             });
         }
 
