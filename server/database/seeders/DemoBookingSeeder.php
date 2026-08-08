@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Booking;
 use App\Models\BookingCheckin;
+use App\Models\DiscountCode;
 use App\Models\Tour;
 use App\Models\TourSchedule;
 use App\Models\User;
@@ -39,6 +40,22 @@ class DemoBookingSeeder extends Seeder
         }
 
         $guide = User::query()->where('role', 'guide')->first();
+
+        // Mã giảm giá khớp với banner "giảm 15% cho lần đặt tour đầu tiên" trên trang chủ
+        DiscountCode::query()->updateOrCreate(
+            ['code' => 'WELCOME15'],
+            [
+                'name' => 'Ưu đãi lần đặt tour đầu tiên',
+                'type' => 'percent',
+                'value' => 15,
+                'minimum_order_amount' => 1000000,
+                'max_discount_amount' => 1000000,
+                'usage_limit' => 100,
+                'starts_at' => now()->subDay(),
+                'expires_at' => now()->addMonths(3),
+                'is_active' => true,
+            ]
+        );
 
         // Xóa dữ liệu demo cũ để seed lại được nhiều lần
         Booking::query()->where('note', 'like', '[demo]%')->delete();

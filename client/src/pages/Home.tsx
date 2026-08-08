@@ -561,8 +561,8 @@ export const Home: React.FC = () => {
               cho lần đặt tour đầu tiên!
             </h2>
             <p className="text-blue-100 text-sm md:text-base font-light">
-              Đăng ký tài khoản Vivu Booking ngay hôm nay để nhận mã giảm giá và
-              cập nhật tin tức về các điểm đến tuyệt vời nhất.
+              Nhập mã <strong className="font-bold text-white">WELCOME15</strong> khi
+              đặt tour để được giảm 15% (tối đa 1.000.000đ cho đơn từ 1.000.000đ).
             </p>
           </div>
 
