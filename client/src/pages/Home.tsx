@@ -71,45 +71,14 @@ const BRAND_VALUES: BrandValue[] = [
   },
 ];
 
-// ── TESTIMONIALS CONFIG ─────────────────────────────────────────────────────────
+// ── TESTIMONIALS (đánh giá thật từ khách hàng, tải theo tour) ───────────────────
 
-interface Testimonial {
+interface HomeTestimonial {
   name: string;
   role: string;
-  avatar: string;
   stars: number;
   comment: string;
 }
-
-const TESTIMONIALS: Testimonial[] = [
-  {
-    name: "Nguyễn Văn Hùng",
-    role: "Du khách tự do",
-    avatar:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&h=150&q=80",
-    stars: 5,
-    comment:
-      "Chuyến đi Hạ Long vừa rồi thật tuyệt vời! Du thuyền sang trọng đúng chuẩn 5 sao, đội ngũ tư vấn hỗ trợ nhiệt tình từ lúc đặt vé đến khi kết thúc hành trình.",
-  },
-  {
-    name: "Trần Thị Lan Anh",
-    role: "Gia đình du lịch hè",
-    avatar:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
-    stars: 5,
-    comment:
-      "Đặt tour Đà Nẵng - Hội An cho cả gia đình thông qua Vivu Booking. Mức giá quá rẻ so với chất lượng khách sạn 4 sao nhận được. Hướng dẫn viên vui tính và am hiểu văn hóa.",
-  },
-  {
-    name: "Phạm Minh Tuấn",
-    role: "Phượt thủ chinh phục",
-    avatar:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
-    stars: 5,
-    comment:
-      "Mình đã đi tour Sa Pa 3 ngày của Vivu. Trải nghiệm leo Fansipan và ngắm thung lũng Mường Hoa sương mù phủ tuyệt đẹp. Quy trình đặt tour nhanh gọn và an toàn.",
-  },
-];
 
 // ── SECTION HEADING ─────────────────────────────────────────────────────────────
 
@@ -209,6 +178,49 @@ export const Home: React.FC = () => {
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterSubmitting, setNewsletterSubmitting] = useState(false);
   const [newsletterDone, setNewsletterDone] = useState(false);
+
+  const [testimonials, setTestimonials] = useState<HomeTestimonial[]>([]);
+
+  // Lấy các đánh giá thật (điểm cao nhất) từ những tour đã có nhận xét
+  useEffect(() => {
+    const reviewedTours = tours
+      .filter((tour) => (tour.review_count ?? 0) > 0)
+      .slice(0, 3);
+
+    if (reviewedTours.length === 0) return;
+
+    Promise.all(
+      reviewedTours.map(async (tour) => {
+        try {
+          const res = await tourService.getReviews(tour.id);
+          const list = Array.isArray(res) ? res : (res?.data ?? []);
+          return (list as Array<{ rating: number; comment: string; user?: { name?: string } }>)
+            .slice(0, 2)
+            .map((item) => ({
+              name: item.user?.name ?? "Khách hàng Vivu",
+              role: `Đã tham gia ${tour.title}`,
+              stars: Number(item.rating) || 5,
+              comment: item.comment,
+            }));
+        } catch {
+          return [];
+        }
+      }),
+    ).then((groups) => {
+      const seenNames = new Set<string>();
+      setTestimonials(
+        groups
+          .flat()
+          .sort((a, b) => b.stars - a.stars)
+          .filter((item) => {
+            if (seenNames.has(item.name)) return false;
+            seenNames.add(item.name);
+            return true;
+          })
+          .slice(0, 3),
+      );
+    });
+  }, [tours]);
 
   const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -571,47 +583,47 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* ── 6. TESTIMONIALS ─────────────────────────────────────────────────── */}
-      <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 mb-16">
-        <SectionHeading
-          title="Khách hàng nói gì về Vivu Booking"
-          subtitle="Những chia sẻ thực tế từ các lữ khách sau chuyến đi đầy cảm xúc"
-        />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {TESTIMONIALS.map((t, idx) => (
-            <div
-              key={idx}
-              className="bg-white rounded-xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300"
-            >
-              <div className="flex text-amber-400 gap-0.5 mb-4">
-                {Array.from({ length: t.stars }).map((_, i) => (
-                  <svg
-                    key={i}
-                    className="w-4 h-4 fill-current"
-                    viewBox="0 0 20 20"
-                  >
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                ))}
-              </div>
-              <p className="text-gray-600 text-sm italic leading-relaxed mb-6">
-                "{t.comment}"
-              </p>
-              <div className="flex items-center gap-3">
-                <img
-                  src={t.avatar}
-                  alt={t.name}
-                  className="w-10 h-10 rounded-full object-cover"
-                />
-                <div>
-                  <h4 className="font-bold text-gray-900 text-sm">{t.name}</h4>
-                  <p className="text-gray-400 text-xs">{t.role}</p>
+      {/* ── 6. TESTIMONIALS (đánh giá thật) ─────────────────────────────────── */}
+      {testimonials.length > 0 && (
+        <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 mb-16">
+          <SectionHeading
+            title="Khách hàng nói gì về Vivu Booking"
+            subtitle="Những chia sẻ thực tế từ các lữ khách sau chuyến đi đầy cảm xúc"
+          />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {testimonials.map((t, idx) => (
+              <div
+                key={idx}
+                className="bg-white rounded-xl p-8 border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300"
+              >
+                <div className="flex text-amber-400 gap-0.5 mb-4">
+                  {Array.from({ length: t.stars }).map((_, i) => (
+                    <svg
+                      key={i}
+                      className="w-4 h-4 fill-current"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  ))}
+                </div>
+                <p className="text-gray-600 text-sm italic leading-relaxed mb-6">
+                  "{t.comment}"
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold">
+                    {t.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-sm">{t.name}</h4>
+                    <p className="text-gray-400 text-xs">{t.role}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── 7. NEWSLETTER ───────────────────────────────────────────────────── */}
       <section className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">

@@ -81,12 +81,12 @@ export const Footer: React.FC = () => {
               </li>
               <li>
                 <div className="text-gray-500 text-sm mb-1">Email</div>
-                <div className="text-gray-800 font-medium">info@travel.com.vn</div>
+                <div className="text-gray-800 font-medium">info@vivubooking.vn</div>
               </li>
               <li>
                 <div className="text-gray-500 text-sm mb-1">Trụ sở chính</div>
                 <div className="text-gray-800 leading-relaxed">
-                  Kiều Mai
+                  Phố Kiều Mai, Phúc Diễn, Bắc Từ Liêm, Hà Nội
                 </div>
               </li>
             </ul>

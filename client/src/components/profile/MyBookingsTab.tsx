@@ -125,7 +125,6 @@ export const MyBookingsTab: React.FC = () => {
           { key: "all", label: "Tất cả tour" },
           { key: "confirmed", label: "Đã xác nhận" },
           { key: "pending", label: "Chờ thanh toán" },
-          { key: "completed", label: "Hoàn thành" },
           { key: "cancelled", label: "Đã hủy" },
         ].map((filter) => (
           <button

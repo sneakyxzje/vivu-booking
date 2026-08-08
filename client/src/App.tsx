@@ -31,6 +31,7 @@ import { CreateTourForm } from "@/pages/admin/create/CreateTourForm";
 import BookingTour from "@/pages/BookingTour";
 import BookingSuccess from "@/pages/BookingSuccess";
 import { Profile } from "@/pages/Profile";
+import InfoPage from "@/pages/InfoPage";
 
 const router = createBrowserRouter([
   // 1. NHÓM ROUTES CHO USER (Sử dụng Layout chung của User có Header/Footer)
@@ -60,6 +61,22 @@ const router = createBrowserRouter([
       {
         path: "/payment-result",
         element: <PaymentResult />,
+      },
+      {
+        path: "/about",
+        element: <InfoPage />,
+      },
+      {
+        path: "/terms",
+        element: <InfoPage />,
+      },
+      {
+        path: "/privacy",
+        element: <InfoPage />,
+      },
+      {
+        path: "/contact",
+        element: <InfoPage />,
       },
       {
         path: "/login",

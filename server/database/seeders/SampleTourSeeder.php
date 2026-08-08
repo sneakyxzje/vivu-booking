@@ -128,7 +128,7 @@ class SampleTourSeeder extends Seeder
                 'adult_price' => 1890000,
                 'child_price' => 1323000,
                 'infant_price' => 0,
-                'thumbnail' => 'https://images.unsplash.com/photo-1528127269322-539801943592',
+                'thumbnail' => 'https://images.unsplash.com/photo-1570366583862-f91883984fde',
                 'number_of_days' => 2,
                 'number_of_nights' => 1,
                 'start_location' => 'Hà Nội',
@@ -140,7 +140,7 @@ class SampleTourSeeder extends Seeder
                 'categories' => ['kham-pha'],
                 'services' => ['Xe đưa đón', 'Hướng dẫn viên', 'Ăn sáng'],
                 'images' => [
-                    'https://images.unsplash.com/photo-1528127269322-539801943592',
+                    'https://images.unsplash.com/photo-1570366583862-f91883984fde',
                 ],
                 'itineraries' => [
                     ['day_number' => 1, 'title' => 'Hà Nội - Sapa - Bản Cát Cát', 'start_point' => 'Hà Nội', 'end_point' => 'Sapa', 'route_points' => 'Lào Cai', 'content' => 'Di chuyển lên Sapa, nhận phòng, tham quan bản Cát Cát.'],
