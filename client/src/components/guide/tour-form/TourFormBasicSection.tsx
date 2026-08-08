@@ -91,7 +91,7 @@ export const TourFormBasicSection: React.FC<Props> = ({
       </div>
       <div>
         <label className={labelClass}>
-          Giá em bé (&lt; 5 tuổi) <span className="text-red-500">*</span>
+          Giá em bé (&lt; 2 tuổi) <span className="text-red-500">*</span>
         </label>
         <input
           name="infant_price"
