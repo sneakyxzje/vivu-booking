@@ -244,6 +244,16 @@ export default function BookingSuccess() {
           <div className="text-center md:text-right shrink-0">
             <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Mã booking</p>
             <p className="text-2xl font-bold text-primary-600 font-mono">BK{booking.id}</p>
+            {(booking.public_token || id) && (
+              <button
+                type="button"
+                onClick={() => navigator.clipboard?.writeText(String(booking.public_token ?? id))}
+                title="Sao chép mã tra cứu để xem lại đơn mà không cần đăng nhập"
+                className="mt-2 text-[11px] font-semibold text-gray-500 hover:text-primary-600 transition-colors"
+              >
+                Sao chép mã tra cứu
+              </button>
+            )}
           </div>
         </div>
 

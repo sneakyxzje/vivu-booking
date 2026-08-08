@@ -33,6 +33,7 @@ import BookingTour from "@/pages/BookingTour";
 import BookingSuccess from "@/pages/BookingSuccess";
 import { Profile } from "@/pages/Profile";
 import InfoPage from "@/pages/InfoPage";
+import { BookingLookup } from "@/pages/BookingLookup";
 
 const router = createBrowserRouter([
   // 1. NHÓM ROUTES CHO USER (Sử dụng Layout chung của User có Header/Footer)
@@ -62,6 +63,10 @@ const router = createBrowserRouter([
       {
         path: "/payment-result",
         element: <PaymentResult />,
+      },
+      {
+        path: "/tra-cuu-don",
+        element: <BookingLookup />,
       },
       {
         path: "/about",

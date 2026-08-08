@@ -85,9 +85,25 @@
                                 </p>
                             @endif
 
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 0;border-collapse:collapse;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;">
+                                <tr>
+                                    <td style="padding:14px 16px;">
+                                        <p style="margin:0 0 6px;font-size:13px;color:#6b7280;">
+                                            Ma tra cuu don hang (dung de tra cuu ma khong can dang nhap):
+                                        </p>
+                                        <p style="margin:0;font-family:Consolas,Menlo,monospace;font-size:15px;font-weight:700;color:#111827;word-break:break-all;">
+                                            {{ $booking->public_token }}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
                             <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#4b5563;">
-                                Quy khach co the xem lai phieu dat tour tai:
+                                Xem lai phieu dat tour:
                                 <a href="{{ $frontendBookingUrl }}" style="color:#0f766e;font-weight:700;">{{ $frontendBookingUrl }}</a>
+                                <br>
+                                Hoac nhap ma tra cuu tai:
+                                <a href="{{ $lookupUrl }}" style="color:#0f766e;font-weight:700;">{{ $lookupUrl }}</a>
                             </p>
                         </td>
                     </tr>
