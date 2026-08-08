@@ -1,6 +1,6 @@
 import api from "./api";
 import { extractObject } from "@/utils/apiHelpers";
-import type { Booking, Guide, Tour, DiscountCode, DiscountCodePayload, Service, ServicePayload } from "@/types";
+import type { Booking, Guide, Tour, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
 import { buildTourPayload } from "@/services/guideService";
 
 export interface PaginatedResponse<T> {
@@ -171,6 +171,27 @@ const adminService = {
 
   deleteService: async (id: number): Promise<boolean> => {
     const response = await api.delete(`/admin/services/${id}`);
+    return response.data?.success !== false;
+  },
+
+  // --- CATEGORIES (Danh mục tour) ---
+  getCategories: async (page = 1): Promise<PaginatedResponse<Category> | null> => {
+    const response = await api.get(`/admin/categories?page=${page}`);
+    return extractObject<PaginatedResponse<Category>>(response);
+  },
+
+  createCategory: async (payload: CategoryPayload): Promise<Category | null> => {
+    const response = await api.post("/admin/categories", payload);
+    return extractObject<Category>(response);
+  },
+
+  updateCategory: async (id: number, payload: Partial<CategoryPayload>): Promise<Category | null> => {
+    const response = await api.put(`/admin/categories/${id}`, payload);
+    return extractObject<Category>(response);
+  },
+
+  deleteCategory: async (id: number): Promise<boolean> => {
+    const response = await api.delete(`/admin/categories/${id}`);
     return response.data?.success !== false;
   },
 };

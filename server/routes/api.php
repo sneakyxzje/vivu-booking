@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
 use App\Http\Controllers\Api\Admin\AdminAttendanceController;
+use App\Http\Controllers\Api\Admin\AdminCategoryController;
 use App\Http\Controllers\Api\Admin\AdminServiceController;
 
 /*
@@ -144,6 +145,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Quản lý dịch vụ phát sinh (khách sạn, ăn uống, ...)
         Route::apiResource('services', AdminServiceController::class);
+
+        // Quản lý danh mục tour (biển đảo, nghỉ dưỡng, ...)
+        Route::apiResource('categories', AdminCategoryController::class);
     });
 });
 
