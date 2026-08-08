@@ -21,7 +21,7 @@ class BookingConfirmedMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Don dat tour #' . $this->booking->id . ' da duoc xac nhan - Vivu Booking',
+            subject: 'Đơn đặt tour #' . $this->booking->id . ' đã được xác nhận - Vivu Booking',
         );
     }
 
