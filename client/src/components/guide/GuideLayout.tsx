@@ -81,7 +81,7 @@ export const GuideLayout: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col">
+      <aside className="w-full md:w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col md:sticky md:top-0 md:h-screen md:self-start">
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <Link
             to="/"
@@ -165,11 +165,9 @@ export const GuideLayout: React.FC = () => {
       </aside>
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        <main className="md:p-6  w-full h-full ">
-          <Outlet />
-        </main>
-      </div>
+      <main className="flex-1 min-w-0 p-4 md:p-6 w-full">
+        <Outlet />
+      </main>
     </div>
   );
 };
