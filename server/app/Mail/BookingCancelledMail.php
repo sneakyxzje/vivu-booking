@@ -21,7 +21,7 @@ class BookingCancelledMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Don dat tour #' . $this->booking->id . ' da bi huy - Vivu Booking',
+            subject: 'Đơn đặt tour #' . $this->booking->id . ' đã được hủy - Vivu Booking',
         );
     }
 

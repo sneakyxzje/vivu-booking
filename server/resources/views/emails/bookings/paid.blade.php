@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Thanh toan thanh cong</title>
+    <title>Thanh toán thành công</title>
 </head>
 <body style="margin:0;background:#f6f8fb;font-family:Arial,Helvetica,sans-serif;color:#111827;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8fb;padding:24px 0;">
@@ -11,15 +11,15 @@
                 <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:640px;max-width:94%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
                     <tr>
                         <td style="background:#16a34a;padding:24px 28px;color:#ffffff;">
-                            <h1 style="margin:0;font-size:22px;line-height:1.35;">Thanh toan thanh cong</h1>
-                            <p style="margin:8px 0 0;font-size:14px;opacity:.92;">Booking #{{ $booking->id }} da duoc xac nhan</p>
+                            <h1 style="margin:0;font-size:22px;line-height:1.35;">Thanh toán thành công</h1>
+                            <p style="margin:8px 0 0;font-size:14px;opacity:.92;">Đơn đặt tour #{{ $booking->id }} đã được xác nhận</p>
                         </td>
                     </tr>
                     <tr>
                         <td style="padding:26px 28px;">
                             <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
-                                Xin chao <strong>{{ $booking->customer_name }}</strong>,
-                                Vivu Booking da ghi nhan thanh toan thanh cong cho don dat tour cua quy khach.
+                                Kính chào <strong>{{ $booking->customer_name }}</strong>,
+                                Vivu Booking đã ghi nhận thanh toán thành công cho đơn đặt tour của Quý khách. Chỗ của Quý khách đã được giữ chính thức.
                             </p>
 
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:18px 0;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
@@ -28,61 +28,60 @@
                                     <td style="padding:12px 14px;font-size:13px;font-weight:700;">{{ $booking->tour?->title ?? 'Tour #' . $booking->tour_id }}</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Ngay khoi hanh</td>
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Thời gian khởi hành</td>
                                     <td style="padding:12px 14px;font-size:13px;font-weight:700;">{{ \Carbon\Carbon::parse($booking->departure_date)->format('d/m/Y H:i') }}</td>
                                 </tr>
                                 @if($booking->tour?->pickup_location)
                                     <tr>
-                                        <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Diem don khach</td>
+                                        <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Điểm đón khách</td>
                                         <td style="padding:12px 14px;font-size:13px;font-weight:700;">{{ $booking->tour->pickup_location }}</td>
                                     </tr>
                                 @endif
                                 @if($booking->tour?->vehicle_info)
                                     <tr>
-                                        <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Phuong tien</td>
+                                        <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Phương tiện</td>
                                         <td style="padding:12px 14px;font-size:13px;">{{ $booking->tour->vehicle_info }}</td>
                                     </tr>
                                 @endif
                                 <tr>
-                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">So luong khach</td>
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Số lượng khách</td>
                                     <td style="padding:12px 14px;font-size:13px;">
-                                        {{ $booking->adult_count }} nguoi lon,
-                                        {{ $booking->child_count }} tre em,
-                                        {{ $booking->infant_count }} em be
-                                        <span style="color:#6b7280;">({{ $booking->guests }} khach)</span>
+                                        {{ $booking->adult_count }} người lớn,
+                                        {{ $booking->child_count }} trẻ em,
+                                        {{ $booking->infant_count }} em bé
+                                        <span style="color:#6b7280;">(tổng {{ $booking->guests }} khách)</span>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Ma giao dich VNPay</td>
-                                    <td style="padding:12px 14px;font-size:13px;font-weight:700;">{{ $booking->vnpay_transaction_no ?? 'Dang cap nhat' }}</td>
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Mã giao dịch VNPay</td>
+                                    <td style="padding:12px 14px;font-size:13px;font-weight:700;">{{ $booking->vnpay_transaction_no ?? 'Đang cập nhật' }}</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">So tien da thanh toan</td>
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Số tiền đã thanh toán</td>
                                     <td style="padding:12px 14px;font-size:18px;font-weight:800;color:#16a34a;">
-                                        {{ number_format((float) $booking->total_amount, 0, ',', '.') }} VND
+                                        {{ number_format((float) $booking->total_amount, 0, ',', '.') }} VNĐ
                                     </td>
                                 </tr>
                             </table>
 
                             <p style="margin:14px 0 0;font-size:13px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 14px;">
-                                Quy khach vui long co mat tai diem don truoc gio khoi hanh it nhat 30 phut
-                                va mang theo giay to tuy than. Huong dan vien se lien he truoc ngay di.
+                                Quý khách vui lòng có mặt tại điểm đón trước giờ khởi hành ít nhất 30 phút và mang theo giấy tờ tùy thân.
                             </p>
 
                             <p style="margin:22px 0;">
                                 <a href="{{ $frontendBookingUrl }}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 18px;border-radius:10px;">
-                                    Xem chi tiet booking
+                                    Xem chi tiết đơn hàng
                                 </a>
                             </p>
 
                             <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#4b5563;">
-                                Vui long luu email nay de doi chieu khi can ho tro.
+                                Vui lòng lưu email này để đối chiếu khi cần hỗ trợ.
                             </p>
                         </td>
                     </tr>
                     <tr>
                         <td style="padding:18px 28px;background:#f9fafb;color:#6b7280;font-size:12px;line-height:1.5;">
-                            Email nay duoc gui tu he thong Vivu Booking sau khi cong thanh toan xac nhan giao dich thanh cong.
+                            Email được gửi tự động từ hệ thống Vivu Booking. Mọi thắc mắc xin liên hệ tổng đài 1900 1234.
                         </td>
                     </tr>
                 </table>

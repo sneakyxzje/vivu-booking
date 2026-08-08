@@ -21,7 +21,7 @@ class BookingPaidMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Thanh toan thanh cong booking #' . $this->booking->id . ' - Vivu Booking',
+            subject: 'Thanh toán thành công đơn đặt tour #' . $this->booking->id . ' - Vivu Booking',
         );
     }
 
