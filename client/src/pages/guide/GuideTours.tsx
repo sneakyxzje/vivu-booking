@@ -157,7 +157,6 @@ export const GuideTours: React.FC = () => {
                               title={s.description ?? s.name}
                               className="inline-flex items-center gap-1 bg-primary-50 text-primary-700 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-primary-100"
                             >
-                              {s.icon && <span>{s.icon}</span>}
                               {s.name}
                             </span>
                           ))}
