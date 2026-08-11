@@ -35,3 +35,9 @@ export const formatDateTime = (d?: string | null) => {
 
   return `${formatDate(d)} ${time}`;
 };
+
+export const getEndDate = (startDate: string, numberOfDays: number) => {
+  const date = parseDate(startDate);
+  date.setDate(date.getDate() + Math.max(0, numberOfDays - 1));
+  return date.toLocaleDateString("vi-VN");
+};

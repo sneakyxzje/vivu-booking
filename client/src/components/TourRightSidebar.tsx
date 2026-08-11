@@ -34,6 +34,9 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
   const bookedPercent = selectedSchedule
     ? (selectedSchedule.booked_people / selectedSchedule.max_people) * 100
     : 0;
+  const isDeadlineOverdue = selectedSchedule?.booking_deadline
+    ? new Date(selectedSchedule.booking_deadline) < new Date()
+    : false;
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const sId = Number(e.target.value);
@@ -44,7 +47,7 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
   };
 
   const handleBooking = () => {
-    if (!selectedSchedule || availableSlots <= 0 || tour.status === "inactive") return;
+    if (!selectedSchedule || availableSlots <= 0 || tour.status === "inactive" || isDeadlineOverdue) return;
 
     const params = new URLSearchParams({
       schedule_id: String(selectedSchedule.id),
@@ -86,11 +89,16 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
                 onChange={handleSelectChange}
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-3.5 text-sm font-semibold text-gray-800 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all duration-300"
               >
-                {tour.schedules.map((schedule: any) => (
-                  <option key={schedule.id} value={schedule.id}>
-                    {formatDateTime(schedule.start_date)}
-                  </option>
-                ))}
+                {tour.schedules.map((schedule: any) => {
+                  const isExpired = schedule.booking_deadline
+                    ? new Date(schedule.booking_deadline) < new Date()
+                    : false;
+                  return (
+                    <option key={schedule.id} value={schedule.id}>
+                      {formatDateTime(schedule.start_date)}{isExpired ? " (Đã quá hạn)" : ""}
+                    </option>
+                  );
+                })}
               </select>
 
               {/* Progress Bar & Available slots info */}
@@ -116,6 +124,19 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
                   <div className="text-[10px] text-gray-400 font-mono">
                     Đã đặt: {selectedSchedule.booked_people} / {selectedSchedule.max_people} khách tối đa.
                   </div>
+
+                  {/* Booking Deadline */}
+                  <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-gray-500 font-medium">
+                    <span>Hạn chót đăng ký</span>
+                    <span className={`font-bold ${isDeadlineOverdue ? "text-red-600" : "text-gray-900"}`}>
+                      {selectedSchedule.booking_deadline ? formatDateTime(selectedSchedule.booking_deadline) : "Không giới hạn"}
+                    </span>
+                  </div>
+                  {isDeadlineOverdue && (
+                    <p className="mt-1 text-right text-[10px] font-bold uppercase text-red-650 animate-pulse">
+                      Đã quá hạn chốt nhận khách
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -128,7 +149,7 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
 
         {/* Book button */}
         <button
-          disabled={!selectedSchedule || availableSlots <= 0 || tour.status === "inactive"}
+          disabled={!selectedSchedule || availableSlots <= 0 || tour.status === "inactive" || isDeadlineOverdue}
           onClick={handleBooking}
           className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-4 rounded-xl shadow-md hover:shadow-lg transform active:scale-97 transition-all duration-300 disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none text-center block text-sm cursor-pointer"
         >
@@ -136,6 +157,8 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
             ? "Tạm hết lịch"
             : availableSlots <= 0
             ? "Đã hết chỗ"
+            : isDeadlineOverdue
+            ? "Đã quá hạn đăng ký"
             : "Đặt tour ngay"}
         </button>
 

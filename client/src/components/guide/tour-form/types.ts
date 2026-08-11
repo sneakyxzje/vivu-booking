@@ -20,6 +20,9 @@ export interface ScheduleFormItem {
   id?: number;
   start_date: string;
   max_people: string;
+  min_people: string;
+  booking_deadline: string;
+  status: string;
   guide_id: string;
 }
 
