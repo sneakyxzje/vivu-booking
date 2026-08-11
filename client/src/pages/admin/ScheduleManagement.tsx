@@ -8,6 +8,7 @@ import {
   Search,
   Filter,
   AlertTriangle,
+  RotateCcw,
 } from "lucide-react";
 import adminService from "@/services/adminService";
 import type { Tour, Guide, ExtendedSchedule } from "@/types";
@@ -23,7 +24,7 @@ export default function ScheduleManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
-  
+
   // State phân công Hướng dẫn viên
   const [assigningScheduleId, setAssigningScheduleId] = useState<number | null>(null);
   const [pendingGuideIds, setPendingGuideIds] = useState<Record<number, string>>({});
@@ -86,7 +87,7 @@ export default function ScheduleManagement() {
       const matchesSearch =
         schedule.tour_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         String(schedule.id).includes(searchQuery);
-      
+
       const status = schedule.status || "open";
       const matchesStatus =
         statusFilter === "all" ||
@@ -249,6 +250,21 @@ export default function ScheduleManagement() {
             <option value="completed">Đã hoàn thành</option>
             <option value="cancelled">Đã hủy</option>
           </select>
+
+          {(searchQuery !== "" || statusFilter !== "all") && (
+            <button
+              type="button"
+              title="Đặt lại bộ lọc"
+              onClick={() => {
+                setSearchQuery("");
+                setStatusFilter("all");
+                setCurrentPage(1);
+              }}
+              className="p-2 rounded-xl border border-gray-200 bg-white text-gray-400 hover:text-rose-500 hover:border-rose-300 hover:bg-rose-50 transition-all duration-150 cursor-pointer"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -382,7 +398,7 @@ export default function ScheduleManagement() {
                               status === "completed" ||
                               (pendingGuideIds[schedule.id] ??
                                 String(schedule.guide_id ?? "")) ===
-                                String(schedule.guide_id ?? "")
+                              String(schedule.guide_id ?? "")
                             }
                             onClick={() => {
                               const value =
@@ -401,9 +417,8 @@ export default function ScheduleManagement() {
                       <td className="py-4 px-5 whitespace-nowrap">
                         <div className="flex flex-col gap-1 items-start">
                           <span
-                            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                              statusClasses[status] || statusClasses.open
-                            }`}
+                            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusClasses[status] || statusClasses.open
+                              }`}
                           >
                             {statusLabel[status]}
                           </span>
@@ -522,17 +537,16 @@ export default function ScheduleManagement() {
                 >
                   Trước
                 </button>
-                
+
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <button
                     key={page}
                     type="button"
                     onClick={() => setCurrentPage(page)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer transition-all duration-150 ${
-                      page === currentPage
+                    className={`rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer transition-all duration-150 ${page === currentPage
                         ? "bg-primary-600 text-white shadow-xs"
                         : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                    }`}
+                      }`}
                   >
                     {page}
                   </button>
