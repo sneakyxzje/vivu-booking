@@ -127,6 +127,8 @@ class AdminTourController extends Controller
             'schedules' => ['nullable', 'array'],
             'schedules.*.start_date' => ['required_with:schedules', 'date', 'after_or_equal:today'],
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
+            'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
+            'schedules.*.booking_deadline' => ['nullable', 'date'],
             'schedules.*.guide_id' => ['nullable', 'exists:users,id'],
         ]);
 
@@ -194,12 +196,25 @@ class AdminTourController extends Controller
             }
 
             foreach ($schedules as $item) {
+                $startDate = Carbon::parse($item['start_date']);
+
+                // end_date tự tính: start + (number_of_days - 1) ngày
+                $endDate = $startDate->copy()->addDays(max(0, $numberOfDay - 1));
+
+                // booking_deadline: nếu không truyền thì mặc định start - 3 ngày
+                $bookingDeadline = isset($item['booking_deadline'])
+                    ? Carbon::parse($item['booking_deadline'])
+                    : $startDate->copy()->subDays(3);
+
                 $tour->schedules()->create([
-                    'start_date' => $item['start_date'],
-                    'guide_id' => $item['guide_id'] ?? null,
-                    'max_people' => $item['max_people'],
-                    'booked_people' => 0,
-                    'status' => 'active',
+                    'start_date'       => $startDate,
+                    'end_date'         => $endDate,
+                    'guide_id'         => $item['guide_id'] ?? null,
+                    'max_people'       => $item['max_people'],
+                    'min_people'       => $item['min_people'] ?? 1,
+                    'booking_deadline' => $bookingDeadline,
+                    'booked_people'    => 0,
+                    'status'           => 'open',
                 ]);
             }
 
