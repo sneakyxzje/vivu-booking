@@ -1,4 +1,5 @@
 import React from "react";
+import { CalendarDays, Clock, Users, UserRound, AlertTriangle } from "lucide-react";
 import type { Guide } from "@/types";
 import type { ScheduleFormItem } from "./types";
 
@@ -102,134 +103,191 @@ export const TourFormScheduleSection: React.FC<Props> = ({
           return (
             <div
               key={index}
-              className="relative rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-4"
+              className="relative rounded-2xl border border-gray-200 border-l-4 border-l-primary-600 bg-white shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
             >
-              {/* Top Row: Title and Delete Button */}
-              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                <span className="text-xs font-bold text-primary-700 font-mono">
-                  CHUYẾN KHỞI HÀNH #{index + 1}
-                </span>
+              {/* Card Header */}
+              <div className="flex items-center justify-between bg-slate-50 px-5 py-3 border-b border-gray-150">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-700 font-mono">
+                    {index + 1}
+                  </span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 font-mono">
+                    Chuyến khởi hành nâng cao
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={() => onRemove(index)}
                   disabled={items.length === 1}
-                  className="rounded-lg border border-gray-100 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+                  className="rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
                 >
                   Xóa chuyến
                 </button>
               </div>
 
-              {/* Form Grid */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <div>
-                  <label className={labelClass}>Thời gian khởi hành *</label>
-                  <input
-                    type="datetime-local"
-                    min={minStartDate}
-                    required
-                    value={item.start_date}
-                    onChange={(event) =>
-                      onChange(index, "start_date", event.target.value)
-                    }
-                    className={fieldClass}
-                  />
-                </div>
-
-                <div>
-                  <label className={labelClass}>Hạn chốt đặt tour *</label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={item.booking_deadline}
-                    onChange={(event) =>
-                      onChange(index, "booking_deadline", event.target.value)
-                    }
-                    className={fieldClass}
-                  />
-                  <p className="mt-1 text-[11px] text-gray-400">
-                    Mặc định tự động trước ngày khởi hành 3 ngày.
-                  </p>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Trạng thái ban đầu</label>
-                  <select
-                    value={item.status}
-                    onChange={(event) =>
-                      onChange(index, "status", event.target.value)
-                    }
-                    className={fieldClass}
-                  >
-                    <option value="open">Đang mở bán (Open)</option>
-                    <option value="closed">Đóng bán tạm thời (Closed)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className={labelClass}>Số khách tối thiểu *</label>
-                  <input
-                    type="number"
-                    min={1}
-                    required
-                    value={item.min_people}
-                    onChange={(event) =>
-                      onChange(index, "min_people", event.target.value)
-                    }
-                    className={fieldClass}
-                    placeholder="Ví dụ: 5"
-                  />
-                </div>
-
-                <div>
-                  <label className={labelClass}>Số khách tối đa *</label>
-                  <input
-                    type="number"
-                    min={1}
-                    required
-                    value={item.max_people}
-                    onChange={(event) =>
-                      onChange(index, "max_people", event.target.value)
-                    }
-                    className={fieldClass}
-                    placeholder="Ví dụ: 10"
-                  />
-                </div>
-
-                <div>
-                  <label className={labelClass}>Hướng dẫn viên</label>
-                  <select
-                    value={item.guide_id}
-                    disabled={!item.start_date || availabilityLoading}
-                    onChange={(event) =>
-                      onChange(index, "guide_id", event.target.value)
-                    }
-                    className={fieldClass + " disabled:cursor-not-allowed disabled:bg-gray-50"}
-                  >
-                    <option value="">
-                      {!item.start_date
-                        ? "Chọn ngày khởi hành trước"
-                        : availabilityLoading
-                          ? "Đang tìm HDV rảnh..."
-                          : "Chưa phân công"}
-                    </option>
-                    {!selectedGuideStillAvailable && item.guide_id && (
-                      <option value={item.guide_id} disabled>
-                        HDV đã chọn không còn rảnh
-                      </option>
-                    )}
-                    {selectableGuides.map((guide) => (
-                      <option key={guide.id} value={guide.id}>
-                        {guide.name}
-                      </option>
-                    ))}
-                  </select>
-                  {item.start_date &&
-                    !availabilityLoading &&
-                    selectableGuides.length === 0 && (
-                      <p className="mt-1 text-[11px] text-amber-700">
-                        Không có hướng dẫn viên rảnh trong khoảng này.
+              <div className="p-5 space-y-5">
+                {/* Section 1: Thời gian & Trạng thái bán */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-1.5">
+                    <CalendarDays className="h-4 w-4 text-primary-600" />
+                    <span>Lịch trình & Đóng mở bán</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {/* Ngày khởi hành */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                        Thời gian khởi hành <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="datetime-local"
+                        min={minStartDate}
+                        required
+                        value={item.start_date}
+                        onChange={(event) =>
+                          onChange(index, "start_date", event.target.value)
+                        }
+                        className={fieldClass}
+                      />
+                      <p className="mt-1 text-[10px] text-gray-400">
+                        Ngày giờ xuất phát dự kiến của đoàn.
                       </p>
-                    )}
+                    </div>
+
+                    {/* Hạn chốt đặt */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                        Hạn chốt đặt tour <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="datetime-local"
+                        required
+                        value={item.booking_deadline}
+                        onChange={(event) =>
+                          onChange(index, "booking_deadline", event.target.value)
+                        }
+                        className={fieldClass}
+                      />
+                      <p className="mt-1 text-[10px] text-gray-400">
+                        Khách không thể đặt sau mốc này (Mặc định trước đi 3 ngày).
+                      </p>
+                    </div>
+
+                    {/* Trạng thái mở bán */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                        Trạng thái mở bán ban đầu
+                      </label>
+                      <select
+                        value={item.status}
+                        onChange={(event) =>
+                          onChange(index, "status", event.target.value)
+                        }
+                        className={fieldClass}
+                      >
+                        <option value="open">Đang mở bán (Open)</option>
+                        <option value="closed">Đóng bán tạm thời (Closed)</option>
+                      </select>
+                      <p className="mt-1 text-[10px] text-gray-400">
+                        Thiết lập chế độ đăng ký ngay sau khi tạo tour.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Quy mô & Hướng dẫn viên */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-1.5">
+                    <Users className="h-4 w-4 text-primary-600" />
+                    <span>Quy mô đoàn & Hướng dẫn viên</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {/* Khách tối thiểu */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                        Số khách tối thiểu <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        required
+                        value={item.min_people}
+                        onChange={(event) =>
+                          onChange(index, "min_people", event.target.value)
+                        }
+                        className={fieldClass}
+                        placeholder="Ví dụ: 5"
+                      />
+                      <p className="mt-1 text-[10px] text-gray-400">
+                        Mức khách tối thiểu để đoàn khởi hành chắc chắn.
+                      </p>
+                    </div>
+
+                    {/* Khách tối đa */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                        Số khách tối đa <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        required
+                        value={item.max_people}
+                        onChange={(event) =>
+                          onChange(index, "max_people", event.target.value)
+                        }
+                        className={fieldClass}
+                        placeholder="Ví dụ: 10"
+                      />
+                      <p className="mt-1 text-[10px] text-gray-400">
+                        Giới hạn chỗ ngồi. Đủ số lượng hệ thống tự động khóa sổ.
+                      </p>
+                    </div>
+
+                    {/* Hướng dẫn viên */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                        Hướng dẫn viên điều hành
+                      </label>
+                      <select
+                        value={item.guide_id}
+                        disabled={!item.start_date || availabilityLoading}
+                        onChange={(event) =>
+                          onChange(index, "guide_id", event.target.value)
+                        }
+                        className={fieldClass + " disabled:cursor-not-allowed disabled:bg-gray-50"}
+                      >
+                        <option value="">
+                          {!item.start_date
+                            ? "Chọn ngày khởi hành trước"
+                            : availabilityLoading
+                              ? "Đang tìm HDV rảnh..."
+                              : "Chưa phân công"}
+                        </option>
+                        {!selectedGuideStillAvailable && item.guide_id && (
+                          <option value={item.guide_id} disabled>
+                            HDV đã chọn không còn rảnh
+                          </option>
+                        )}
+                        {selectableGuides.map((guide) => (
+                          <option key={guide.id} value={guide.id}>
+                            {guide.name}
+                          </option>
+                        ))}
+                      </select>
+                      {item.start_date &&
+                      !availabilityLoading &&
+                      selectableGuides.length === 0 ? (
+                        <div className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-100">
+                          <AlertTriangle className="h-3 w-3 shrink-0" />
+                          <span>Không có hướng dẫn viên rảnh trong khoảng này.</span>
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-[10px] text-gray-400">
+                          Chỉ hiển thị hướng dẫn viên đang trống lịch.
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
