@@ -1,6 +1,6 @@
 import api from "./api";
 import { extractObject } from "@/utils/apiHelpers";
-import type { Booking, Guide, Tour, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
+import type { Booking, Guide, Tour, TourSchedule, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
 import { buildTourPayload } from "@/services/guideService";
 
 export interface PaginatedResponse<T> {
@@ -67,6 +67,18 @@ const adminService = {
       params: { start_date: startDate, number_of_days: numberOfDays },
     });
     return response.data?.data ?? [];
+  },
+
+  updateScheduleStatus: async (
+    scheduleId: number,
+    status: "open" | "closed" | "confirmed" | "cancelled",
+    reason?: string,
+  ): Promise<TourSchedule | null> => {
+    const response = await api.patch(`/admin/schedules/${scheduleId}/status`, {
+      status,
+      ...(status === "cancelled" ? { reason } : {}),
+    });
+    return extractObject<TourSchedule>(response);
   },
 
   // --- BOOKINGS ---
