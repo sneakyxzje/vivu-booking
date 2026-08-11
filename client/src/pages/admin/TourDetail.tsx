@@ -554,7 +554,7 @@ export default function AdminTourDetail() {
               onChange={(e) => setCancelReasonInput(e.target.value)}
               placeholder="Nhập lý do hủy (ví dụ: Không đủ khách tối thiểu, lý do thời tiết...)"
               rows={3}
-              className="w-full rounded-xl border border-gray-250 bg-white p-3 text-xs text-gray-800 placeholder:text-gray-400 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 mb-4 resize-none"
+              className="w-full rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-800 placeholder:text-gray-400 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 mb-4 resize-none"
             />
             <div className="flex w-full gap-2">
               <button

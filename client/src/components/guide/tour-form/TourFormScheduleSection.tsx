@@ -102,7 +102,7 @@ export const TourFormScheduleSection: React.FC<Props> = ({
           return (
             <div
               key={index}
-              className="relative rounded-2xl border border-gray-150 bg-white p-5 shadow-sm space-y-4"
+              className="relative rounded-2xl border border-gray-100 bg-white p-5 shadow-sm space-y-4"
             >
               {/* Top Row: Title and Delete Button */}
               <div className="flex items-center justify-between border-b border-gray-100 pb-3">
@@ -113,7 +113,7 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                   type="button"
                   onClick={() => onRemove(index)}
                   disabled={items.length === 1}
-                  className="rounded-lg border border-gray-150 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+                  className="rounded-lg border border-gray-100 bg-white px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
                 >
                   Xóa chuyến
                 </button>
