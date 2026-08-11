@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\ScheduleStatus;
 use App\Repositories\TourRepository;
 use App\Models\Tour;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class TourService
@@ -80,11 +82,18 @@ class TourService
 
         if (!empty($data['schedules'])) {
             foreach ($data['schedules'] as $schedule) {
+                $startDate = Carbon::parse($schedule['start_date']);
+
                 $tour->schedules()->create([
-                    'start_date' => $schedule['start_date'],
+                    'start_date' => $startDate,
+                    'end_date' => $startDate->copy()->addDays(max(0, (int) $tour->number_of_days - 1)),
                     'max_people' => $schedule['max_people'],
+                    'min_people' => $schedule['min_people'] ?? 1,
+                    'booking_deadline' => isset($schedule['booking_deadline'])
+                        ? Carbon::parse($schedule['booking_deadline'])
+                        : $startDate->copy()->subDays(3),
                     'booked_people' => 0,
-                    'status' => 'active',
+                    'status' => ScheduleStatus::Open->value,
                 ]);
             }
         }
@@ -92,4 +101,7 @@ class TourService
         return $tour->load(['categories', 'services', 'images', 'itineraries', 'schedules']);
     }
 }
+
+
+
 

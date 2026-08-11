@@ -26,7 +26,7 @@ class ScheduleLifecycleService
      */
     public function currentStatus(TourSchedule $schedule): ScheduleStatus
     {
-        $raw = $schedule->status;
+        $raw = $this->rawStatus($schedule);
 
         if ($raw instanceof ScheduleStatus) {
             return $raw;
@@ -36,6 +36,23 @@ class ScheduleLifecycleService
 
         return ScheduleStatus::tryFrom($value)
             ?? ScheduleStatus::fromLegacy($value, $this->hasDeparted($schedule));
+    }
+
+    private function rawStatus(TourSchedule $schedule): ScheduleStatus|string
+    {
+        $attributes = $schedule->getAttributes();
+
+        if (array_key_exists('status', $attributes)) {
+            return $attributes['status'];
+        }
+
+        $raw = $schedule->getRawOriginal('status');
+
+        if ($raw !== null) {
+            return $raw;
+        }
+
+        return $schedule->status;
     }
 
     /**
@@ -176,3 +193,5 @@ class ScheduleLifecycleService
         return $start->copy()->addDays(max(0, $days - 1))->endOfDay();
     }
 }
+
+

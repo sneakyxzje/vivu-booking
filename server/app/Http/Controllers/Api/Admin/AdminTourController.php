@@ -311,7 +311,7 @@ class AdminTourController extends Controller
             }
         }
 
-        $tour = DB::transaction(function () use ($request, $tour, $validated, $categoryIds, $serviceIds, $itineraries, $schedules) {
+        $tour = DB::transaction(function () use ($request, $tour, $validated, $categoryIds, $serviceIds, $itineraries, $schedules, $numberOfDay) {
             if ($request->hasFile('thumbnail_file')) {
                 $validated['thumbnail'] = $this->cloudinaryService->uploadImage(
                     $request->file('thumbnail_file')
@@ -476,7 +476,7 @@ class AdminTourController extends Controller
                 actorId: $request->user()->id,
             );
         } catch (\App\Exceptions\BusinessRuleException $e) {
-            return $this->error($e->getMessage(), $e->getCode() ?: 422);
+            return $this->error($e->getMessage(), $e->status());
         }
 
         return $this->success([
@@ -663,4 +663,6 @@ class AdminTourController extends Controller
         return $slug;
     }
 }
+
+
 

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ScheduleStatus;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -34,6 +35,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class TourSchedule extends Model
 {
+    use HasFactory;
     protected $fillable = [
         'tour_id',
         'guide_id',
@@ -58,7 +60,6 @@ class TourSchedule extends Model
         'booking_deadline' => 'datetime',
         'confirmed_at'    => 'datetime',
         'cancelled_at'    => 'datetime',
-        'status'          => ScheduleStatus::class,
         'is_private'      => 'boolean',
     ];
 
@@ -168,3 +169,5 @@ class TourSchedule extends Model
         ], true);
     }
 }
+
+
