@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Model lịch khởi hành.
@@ -85,6 +86,10 @@ class TourSchedule extends Model
     public function mergedInto(): BelongsTo
     {
         return $this->belongsTo(self::class, 'merged_into_schedule_id');
+    }
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class, 'tour_schedule_id');
     }
 
     // ─── Scopes ─────────────────────────────────────────────────────────────

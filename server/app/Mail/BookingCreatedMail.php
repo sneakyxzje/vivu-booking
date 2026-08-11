@@ -13,8 +13,10 @@ class BookingCreatedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public Booking $booking, public ?string $paymentUrl = null)
-    {
+    public function __construct(
+        public Booking $booking,
+        public ?string $paymentUrl = null
+    ) {
         $this->booking->loadMissing(['tour', 'schedule']);
     }
 
@@ -32,9 +34,16 @@ class BookingCreatedMail extends Mailable
             with: [
                 'booking' => $this->booking,
                 'paymentUrl' => $this->paymentUrl,
-                'frontendBookingUrl' => rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/')
-                    . '/booking-success/' . $this->booking->public_token,
-                'lookupUrl' => rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/') . '/tra-cuu-don',
+
+                'frontendBookingUrl' => rtrim(
+                    env('FRONTEND_URL', 'http://localhost:5173'),
+                    '/'
+                ) . '/booking-success/' . $this->booking->public_token,
+
+                'lookupUrl' => rtrim(
+                    env('FRONTEND_URL', 'http://localhost:5173'),
+                    '/'
+                ) . '/tra-cuu-don',
             ],
         );
     }
