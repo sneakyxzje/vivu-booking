@@ -10,6 +10,7 @@ use App\Models\DiscountCode;
 use App\Models\PaymentLog;
 use App\Models\TourSchedule;
 use App\Services\BookingHoldService;
+use App\Services\BookingPolicyService;
 use App\Services\VNPayService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -26,6 +27,7 @@ class BookingController extends Controller
     public function __construct(
         private VNPayService $vnpayService,
         private BookingHoldService $holdService,
+        private BookingPolicyService $bookingPolicy,
     ) {
     }
 
@@ -270,7 +272,15 @@ class BookingController extends Controller
 
             $fresh = Booking::query()->whereKey($booking->id)->lockForUpdate()->first();
 
-            if (!$fresh || $fresh->status !== 'pending') {
+            if (!$fresh) {
+                return false;
+            }
+
+            // Kiểm tra trên bản ghi vừa khóa, trước khi xét trạng thái đơn, để khách nhận được
+            // đúng lý do "chuyến đã khởi hành" thay vì thông báo chung chung.
+            $this->bookingPolicy->assertCancellable($fresh, $schedule);
+
+            if ($fresh->status !== 'pending') {
                 return false;
             }
 
