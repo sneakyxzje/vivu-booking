@@ -8,6 +8,7 @@ use App\Mail\BookingConfirmedMail;
 use App\Models\Booking;
 use App\Models\TourSchedule;
 use App\Services\BookingHoldService;
+use App\Services\BookingPolicyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,8 +18,10 @@ use Throwable;
 
 class AdminBookingController extends Controller
 {
-    public function __construct(private BookingHoldService $holdService)
-    {
+    public function __construct(
+        private BookingHoldService $holdService,
+        private BookingPolicyService $bookingPolicy,
+    ) {
     }
 
     public function index(Request $request): JsonResponse
@@ -102,7 +105,14 @@ class AdminBookingController extends Controller
 
             $booking = Booking::query()->lockForUpdate()->find($target->id);
 
-            if (!$booking || !in_array($booking->status, ['pending', 'confirmed'], true)) {
+            if (!$booking) {
+                return null;
+            }
+
+            // Kiểm tra trên bản ghi vừa khóa: chuyến đã khởi hành thì quản trị cũng không hủy được.
+            $this->bookingPolicy->assertCancellable($booking, $schedule);
+
+            if (!in_array($booking->status, ['pending', 'confirmed'], true)) {
                 return null;
             }
 
