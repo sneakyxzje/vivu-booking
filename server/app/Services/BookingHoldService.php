@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ScheduleStatus;
 use App\Models\Booking;
 use App\Models\TourSchedule;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +18,7 @@ class BookingHoldService
 
     /**
      * Hủy các đơn pending quá hạn của một lịch khởi hành và trả lại chỗ.
-     * Gọi trước khi kiểm tra chỗ trống để khách mới dùng được ngay chỗ vừa nhả.
+     * Gọi trước khi kiểm tra chỗ trống để khách mới dùng được ngay slot vừa được trả lại.
      */
     public function releaseOverdueForSchedule(int $scheduleId): int
     {
@@ -84,8 +85,6 @@ class BookingHoldService
 
     /**
      * Nhả chỗ quá hạn cho mọi lịch khởi hành của một tour.
-     * Câu SELECT đầu rất rẻ (đã đánh index status + expires_at) nên khi
-     * không có đơn quá hạn, hàm thoát ngay mà không mở transaction nào.
      */
     public function releaseOverdueForTour(int $tourId): int
     {
@@ -126,7 +125,6 @@ class BookingHoldService
             $released += $this->releaseOverdueForSchedule((int) $scheduleId);
         }
 
-        // Đơn quá hạn mà lịch khởi hành đã bị xóa: hủy không cần trả chỗ.
         $orphans = Booking::query()
             ->whereNull('tour_schedule_id')
             ->where('status', 'pending')
@@ -166,8 +164,9 @@ class BookingHoldService
         $schedule->decrement('booked_people', min($booking->guests, (int) $schedule->booked_people));
         $schedule->refresh();
 
-        if ($schedule->status === 'full' && $schedule->booked_people < $schedule->max_people) {
-            $schedule->update(['status' => 'active']);
+        if ($this->scheduleStatusValue($schedule) === ScheduleStatus::Closed->value
+            && $schedule->booked_people < $schedule->max_people) {
+            $schedule->update(['status' => ScheduleStatus::Open->value]);
         }
 
         $this->refreshTourAvailability($schedule);
@@ -202,11 +201,18 @@ class BookingHoldService
             return;
         }
 
-        $hasAvailableSchedule = $tour->schedules->contains(function ($item) {
-            return $item->status === 'active'
+        $hasAvailableSchedule = $tour->schedules->contains(function (TourSchedule $item) {
+            return $this->scheduleStatusValue($item) === ScheduleStatus::Open->value
                 && (int) $item->booked_people < (int) $item->max_people;
         });
 
         $tour->update(['status' => $hasAvailableSchedule ? 'active' : 'full']);
+    }
+
+    private function scheduleStatusValue(TourSchedule $schedule): string
+    {
+        return $schedule->status instanceof ScheduleStatus
+            ? $schedule->status->value
+            : (string) $schedule->status;
     }
 }
