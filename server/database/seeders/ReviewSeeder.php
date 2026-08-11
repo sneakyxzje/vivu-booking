@@ -95,3 +95,4 @@ class ReviewSeeder extends Seeder
         }
     }
 }
+

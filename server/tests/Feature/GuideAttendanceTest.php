@@ -68,7 +68,7 @@ class GuideAttendanceTest extends TestCase
             'start_date' => now()->addDays(3),
             'max_people' => 10,
             'booked_people' => 2,
-            'status' => 'active',
+            'status' => 'open',
         ]);
 
         $this->booking = Booking::create([
@@ -146,3 +146,4 @@ class GuideAttendanceTest extends TestCase
         $this->assertSame(0, BookingCheckin::query()->count());
     }
 }
+
