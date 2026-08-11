@@ -69,6 +69,12 @@ export interface TourSchedule {
   } | null;
 }
 
+export interface ExtendedSchedule extends TourSchedule {
+  tour_title: string;
+  tour_id: number;
+  number_of_days: number;
+}
+
 export interface Tour {
   id: number;
   title: string;
