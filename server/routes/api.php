@@ -135,6 +135,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/tour-schedules/{id}/assign-guide', [AdminTourController::class, 'assignScheduleGuide']);
         Route::get('/tour-schedules/{id}/attendance', [AdminAttendanceController::class, 'show']);
 
+        // A10 — Đổi trạng thái chuyến thủ công (open ↔ closed, → confirmed, → cancelled).
+        Route::patch('/schedules/{id}/status', [AdminTourController::class, 'updateScheduleStatus']);
+
+
         Route::apiResource('guides', AdminGuideController::class);
 
         Route::get('/bookings', [AdminBookingController::class, 'index']);
