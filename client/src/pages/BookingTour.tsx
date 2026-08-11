@@ -85,7 +85,7 @@ const getScheduleUnavailableReason = (
 ) => {
   if (!schedule) return "Tạm hết lịch";
   if (tourStatus === "inactive") return "Tour đang tạm ngừng";
-  if (!["open", "active"].includes(schedule.status)) {
+  if (schedule.status !== "open") {
     return "Lịch khởi hành này hiện không khả dụng";
   }
   if (isScheduleDeadlineOverdue(schedule)) return "Đã quá hạn đăng ký";

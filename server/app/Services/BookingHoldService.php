@@ -9,6 +9,11 @@ use Illuminate\Support\Facades\DB;
 
 class BookingHoldService
 {
+    public function __construct(
+        private readonly ScheduleLifecycleService $lifecycle,
+    ) {
+    }
+
     public const EXPIRED_REASON = 'Quá hạn thanh toán, hệ thống tự hủy để nhường chỗ';
 
     public function holdMinutes(): int
@@ -166,7 +171,11 @@ class BookingHoldService
 
         if ($this->scheduleStatusValue($schedule) === ScheduleStatus::Closed->value
             && $schedule->booked_people < $schedule->max_people) {
-            $schedule->update(['status' => ScheduleStatus::Open->value]);
+            $this->lifecycle->transitionTo(
+                $schedule,
+                ScheduleStatus::Open,
+                'Tự động mở bán lại do đơn giữ chỗ quá hạn được nhả.',
+            );
         }
 
         $this->refreshTourAvailability($schedule);

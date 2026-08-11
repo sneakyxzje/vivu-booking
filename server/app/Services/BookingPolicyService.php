@@ -7,6 +7,7 @@ use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Booking;
 use App\Models\TourSchedule;
+use Illuminate\Support\Carbon;
 
 /**
  * Các quy tắc chặn thao tác trên đơn đặt tour.
@@ -62,6 +63,11 @@ class BookingPolicyService
         $status = $this->lifecycle->currentStatus($schedule);
 
         if (!$status->blocksCancellation()) {
+            if ($schedule->start_date && Carbon::parse($schedule->start_date)->lte(now())) {
+                throw new BusinessRuleException('Chuyến đi đã kết thúc nên không thể hủy đơn. '
+                    . 'Vui lòng liên hệ điều hành nếu cần khiếu nại hoặc yêu cầu hoàn tiền.');
+            }
+
             return;
         }
 

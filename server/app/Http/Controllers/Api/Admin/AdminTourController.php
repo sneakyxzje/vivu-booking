@@ -359,7 +359,7 @@ class AdminTourController extends Controller
                         throw ValidationException::withMessages([
                             'schedules' => sprintf(
                                 'Không thể sửa thông tin chuyến khi trạng thái là "%s".',
-                                $schedule->status->label()
+                                (ScheduleStatus::tryFrom((string) $schedule->status)?->label() ?? (string) $schedule->status)
                             ),
                         ]);
                     }
