@@ -281,6 +281,8 @@ class AdminTourController extends Controller
             'schedules.*.id' => ['nullable', 'exists:tour_schedules,id'],
             'schedules.*.start_date' => ['required_with:schedules', 'date'],
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
+            'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
+            'schedules.*.booking_deadline' => ['nullable', 'date'],
             'schedules.*.guide_id' => ['nullable', 'exists:users,id'],
         ]);
 
@@ -346,11 +348,32 @@ class AdminTourController extends Controller
                     ? $tour->schedules()->whereKey($scheduleId)->first()
                     : null;
 
+                // Guard: không cho sửa thông tin vận hành khi chuyến đang chạy/đã kết thúc/đã hủy.
+                if ($schedule && $schedule->isOperationallyLocked()) {
+                    if (isset($item['min_people']) || isset($item['booking_deadline'])) {
+                        throw ValidationException::withMessages([
+                            'schedules' => sprintf(
+                                'Không thể sửa thông tin chuyến khi trạng thái là "%s".',
+                                $schedule->status->label()
+                            ),
+                        ]);
+                    }
+                }
+
+                $startDate = Carbon::parse($item['start_date']);
+                $endDate   = $startDate->copy()->addDays(max(0, $numberOfDay - 1));
+
+                $bookingDeadline = isset($item['booking_deadline'])
+                    ? Carbon::parse($item['booking_deadline'])
+                    : $startDate->copy()->subDays(3);
+
                 $payload = [
-                    'start_date' => $item['start_date'],
-                    'guide_id' => $item['guide_id'] ?? null,
-                    'max_people' => $item['max_people'],
-                    'status' => 'active',
+                    'start_date'       => $startDate,
+                    'end_date'         => $endDate,
+                    'guide_id'         => $item['guide_id'] ?? null,
+                    'max_people'       => $item['max_people'],
+                    'min_people'       => $item['min_people'] ?? ($schedule?->min_people ?? 1),
+                    'booking_deadline' => $bookingDeadline,
                 ];
 
                 if ($schedule) {
@@ -360,7 +383,13 @@ class AdminTourController extends Controller
                         ]);
                     }
 
-                    $payload['status'] = $schedule->booked_people >= (int) $item['max_people'] ? 'full' : 'active';
+                    // Chỉ cập nhật status nếu chưa khóa vận hành (open/closed).
+                    if (! $schedule->isOperationallyLocked()) {
+                        $payload['status'] = $schedule->booked_people >= (int) $item['max_people']
+                            ? 'closed'
+                            : 'open';
+                    }
+
                     $schedule->update($payload);
                     $keptScheduleIds[] = $schedule->id;
                     continue;
@@ -369,6 +398,7 @@ class AdminTourController extends Controller
                 $created = $tour->schedules()->create([
                     ...$payload,
                     'booked_people' => 0,
+                    'status'        => 'open',
                 ]);
                 $keptScheduleIds[] = $created->id;
             }
