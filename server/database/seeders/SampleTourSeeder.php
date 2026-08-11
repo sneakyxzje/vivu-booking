@@ -235,7 +235,7 @@ class SampleTourSeeder extends Seeder
                         'guide_id' => $guide?->id,
                         'max_people' => $item['max_people'],
                         'booked_people' => 0,
-                        'status' => 'active',
+                        'status' => 'open',
                     ]);
                 }
 
@@ -250,3 +250,4 @@ class SampleTourSeeder extends Seeder
         });
     }
 }
+

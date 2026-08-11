@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 #[Fillable([
@@ -27,6 +28,7 @@ use Illuminate\Database\Eloquent\Model;
 ])]
 class Tour extends Model
 {
+    use HasFactory;
     public function admin()
     {
         return $this->belongsTo(User::class, 'admin_id');
@@ -61,3 +63,4 @@ class Tour extends Model
         return $this->hasMany(Review::class);
     }
 }
+

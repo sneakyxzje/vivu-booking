@@ -58,7 +58,7 @@ class ReviewRestrictionTest extends TestCase
                 'start_date' => now()->addDays(3),
                 'max_people' => 10,
                 'booked_people' => 1,
-                'status' => 'active',
+                'status' => 'open',
             ]);
 
             Booking::create([
@@ -114,3 +114,4 @@ class ReviewRestrictionTest extends TestCase
         $this->assertSame(5, (int) Review::query()->first()->rating);
     }
 }
+

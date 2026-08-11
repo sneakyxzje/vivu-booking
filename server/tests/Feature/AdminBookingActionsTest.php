@@ -140,3 +140,4 @@ class AdminBookingActionsTest extends TestCase
         $this->putJson("/api/admin/bookings/{$don->id}/confirm")->assertStatus(403);
     }
 }
+
