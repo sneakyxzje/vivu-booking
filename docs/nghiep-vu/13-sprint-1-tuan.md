@@ -58,13 +58,13 @@ Nhanh ở phần viết vì đặc tả đã có, nhưng vẫn phải đọc l�
 
 | Chỉ tiêu | Giá trị |
 | --- | --- |
-| Backlog theo mức ước lượng chung ở tài liệu 11 | 151,75 ngày công |
-| Sau khi tính lại theo loại công việc | khoảng 85 tới 100 ngày công |
+| Backlog theo mức ước lượng chung ở tài liệu 11 | 161 ngày công |
+| Sau khi tính lại theo loại công việc | khoảng 90 tới 105 ngày công |
 | Sức chứa bốn người trong bảy ngày | khoảng 34 ngày công thô |
 | Quy đổi sang khối lượng backlog làm được | khoảng **55 tới 60 ngày công** |
 
-Vậy việc tính lại kéo bài toán từ 152 xuống khoảng 90, giảm gần bốn mươi phần trăm. Nhưng sức
-chứa một tuần chỉ là 55 tới 60, nên vẫn còn thiếu khoảng một phần ba.
+Vậy việc tính lại kéo bài toán từ 161 xuống khoảng 95, giảm gần bốn mươi phần trăm. Nhưng sức
+chứa một tuần chỉ là 55 tới 60, nên vẫn còn thiếu khoảng một nửa.
 
 **Kết luận trung thực: một tuần không làm hết 100 phần trăm tính năng. Nhưng làm hết được
 Mốc 1 cộng thêm một nhóm của Mốc 2**, thay vì con số 33,75 ngày công của bản kế hoạch trước.
@@ -75,7 +75,11 @@ là chỗ dồn nhiều ngày công nhất.
 
 ## 3. Phạm vi tuần này
 
-**Toàn bộ Mốc 1** cộng **nhóm K hủy chuyến** của Mốc 2. Tổng **54 ngày công** theo thang cũ.
+**Toàn bộ Mốc 1** cộng **nhóm K hủy chuyến** của Mốc 2. Tổng **54 ngày công**.
+
+Nhóm X, tức các quy tắc kiểm tra và tình huống ngoại lệ bổ sung, **không nằm trong tuần này**.
+Đưa cả nhóm X vào thì phạm vi lên 59,5 ngày công, chạm trần sức chứa và không còn biên an toàn.
+Nhóm X là phần chỉn chu chứ không phải phần trả lời câu hỏi hội đồng, nên để lại làm sau.
 
 Chọn nhóm K chứ không phải nhóm I chuyển chuyến vì hai lý do: K trả lời câu 15 mà hội đồng
 đã hỏi, và K chỉ dồn 2,5 ngày công vào trưởng nhóm trong khi I dồn tới 5,25, không vừa với

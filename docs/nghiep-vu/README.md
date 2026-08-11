@@ -22,7 +22,7 @@ thiếu so với tầng **bán tour** đã có.
 | [08 - Danh mục edge case](08-danh-muc-edge-case.md) | Bảng tổng hợp toàn bộ tình huống ngoại lệ và cách xử lý |
 | [09 - Cung ứng và giá vốn](09-cung-ung-va-gia-von.md) | Nhà cung cấp, tồn chỗ giữ được, dự toán chi phí, điểm hòa vốn, lãi lỗ từng chuyến, tạm ứng hướng dẫn viên |
 | [10 - Tài chính và kế toán](10-tai-chinh-va-ke-toan.md) | Ghi nhận doanh thu, đối soát, dòng tiền, bộ báo cáo tối thiểu |
-| [11 - Backlog triển khai](11-backlog-trien-khai.md) | 163 công việc chia theo nhóm, ước lượng, phụ thuộc, đường găng |
+| [11 - Backlog triển khai](11-backlog-trien-khai.md) | 181 công việc chia theo nhóm, ước lượng, phụ thuộc, đường găng |
 | [12 - Phân công nhóm](12-phan-cong-nhom.md) | Giao việc cho bốn thành viên, lịch Mốc 1, quy tắc phối hợp, phương án cắt phạm vi |
 | [13 - Kế hoạch một tuần](13-sprint-1-tuan.md) | **Kế hoạch đang chạy.** Trọn Mốc 1 cộng nhóm K, 54 ngày công, lịch từng ngày và quy tắc làm việc trong tuần |
 
@@ -111,10 +111,10 @@ Chia làm ba mốc, sắp theo tỷ lệ giữa mức độ hội đồng quan t
 
 ### Khối lượng thực tế
 
-Toàn bộ ba mốc là **163 công việc, khoảng 152 ngày công**, tương đương bảy tháng làm việc
+Toàn bộ ba mốc là **181 công việc, khoảng 161 ngày công**, tương đương bảy tháng làm việc
 toàn thời gian của một người. Không thể hoàn thành trước buổi bảo vệ.
 
-Khuyến nghị: làm trọn **Mốc 1** (46,5 ngày công), đủ để trả lời 12 trên 18 câu hỏi của hội đồng
+Khuyến nghị: làm trọn **Mốc 1** (52 ngày công), đủ để trả lời 12 trên 18 câu hỏi của hội đồng
 bằng mã chạy thật. Mốc 2 và 3 trình bày bằng tài liệu thiết kế kèm mô hình dữ liệu, và nêu rõ
 đó là lựa chọn có cân nhắc theo [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md).
 

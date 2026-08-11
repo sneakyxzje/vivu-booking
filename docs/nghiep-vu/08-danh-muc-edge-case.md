@@ -188,6 +188,35 @@ Cột trạng thái: `Đã xử lý` là đã có trong mã nguồn, `Cần bổ
 | J - Nhất quán dữ liệu | 6 | 1 | 5 | 0 |
 | Tổng | 116 | 23 | 92 | 1 |
 
+## L. Đối chiếu với backlog
+
+Bảng này đã được đối chiếu với [11 - Backlog triển khai](11-backlog-trien-khai.md) để bảo đảm
+mọi tình huống `Cần bổ sung` đều có ít nhất một công việc chịu trách nhiệm.
+
+Phần lớn rơi vào các nhóm A tới S theo đúng miền nghiệp vụ. Mười ba tình huống không thuộc nhóm
+nào được gom vào **nhóm X** của backlog:
+
+| Edge case | Công việc |
+| --- | --- |
+| A04 bấm đặt hai lần | X01 |
+| A09 đơn không có người lớn | X02 |
+| A11 mã giảm giá hết lượt giữa chừng | X03 |
+| A14 em bé không chiếm ghế | X04 |
+| A15 thư gửi hỏng | X05 |
+| A16 mất mã tra cứu | X06 |
+| C06 mở lại đơn hủy nhầm | X07 |
+| C11 hoàn về tài khoản khác | X08 |
+| D08 đổi người đi thay | X09 |
+| D15 công nợ khách dạng credit | X10 |
+| E12 chuyến đã chốt chưa có hướng dẫn viên | X11 |
+| J06 đơn `pending` tồn đọng | X12 |
+| I08 phụ thu phòng đơn | X13 |
+
+Nếu bổ sung tình huống mới vào bảng này về sau, phải kiểm tra lại xem đã có công việc tương ứng
+trong backlog chưa, hoặc thêm vào nhóm X.
+
+## M. Ghi chú về con số
+
 Con số này không phải để bi quan mà để cho thấy phạm vi thực của bài toán. Hai mươi ba tình
 huống đã xử lý đều nằm ở phần khó nhất về kỹ thuật là tương tranh và thanh toán. Phần còn lại
 chủ yếu là nghiệp vụ, khối lượng lớn nhưng độ khó kỹ thuật thấp hơn nhiều.
