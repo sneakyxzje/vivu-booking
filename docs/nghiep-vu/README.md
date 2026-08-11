@@ -22,7 +22,8 @@ thiếu so với tầng **bán tour** đã có.
 | [08 - Danh mục edge case](08-danh-muc-edge-case.md) | Bảng tổng hợp toàn bộ tình huống ngoại lệ và cách xử lý |
 | [09 - Cung ứng và giá vốn](09-cung-ung-va-gia-von.md) | Nhà cung cấp, tồn chỗ giữ được, dự toán chi phí, điểm hòa vốn, lãi lỗ từng chuyến, tạm ứng hướng dẫn viên |
 | [10 - Tài chính và kế toán](10-tai-chinh-va-ke-toan.md) | Ghi nhận doanh thu, đối soát, dòng tiền, bộ báo cáo tối thiểu |
-| [11 - Backlog triển khai](11-backlog-trien-khai.md) | 168 công việc chia theo nhóm, ước lượng, phụ thuộc, đường găng |
+| [11 - Backlog triển khai](11-backlog-trien-khai.md) | 163 công việc chia theo nhóm, ước lượng, phụ thuộc, đường găng |
+| [12 - Phân công nhóm](12-phan-cong-nhom.md) | Giao việc cho bốn thành viên, lịch Mốc 1, quy tắc phối hợp, phương án cắt phạm vi |
 
 ## Tóm tắt hiện trạng
 
