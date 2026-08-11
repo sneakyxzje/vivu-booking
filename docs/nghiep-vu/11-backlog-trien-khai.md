@@ -164,6 +164,42 @@ Tài liệu tham chiếu: 04 mục 5, 07 mục 1.6. Đây là nhóm lớn nhất
 
 ---
 
+# NHÓM X - Quy tắc kiểm tra và tình huống ngoại lệ còn thiếu
+
+Nhóm này sinh ra từ việc đối chiếu [08 - Danh mục edge case](08-danh-muc-edge-case.md) với các
+nhóm A tới S. Đây là các tình huống đã được mô tả trong tài liệu nghiệp vụ nhưng không rơi vào
+nhóm công việc nào, nên nếu không tách riêng thì sẽ bị bỏ quên.
+
+Phần lớn là việc nhỏ, nhưng đúng loại việc hội đồng hay hỏi vì nó thể hiện mức độ chỉn chu.
+
+| ID | Công việc | Edge case | Mốc | Chạm tới | Ngày |
+| --- | --- | --- | --- | --- | --- |
+| X01 | Khóa chống trùng khi khách bấm đặt hai lần, theo email, chuyến và tổng tiền trong 60 giây | A04 | 1 | `Api/Customer/BookingController.php` | 0,5 |
+| X02 | Chặn đơn không có người lớn đi kèm, chặn trẻ dưới 12 tuổi đi một mình | A09 | 1 | `app/Http/Requests` | 0,25 |
+| X03 | Kiểm tra lại hiệu lực và số lượt mã giảm giá trong giao dịch tạo đơn, hết lượt thì tạo đơn giá gốc kèm thông báo | A11 | 1 | `Api/Customer/BookingController.php` | 0,5 |
+| X04 | Tách `seat_count` khỏi `guests`, em bé không chiếm ghế nhưng vẫn tính sức chứa với tàu và máy bay | A14 | 1 | `database/migrations`, `app/Services` | 0,75 |
+| X05 | Ghi nhật ký thư gửi hỏng, hiển thị cảnh báo trên trang quản trị | A15 | 1 | `app/Mail`, `Api/Admin` | 0,5 |
+| X06a | API gửi lại mã tra cứu về email đã dùng khi đặt | A16 | 1 | `Api/Customer` | 0,25 |
+| X06b | Giao diện gửi lại mã tra cứu trên trang tra cứu đơn | A16 | 1 | `client/src/pages/BookingLookup.tsx` | 0,25 |
+| X07a | Mở lại đơn bị hủy nhầm trong 24 giờ, kiểm tra chuyến còn chỗ, bắt buộc nhập lý do | C06 | 1 | `app/Services`, `Api/Admin` | 0,75 |
+| X07b | Giao diện mở lại đơn đã hủy | C06 | 1 | `client/src/pages/admin` | 0,25 |
+| X08 | Hoàn tiền về tài khoản khác người đứng tên đơn, yêu cầu xác nhận và ghi chú | C11 | 3 | `Api/Admin` | 0,25 |
+| X09a | Chuyển nhượng suất, đổi hoàn toàn người đi, cần duyệt và có thể thu phí đổi tên | D08 | 2 | `app/Services`, `Api/Admin` | 0,5 |
+| X09b | Giao diện chuyển nhượng suất | D08 | 2 | `client/src/pages/admin` | 0,25 |
+| X10a | Bảng `customer_credits` và dịch vụ ghi nhận, sử dụng, hết hạn công nợ khách | D15, C, K02 | 2 | `database/migrations`, `app/Services` | 1 |
+| X10b | Áp dụng công nợ khi đặt đơn mới và khi chuyển chuyến rẻ hơn | D15 | 2 | `Api/Customer`, `app/Services` | 0,5 |
+| X11 | Cảnh báo chuyến đã chốt nhưng chưa có hướng dẫn viên phụ trách | E12 | 2 | `app/Console/Commands` | 0,5 |
+| X12 | Lệnh dọn đơn `pending` tồn đọng của chuyến đã kết thúc | J06 | 1 | `app/Console/Commands` | 0,5 |
+| X13 | Phụ thu phòng đơn vào công thức tính tiền, dùng `single_supplement` của tour | Doc 02 §1.2, I08 | 3 | `app/Services`, `Api/Admin` | 0,75 |
+| X14 | Kiểm thử nhóm X | | 1 | `tests/Feature` | 1 |
+
+**Tổng nhóm X: 9,25 ngày công, 18 công việc**
+
+Phân bổ theo mốc: Mốc 1 là 5,5 ngày (X01 tới X07, X12, X14), Mốc 2 là 2,75 ngày
+(X09, X10, X11), Mốc 3 là 1 ngày (X08, X13).
+
+---
+
 # MỐC 2 - Vận hành chuyến đi
 
 ## Nhóm I - Chuyển chuyến và chuyển tour
@@ -382,11 +418,12 @@ Tài liệu tham chiếu: 10.
 | 1 - Nền tảng điều hành | A đến H | 63 | 46,5 |
 | 2 - Vận hành chuyến đi | I đến M | 36 | 37 |
 | 3 - Tài chính và hồ sơ | N đến S | 64 | 68,25 |
-| **Tổng** | | **163** | **151,75** |
+| Rải đều ba mốc | X | 18 | 9,25 |
+| **Tổng** | | **181** | **161** |
 
 ## Đánh giá thực tế về khối lượng
 
-152 ngày công là khoảng **7 tháng làm việc toàn thời gian của một người**. Với nhóm ba người
+161 ngày công là khoảng **7 tháng làm việc toàn thời gian của một người**. Với nhóm ba người
 làm song song ở các nhóm ít phụ thuộc nhau thì khoảng 3 tháng. Đây là con số thật, không nên
 tự trấn an rằng làm nhanh hơn được.
 
@@ -398,8 +435,8 @@ tuyên bố rõ phần còn lại.
 | Phương án | Nội dung | Ngày công | Kết quả |
 | --- | --- | --- | --- |
 | Tối thiểu | Nhóm A, C, D, B03 | 17 | Trả lời được câu 7, 8, 9 bằng mã chạy thật, các câu khác bằng tài liệu |
-| Khuyến nghị | Toàn bộ Mốc 1 | 46,5 | Trả lời 12 trên 18 câu bằng mã chạy thật |
-| Tham vọng | Mốc 1 và Mốc 2 | 83,5 | Trả lời 17 trên 18 câu, chỉ thiếu mảng tài chính |
+| Khuyến nghị | Toàn bộ Mốc 1 cộng phần Mốc 1 của nhóm X | 52 | Trả lời 12 trên 18 câu bằng mã chạy thật |
+| Tham vọng | Mốc 1 và Mốc 2 cùng nhóm X tương ứng | 91,75 | Trả lời 17 trên 18 câu, chỉ thiếu mảng tài chính |
 
 **Khuyến nghị chọn phương án giữa.** Lý do: Mốc 1 chứa toàn bộ phần hội đồng hỏi trực tiếp về
 hủy, điểm danh và trạng thái chuyến, tức là những câu họ đã chứng minh là sẽ hỏi. Mốc 2 và 3

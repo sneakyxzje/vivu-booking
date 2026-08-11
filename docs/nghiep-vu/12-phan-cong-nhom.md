@@ -34,16 +34,19 @@ báo cáo dạng tổng hợp rồi hiển thị, kiểm thử cho phần mình 
 
 ## 3. Tổng khối lượng
 
+Số dưới đây đã gồm nhóm X, tức các quy tắc kiểm tra và tình huống ngoại lệ được bổ sung sau khi
+đối chiếu tài liệu 08 với backlog.
+
 | Người | Mốc 1 | Mốc 2 | Mốc 3 | Tổng ngày công |
 | --- | --- | --- | --- | --- |
-| TĐ | 13,5 | 15,75 | 16,75 | **46** |
-| TA | 12 | 8,5 | 14,75 | **35,25** |
-| PĐ | 11,5 | 7,75 | 16 | **35,25** |
-| ĐTĐ | 9,5 | 5 | 20,75 | **35,25** |
-| **Tổng** | 46,5 | 37 | 68,25 | **151,75** |
+| TĐ | 16 | 17,25 | 17,5 | **50,75** |
+| ĐTĐ | 11 | 5,5 | 21 | **37,5** |
+| TA | 13 | 9 | 14,75 | **36,75** |
+| PĐ | 12 | 8 | 16 | **36** |
+| **Tổng** | 52 | 39,75 | 69,25 | **161** |
 
-Ba người bằng nhau đúng 35,25 ngày công. TĐ nặng hơn khoảng 30 phần trăm, đúng yêu cầu nhận
-phần khó.
+Ba người còn lại chênh nhau trong khoảng 1,5 ngày công. TĐ nặng hơn khoảng 37 phần trăm,
+đúng yêu cầu nhận phần khó.
 
 Phân bổ theo mốc không đều là có chủ ý. Mốc 2 gần như toàn việc khóa đồng thời nên dồn vào TĐ,
 ĐTĐ chỉ có 5 ngày ở mốc này rồi gánh 20,75 ngày ở Mốc 3 với mảng đoàn, hợp đồng và báo cáo.
@@ -160,6 +163,31 @@ Ký hiệu độ khó: `D` dễ, `TB` trung bình, `K` khó.
 | H13a | API báo cáo điểm danh | ĐTĐ | TB | 0,5 |
 | H13b | Giao diện báo cáo điểm danh | PĐ | D | 0,5 |
 | H14 | Kiểm thử nhóm H | **TĐ** | TB | 1,25 |
+
+### Nhóm X - Quy tắc kiểm tra và tình huống ngoại lệ
+
+Rải đều ba mốc. Cột mốc cho biết nên làm cùng lúc với mốc nào.
+
+| ID | Việc | Người | Khó | Mốc | Ngày |
+| --- | --- | --- | --- | --- | --- |
+| X01 | Khóa chống trùng khi bấm đặt hai lần | **TĐ** | K | 1 | 0,5 |
+| X02 | Chặn đơn không có người lớn đi kèm | ĐTĐ | D | 1 | 0,25 |
+| X03 | Kiểm tra lại mã giảm giá trong giao dịch tạo đơn | **TĐ** | K | 1 | 0,5 |
+| X04 | Tách `seat_count` khỏi `guests` | **TĐ** | K | 1 | 0,75 |
+| X05 | Nhật ký thư gửi hỏng và cảnh báo quản trị | TA | TB | 1 | 0,5 |
+| X06a | API gửi lại mã tra cứu | ĐTĐ | D | 1 | 0,25 |
+| X06b | Giao diện gửi lại mã tra cứu | PĐ | D | 1 | 0,25 |
+| X07a | Mở lại đơn hủy nhầm trong 24 giờ | **TĐ** | K | 1 | 0,75 |
+| X07b | Giao diện mở lại đơn đã hủy | PĐ | D | 1 | 0,25 |
+| X12 | Lệnh dọn đơn `pending` tồn đọng | TA | TB | 1 | 0,5 |
+| X14 | Kiểm thử nhóm X | ĐTĐ | TB | 1 | 1 |
+| X09a | Chuyển nhượng suất cho người đi thay | ĐTĐ | TB | 2 | 0,5 |
+| X09b | Giao diện chuyển nhượng suất | PĐ | D | 2 | 0,25 |
+| X10a | Bảng và dịch vụ công nợ khách | **TĐ** | K | 2 | 1 |
+| X10b | Áp dụng công nợ khi đặt đơn mới và khi chuyển chuyến | **TĐ** | K | 2 | 0,5 |
+| X11 | Cảnh báo chuyến đã chốt chưa có hướng dẫn viên | TA | TB | 2 | 0,5 |
+| X08 | Hoàn tiền về tài khoản khác người đứng tên | ĐTĐ | D | 3 | 0,25 |
+| X13 | Phụ thu phòng đơn vào công thức tính tiền | **TĐ** | K | 3 | 0,75 |
 
 ### MỐC 2
 
@@ -378,7 +406,7 @@ A02, H04, M02, N02, phải chạy thử trên MySQL trước khi gộp. Bốn mi
 | Rủi ro | Ảnh hưởng | Cách giảm |
 | --- | --- | --- |
 | Cả nhóm chờ A01 và A03 ở tuần 1 | Mất một đến hai ngày của ba người | TA làm ngay ngày đầu, ĐTĐ có sẵn năm migration độc lập để làm song song |
-| PĐ là người duy nhất làm giao diện, tổng 35,25 ngày | Giao diện thành nút thắt ở Mốc 3 | TĐ hỗ trợ giao diện khi rảnh, ưu tiên các màn hình quản trị đơn giản |
+| PĐ là người duy nhất làm giao diện, tổng 36 ngày | Giao diện thành nút thắt ở Mốc 3 | TĐ hỗ trợ giao diện khi rảnh, ưu tiên các màn hình quản trị đơn giản |
 | TĐ vừa làm phần khó vừa duyệt mã cho ba người | Duyệt mã bị dồn, gộp chậm | Đặt khung giờ duyệt cố định trong ngày, không duyệt rải rác |
 | Migration đụng nhau khi gộp | Phải sửa tên tệp và chạy lại | Theo quy ước dải giờ ở mục 6.2 |
 | Bốn migration chuyển dữ liệu chạy sai trên MySQL | Hỏng dữ liệu thử | Chạy thử trước khi gộp, luôn viết được phần `down` |
