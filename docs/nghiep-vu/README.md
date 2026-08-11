@@ -11,6 +11,7 @@ thiếu so với tầng **bán tour** đã có.
 
 | Tài liệu | Nội dung |
 | --- | --- |
+| [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md) | Hệ thống làm gì, cố ý không làm gì và vì sao; giả định; mức tin cậy của các số liệu |
 | [01 - Tác nhân và vòng đời](01-tac-nhan-va-vong-doi.md) | Vai trò, ma trận quyền, máy trạng thái của Tour / Chuyến khởi hành / Đơn đặt tour |
 | [02 - Luồng đặt tour và thanh toán](02-luong-dat-tour.md) | Đặt chỗ, giữ chỗ, thanh toán, đặt cọc, sửa đơn, chuyển chuyến, chuyển tour |
 | [03 - Luồng hủy và hoàn tiền](03-luong-huy-va-hoan-tien.md) | Ai được hủy, mốc thời gian, chính sách hoàn tiền, xử lý slot khi hủy sát giờ |
@@ -19,6 +20,9 @@ thiếu so với tầng **bán tour** đã có.
 | [06 - Đối chiếu feedback hội đồng](06-doi-chieu-feedback.md) | 18 điểm hội đồng nêu, hiện trạng, phương án, mức ưu tiên |
 | [07 - Thiết kế dữ liệu bổ sung](07-thiet-ke-du-lieu.md) | Bảng mới, cột mới, ràng buộc, chỉ mục, thứ tự migration |
 | [08 - Danh mục edge case](08-danh-muc-edge-case.md) | Bảng tổng hợp toàn bộ tình huống ngoại lệ và cách xử lý |
+| [09 - Cung ứng và giá vốn](09-cung-ung-va-gia-von.md) | Nhà cung cấp, tồn chỗ giữ được, dự toán chi phí, điểm hòa vốn, lãi lỗ từng chuyến, tạm ứng hướng dẫn viên |
+| [10 - Tài chính và kế toán](10-tai-chinh-va-ke-toan.md) | Ghi nhận doanh thu, đối soát, dòng tiền, bộ báo cáo tối thiểu |
+| [11 - Backlog triển khai](11-backlog-trien-khai.md) | 168 công việc chia theo nhóm, ước lượng, phụ thuộc, đường găng |
 
 ## Tóm tắt hiện trạng
 
@@ -42,6 +46,13 @@ bán được tour**:
 5. Chưa có hồ sơ năng lực hướng dẫn viên, chưa kiểm tra trùng lịch, chưa hỗ trợ bàn giao giữa chừng.
 6. Chưa có hợp đồng, danh sách đoàn, danh sách phòng.
 7. Chưa có nhật ký thay đổi (audit log) cho các thao tác can thiệp vào đơn hàng.
+8. Chưa có mảng cung ứng: nhà cung cấp, tồn chỗ giữ được, giá vốn. Đây là lý do `min_people`
+   và "hoàn theo giá vốn" chưa có căn cứ tính toán.
+9. Chưa phân biệt tiền thu và doanh thu. Bảng điều khiển đang cộng tiền đã thu và gọi đó là
+   doanh thu, sai về nguyên tắc kế toán.
+
+Ba mảng cố ý nằm ngoài phạm vi và không có kế hoạch triển khai: kênh phân phối qua đại lý,
+hóa đơn điện tử, và tour nước ngoài. Lý do đầy đủ tại [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md).
 
 ## Nguyên tắc thiết kế xuyên suốt
 
@@ -93,6 +104,17 @@ Chia làm ba mốc, sắp theo tỷ lệ giữa mức độ hội đồng quan t
 13. Sự cố và chi phí phát sinh.
 14. Booking theo đoàn, báo giá, bậc giá theo số lượng.
 15. Hợp đồng, danh sách đoàn, danh sách phòng.
+16. Nhà cung cấp, giá vốn, điểm hòa vốn, lãi lỗ từng chuyến.
+17. Ghi nhận doanh thu đúng nguyên tắc, đối soát, báo cáo dòng tiền.
 
-Chi tiết từng hạng mục, bao gồm hiện trạng mã nguồn và phương án cụ thể, xem
-[06 - Đối chiếu feedback hội đồng](06-doi-chieu-feedback.md).
+### Khối lượng thực tế
+
+Toàn bộ ba mốc là **163 công việc, khoảng 152 ngày công**, tương đương bảy tháng làm việc
+toàn thời gian của một người. Không thể hoàn thành trước buổi bảo vệ.
+
+Khuyến nghị: làm trọn **Mốc 1** (46,5 ngày công), đủ để trả lời 12 trên 18 câu hỏi của hội đồng
+bằng mã chạy thật. Mốc 2 và 3 trình bày bằng tài liệu thiết kế kèm mô hình dữ liệu, và nêu rõ
+đó là lựa chọn có cân nhắc theo [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md).
+
+Chi tiết từng công việc, phụ thuộc và đường găng xem [11 - Backlog triển khai](11-backlog-trien-khai.md).
+Đối chiếu với feedback hội đồng xem [06 - Đối chiếu feedback hội đồng](06-doi-chieu-feedback.md).
