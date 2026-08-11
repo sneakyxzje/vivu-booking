@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\ScheduleStatus;
+use App\Exceptions\BusinessRuleException;
 use App\Models\TourSchedule;
 use App\Services\ScheduleLifecycleService;
 use Illuminate\Console\Attributes\Description;
@@ -22,7 +23,7 @@ class CloseExpiredSchedules extends Command
     public function handle(): int
     {
         $schedules = TourSchedule::query()
-            ->where('status', ScheduleStatus::Open)
+            ->where('status', ScheduleStatus::Open->value)
             ->where(function ($query) {
                 $query
                     ->where(function ($query) {
@@ -37,11 +38,19 @@ class CloseExpiredSchedules extends Command
         $closed = 0;
 
         foreach ($schedules as $schedule) {
-            $this->lifecycle->transitionTo(
-                $schedule,
-                ScheduleStatus::Closed,
-                'Tự động đóng bán do quá hạn chốt hoặc đã đủ chỗ.',
-            );
+            try {
+                $this->lifecycle->transitionTo(
+                    $schedule,
+                    ScheduleStatus::Closed,
+                    'Tự động đóng bán do quá hạn chốt hoặc đã đủ chỗ.',
+                );
+            } catch (BusinessRuleException $e) {
+                $this->warn(
+                    "Lịch #{$schedule->id} không thể đóng bán: {$e->getMessage()}"
+                );
+
+                continue;
+            }
 
             $closed++;
 

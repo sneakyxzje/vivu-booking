@@ -149,7 +149,7 @@ class BookingHoldExpiryTest extends TestCase
 
         $schedule->refresh();
         $this->assertSame(0, (int) $schedule->booked_people);
-        $this->assertSame('open', $schedule->status->value);
+        $this->assertSame('open', $schedule->status);
         $this->assertSame('active', $schedule->tour->fresh()->status);
     }
 }

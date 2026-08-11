@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Models\TourSchedule;
+use App\Models\User;
 use App\Services\ScheduleLifecycleService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
@@ -16,6 +18,8 @@ use Tests\TestCase;
  */
 class ScheduleLifecycleTest extends TestCase
 {
+    use RefreshDatabase;
+
     private ScheduleLifecycleService $service;
 
     protected function setUp(): void
@@ -176,17 +180,42 @@ class ScheduleLifecycleTest extends TestCase
 
     public function test_ghi_du_cot_truy_vet_khi_huy_chuyen(): void
     {
-        $this->markTestSkipped(
-            'Cần migration A01 đổi cột status sang string và thêm cancelled_at, cancelled_by, '
-            . 'cancelled_reason. Trước đó SQLite còn CHECK constraint chỉ nhận active/inactive/full.'
+        $actor = User::factory()->create();
+        $schedule = TourSchedule::factory()->create([
+            'status' => ScheduleStatus::Open->value,
+            'start_date' => now()->addDays(10),
+        ]);
+
+        $this->service->transitionTo(
+            $schedule,
+            ScheduleStatus::Cancelled,
+            'Khong du khach toi thieu.',
+            $actor->id,
         );
+
+        $schedule->refresh();
+
+        $this->assertSame(ScheduleStatus::Cancelled->value, $schedule->status);
+        $this->assertNotNull($schedule->cancelled_at);
+        $this->assertSame($actor->id, $schedule->cancelled_by);
+        $this->assertSame('Khong du khach toi thieu.', $schedule->cancelled_reason);
     }
 
     public function test_hai_luong_cung_doi_trang_thai_thi_luong_sau_bi_tu_choi(): void
     {
-        $this->markTestSkipped(
-            'Cần migration A01. Bài này mở hai giao dịch song song trên cùng một chuyến để '
-            . 'kiểm chứng lockForUpdate trong transitionTo, chỉ chạy được khi cột status đã đổi kiểu.'
-        );
+        $schedule = TourSchedule::factory()->create([
+            'status' => ScheduleStatus::Open->value,
+            'start_date' => now()->addDays(10),
+        ]);
+
+        $firstRead = TourSchedule::findOrFail($schedule->id);
+        $staleSecondRead = TourSchedule::findOrFail($schedule->id);
+
+        $this->service->transitionTo($firstRead, ScheduleStatus::Cancelled, 'Huy chuyen.');
+
+        $this->expectException(BusinessRuleException::class);
+        $this->service->transitionTo($staleSecondRead, ScheduleStatus::Confirmed);
+
+        $this->assertSame(ScheduleStatus::Cancelled->value, $schedule->fresh()->status);
     }
 }

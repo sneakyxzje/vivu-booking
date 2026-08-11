@@ -35,7 +35,7 @@ export default function TourDetail() {
             ? new Date(schedule.booking_deadline) < new Date()
             : false;
 
-          return ["open", "active"].includes(schedule.status) && availableSlots > 0 && !isDeadlineOverdue;
+          return schedule.status === "open" && availableSlots > 0 && !isDeadlineOverdue;
         }) || tour.schedules[0];
 
       setSelectedSchedule(firstBookable);

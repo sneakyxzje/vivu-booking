@@ -87,6 +87,7 @@ class TourSchedule extends Model
     {
         return $this->belongsTo(self::class, 'merged_into_schedule_id');
     }
+
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'tour_schedule_id');

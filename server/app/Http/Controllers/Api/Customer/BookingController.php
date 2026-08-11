@@ -12,6 +12,7 @@ use App\Models\PaymentLog;
 use App\Models\TourSchedule;
 use App\Services\BookingHoldService;
 use App\Services\BookingPolicyService;
+use App\Services\ScheduleLifecycleService;
 use App\Services\VNPayService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -29,6 +30,7 @@ class BookingController extends Controller
         private VNPayService $vnpayService,
         private BookingHoldService $holdService,
         private BookingPolicyService $bookingPolicy,
+        private ScheduleLifecycleService $scheduleLifecycle,
     ) {
     }
 
@@ -164,7 +166,11 @@ class BookingController extends Controller
             $schedule->refresh();
 
             if ($schedule->booked_people >= $schedule->max_people) {
-                $schedule->update(['status' => ScheduleStatus::Closed->value]);
+                $this->scheduleLifecycle->transitionTo(
+                    $schedule,
+                    ScheduleStatus::Closed,
+                    'Tự động đóng bán do booking vừa lấp đầy số chỗ.',
+                );
             }
 
             $this->holdService->refreshTourAvailability($schedule);
@@ -384,7 +390,11 @@ class BookingController extends Controller
                         $schedule->refresh();
 
                         if ($schedule->booked_people >= $schedule->max_people) {
-                            $schedule->update(['status' => ScheduleStatus::Closed->value]);
+                            $this->scheduleLifecycle->transitionTo(
+                                $schedule,
+                                ScheduleStatus::Closed,
+                                'Tự động đóng bán do booking vừa lấp đầy số chỗ.',
+                            );
                         }
 
                         $this->holdService->refreshTourAvailability($schedule);
