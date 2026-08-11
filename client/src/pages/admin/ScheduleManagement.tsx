@@ -24,7 +24,6 @@ export default function ScheduleManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
-
   // State phân công Hướng dẫn viên
   const [assigningScheduleId, setAssigningScheduleId] = useState<number | null>(null);
   const [pendingGuideIds, setPendingGuideIds] = useState<Record<number, string>>({});
@@ -87,7 +86,6 @@ export default function ScheduleManagement() {
       const matchesSearch =
         schedule.tour_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         String(schedule.id).includes(searchQuery);
-
       const status = schedule.status || "open";
       const matchesStatus =
         statusFilter === "all" ||
@@ -537,15 +535,14 @@ export default function ScheduleManagement() {
                 >
                   Trước
                 </button>
-
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <button
                     key={page}
                     type="button"
                     onClick={() => setCurrentPage(page)}
                     className={`rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer transition-all duration-150 ${page === currentPage
-                        ? "bg-primary-600 text-white shadow-xs"
-                        : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                      ? "bg-primary-600 text-white shadow-xs"
+                      : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
                       }`}
                   >
                     {page}
