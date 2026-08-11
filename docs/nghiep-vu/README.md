@@ -24,6 +24,7 @@ thiếu so với tầng **bán tour** đã có.
 | [10 - Tài chính và kế toán](10-tai-chinh-va-ke-toan.md) | Ghi nhận doanh thu, đối soát, dòng tiền, bộ báo cáo tối thiểu |
 | [11 - Backlog triển khai](11-backlog-trien-khai.md) | 163 công việc chia theo nhóm, ước lượng, phụ thuộc, đường găng |
 | [12 - Phân công nhóm](12-phan-cong-nhom.md) | Giao việc cho bốn thành viên, lịch Mốc 1, quy tắc phối hợp, phương án cắt phạm vi |
+| [13 - Kế hoạch một tuần](13-sprint-1-tuan.md) | **Kế hoạch đang chạy.** Phạm vi cắt còn 33,75 ngày công, lịch từng ngày cho từng người |
 
 ## Tóm tắt hiện trạng
 
