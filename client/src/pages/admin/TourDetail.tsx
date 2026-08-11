@@ -18,10 +18,28 @@ const getEndDate = (startDate: string, numberOfDays: number) => {
   return date.toLocaleDateString("vi-VN");
 };
 
-const statusLabel: Record<Tour["status"], string> = {
+const statusLabel: Record<string, string> = {
+  open: "Đang mở bán",
+  closed: "Đã đóng bán",
+  confirmed: "Đã chốt chạy",
+  in_progress: "Đang di chuyển",
+  completed: "Đã hoàn thành",
+  cancelled: "Đã hủy",
   active: "Đang hoạt động",
   inactive: "Tạm dừng",
   full: "Hết chỗ",
+};
+
+const statusClasses: Record<string, string> = {
+  open: "bg-emerald-550 border-emerald-250 border bg-emerald-50 text-emerald-800",
+  closed: "bg-gray-150 border-gray-250 border text-gray-700 bg-gray-100",
+  confirmed: "bg-blue-50 border-blue-250 border text-blue-750",
+  in_progress: "bg-amber-50 border-amber-250 border text-amber-850",
+  completed: "bg-indigo-50 border-indigo-250 border text-indigo-750",
+  cancelled: "bg-rose-50 border-rose-250 border text-rose-800",
+  active: "bg-emerald-550 border-emerald-200 border bg-emerald-50 text-emerald-800",
+  inactive: "bg-gray-100 border-gray-200 border text-gray-600",
+  full: "bg-red-50 border-red-200 border text-red-700",
 };
 
 export default function AdminTourDetail() {
@@ -38,6 +56,9 @@ export default function AdminTourDetail() {
     type: "success" as "success" | "error" | "info",
     isOpen: false,
   });
+  const [cancellingScheduleId, setCancellingScheduleId] = useState<number | null>(null);
+  const [cancelReasonInput, setCancelReasonInput] = useState("");
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -111,6 +132,57 @@ export default function AdminTourDetail() {
     } finally {
       setAssigningScheduleId(null);
     }
+  };
+
+  const handleUpdateStatus = async (scheduleId: number, nextStatus: string, reason?: string) => {
+    try {
+      console.log(`Updating schedule ${scheduleId} to status: ${nextStatus}`);
+      
+      setTour((current) => {
+        if (!current) return null;
+        return {
+          ...current,
+          schedules: current.schedules?.map((item) => {
+            if (item.id === scheduleId) {
+              const updated = {
+                ...item,
+                status: nextStatus as any,
+              };
+              if (nextStatus === "cancelled") {
+                updated.cancelled_reason = reason || "Điều hành hủy chuyến";
+              }
+              return updated;
+            }
+            return item;
+          }),
+        };
+      });
+
+      setToast({
+        message: `Đã cập nhật trạng thái chuyến đi thành "${statusLabel[nextStatus]}".`,
+        type: "success",
+        isOpen: true,
+      });
+    } catch {
+      setToast({
+        message: "Không thể cập nhật trạng thái chuyến đi.",
+        type: "error",
+        isOpen: true,
+      });
+    }
+  };
+
+  const openCancelDialog = (scheduleId: number) => {
+    setCancellingScheduleId(scheduleId);
+    setCancelReasonInput("");
+    setIsCancelModalOpen(true);
+  };
+
+  const confirmCancelSchedule = () => {
+    if (!cancellingScheduleId) return;
+    handleUpdateStatus(cancellingScheduleId, "cancelled", cancelReasonInput || "Lý do bất khả kháng");
+    setIsCancelModalOpen(false);
+    setCancellingScheduleId(null);
   };
 
   if (loading) {
@@ -243,100 +315,220 @@ export default function AdminTourDetail() {
 
         {tour.schedules?.length ? (
           <div className="divide-y divide-gray-100">
-            {tour.schedules.map((schedule) => (
-              <div
-                key={schedule.id}
-                className="grid gap-4 px-6 py-5 lg:grid-cols-[1fr_1fr_1fr_minmax(220px,1.2fr)] lg:items-center"
-              >
-                <div className="flex items-center gap-3">
-                  <CalendarDays className="h-5 w-5 text-primary-600" />
-                  <div>
-                    <p className="text-xs text-gray-500">Thời gian chuyến</p>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {formatDateTime(schedule.start_date)} -{" "}
-                      {getEndDate(schedule.start_date, tour.number_of_days)}
-                    </p>
+            {tour.schedules.map((schedule) => {
+              const status = schedule.status || "open";
+              const deadline = schedule.booking_deadline;
+              const minPeople = schedule.min_people || 5;
+              const isOverdue = deadline ? new Date(deadline) < new Date() : false;
+
+              return (
+                <div
+                  key={schedule.id}
+                  className="p-6 hover:bg-gray-50/50 transition-colors"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    {/* Main Info */}
+                    <div className="space-y-3 flex-1">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="text-xs font-bold text-primary-700 font-mono">
+                          CHUYẾN #{schedule.id}
+                        </span>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            statusClasses[status] || statusClasses.open
+                          }`}
+                        >
+                          {statusLabel[status]}
+                        </span>
+                        {status === "cancelled" && schedule.cancelled_reason && (
+                          <span className="text-xs text-rose-600 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100">
+                            Lý do hủy: {schedule.cancelled_reason}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {/* Time */}
+                        <div className="flex items-center gap-2.5">
+                          <CalendarDays className="h-4.5 w-4.5 text-gray-400 shrink-0" />
+                          <div className="text-xs">
+                            <p className="text-gray-400">Thời gian khởi hành</p>
+                            <p className="font-semibold text-gray-900 mt-0.5">
+                              {formatDateTime(schedule.start_date)} -{" "}
+                              {getEndDate(schedule.start_date, tour.number_of_days)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Booking deadline */}
+                        <div className="flex items-center gap-2.5">
+                          <Clock className={`h-4.5 w-4.5 shrink-0 ${isOverdue && status === "open" ? "text-amber-500 animate-pulse" : "text-gray-400"}`} />
+                          <div className="text-xs">
+                            <p className="text-gray-400">Hạn đặt (Booking Deadline)</p>
+                            <p className="font-semibold text-gray-900 mt-0.5">
+                              {deadline ? formatDateTime(deadline) : "Không giới hạn"}
+                              {isOverdue && status === "open" && (
+                                <span className="ml-1.5 text-[9px] bg-amber-50 text-amber-700 px-1 py-0.5 rounded font-bold uppercase tracking-wide">Quá hạn</span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Guest capacity */}
+                        <div className="flex items-center gap-2.5">
+                          <Users className="h-4.5 w-4.5 text-gray-400 shrink-0" />
+                          <div className="text-xs">
+                            <p className="text-gray-400">Tình trạng chỗ</p>
+                            <p className="font-semibold text-gray-900 mt-0.5">
+                              {schedule.booked_people} / {schedule.max_people} khách{" "}
+                              <span className="text-gray-400 font-normal">
+                                (Tối thiểu: {minPeople})
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Guide Assign Section */}
+                      <div className="pt-2 flex flex-col gap-2 sm:flex-row sm:items-center max-w-lg">
+                        <div className="shrink-0 text-xs font-semibold text-gray-500 flex items-center gap-1">
+                          <UserRound className="h-3.5 w-3.5" /> Hướng dẫn viên:
+                        </div>
+                        <select
+                          id={"schedule-guide-" + schedule.id}
+                          value={
+                            pendingGuideIds[schedule.id] ??
+                            String(schedule.guide_id ?? "")
+                          }
+                          disabled={assigningScheduleId === schedule.id || status === "cancelled" || status === "completed"}
+                          onChange={(event) =>
+                            setPendingGuideIds((current) => ({
+                              ...current,
+                              [schedule.id]: event.target.value,
+                            }))
+                          }
+                          className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-800 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-gray-50"
+                        >
+                          <option value="">Chưa phân công</option>
+                          {guides.map((guide) => (
+                            <option key={guide.id} value={guide.id}>
+                              {guide.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          disabled={
+                            assigningScheduleId === schedule.id ||
+                            status === "cancelled" ||
+                            status === "completed" ||
+                            (pendingGuideIds[schedule.id] ??
+                              String(schedule.guide_id ?? "")) ===
+                              String(schedule.guide_id ?? "")
+                          }
+                          onClick={() => {
+                            const value =
+                              pendingGuideIds[schedule.id] ??
+                              String(schedule.guide_id ?? "");
+                            assignGuide(schedule, value ? Number(value) : null);
+                          }}
+                          className="shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 transition-colors"
+                        >
+                          {assigningScheduleId === schedule.id ? "Đang lưu..." : "Lưu HDV"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* State controller menu */}
+                    <div className="flex flex-col gap-2 shrink-0 w-full sm:w-auto lg:items-end">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                        Vận hành chuyến
+                      </p>
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {/* Open/Close toggle */}
+                        {status === "open" && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateStatus(schedule.id, "closed")}
+                            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 duration-200"
+                          >
+                            Đóng bán
+                          </button>
+                        )}
+                        {status === "closed" && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateStatus(schedule.id, "open")}
+                            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 transition-all active:scale-95 duration-200"
+                          >
+                            Mở bán lại
+                          </button>
+                        )}
+
+                        {/* Confirm action */}
+                        {(status === "open" || status === "closed") && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateStatus(schedule.id, "confirmed")}
+                            className="rounded-lg bg-primary-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 shadow-sm transition-all active:scale-95 duration-200"
+                          >
+                            Chốt chuyến
+                          </button>
+                        )}
+
+                        {/* Start tour action */}
+                        {status === "confirmed" && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateStatus(schedule.id, "in_progress")}
+                            className="rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 shadow-sm transition-all active:scale-95 duration-200"
+                          >
+                            Bắt đầu chuyến
+                          </button>
+                        )}
+
+                        {/* Complete tour action */}
+                        {status === "in_progress" && (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateStatus(schedule.id, "completed")}
+                            className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 shadow-sm transition-all active:scale-95 duration-200"
+                          >
+                            Kết thúc chuyến
+                          </button>
+                        )}
+
+                        {/* Cancel action */}
+                        {(status === "open" || status === "closed" || status === "confirmed") && (
+                          <button
+                            type="button"
+                            onClick={() => openCancelDialog(schedule.id)}
+                            className="rounded-lg border border-rose-150 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition-all active:scale-95 duration-200"
+                          >
+                            Hủy chuyến
+                          </button>
+                        )}
+
+                        {/* Closed states */}
+                        {(status === "completed" || status === "cancelled") && (
+                          <span className="text-xs text-gray-400 italic">
+                            Chuyến đi đã kết thúc vòng đời
+                          </span>
+                        )}
+                      </div>
+
+                      <Link
+                        to={`/admin/tour-schedules/${schedule.id}/attendance`}
+                        className="mt-1 text-xs font-semibold text-primary-600 hover:underline flex items-center gap-1 lg:self-end"
+                      >
+                        Xem điểm danh & ảnh check-in →
+                      </Link>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Users className="h-5 w-5 text-gray-500" />
-                  <div>
-                    <p className="text-xs text-gray-500">Số khách</p>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {schedule.booked_people}/{schedule.max_people}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Clock className="h-5 w-5 text-gray-500" />
-                  <div>
-                    <p className="text-xs text-gray-500">Trạng thái</p>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {statusLabel[schedule.status]}
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <label
-                    htmlFor={"schedule-guide-" + schedule.id}
-                    className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-gray-600"
-                  >
-                    <UserRound className="h-4 w-4" />
-                    Hướng dẫn viên
-                  </label>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <select
-                      id={"schedule-guide-" + schedule.id}
-                      value={
-                        pendingGuideIds[schedule.id] ??
-                        String(schedule.guide_id ?? "")
-                      }
-                      disabled={assigningScheduleId === schedule.id}
-                      onChange={(event) =>
-                        setPendingGuideIds((current) => ({
-                          ...current,
-                          [schedule.id]: event.target.value,
-                        }))
-                      }
-                      className="min-w-0 flex-1 rounded-md border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 disabled:cursor-wait disabled:bg-gray-100"
-                    >
-                      <option value="">Chưa phân công</option>
-                      {guides.map((guide) => (
-                        <option key={guide.id} value={guide.id}>
-                          {guide.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={
-                        assigningScheduleId === schedule.id ||
-                        (pendingGuideIds[schedule.id] ??
-                          String(schedule.guide_id ?? "")) ===
-                          String(schedule.guide_id ?? "")
-                      }
-                      onClick={() => {
-                        const value =
-                          pendingGuideIds[schedule.id] ??
-                          String(schedule.guide_id ?? "");
-                        assignGuide(schedule, value ? Number(value) : null);
-                      }}
-                      className="shrink-0 rounded-md bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-                    >
-                      {assigningScheduleId === schedule.id
-                        ? "Đang lưu..."
-                        : "Xác nhận"}
-                    </button>
-                  </div>
-                  <Link
-                    to={`/admin/tour-schedules/${schedule.id}/attendance`}
-                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary-600 hover:underline"
-                  >
-                    Xem điểm danh & ảnh check-in →
-                  </Link>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="p-10 text-center text-sm text-gray-500">
@@ -372,6 +564,47 @@ export default function AdminTourDetail() {
           </div>
         )}
       </section>
+
+      {/* Modal Hủy Chuyến */}
+      {isCancelModalOpen && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in pointer-events-auto">
+          <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl border border-gray-100 p-6 flex flex-col items-center text-center animate-scale-up">
+            <div className="p-3.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 mb-4">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h4 className="text-base font-bold text-gray-900 mb-1">Xác nhận hủy chuyến đi</h4>
+            <p className="text-xs text-gray-500 mb-4">
+              Vui lòng cung cấp lý do chi tiết hủy chuyến đi này. Chỗ ngồi sẽ được trả lại và không thể phục hồi.
+            </p>
+            <textarea
+              value={cancelReasonInput}
+              onChange={(e) => setCancelReasonInput(e.target.value)}
+              placeholder="Nhập lý do hủy (ví dụ: Không đủ khách tối thiểu, lý do thời tiết...)"
+              rows={3}
+              className="w-full rounded-xl border border-gray-250 bg-white p-3 text-xs text-gray-800 placeholder:text-gray-400 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 mb-4 resize-none"
+            />
+            <div className="flex w-full gap-2">
+              <button
+                type="button"
+                onClick={() => setIsCancelModalOpen(false)}
+                className="flex-1 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={confirmCancelSchedule}
+                disabled={!cancelReasonInput.trim()}
+                className="flex-1 py-2 text-xs font-semibold text-white rounded-xl shadow-md bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Hủy chuyến
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Toast
         message={toast.message}

@@ -23,6 +23,7 @@ import DiscountCodeManagement from "@/pages/admin/DiscountCodeManagement";
 import ServiceManagement from "@/pages/admin/ServiceManagement";
 import CategoryManagement from "@/pages/admin/CategoryManagement";
 import ScheduleAttendance from "@/pages/admin/ScheduleAttendance";
+import ScheduleManagement from "@/pages/admin/ScheduleManagement";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
 import { GuideTours } from "@/pages/guide/GuideTours";
 import { GuideBookings } from "@/pages/guide/GuideBookings";
@@ -174,6 +175,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/tour-schedules/:scheduleId/attendance",
             element: <ScheduleAttendance />,
+          },
+          {
+            path: "/admin/schedules",
+            element: <ScheduleManagement />,
           },
           {
             path: "/admin/bookings",
