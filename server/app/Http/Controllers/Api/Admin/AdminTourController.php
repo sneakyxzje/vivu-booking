@@ -9,8 +9,10 @@ use App\Models\Service;
 use App\Models\Tour;
 use App\Models\TourSchedule;
 use App\Models\User;
-use Carbon\Carbon;
+use App\Enums\ScheduleStatus;
 use App\Services\CloudinaryService;
+use App\Services\ScheduleLifecycleService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +23,8 @@ use App\Http\Resources\TourResource;
 class AdminTourController extends Controller
 {
     public function __construct(
-        protected CloudinaryService $cloudinaryService
+        protected CloudinaryService $cloudinaryService,
+        protected ScheduleLifecycleService $scheduleLifecycle,
     ) {
     }
 
@@ -127,6 +130,8 @@ class AdminTourController extends Controller
             'schedules' => ['nullable', 'array'],
             'schedules.*.start_date' => ['required_with:schedules', 'date', 'after_or_equal:today'],
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
+            'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
+            'schedules.*.booking_deadline' => ['nullable', 'date'],
             'schedules.*.guide_id' => ['nullable', 'exists:users,id'],
         ]);
 
@@ -194,12 +199,25 @@ class AdminTourController extends Controller
             }
 
             foreach ($schedules as $item) {
+                $startDate = Carbon::parse($item['start_date']);
+
+                // end_date tự tính: start + (number_of_days - 1) ngày
+                $endDate = $startDate->copy()->addDays(max(0, $numberOfDay - 1));
+
+                // booking_deadline: nếu không truyền thì mặc định start - 3 ngày
+                $bookingDeadline = isset($item['booking_deadline'])
+                    ? Carbon::parse($item['booking_deadline'])
+                    : $startDate->copy()->subDays(3);
+
                 $tour->schedules()->create([
-                    'start_date' => $item['start_date'],
-                    'guide_id' => $item['guide_id'] ?? null,
-                    'max_people' => $item['max_people'],
-                    'booked_people' => 0,
-                    'status' => 'active',
+                    'start_date'       => $startDate,
+                    'end_date'         => $endDate,
+                    'guide_id'         => $item['guide_id'] ?? null,
+                    'max_people'       => $item['max_people'],
+                    'min_people'       => $item['min_people'] ?? 1,
+                    'booking_deadline' => $bookingDeadline,
+                    'booked_people'    => 0,
+                    'status'           => 'open',
                 ]);
             }
 
@@ -266,6 +284,8 @@ class AdminTourController extends Controller
             'schedules.*.id' => ['nullable', 'exists:tour_schedules,id'],
             'schedules.*.start_date' => ['required_with:schedules', 'date'],
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
+            'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
+            'schedules.*.booking_deadline' => ['nullable', 'date'],
             'schedules.*.guide_id' => ['nullable', 'exists:users,id'],
         ]);
 
@@ -291,7 +311,7 @@ class AdminTourController extends Controller
             }
         }
 
-        $tour = DB::transaction(function () use ($request, $tour, $validated, $categoryIds, $serviceIds, $itineraries, $schedules) {
+        $tour = DB::transaction(function () use ($request, $tour, $validated, $categoryIds, $serviceIds, $itineraries, $schedules, $numberOfDay) {
             if ($request->hasFile('thumbnail_file')) {
                 $validated['thumbnail'] = $this->cloudinaryService->uploadImage(
                     $request->file('thumbnail_file')
@@ -331,11 +351,32 @@ class AdminTourController extends Controller
                     ? $tour->schedules()->whereKey($scheduleId)->first()
                     : null;
 
+                // Guard: không cho sửa thông tin vận hành khi chuyến đang chạy/đã kết thúc/đã hủy.
+                if ($schedule && $schedule->isOperationallyLocked()) {
+                    if (isset($item['min_people']) || isset($item['booking_deadline'])) {
+                        throw ValidationException::withMessages([
+                            'schedules' => sprintf(
+                                'Không thể sửa thông tin chuyến khi trạng thái là "%s".',
+                                $schedule->status->label()
+                            ),
+                        ]);
+                    }
+                }
+
+                $startDate = Carbon::parse($item['start_date']);
+                $endDate   = $startDate->copy()->addDays(max(0, $numberOfDay - 1));
+
+                $bookingDeadline = isset($item['booking_deadline'])
+                    ? Carbon::parse($item['booking_deadline'])
+                    : $startDate->copy()->subDays(3);
+
                 $payload = [
-                    'start_date' => $item['start_date'],
-                    'guide_id' => $item['guide_id'] ?? null,
-                    'max_people' => $item['max_people'],
-                    'status' => 'active',
+                    'start_date'       => $startDate,
+                    'end_date'         => $endDate,
+                    'guide_id'         => $item['guide_id'] ?? null,
+                    'max_people'       => $item['max_people'],
+                    'min_people'       => $item['min_people'] ?? ($schedule?->min_people ?? 1),
+                    'booking_deadline' => $bookingDeadline,
                 ];
 
                 if ($schedule) {
@@ -345,7 +386,13 @@ class AdminTourController extends Controller
                         ]);
                     }
 
-                    $payload['status'] = $schedule->booked_people >= (int) $item['max_people'] ? 'full' : 'active';
+                    // Chỉ cập nhật status nếu chưa khóa vận hành (open/closed).
+                    if (! $schedule->isOperationallyLocked()) {
+                        $payload['status'] = $schedule->booked_people >= (int) $item['max_people']
+                            ? 'closed'
+                            : 'open';
+                    }
+
                     $schedule->update($payload);
                     $keptScheduleIds[] = $schedule->id;
                     continue;
@@ -354,6 +401,7 @@ class AdminTourController extends Controller
                 $created = $tour->schedules()->create([
                     ...$payload,
                     'booked_people' => 0,
+                    'status'        => 'open',
                 ]);
                 $keptScheduleIds[] = $created->id;
             }
@@ -383,6 +431,63 @@ class AdminTourController extends Controller
         return $this->success([
             'tour' => new TourResource($tour),
         ], 'Cập nhật tour thành công');
+    }
+
+    /**
+     * Đổi trạng thái chuyến thủ công (A10).
+     *
+     * Admin được phép chuyển: open ↔ closed, open/closed → confirmed, open/closed/confirmed → cancelled.
+     * Không cho admin chuyển sang in_progress hoặc completed — các trạng thái đó do hệ thống/HDV.
+     *
+     * PATCH /admin/schedules/{id}/status
+     */
+    public function updateScheduleStatus(Request $request, int $id): JsonResponse
+    {
+        $allowedForAdmin = [
+            ScheduleStatus::Open->value,
+            ScheduleStatus::Closed->value,
+            ScheduleStatus::Confirmed->value,
+            ScheduleStatus::Cancelled->value,
+        ];
+
+        $validated = $request->validate([
+            'status' => ['required', 'string', 'in:' . implode(',', $allowedForAdmin)],
+            'reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $toStatus = ScheduleStatus::from($validated['status']);
+
+        // Lý do bắt buộc khi hủy chuyến.
+        if ($toStatus === ScheduleStatus::Cancelled && empty($validated['reason'])) {
+            return $this->error('Lý do hủy chuyến là bắt buộc.', 422);
+        }
+
+        $schedule = TourSchedule::find($id);
+
+        if (! $schedule) {
+            return $this->error('Không tìm thấy lịch khởi hành.', 404);
+        }
+
+        try {
+            $schedule = $this->scheduleLifecycle->transitionTo(
+                $schedule,
+                $toStatus,
+                reason: $validated['reason'] ?? null,
+                actorId: $request->user()->id,
+            );
+        } catch (\App\Exceptions\BusinessRuleException $e) {
+            return $this->error($e->getMessage(), $e->status());
+        }
+
+        return $this->success([
+            'id'              => $schedule->id,
+            'status'          => $schedule->status instanceof ScheduleStatus
+                ? $schedule->status->value
+                : $schedule->status,
+            'confirmed_at'    => $schedule->confirmed_at?->toIso8601String(),
+            'cancelled_at'    => $schedule->cancelled_at?->toIso8601String(),
+            'cancelled_reason' => $schedule->cancelled_reason,
+        ], 'Đã chuyển trạng thái chuyến sang ' . $toStatus->label());
     }
 
     public function assignScheduleGuide(Request $request, int $id): JsonResponse
@@ -558,4 +663,6 @@ class AdminTourController extends Controller
         return $slug;
     }
 }
+
+
 

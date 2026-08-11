@@ -59,7 +59,7 @@ class BookingCancellationGuardTest extends TestCase
             'start_date' => $khoiHanh,
             'max_people' => 10,
             'booked_people' => 2,
-            'status' => 'active',
+            'status' => 'open',
         ]);
 
         return Booking::create([
@@ -210,3 +210,4 @@ class BookingCancellationGuardTest extends TestCase
         $this->addToAssertionCount(1);
     }
 }
+

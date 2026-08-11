@@ -44,7 +44,7 @@ class BookingPassengerTest extends TestCase
             'start_date' => now()->addDays(5),
             'max_people' => 10,
             'booked_people' => 0,
-            'status' => 'active',
+            'status' => 'open',
         ]);
 
         $response = $this->postJson('/api/bookings', [
@@ -77,3 +77,4 @@ class BookingPassengerTest extends TestCase
         $this->assertSame('Nguyen Be Bi', $booking->passengers()->where('type', 'child')->value('name'));
     }
 }
+

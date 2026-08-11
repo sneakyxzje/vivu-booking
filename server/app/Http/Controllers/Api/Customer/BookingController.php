@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Customer;
 
 use App\Http\Controllers\Controller;
+use App\Enums\ScheduleStatus;
 use App\Mail\BookingCreatedMail;
 use App\Mail\BookingPaidMail;
 use App\Models\Booking;
@@ -99,7 +100,7 @@ class BookingController extends Controller
                 ]);
             }
 
-            if ($schedule->status !== 'active' || $schedule->tour?->status !== 'active') {
+            if (!$schedule->isBookable() || $schedule->tour?->status !== 'active') {
                 throw ValidationException::withMessages([
                     'tour_schedule_id' => 'Lịch khởi hành này hiện không khả dụng.',
                 ]);
@@ -163,7 +164,7 @@ class BookingController extends Controller
             $schedule->refresh();
 
             if ($schedule->booked_people >= $schedule->max_people) {
-                $schedule->update(['status' => 'full']);
+                $schedule->update(['status' => ScheduleStatus::Closed->value]);
             }
 
             $this->holdService->refreshTourAvailability($schedule);
@@ -378,12 +379,12 @@ class BookingController extends Controller
                         ? (int) $schedule->max_people - (int) $schedule->booked_people
                         : 0;
 
-                    if ($schedule && $schedule->status !== 'inactive' && $booking->guests <= $availableSeats) {
+                    if ($schedule && !in_array($schedule->status instanceof ScheduleStatus ? $schedule->status : ScheduleStatus::tryFrom((string) $schedule->status), [ScheduleStatus::Cancelled, ScheduleStatus::Completed], true) && $booking->guests <= $availableSeats) {
                         $schedule->increment('booked_people', $booking->guests);
                         $schedule->refresh();
 
                         if ($schedule->booked_people >= $schedule->max_people) {
-                            $schedule->update(['status' => 'full']);
+                            $schedule->update(['status' => ScheduleStatus::Closed->value]);
                         }
 
                         $this->holdService->refreshTourAvailability($schedule);
@@ -531,3 +532,7 @@ class BookingController extends Controller
     }
 
 }
+
+
+
+

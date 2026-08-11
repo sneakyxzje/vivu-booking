@@ -44,7 +44,7 @@ class BookingHoldExpiryTest extends TestCase
             'start_date' => now()->addDays(7),
             'max_people' => $maxPeople,
             'booked_people' => $bookedPeople,
-            'status' => $bookedPeople >= $maxPeople ? 'full' : 'active',
+            'status' => $bookedPeople >= $maxPeople ? 'closed' : 'open',
         ]);
     }
 
@@ -149,7 +149,9 @@ class BookingHoldExpiryTest extends TestCase
 
         $schedule->refresh();
         $this->assertSame(0, (int) $schedule->booked_people);
-        $this->assertSame('active', $schedule->status);
+        $this->assertSame('open', $schedule->status->value);
         $this->assertSame('active', $schedule->tour->fresh()->status);
     }
 }
+
+
