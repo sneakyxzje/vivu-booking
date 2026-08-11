@@ -510,7 +510,7 @@ export default function ScheduleManagement() {
           {totalPages >= 1 && (
             <div className="bg-slate-50 border-t border-gray-100 px-5 py-4 flex items-center justify-between flex-wrap gap-3">
               <span className="text-xs text-gray-500">
-                Hiển thị trang <strong className="text-gray-800">{currentPage}</strong> / <strong className="text-gray-800">{totalPages}</strong> trang (Tổng <strong className="text-gray-800">{totalItems}</strong> chuyến đi)
+                Hiển thị <strong className="text-gray-800">{Math.min(totalItems, (currentPage - 1) * ITEMS_PER_PAGE + 1)} - {Math.min(totalItems, currentPage * ITEMS_PER_PAGE)}</strong> trên tổng số <strong className="text-gray-800">{totalItems}</strong> chuyến đi
               </span>
 
               <div className="flex items-center gap-1.5">
