@@ -45,7 +45,16 @@ const emptyForm: TourFormState = {
       content: "",
     } as ItineraryFormItem,
   ],
-  schedules: [{ start_date: "", max_people: "10", guide_id: "" } as ScheduleFormItem],
+  schedules: [
+    {
+      start_date: "",
+      max_people: "10",
+      min_people: "5",
+      booking_deadline: "",
+      status: "open",
+      guide_id: "",
+    } as ScheduleFormItem,
+  ],
   category_ids: [] as number[],
   service_ids: [] as number[],
 };
@@ -221,6 +230,9 @@ export const CreateTourForm: React.FC = () => {
               id: item.id,
               start_date: toDateTimeLocalValue(item.start_date),
               max_people: String(item.max_people ?? 10),
+              min_people: String(item.min_people ?? 5),
+              booking_deadline: toDateTimeLocalValue(item.booking_deadline),
+              status: String(item.status ?? "open"),
               guide_id: String(item.guide_id ?? ""),
             })) ?? emptyForm.schedules,
           category_ids: tour.categories?.map((c) => c.id) ?? [],
@@ -389,15 +401,34 @@ export const CreateTourForm: React.FC = () => {
 
   const updateSchedule = (
     index: number,
-    field: "start_date" | "max_people" | "guide_id",
+    field: "start_date" | "max_people" | "guide_id" | "min_people" | "booking_deadline" | "status",
     value: string,
   ) => {
-    setForm((prev) => ({
-      ...prev,
-      schedules: prev.schedules.map((item, i) =>
-        i === index ? { ...item, [field]: value } : item,
-      ),
-    }));
+    setForm((prev) => {
+      let deadlineVal = "";
+      if (field === "start_date" && value) {
+        const start = new Date(value);
+        start.setDate(start.getDate() - 3);
+        const year = start.getFullYear();
+        const month = String(start.getMonth() + 1).padStart(2, "0");
+        const day = String(start.getDate()).padStart(2, "0");
+        const hours = String(start.getHours()).padStart(2, "0");
+        const minutes = String(start.getMinutes()).padStart(2, "0");
+        deadlineVal = `${year}-${month}-${day}T${hours}:${minutes}`;
+      }
+
+      return {
+        ...prev,
+        schedules: prev.schedules.map((item, i) => {
+          if (i !== index) return item;
+          const updated = { ...item, [field]: value } as ScheduleFormItem;
+          if (field === "start_date" && !item.booking_deadline && deadlineVal) {
+            updated.booking_deadline = deadlineVal;
+          }
+          return updated;
+        }),
+      };
+    });
   };
 
   const addSchedule = () => {
@@ -405,7 +436,14 @@ export const CreateTourForm: React.FC = () => {
       ...prev,
       schedules: [
         ...prev.schedules,
-        { start_date: "", max_people: "10", guide_id: "" },
+        {
+          start_date: "",
+          max_people: "10",
+          min_people: "5",
+          booking_deadline: "",
+          status: "open",
+          guide_id: "",
+        } as ScheduleFormItem,
       ],
     }));
   };

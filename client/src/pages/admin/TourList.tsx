@@ -48,17 +48,28 @@ export default function TourList() {
   };
 
 
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 5;
+
   useEffect(() => {
     fetchTours();
   }, []);
 
   const handleSearch = (e: ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
+    setCurrentPage(1);
   };
 
   const filteredTours = tours.filter((t) =>
     t.title.toLowerCase().includes(search.toLowerCase())
   );
+
+  const totalItems = filteredTours.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const paginatedTours = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredTours.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTours, currentPage, itemsPerPage]);
 
   // Thống kê nhanh KPIs
   const stats = useMemo(() => {
@@ -198,132 +209,178 @@ export default function TourList() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 shadow-xs">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden flex flex-col">
         {loading ? (
           <div className="p-12 text-center text-gray-500 font-medium">
             Đang tải danh sách Tour du lịch...
           </div>
         ) : (
-          <div className="overflow-x-visible">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-gray-200">
-                  <th className="py-3.5 px-6 w-16 text-center">ID</th>
-                  <th className="py-3.5 px-6 w-96">Tên chương trình Tour</th>
-                  <th className="py-3.5 px-6">Điểm khởi hành</th>
-                  <th className="py-3.5 text-right px-6">Giá gốc</th>
-                  <th className="py-3.5 px-6">Hướng dẫn viên</th>
-                  <th className="py-3.5 text-center px-6">Trạng thái</th>
-                  <th className="py-3.5 text-center px-6">Hành động</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-gray-100 text-sm">
-                {filteredTours.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="p-12 text-center text-gray-400">
-                      Không tìm thấy Tour nào phù hợp với bộ lọc.
-                    </td>
+          <>
+            <div className="overflow-x-visible">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-gray-200">
+                    <th className="py-3.5 px-6 w-16 text-center">ID</th>
+                    <th className="py-3.5 px-6 w-96">Tên chương trình Tour</th>
+                    <th className="py-3.5 px-6">Điểm khởi hành</th>
+                    <th className="py-3.5 text-right px-6">Giá gốc</th>
+                    <th className="py-3.5 px-6">Hướng dẫn viên</th>
+                    <th className="py-3.5 text-center px-6">Trạng thái</th>
+                    <th className="py-3.5 text-center px-6">Hành động</th>
                   </tr>
-                ) : (
-                  filteredTours.map((tour) => {
-                    const assignedCount = tour.schedules?.filter((schedule) => schedule.guide_id).length ?? 0;
-                    const scheduleCount = tour.schedules?.length ?? 0;
-                    return (
-                      <tr
-                        key={tour.id}
-                        onClick={() => navigate("/admin/tours/" + tour.id)}
-                        className="cursor-pointer hover:bg-gray-50/50 transition-colors"
-                      >
-                        {/* ID */}
-                        <td className="py-3.5 px-6 text-center text-gray-500 font-mono">
-                          #{tour.id}
-                        </td>
+                </thead>
 
-                        {/* Tên Tour */}
-                        <td className="py-3.5 px-6 font-semibold text-gray-900 max-w-sm">
-                          {tour.title}
-                        </td>
-
-                        {/* Điểm đi */}
-                        <td className="py-3.5 px-6 text-gray-700">
-                          {tour.start_location}
-                        </td>
-
-                        {/* Giá */}
-                        <td className="py-3.5 px-6 text-right font-bold text-gray-900">
-                          {Number(tour.price).toLocaleString()} đ
-                        </td>
-
-                        {/* Cột Hướng dẫn viên */}
-                        <td className="py-3.5 px-6">
-                          <span className={assignedCount > 0 ? "text-sm font-semibold text-gray-800" : "text-sm italic text-gray-400"}>
-                            {scheduleCount === 0 ? (
-                              "Chưa có lịch"
-                            ) : (
-                              <>{assignedCount}/{scheduleCount} chuyến đã phân công</>
-                            )}
-                          </span>
-                        </td>
-
-                        {/* Trạng thái */}
-                        <td className="py-3.5 px-6 text-center">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-semibold border ${tour.status === "active"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : "bg-rose-50 text-rose-700 border-rose-200"
-                              }`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${tour.status === "active" ? "bg-emerald-500" : tour.status === "full" ? "bg-red-500" : "bg-rose-500"}`}></span>
-                            {tour.status === "active" ? "Hoạt động" : tour.status === "full" ? "Hết chỗ" : "Tạm dừng"}
-                          </span>
-                        </td>
-                        {/* Hành động (3-dots dropdown) */}
-                        <td
-                          className="py-3.5 px-6 text-center"
-                          onClick={(event) => event.stopPropagation()}
+                <tbody className="divide-y divide-gray-100 text-sm">
+                  {paginatedTours.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-12 text-center text-gray-400">
+                        Không tìm thấy Tour nào phù hợp với bộ lọc.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedTours.map((tour) => {
+                      const assignedCount = tour.schedules?.filter((schedule) => schedule.guide_id).length ?? 0;
+                      const scheduleCount = tour.schedules?.length ?? 0;
+                      return (
+                        <tr
+                          key={tour.id}
+                          onClick={() => navigate("/admin/tours/" + tour.id)}
+                          className="cursor-pointer hover:bg-gray-50/50 transition-colors"
                         >
-                          <TableActions
-                            id={tour.id}
-                            actions={[
-                              {
-                                label: "Chỉnh sửa",
-                                onClick: () => navigate(`/admin/tours/${tour.id}/edit`),
-                                icon: (
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                  </svg>
-                                ),
-                              },
-                              {
-                                label: "Xem chi tiết",
-                                onClick: () => navigate("/admin/tours/" + tour.id),
-                                icon: (
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                  </svg>
-                                ),
-                              },
-                              {
-                                label: "Xóa tour",
-                                onClick: () => showToast("Tính năng xóa tour đang cập nhật!", "info"),
-                                variant: "danger",
-                                icon: (
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                ),
-                              },
-                            ]}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                          {/* ID */}
+                          <td className="py-3.5 px-6 text-center text-gray-500 font-mono">
+                            #{tour.id}
+                          </td>
+
+                          {/* Tên Tour */}
+                          <td className="py-3.5 px-6 font-semibold text-gray-900 max-w-sm">
+                            {tour.title}
+                          </td>
+
+                          {/* Điểm đi */}
+                          <td className="py-3.5 px-6 text-gray-700">
+                            {tour.start_location}
+                          </td>
+
+                          {/* Giá */}
+                          <td className="py-3.5 px-6 text-right font-bold text-gray-900">
+                            {Number(tour.price).toLocaleString()} đ
+                          </td>
+
+                          {/* Cột Hướng dẫn viên */}
+                          <td className="py-3.5 px-6">
+                            <span className={assignedCount > 0 ? "text-sm font-semibold text-gray-800" : "text-sm italic text-gray-400"}>
+                              {scheduleCount === 0 ? (
+                                "Chưa có lịch"
+                              ) : (
+                                <>{assignedCount}/{scheduleCount} chuyến đã phân công</>
+                              )}
+                            </span>
+                          </td>
+
+                          {/* Trạng thái */}
+                          <td className="py-3.5 px-6 text-center">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-semibold border ${tour.status === "active"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-rose-50 text-rose-700 border-rose-200"
+                                }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${tour.status === "active" ? "bg-emerald-500" : tour.status === "full" ? "bg-red-500" : "bg-rose-500"}`}></span>
+                              {tour.status === "active" ? "Hoạt động" : tour.status === "full" ? "Hết chỗ" : "Tạm dừng"}
+                            </span>
+                          </td>
+                          {/* Hành động (3-dots dropdown) */}
+                          <td
+                            className="py-3.5 px-6 text-center"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <TableActions
+                              id={tour.id}
+                              actions={[
+                                {
+                                  label: "Chỉnh sửa",
+                                  onClick: () => navigate(`/admin/tours/${tour.id}/edit`),
+                                  icon: (
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                  ),
+                                },
+                                {
+                                  label: "Xem chi tiết",
+                                  onClick: () => navigate("/admin/tours/" + tour.id),
+                                  icon: (
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20H7v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                  ),
+                                },
+                                {
+                                  label: "Xóa tour",
+                                  onClick: () => showToast("Tính năng xóa tour đang cập nhật!", "info"),
+                                  variant: "danger",
+                                  icon: (
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  ),
+                                },
+                              ]}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* PAGINATION PANEL */}
+            {totalPages >= 1 && (
+              <div className="bg-slate-50 border-t border-gray-100 px-6 py-4 flex items-center justify-between flex-wrap gap-3">
+                <span className="text-xs text-gray-500">
+                  Hiển thị <strong className="text-gray-800">{Math.min(totalItems, (currentPage - 1) * itemsPerPage + 1)} - {Math.min(totalItems, currentPage * itemsPerPage)}</strong> trên tổng số <strong className="text-gray-800">{totalItems}</strong> Tour du lịch
+                </span>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((c) => Math.max(1, c - 1))}
+                    className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    Trước
+                  </button>
+                  
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => setCurrentPage(page)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer transition-all duration-150 ${
+                        page === currentPage
+                          ? "bg-primary-600 text-white shadow-xs"
+                          : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage((c) => Math.min(totalPages, c + 1))}
+                    className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 

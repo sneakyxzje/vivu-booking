@@ -94,6 +94,9 @@ const BookingForm = ({
   const selectedSchedule = schedules.find((schedule) => String(schedule.id) === form.tourScheduleId);
   const availableSlots = selectedSchedule ? selectedSchedule.max_people - selectedSchedule.booked_people : 0;
   const isOverCapacity = Boolean(selectedSchedule) && totalGuestCount > availableSlots;
+  const isDeadlineOverdue = selectedSchedule?.booking_deadline
+    ? new Date(selectedSchedule.booking_deadline) < new Date()
+    : false;
   const defaultPassengerTypes = useMemo<PassengerType[]>(
     () => [
       ...Array.from({ length: form.adultCount }, () => "adult" as const),
@@ -129,11 +132,11 @@ const BookingForm = ({
 
   const handleInputChange =
     (field: keyof BookingFormState) =>
-    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-      const numberFields: Array<keyof BookingFormState> = ["adultCount", "childCount", "infantCount"];
-      const value = numberFields.includes(field) ? Number(event.target.value) : event.target.value;
-      onChange(field, value);
-    };
+      (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const numberFields: Array<keyof BookingFormState> = ["adultCount", "childCount", "infantCount"];
+        const value = numberFields.includes(field) ? Number(event.target.value) : event.target.value;
+        onChange(field, value);
+      };
   const updateGuestCount = (
     field: "adultCount" | "childCount" | "infantCount",
     delta: number,
@@ -227,11 +230,16 @@ const BookingForm = ({
             onChange={handleInputChange("tourScheduleId")}
             required
           >
-            {schedules.map((schedule) => (
-              <option key={schedule.id} value={schedule.id}>
-                Khởi hành: {formatDateTime(schedule.start_date)} (Còn lại: {schedule.max_people - schedule.booked_people} chỗ)
-              </option>
-            ))}
+            {schedules.map((schedule) => {
+              const isExpired = schedule.booking_deadline
+                ? new Date(schedule.booking_deadline) < new Date()
+                : false;
+              return (
+                <option key={schedule.id} value={schedule.id}>
+                  Khởi hành: {formatDateTime(schedule.start_date)} (Còn {schedule.max_people - schedule.booked_people} chỗ){schedule.booking_deadline ? ` - Hạn chốt: ${formatDateTime(schedule.booking_deadline)}` : ""}{isExpired ? " (Đã quá hạn)" : ""}
+                </option>
+              );
+            })}
           </select>
         </div>
         {/* Số khách theo loại */}
@@ -298,6 +306,11 @@ const BookingForm = ({
             {isOverCapacity && (
               <p className="text-xs font-semibold text-rose-600">
                 Số khách đang vượt quá số chỗ còn lại của lịch khởi hành.
+              </p>
+            )}
+            {isDeadlineOverdue && (
+              <p className="text-xs font-semibold text-rose-600 mt-1">
+                Lịch khởi hành này đã quá hạn nhận khách, vui lòng chọn ngày khởi hành khác.
               </p>
             )}
           </div>
@@ -382,84 +395,84 @@ const BookingForm = ({
                   key={index}
                   className="bg-slate-50/80 p-4.5 rounded-lg border border-slate-200/90 space-y-3 relative"
                 >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-primary-600 text-white font-bold flex items-center justify-center text-[10px]">
-                      {index + 1}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-primary-600 text-white font-bold flex items-center justify-center text-[10px]">
+                        {index + 1}
+                      </span>
+                      Hành khách #{index + 1}
                     </span>
-                    Hành khách #{index + 1}
-                  </span>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${index === 0 ? 'bg-primary-100 text-primary-700' : 'bg-gray-200 text-gray-600'}`}>
-                    {index === 0 ? "Người đại diện đặt tour" : "Hành khách đi cùng"}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                      Họ và tên đầy đủ <span className="text-rose-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="VD: NGUYEN VAN A"
-                      value={passenger.name}
-                      onChange={(event) => updatePassenger(index, "name", event.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
-                      required
-                    />
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${index === 0 ? 'bg-primary-100 text-primary-700' : 'bg-gray-200 text-gray-600'}`}>
+                      {index === 0 ? "Người đại diện đặt tour" : "Hành khách đi cùng"}
+                    </span>
                   </div>
 
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                      Loại khách & Ngày sinh
-                    </label>
-                    <div className="flex gap-2">
-                      <select
-                        className="w-1/2 px-2.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 text-gray-700"
-                        value={passengerType}
-                        onChange={(event) => updatePassenger(index, "type", event.target.value)}
-                      >
-                        <option value="adult">Người lớn (12+ tuổi)</option>
-                        <option value="child">Trẻ em (2-12 tuổi)</option>
-                        <option value="infant">Em bé (&lt; 2 tuổi)</option>
-                      </select>
-                      <input
-                        type="date"
-                        value={passenger.dateOfBirth}
-                        onChange={(event) => updatePassenger(index, "dateOfBirth", event.target.value)}
-                        className="w-1/2 px-2.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 text-gray-700"
-                      />
-                    </div>
-                  </div>
-
-                  {requiresIdentityDocument && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div>
                       <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                        Số CCCD / CMND / Hộ chiếu
+                        Họ và tên đầy đủ <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
-                        placeholder="Nhập số giấy tờ cá nhân..."
-                        value={passenger.identityNumber}
-                        onChange={(event) => updatePassenger(index, "identityNumber", event.target.value)}
+                        placeholder="VD: NGUYEN VAN A"
+                        value={passenger.name}
+                        onChange={(event) => updatePassenger(index, "name", event.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                        Loại khách & Ngày sinh
+                      </label>
+                      <div className="flex gap-2">
+                        <select
+                          className="w-1/2 px-2.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 text-gray-700"
+                          value={passengerType}
+                          onChange={(event) => updatePassenger(index, "type", event.target.value)}
+                        >
+                          <option value="adult">Người lớn (12+ tuổi)</option>
+                          <option value="child">Trẻ em (2-12 tuổi)</option>
+                          <option value="infant">Em bé (&lt; 2 tuổi)</option>
+                        </select>
+                        <input
+                          type="date"
+                          value={passenger.dateOfBirth}
+                          onChange={(event) => updatePassenger(index, "dateOfBirth", event.target.value)}
+                          className="w-1/2 px-2.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 text-gray-700"
+                        />
+                      </div>
+                    </div>
+
+                    {requiresIdentityDocument && (
+                      <div>
+                        <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                          Số CCCD / CMND / Hộ chiếu
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Nhập số giấy tờ cá nhân..."
+                          value={passenger.identityNumber}
+                          onChange={(event) => updatePassenger(index, "identityNumber", event.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                        Yêu cầu / Ghi chú đặc biệt
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="VD: Ăn chay, say xe..."
+                        value={passenger.note}
+                        onChange={(event) => updatePassenger(index, "note", event.target.value)}
                         className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
                       />
                     </div>
-                  )}
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                      Yêu cầu / Ghi chú đặc biệt
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="VD: Ăn chay, say xe..."
-                      value={passenger.note}
-                      onChange={(event) => updatePassenger(index, "note", event.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    />
                   </div>
-                </div>
                 </div>
               );
             })}
@@ -485,7 +498,14 @@ const BookingForm = ({
         </div>
       </div>
 
-      {message ? (
+      {isDeadlineOverdue ? (
+        <div className="rounded-lg bg-rose-50 border border-rose-100 p-4 text-xs font-medium text-rose-700 flex items-center gap-2">
+          <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          Lịch khởi hành này đã quá hạn nhận khách đăng ký. Vui lòng chọn ngày khởi hành khác ở phần thông tin ngày đi.
+        </div>
+      ) : message ? (
         <div className="rounded-lg bg-rose-50 border border-rose-100 p-4 text-xs font-medium text-rose-700 flex items-center gap-2">
           <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -495,10 +515,10 @@ const BookingForm = ({
       ) : null}
 
       <button
-        className="w-full rounded-lg bg-primary-600 py-3.5 font-bold text-white shadow-md hover:bg-primary-700 hover:shadow-lg transition-all active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none text-sm"
-        disabled={submitting || !form.tourScheduleId || isOverCapacity}
+        className="w-full rounded-lg bg-primary-600 py-3.5 font-bold text-white shadow-md hover:bg-primary-700 hover:shadow-lg transition-all active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none text-sm cursor-pointer"
+        disabled={submitting || !form.tourScheduleId || isOverCapacity || isDeadlineOverdue}
       >
-        {submitting ? "Đang xử lý đặt tour..." : "Xác nhận đặt tour"}
+        {submitting ? "Đang xử lý đặt tour..." : isDeadlineOverdue ? "Đã quá hạn đăng ký" : "Xác nhận đặt tour"}
       </button>
     </form>
   );
@@ -536,11 +556,10 @@ const ScheduleCard = ({ schedules, selectedScheduleId }: { schedules: TourSchedu
           return (
             <div
               key={schedule.id}
-              className={`p-3.5 rounded-lg border transition-all duration-300 ${
-                isSelected
+              className={`p-3.5 rounded-lg border transition-all duration-300 ${isSelected
                   ? "bg-primary-50/50 border-primary-300 text-primary-900 shadow-xs"
                   : "bg-gray-50/40 border-slate-200 text-gray-600"
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between">
                 <span className={`text-sm font-bold ${isSelected ? "text-primary-800" : "text-gray-800"}`}>
@@ -656,8 +675,8 @@ export const BookingTour = () => {
     () =>
       tour
         ? form.adultCount * Number(tour.adult_price || 0)
-          + form.childCount * Number(tour.child_price || 0)
-          + form.infantCount * Number(tour.infant_price || 0)
+        + form.childCount * Number(tour.child_price || 0)
+        + form.infantCount * Number(tour.infant_price || 0)
         : 0,
     [form.adultCount, form.childCount, form.infantCount, tour],
   );
@@ -702,51 +721,51 @@ export const BookingTour = () => {
     setDiscountAmount(0);
     setForm((current) => ({ ...current, discountCode: "" }));
   };
-const handleSubmit = async (event: FormEvent, passengers: PassengerFormItem[]) => {
-  event.preventDefault();
+  const handleSubmit = async (event: FormEvent, passengers: PassengerFormItem[]) => {
+    event.preventDefault();
 
-  if (!tour) return;
+    if (!tour) return;
 
-  setSubmitting(true);
-  setMessage(null);
+    setSubmitting(true);
+    setMessage(null);
 
-  try {
-    const response = await bookingService.create({
-      tour_id: tour.id,
-      tour_schedule_id: Number(form.tourScheduleId),
-      customer_name: form.customerName,
-      customer_email: form.customerEmail,
-      customer_phone: form.customerPhone,
-      adult_count: Number(form.adultCount),
-      child_count: Number(form.childCount),
-      infant_count: Number(form.infantCount),
-      note: form.note,
-      discount_code: appliedDiscountCode ?? undefined,
-      passengers: passengers
-        .filter((passenger) => passenger.name.trim())
-        .map((passenger) => ({
-          name: passenger.name.trim(),
-          type: passenger.type,
-          date_of_birth: passenger.dateOfBirth || null,
-          identity_number: passenger.identityNumber.trim() || null,
-          note: passenger.note.trim() || null,
-        })),
-    });
+    try {
+      const response = await bookingService.create({
+        tour_id: tour.id,
+        tour_schedule_id: Number(form.tourScheduleId),
+        customer_name: form.customerName,
+        customer_email: form.customerEmail,
+        customer_phone: form.customerPhone,
+        adult_count: Number(form.adultCount),
+        child_count: Number(form.childCount),
+        infant_count: Number(form.infantCount),
+        note: form.note,
+        discount_code: appliedDiscountCode ?? undefined,
+        passengers: passengers
+          .filter((passenger) => passenger.name.trim())
+          .map((passenger) => ({
+            name: passenger.name.trim(),
+            type: passenger.type,
+            date_of_birth: passenger.dateOfBirth || null,
+            identity_number: passenger.identityNumber.trim() || null,
+            note: passenger.note.trim() || null,
+          })),
+      });
 
-    const booking = {
-      ...response.data.data.booking,
-      payment_url: response.data.data.payment_url,
-    };
+      const booking = {
+        ...response.data.data.booking,
+        payment_url: response.data.data.payment_url,
+      };
 
-    navigate(`/booking-success/${booking.public_token ?? booking.id}`, {
-      state: booking,
-    });
-  } catch (error) {
-    setMessage(getErrorMessage(error));
-  } finally {
-    setSubmitting(false);
-  }
-};
+      navigate(`/booking-success/${booking.public_token ?? booking.id}`, {
+        state: booking,
+      });
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return <PageState>Đang tải...</PageState>;

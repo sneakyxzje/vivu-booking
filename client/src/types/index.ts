@@ -13,6 +13,7 @@ export type {
   TourImage,
   TourItinerary,
   TourSchedule,
+  ExtendedSchedule,
   Tour,
   TourFilterParams,
 } from "./tour";

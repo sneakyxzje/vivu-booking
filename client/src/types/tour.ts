@@ -56,7 +56,10 @@ export interface TourSchedule {
   start_date: string;
   max_people: number;
   booked_people: number;
-  status: "active" | "inactive" | "full";
+  status: "open" | "closed" | "confirmed" | "in_progress" | "completed" | "cancelled" | "active" | "inactive" | "full";
+  min_people?: number;
+  booking_deadline?: string;
+  cancelled_reason?: string | null;
   guide?: {
     id: number;
     name: string;
@@ -64,6 +67,12 @@ export interface TourSchedule {
     phone?: string | null;
     status?: string;
   } | null;
+}
+
+export interface ExtendedSchedule extends TourSchedule {
+  tour_title: string;
+  tour_id: number;
+  number_of_days: number;
 }
 
 export interface Tour {
