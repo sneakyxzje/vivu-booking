@@ -73,6 +73,28 @@ const getErrorMessage = (error: unknown) => {
 const PageState = ({ children }: { children: string }) => (
   <div className="min-h-screen flex items-center justify-center">{children}</div>
 );
+const getScheduleAvailableSlots = (schedule: TourSchedule | null | undefined) =>
+  schedule ? schedule.max_people - schedule.booked_people : 0;
+
+const isScheduleDeadlineOverdue = (schedule: TourSchedule | null | undefined) =>
+  schedule?.booking_deadline ? new Date(schedule.booking_deadline) < new Date() : false;
+
+const getScheduleUnavailableReason = (
+  schedule: TourSchedule | null | undefined,
+  tourStatus?: Tour["status"],
+) => {
+  if (!schedule) return "Tạm hết lịch";
+  if (tourStatus === "inactive") return "Tour đang tạm ngừng";
+  if (!["open", "active"].includes(schedule.status)) {
+    return "Lịch khởi hành này hiện không khả dụng";
+  }
+  if (isScheduleDeadlineOverdue(schedule)) return "Đã quá hạn đăng ký";
+  if (getScheduleAvailableSlots(schedule) <= 0) return "Đã hết chỗ";
+  return null;
+};
+
+const isScheduleBookable = (schedule: TourSchedule | null | undefined, tourStatus?: Tour["status"]) =>
+  getScheduleUnavailableReason(schedule, tourStatus) === null;
 
 const BookingForm = ({
   form,
@@ -92,11 +114,9 @@ const BookingForm = ({
 }: BookingFormProps) => {
   const totalGuestCount = form.adultCount + form.childCount + form.infantCount;
   const selectedSchedule = schedules.find((schedule) => String(schedule.id) === form.tourScheduleId);
-  const availableSlots = selectedSchedule ? selectedSchedule.max_people - selectedSchedule.booked_people : 0;
+  const availableSlots = getScheduleAvailableSlots(selectedSchedule);
+  const scheduleUnavailableReason = getScheduleUnavailableReason(selectedSchedule, tour.status);
   const isOverCapacity = Boolean(selectedSchedule) && totalGuestCount > availableSlots;
-  const isDeadlineOverdue = selectedSchedule?.booking_deadline
-    ? new Date(selectedSchedule.booking_deadline) < new Date()
-    : false;
   const defaultPassengerTypes = useMemo<PassengerType[]>(
     () => [
       ...Array.from({ length: form.adultCount }, () => "adult" as const),
@@ -145,7 +165,7 @@ const BookingForm = ({
     const nextValue = Math.max(minimum, Number(form[field] || 0) + delta);
     const nextTotal = totalGuestCount - Number(form[field] || 0) + nextValue;
 
-    if (delta > 0 && selectedSchedule && nextTotal > availableSlots) return;
+    if (delta > 0 && (!selectedSchedule || scheduleUnavailableReason || nextTotal > availableSlots)) return;
 
     onChange(field, nextValue);
   };
@@ -231,12 +251,10 @@ const BookingForm = ({
             required
           >
             {schedules.map((schedule) => {
-              const isExpired = schedule.booking_deadline
-                ? new Date(schedule.booking_deadline) < new Date()
-                : false;
+              const reason = getScheduleUnavailableReason(schedule, tour.status);
               return (
-                <option key={schedule.id} value={schedule.id}>
-                  Khởi hành: {formatDateTime(schedule.start_date)} (Còn {schedule.max_people - schedule.booked_people} chỗ){schedule.booking_deadline ? ` - Hạn chốt: ${formatDateTime(schedule.booking_deadline)}` : ""}{isExpired ? " (Đã quá hạn)" : ""}
+                <option key={schedule.id} value={schedule.id} disabled={Boolean(reason)}>
+                  Khởi hành: {formatDateTime(schedule.start_date)} (Còn {getScheduleAvailableSlots(schedule)} chỗ){schedule.booking_deadline ? ` - Hạn chốt: ${formatDateTime(schedule.booking_deadline)}` : ""}{reason ? ` (${reason})` : ""}
                 </option>
               );
             })}
@@ -249,8 +267,8 @@ const BookingForm = ({
               Số lượng khách theo loại <span className="text-rose-500">*</span>
             </label>
             {selectedSchedule && (
-              <span className="text-xs font-semibold text-gray-500">
-                Còn lại {availableSlots} chỗ
+              <span className={`text-xs font-semibold ${scheduleUnavailableReason ? "text-rose-600" : "text-gray-500"}`}>
+                {scheduleUnavailableReason ?? `Còn lại ${availableSlots} chỗ`}
               </span>
             )}
           </div>
@@ -283,7 +301,7 @@ const BookingForm = ({
                   <button
                     type="button"
                     onClick={() => updateGuestCount(item.field, 1)}
-                    disabled={!selectedSchedule || totalGuestCount >= availableSlots}
+                    disabled={!selectedSchedule || Boolean(scheduleUnavailableReason) || totalGuestCount >= availableSlots}
                     className="h-10 w-10 text-lg font-bold text-gray-500 hover:text-primary-600 disabled:opacity-35 disabled:hover:text-gray-500"
                     aria-label={`Tăng ${item.label}`}
                   >
@@ -308,9 +326,9 @@ const BookingForm = ({
                 Số khách đang vượt quá số chỗ còn lại của lịch khởi hành.
               </p>
             )}
-            {isDeadlineOverdue && (
+            {scheduleUnavailableReason && (
               <p className="text-xs font-semibold text-rose-600 mt-1">
-                Lịch khởi hành này đã quá hạn nhận khách, vui lòng chọn ngày khởi hành khác.
+                {scheduleUnavailableReason}. Vui lòng chọn ngày khởi hành khác.
               </p>
             )}
           </div>
@@ -498,12 +516,12 @@ const BookingForm = ({
         </div>
       </div>
 
-      {isDeadlineOverdue ? (
+      {scheduleUnavailableReason ? (
         <div className="rounded-lg bg-rose-50 border border-rose-100 p-4 text-xs font-medium text-rose-700 flex items-center gap-2">
           <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
           </svg>
-          Lịch khởi hành này đã quá hạn nhận khách đăng ký. Vui lòng chọn ngày khởi hành khác ở phần thông tin ngày đi.
+          {scheduleUnavailableReason}. Vui lòng chọn ngày khởi hành khác ở phần thông tin ngày đi.
         </div>
       ) : message ? (
         <div className="rounded-lg bg-rose-50 border border-rose-100 p-4 text-xs font-medium text-rose-700 flex items-center gap-2">
@@ -516,9 +534,9 @@ const BookingForm = ({
 
       <button
         className="w-full rounded-lg bg-primary-600 py-3.5 font-bold text-white shadow-md hover:bg-primary-700 hover:shadow-lg transition-all active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none text-sm cursor-pointer"
-        disabled={submitting || !form.tourScheduleId || isOverCapacity || isDeadlineOverdue}
+        disabled={submitting || !form.tourScheduleId || isOverCapacity || Boolean(scheduleUnavailableReason)}
       >
-        {submitting ? "Đang xử lý đặt tour..." : isDeadlineOverdue ? "Đã quá hạn đăng ký" : "Xác nhận đặt tour"}
+        {submitting ? "Đang xử lý đặt tour..." : scheduleUnavailableReason ?? "Xác nhận đặt tour"}
       </button>
     </form>
   );
@@ -645,11 +663,21 @@ export const BookingTour = () => {
         if (!id) return;
 
         const response = await tourService.getById(id);
+        const schedules = response.data.schedules ?? [];
         const scheduleIdFromQuery = searchParams.get("schedule_id");
-        const selectedSchedule = response.data.schedules?.find(
+        const selectedSchedule = schedules.find(
           (schedule) => String(schedule.id) === scheduleIdFromQuery,
         );
-        const firstSchedule = selectedSchedule ?? response.data.schedules?.[0];
+        const firstBookableSchedule = schedules.find((schedule) =>
+          isScheduleBookable(schedule, response.data.status),
+        );
+        const firstSchedule = selectedSchedule && isScheduleBookable(selectedSchedule, response.data.status)
+          ? selectedSchedule
+          : firstBookableSchedule;
+
+        if (selectedSchedule && !isScheduleBookable(selectedSchedule, response.data.status)) {
+          setMessage("Lịch khởi hành này hiện không khả dụng, vui lòng chọn lịch khác.");
+        }
         const adultCount = Math.max(1, Number(searchParams.get("adult_count") ?? initialForm.adultCount));
         const childCount = Math.max(0, Number(searchParams.get("child_count") ?? initialForm.childCount));
         const infantCount = Math.max(0, Number(searchParams.get("infant_count") ?? initialForm.infantCount));

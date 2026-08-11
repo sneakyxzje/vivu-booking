@@ -132,6 +132,7 @@ class AdminTourController extends Controller
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
             'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
             'schedules.*.booking_deadline' => ['nullable', 'date'],
+            'schedules.*.status' => ['nullable', 'string', 'in:open,closed'],
             'schedules.*.guide_id' => ['nullable', 'exists:users,id'],
         ]);
 
@@ -217,7 +218,7 @@ class AdminTourController extends Controller
                     'min_people'       => $item['min_people'] ?? 1,
                     'booking_deadline' => $bookingDeadline,
                     'booked_people'    => 0,
-                    'status'           => 'open',
+                    'status'           => $item['status'] ?? 'open',
                 ]);
             }
 
@@ -286,6 +287,7 @@ class AdminTourController extends Controller
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
             'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
             'schedules.*.booking_deadline' => ['nullable', 'date'],
+            'schedules.*.status' => ['nullable', 'string', 'in:open,closed'],
             'schedules.*.guide_id' => ['nullable', 'exists:users,id'],
         ]);
 
@@ -390,7 +392,7 @@ class AdminTourController extends Controller
                     if (! $schedule->isOperationallyLocked()) {
                         $payload['status'] = $schedule->booked_people >= (int) $item['max_people']
                             ? 'closed'
-                            : 'open';
+                            : ($item['status'] ?? 'open');
                     }
 
                     $schedule->update($payload);
@@ -401,7 +403,7 @@ class AdminTourController extends Controller
                 $created = $tour->schedules()->create([
                     ...$payload,
                     'booked_people' => 0,
-                    'status'        => 'open',
+                    'status'        => $item['status'] ?? 'open',
                 ]);
                 $keptScheduleIds[] = $created->id;
             }

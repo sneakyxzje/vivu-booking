@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   CalendarDays,
   Clock,
-  UserRound,
   Users,
   Search,
   Filter,
@@ -106,17 +105,6 @@ export default function ScheduleManagement() {
     return filteredSchedules.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [filteredSchedules, currentPage]);
 
-  // Thống kê KPIs
-  const stats = useMemo(() => {
-    const total = allSchedules.length;
-    const open = allSchedules.filter((s) => s.status === "open" || s.status === "active").length;
-    const confirmed = allSchedules.filter((s) => s.status === "confirmed").length;
-    const running = allSchedules.filter((s) => s.status === "in_progress").length;
-    const cancelled = allSchedules.filter((s) => s.status === "cancelled").length;
-
-    return { total, open, confirmed, running, cancelled };
-  }, [allSchedules]);
-
   // Phân công hướng dẫn viên cho chuyến khởi hành
   const assignGuide = async (scheduleId: number, guideId: number | null) => {
     setAssigningScheduleId(scheduleId);
@@ -156,41 +144,37 @@ export default function ScheduleManagement() {
     }
   };
 
-  // Cập nhật trạng thái thủ công (Vòng đời)
-  const handleUpdateStatus = async (scheduleId: number, nextStatus: string, reason?: string) => {
+  const handleUpdateStatus = async (
+    scheduleId: number,
+    nextStatus: "open" | "closed" | "confirmed" | "cancelled",
+    reason?: string,
+  ) => {
     try {
-      console.log(`Updating schedule ${scheduleId} to status: ${nextStatus}`);
+      const updatedSchedule = await adminService.updateScheduleStatus(scheduleId, nextStatus, reason);
+
+      if (!updatedSchedule) {
+        throw new Error("Missing updated schedule response");
+      }
 
       setTours((currentTours) =>
         currentTours.map((t) => ({
           ...t,
-          schedules: t.schedules?.map((item) => {
-            if (item.id === scheduleId) {
-              const updated = {
-                ...item,
-                status: nextStatus as any,
-              };
-              if (nextStatus === "cancelled") {
-                updated.cancelled_reason = reason || "Điều hành hủy chuyến";
-              }
-              return updated;
-            }
-            return item;
-          }),
-        }))
+          schedules: t.schedules?.map((item) =>
+            item.id === scheduleId ? { ...item, ...updatedSchedule } : item,
+          ),
+        })),
       );
 
       setToast({
-        message: `Đã cập nhật trạng thái chuyến khởi hành thành "${statusLabel[nextStatus]}".`,
+        message: `Đã cập nhật trạng thái chuyến khởi hành thành "${statusLabel[updatedSchedule.status]}".`,
         type: "success",
         isOpen: true,
       });
-    } catch {
-      setToast({
-        message: "Không thể cập nhật trạng thái chuyến khởi hành.",
-        type: "error",
-        isOpen: true,
-      });
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message ??
+        "Không thể cập nhật trạng thái chuyến khởi hành.";
+      setToast({ message, type: "error", isOpen: true });
     }
   };
 
@@ -447,28 +431,6 @@ export default function ScheduleManagement() {
                                 className="rounded bg-primary-600 px-2 py-1 text-xs font-semibold text-white hover:bg-primary-700 shadow-sm transition-all active:scale-95 duration-150 cursor-pointer"
                               >
                                 Chốt chuyến
-                              </button>
-                            )}
-
-                            {/* Start tour action */}
-                            {status === "confirmed" && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateStatus(schedule.id, "in_progress")}
-                                className="rounded bg-amber-600 px-2 py-1 text-xs font-semibold text-white hover:bg-amber-700 shadow-sm transition-all active:scale-95 duration-150 cursor-pointer"
-                              >
-                                Bắt đầu chuyến
-                              </button>
-                            )}
-
-                            {/* Complete tour action */}
-                            {status === "in_progress" && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateStatus(schedule.id, "completed")}
-                                className="rounded bg-indigo-600 px-2 py-1 text-xs font-semibold text-white hover:bg-indigo-700 shadow-sm transition-all active:scale-95 duration-150 cursor-pointer"
-                              >
-                                Kết thúc chuyến
                               </button>
                             )}
 

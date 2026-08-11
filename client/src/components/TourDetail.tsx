@@ -1,5 +1,5 @@
 import tourService from "@/services/tourService";
-import type { Tour, TourImage } from "@/types";
+import type { Tour, TourImage, TourSchedule } from "@/types";
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { StarIcon, ChevronRightIcon } from "@/components/Icons";
@@ -10,7 +10,7 @@ export default function TourDetail() {
   const { id } = useParams();
   const [tour, setTour] = useState<Tour | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
+  const [selectedSchedule, setSelectedSchedule] = useState<TourSchedule | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -28,10 +28,17 @@ export default function TourDetail() {
 
   useEffect(() => {
     if (tour && tour.schedules && tour.schedules.length > 0) {
-      const firstActive =
-        tour.schedules.find((s: any) => s.status === "active") ||
-        tour.schedules[0];
-      setSelectedSchedule(firstActive);
+      const firstBookable =
+        tour.schedules.find((schedule) => {
+          const availableSlots = schedule.max_people - schedule.booked_people;
+          const isDeadlineOverdue = schedule.booking_deadline
+            ? new Date(schedule.booking_deadline) < new Date()
+            : false;
+
+          return ["open", "active"].includes(schedule.status) && availableSlots > 0 && !isDeadlineOverdue;
+        }) || tour.schedules[0];
+
+      setSelectedSchedule(firstBookable);
     }
   }, [tour]);
 

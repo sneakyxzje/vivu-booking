@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import type { Tour } from "@/types";
+import type { Tour, TourSchedule } from "@/types";
 import { formatDateTime } from "@/utils/format";
 import {
   ShieldCheckIcon,
@@ -10,8 +10,8 @@ import {
 
 interface TourRightSidebarProps {
   tour: Tour;
-  selectedSchedule: any;
-  onScheduleChange: (schedule: any) => void;
+  selectedSchedule: TourSchedule | null;
+  onScheduleChange: (schedule: TourSchedule) => void;
 }
 
 const formatPrice = (value: number | string) =>
@@ -21,6 +21,26 @@ const formatPrice = (value: number | string) =>
     maximumFractionDigits: 0,
   }).format(Number(value));
 
+const getAvailableSlots = (schedule: TourSchedule | null) =>
+  schedule ? schedule.max_people - schedule.booked_people : 0;
+
+const isDeadlineOverdue = (schedule: TourSchedule | null) =>
+  schedule?.booking_deadline ? new Date(schedule.booking_deadline) < new Date() : false;
+
+const getUnavailableReason = (schedule: TourSchedule | null, tour: Tour) => {
+  if (!schedule) return "Tạm hết lịch";
+  if (tour.status === "inactive") return "Tour đang tạm ngừng";
+  if (!["open", "active"].includes(schedule.status)) {
+    return "Lịch khởi hành này hiện không khả dụng";
+  }
+  if (isDeadlineOverdue(schedule)) return "Đã quá hạn đăng ký";
+  if (getAvailableSlots(schedule) <= 0) return "Đã hết chỗ";
+  return null;
+};
+
+const isScheduleBookable = (schedule: TourSchedule | null, tour: Tour) =>
+  getUnavailableReason(schedule, tour) === null;
+
 export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
   tour,
   selectedSchedule,
@@ -28,26 +48,22 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  const availableSlots = selectedSchedule
-    ? selectedSchedule.max_people - selectedSchedule.booked_people
-    : 0;
+  const availableSlots = getAvailableSlots(selectedSchedule);
   const bookedPercent = selectedSchedule
     ? (selectedSchedule.booked_people / selectedSchedule.max_people) * 100
     : 0;
-  const isDeadlineOverdue = selectedSchedule?.booking_deadline
-    ? new Date(selectedSchedule.booking_deadline) < new Date()
-    : false;
+  const selectedUnavailableReason = getUnavailableReason(selectedSchedule, tour);
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const sId = Number(e.target.value);
-    const found = tour.schedules?.find((s: any) => s.id === sId);
-    if (found) {
+    const found = tour.schedules?.find((s) => s.id === sId) ?? null;
+    if (found && isScheduleBookable(found, tour)) {
       onScheduleChange(found);
     }
   };
 
   const handleBooking = () => {
-    if (!selectedSchedule || availableSlots <= 0 || tour.status === "inactive" || isDeadlineOverdue) return;
+    if (!selectedSchedule || !isScheduleBookable(selectedSchedule, tour)) return;
 
     const params = new URLSearchParams({
       schedule_id: String(selectedSchedule.id),
@@ -59,7 +75,6 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
   return (
     <div className="lg:col-span-4 lg:sticky lg:top-24">
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 md:p-7 space-y-6">
-        {/* Price section */}
         <div>
           <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-1">
             Giá tour trọn gói chỉ từ
@@ -76,7 +91,6 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
           </div>
         </div>
 
-        {/* Schedules departure dates */}
         <div className="border-t border-gray-100 pt-4">
           <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
             Chọn Ngày Khởi Hành
@@ -89,29 +103,25 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
                 onChange={handleSelectChange}
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-3.5 text-sm font-semibold text-gray-800 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all duration-300"
               >
-                {tour.schedules.map((schedule: any) => {
-                  const isExpired = schedule.booking_deadline
-                    ? new Date(schedule.booking_deadline) < new Date()
-                    : false;
+                {tour.schedules.map((schedule) => {
+                  const reason = getUnavailableReason(schedule, tour);
                   return (
-                    <option key={schedule.id} value={schedule.id}>
-                      {formatDateTime(schedule.start_date)}{isExpired ? " (Đã quá hạn)" : ""}
+                    <option key={schedule.id} value={schedule.id} disabled={Boolean(reason)}>
+                      {formatDateTime(schedule.start_date)}{reason ? ` (${reason})` : ""}
                     </option>
                   );
                 })}
               </select>
 
-              {/* Progress Bar & Available slots info */}
               {selectedSchedule && (
                 <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 text-xs">
                   <div className="flex justify-between font-semibold mb-2">
                     <span className="text-gray-500">Tình trạng chỗ</span>
-                    <span className={`font-bold ${availableSlots > 0 ? "text-primary-700" : "text-red-600"}`}>
-                      {availableSlots > 0 ? `Còn trống ${availableSlots} chỗ` : "Hết chỗ"}
+                    <span className={`font-bold ${selectedUnavailableReason ? "text-red-600" : "text-primary-700"}`}>
+                      {selectedUnavailableReason ?? `Còn trống ${availableSlots} chỗ`}
                     </span>
                   </div>
 
-                  {/* Progress line */}
                   <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden mb-2">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
@@ -125,14 +135,13 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
                     Đã đặt: {selectedSchedule.booked_people} / {selectedSchedule.max_people} khách tối đa.
                   </div>
 
-                  {/* Booking Deadline */}
                   <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-gray-500 font-medium">
                     <span>Hạn chót đăng ký</span>
-                    <span className={`font-bold ${isDeadlineOverdue ? "text-red-600" : "text-gray-900"}`}>
+                    <span className={`font-bold ${isDeadlineOverdue(selectedSchedule) ? "text-red-600" : "text-gray-900"}`}>
                       {selectedSchedule.booking_deadline ? formatDateTime(selectedSchedule.booking_deadline) : "Không giới hạn"}
                     </span>
                   </div>
-                  {isDeadlineOverdue && (
+                  {isDeadlineOverdue(selectedSchedule) && (
                     <p className="mt-1 text-right text-[10px] font-bold uppercase text-red-650 animate-pulse">
                       Đã quá hạn chốt nhận khách
                     </p>
@@ -147,22 +156,14 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
           )}
         </div>
 
-        {/* Book button */}
         <button
-          disabled={!selectedSchedule || availableSlots <= 0 || tour.status === "inactive" || isDeadlineOverdue}
+          disabled={!selectedSchedule || Boolean(selectedUnavailableReason)}
           onClick={handleBooking}
           className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-4 rounded-xl shadow-md hover:shadow-lg transform active:scale-97 transition-all duration-300 disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none text-center block text-sm cursor-pointer"
         >
-          {!selectedSchedule
-            ? "Tạm hết lịch"
-            : availableSlots <= 0
-            ? "Đã hết chỗ"
-            : isDeadlineOverdue
-            ? "Đã quá hạn đăng ký"
-            : "Đặt tour ngay"}
+          {selectedUnavailableReason ?? "Đặt tour ngay"}
         </button>
 
-        {/* Safety Badges */}
         <div className="border-t border-gray-100 pt-4 space-y-3.5 text-xs text-gray-500">
           <div className="flex items-center gap-2.5">
             <ShieldCheckIcon className="w-5 h-5 text-emerald-500 shrink-0" />
@@ -179,7 +180,6 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
         </div>
       </div>
 
-      {/* Operator Card */}
       <div className="mt-6 bg-white border border-gray-100 p-5 rounded-xl shadow-sm flex items-center gap-4">
         <div className="w-12 h-12 bg-primary-50 rounded-lg flex items-center justify-center text-primary-600 font-bold font-plus-jakarta text-lg">
           VB
