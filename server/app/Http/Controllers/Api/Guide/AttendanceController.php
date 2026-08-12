@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Guide;
 
+use App\Enums\BookingStatus;
 use App\Enums\PassengerCheckinStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
@@ -50,7 +51,7 @@ class AttendanceController extends Controller
 
         $bookings = Booking::query()
             ->where('tour_schedule_id', $schedule->id)
-            ->where('status', 'confirmed')
+            ->whereIn('status', BookingStatus::manifestValues())
             ->with('passengers:id,booking_id,name,type,note')
             ->orderBy('customer_name')
             ->get([
@@ -168,7 +169,7 @@ class AttendanceController extends Controller
             ->whereHas('booking', function ($query) use ($schedule) {
                 $query
                     ->where('tour_schedule_id', $schedule->id)
-                    ->where('status', 'confirmed');
+                    ->whereIn('status', BookingStatus::manifestValues());
             })
             ->pluck('id')
             ->map(fn ($id) => (int) $id)

@@ -316,6 +316,23 @@ class GuideAttendanceTest extends TestCase
         $this->assertSame('absent', $lichSu->new_status);
     }
 
+    /**
+     * Từ D03, đơn của chuyến đã đi xong chuyển sang 'completed'. Danh sách đoàn phải giữ nguyên
+     * người: đây là dữ liệu để đối chiếu khi khách khiếu nại sau chuyến, mà khiếu nại thì luôn
+     * tới sau khi chuyến đã kết thúc.
+     */
+    public function test_danh_sach_doan_khong_bien_mat_khi_don_da_chot_sau_chuyen(): void
+    {
+        $this->dungChuyenDi();
+        $this->booking->update(['status' => 'completed']);
+        Sanctum::actingAs($this->guide);
+
+        $this->getJson("/api/guide/schedules/{$this->schedule->id}/attendance")
+            ->assertOk()
+            ->assertJsonPath('data.bookings.0.customer_name', 'Khach Diem Danh')
+            ->assertJsonPath('data.bookings.0.passengers.0.name', 'Nguyen Van A');
+    }
+
     public function test_guide_khac_khong_diem_danh_duoc(): void
     {
         $this->dungChuyenDi();

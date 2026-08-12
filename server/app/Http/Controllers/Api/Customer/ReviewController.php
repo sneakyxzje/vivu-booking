@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Customer;
 
+use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Review;
@@ -45,11 +46,15 @@ class ReviewController extends Controller
         ],401);
     }
 
-    // Chỉ khách đã đặt và được xác nhận tour này mới được đánh giá
+    // Chỉ khách đã đặt và được xác nhận tour này mới được đánh giá.
+    //
+    // Phải nhận cả 'completed': từ D03, đơn của chuyến đã đi xong tự chuyển sang trạng thái đó.
+    // Lọc đúng 'confirmed' thì khách vừa đi về xong lại mất quyền đánh giá, trong khi họ mới
+    // chính là người có gì để nói. 'no_show' không nhận vì khách không thực sự đi chuyến này.
     $hasConfirmedBooking = Booking::query()
         ->where('tour_id', $request->tour_id)
         ->where('customer_id', $user->id)
-        ->where('status', 'confirmed')
+        ->whereIn('status', [BookingStatus::Confirmed->value, BookingStatus::Completed->value])
         ->exists();
 
     if (!$hasConfirmedBooking) {

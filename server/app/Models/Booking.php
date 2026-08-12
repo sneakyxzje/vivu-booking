@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Model;
     'discount_code',
     'discount_amount',
     'status',
+    'completed_at',
     'expires_at',
     'note',
     'cancel_reason',
@@ -49,6 +50,7 @@ class Booking extends Model
     {
         return [
             'expires_at' => 'datetime',
+            'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'seats_released_at' => 'datetime',
             'seats_released' => 'boolean',

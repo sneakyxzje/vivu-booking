@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Enums\BookingStatus;
 use App\Enums\ScheduleStatus;
 use App\Http\Resources\TourResource;
 use App\Http\Resources\UserResource;
@@ -78,15 +79,22 @@ class AdminController extends Controller
             ->get(['id', 'tour_id', 'customer_name', 'guests', 'total_amount', 'status', 'created_at']);
 
         $confirmedBookings = $allBookings->where('status', 'confirmed');
+
+        // Doanh thu phải gom cả đơn đã chốt sau chuyến, không chỉ 'confirmed'. Từ D03, đơn của
+        // chuyến đã đi xong chuyển sang 'completed' hoặc 'no_show'; lọc đúng 'confirmed' thì cứ
+        // mỗi chuyến kết thúc doanh thu lại tụt xuống mà không ai hiểu tiền đi đâu.
+        $revenueBookings = $allBookings->whereIn('status', BookingStatus::revenueValues());
         $totalCapacity = (int) TourSchedule::sum('max_people');
 
         $bookingSummary = [
             'total_bookings' => $allBookings->count(),
             'pending_bookings' => $allBookings->where('status', 'pending')->count(),
             'confirmed_bookings' => $confirmedBookings->count(),
+            'completed_bookings' => $allBookings->where('status', 'completed')->count(),
+            'no_show_bookings' => $allBookings->where('status', 'no_show')->count(),
             'cancelled_bookings' => $allBookings->where('status', 'cancelled')->count(),
-            'total_revenue' => (float) $confirmedBookings->sum('total_amount'),
-            'revenue_this_month' => (float) $confirmedBookings
+            'total_revenue' => (float) $revenueBookings->sum('total_amount'),
+            'revenue_this_month' => (float) $revenueBookings
                 ->filter(fn ($booking) => $booking->created_at?->greaterThanOrEqualTo(now()->startOfMonth()))
                 ->sum('total_amount'),
             'new_customers_this_month' => User::where('role', 'customer')

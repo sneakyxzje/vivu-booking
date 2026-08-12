@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\Review;
 use App\Models\Tour;
@@ -112,6 +113,41 @@ class ReviewRestrictionTest extends TestCase
 
         $this->assertSame(1, Review::query()->count());
         $this->assertSame(5, (int) Review::query()->first()->rating);
+    }
+
+    /**
+     * Từ D03, đơn của chuyến đã đi xong tự chuyển sang 'completed'. Khách vừa đi về chính là
+     * người có nhiều thứ để nói nhất, không được mất quyền đánh giá chỉ vì trạng thái đơn đổi.
+     */
+    public function test_khach_da_di_xong_chuyen_van_danh_gia_duoc(): void
+    {
+        $this->dungDuLieu(daXacNhanBooking: true);
+        Booking::query()->update(['status' => BookingStatus::Completed->value]);
+        Sanctum::actingAs($this->customer);
+
+        $this->postJson('/api/reviews', [
+            'tour_id' => $this->tour->id,
+            'rating' => 5,
+            'comment' => 'Di ve roi moi thay dang tien.',
+        ])->assertStatus(201);
+
+        $this->assertSame(1, Review::query()->count());
+    }
+
+    /** Khách không có mặt thì không đi chuyến này, không có căn cứ để đánh giá. */
+    public function test_khach_khong_co_mat_thi_khong_danh_gia_duoc(): void
+    {
+        $this->dungDuLieu(daXacNhanBooking: true);
+        Booking::query()->update(['status' => BookingStatus::NoShow->value]);
+        Sanctum::actingAs($this->customer);
+
+        $this->postJson('/api/reviews', [
+            'tour_id' => $this->tour->id,
+            'rating' => 1,
+            'comment' => 'Khong di duoc nhung van cham diem.',
+        ])->assertStatus(403);
+
+        $this->assertSame(0, Review::query()->count());
     }
 }
 

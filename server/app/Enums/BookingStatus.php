@@ -7,16 +7,14 @@ namespace App\Enums;
  *
  * Định nghĩa đầy đủ ở docs/nghiep-vu/01-tac-nhan-va-vong-doi.md mục 5.
  *
- * Lưu ý quan trọng khi dùng: cột bookings.status hiện là enum chỉ nhận ba giá trị
- * 'pending', 'confirmed', 'cancelled' (xem migration 2026_06_28_000000_create_bookings_table).
- * Các trạng thái còn lại đã có trong enum này vì chúng là đích đến đã chốt trong tài liệu,
- * nhưng chưa ghi xuống cơ sở dữ liệu được cho tới khi các migration tương ứng vào:
+ * Lưu ý quan trọng khi dùng: cột bookings.status là varchar nhưng luồng nghiệp vụ mới chỉ ghi
+ * xuống năm giá trị. Ba trạng thái còn lại đã có trong enum này vì chúng là đích đến đã chốt
+ * trong tài liệu, nhưng chưa có luồng nào sinh ra cho tới khi các task tương ứng vào:
  *
- *   Completed, NoShow  -> task D03
  *   DepositPaid, Paid  -> task N01
  *   Transferred        -> task I01
  *
- * Dùng liveValues() khi cần biết cột hiện chấp nhận những giá trị nào.
+ * Dùng liveValues() khi cần biết luồng hiện tại có thể sinh ra những giá trị nào.
  */
 enum BookingStatus: string
 {
@@ -32,10 +30,10 @@ enum BookingStatus: string
     /** Đã vào danh sách đoàn. */
     case Confirmed = 'confirmed';
 
-    /** Đã đi xong. Chưa dùng, chờ task D03. */
+    /** Đã đi xong. */
     case Completed = 'completed';
 
-    /** Đã thanh toán nhưng không có mặt lúc khởi hành. Chưa dùng, chờ task D03. */
+    /** Đã thanh toán nhưng không có mặt lúc khởi hành. */
     case NoShow = 'no_show';
 
     /** Đã hủy. */
@@ -103,6 +101,63 @@ enum BookingStatus: string
         ], true);
     }
 
+    /**
+     * Đơn đã vào danh sách đoàn gửi cho hướng dẫn viên.
+     *
+     * Gồm cả hai trạng thái sau chuyến. Chuyến đi xong thì đơn chuyển sang 'completed' hoặc
+     * 'no_show'; lọc đúng 'confirmed' thì danh sách đoàn của mọi chuyến đã kết thúc bỗng trống
+     * rỗng, mất luôn dữ liệu điểm danh dùng để đối chiếu khi khách khiếu nại về sau.
+     *
+     * Không gồm 'pending': đó là giữ chỗ chưa thanh toán, chưa có tên trong danh sách đoàn.
+     */
+    public function isInManifest(): bool
+    {
+        return in_array($this, [
+            self::Confirmed,
+            self::Completed,
+            self::NoShow,
+        ], true);
+    }
+
+    /** @return array<int, string> */
+    public static function manifestValues(): array
+    {
+        return array_values(array_map(
+            static fn (self $case): string => $case->value,
+            array_filter(self::cases(), static fn (self $case): bool => $case->isInManifest()),
+        ));
+    }
+
+    /**
+     * Đơn có tiền thật đã vào, tính vào doanh thu.
+     *
+     * NoShow vẫn tính: khách đã trả tiền, không có mặt thì không được hoàn, suất vẫn phải trả
+     * cho nhà cung cấp. Bỏ nhóm này ra khỏi doanh thu thì mỗi chuyến chạy xong doanh thu lại
+     * tụt xuống một cách khó hiểu.
+     *
+     * Đây là con số cho bảng điều khiển, không phải ghi nhận doanh thu kế toán. Nguyên tắc ghi
+     * nhận theo thời điểm chuyến kết thúc nằm ở task S02, docs/nghiep-vu/10-tai-chinh-va-ke-toan.md.
+     */
+    public function countsAsRevenue(): bool
+    {
+        return in_array($this, [
+            self::DepositPaid,
+            self::Paid,
+            self::Confirmed,
+            self::Completed,
+            self::NoShow,
+        ], true);
+    }
+
+    /** @return array<int, string> */
+    public static function revenueValues(): array
+    {
+        return array_values(array_map(
+            static fn (self $case): string => $case->value,
+            array_filter(self::cases(), static fn (self $case): bool => $case->countsAsRevenue()),
+        ));
+    }
+
     /** @return array<int, string> */
     public static function paidValues(): array
     {
@@ -122,14 +177,20 @@ enum BookingStatus: string
     }
 
     /**
-     * Ba giá trị mà cột bookings.status hiện chấp nhận.
-     * Xóa hàm này khi các migration D03, N01, I01 đã mở rộng cột.
+     * Năm giá trị mà luồng nghiệp vụ hiện tại có thể sinh ra.
+     * Xóa hàm này khi N01 và I01 đã mở nốt ba trạng thái còn lại.
      *
      * @return array<int, string>
      */
     public static function liveValues(): array
     {
-        return [self::Pending->value, self::Confirmed->value, self::Cancelled->value];
+        return [
+            self::Pending->value,
+            self::Confirmed->value,
+            self::Cancelled->value,
+            self::Completed->value,
+            self::NoShow->value,
+        ];
     }
 
     /** @return array<int, string> */

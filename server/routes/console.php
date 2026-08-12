@@ -31,6 +31,12 @@ Schedule::command('schedules:advance-status')
     ->everyMinute()
     ->withoutOverlapping();
 
+// D03: Chốt đơn của chuyến đã kết thúc. Đặt sau advance-status vì nó ăn theo trạng thái
+// chuyến; chạy trước cũng không sai, chỉ là phải đợi thêm một phút mới chốt được.
+Schedule::command('bookings:finalize-completed')
+    ->everyMinute()
+    ->withoutOverlapping();
+
 // C05: Đối chiếu số chỗ đã bán với số chỗ thực tế đang bị chiếm.
 // Chỉ báo cáo, không tự nắn số liệu: lệch số chỗ là dấu hiệu có lỗi nghiệp vụ ở đâu đó,
 // tự sửa sẽ che mất nguyên nhân.

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Guide;
 
+use App\Enums\BookingStatus;
 use App\Enums\ScheduleStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
@@ -27,7 +28,10 @@ class GuideController extends Controller
                 'full_tours' => (clone $schedules)->where('status', ScheduleStatus::Closed->value)->distinct()->count('tour_id'),
                 'total_bookings' => (clone $bookings)->count(),
                 'pending_bookings' => (clone $bookings)->where('status', 'pending')->count(),
-                'revenue' => (float) (clone $bookings)->where('status', 'confirmed')->sum('total_amount'),
+                // Gồm cả đơn đã chốt sau chuyến, xem chú thích cùng vấn đề ở AdminController.
+                'revenue' => (float) (clone $bookings)
+                    ->whereIn('status', BookingStatus::revenueValues())
+                    ->sum('total_amount'),
             ],
         ]);
     }
