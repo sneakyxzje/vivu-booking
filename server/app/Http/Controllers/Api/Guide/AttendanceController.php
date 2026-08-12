@@ -11,6 +11,7 @@ use App\Models\ItineraryCheckpoint;
 use App\Models\PassengerCheckin;
 use App\Models\PassengerCheckinHistory;
 use App\Models\TourSchedule;
+use App\Services\AttendanceService;
 use App\Services\CloudinaryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +21,8 @@ use Illuminate\Support\Facades\DB;
 class AttendanceController extends Controller
 {
     public function __construct(
-        private CloudinaryService $cloudinaryService
+        private CloudinaryService $cloudinaryService,
+        private AttendanceService $attendanceService,
     ) {
     }
 
@@ -176,6 +178,13 @@ class AttendanceController extends Controller
         $created = 0;
         $updated = 0;
 
+        // Ghi qua AttendanceService chứ không tự thao tác trên model.
+        //
+        // Lớp dịch vụ giữ đủ chín quy tắc ở docs/nghiep-vu/04-luong-dieu-hanh.md mục 5.3.
+        // Viết lại logic ngay trong controller thì bốn quy tắc không có chỗ nào cài: chuyến
+        // phải đang chạy, không tick trước cho ngày chưa tới, đánh dấu ghi bù muộn, và điểm
+        // dừng bắt buộc ảnh mới chốt được. Điểm danh là dữ liệu dùng để đối chiếu khi có
+        // khiếu nại nên không được có đường ghi nào lách qua các quy tắc đó.
         DB::transaction(function () use (
             $validated,
             $schedule,
@@ -193,65 +202,27 @@ class AttendanceController extends Controller
                     continue;
                 }
 
-                $status = PassengerCheckinStatus::from(
-                    $entry['status']
+                $passenger = BookingPassenger::query()->find($passengerId);
+
+                if (!$passenger) {
+                    continue;
+                }
+
+                $daTonTai = PassengerCheckin::query()
+                    ->where('booking_passenger_id', $passengerId)
+                    ->where('itinerary_checkpoint_id', $checkpoint->id)
+                    ->exists();
+
+                $this->attendanceService->record(
+                    $request->user(),
+                    $schedule,
+                    $checkpoint,
+                    $passenger,
+                    PassengerCheckinStatus::from($entry['status']),
+                    isset($entry['note']) ? trim((string) $entry['note']) : null,
                 );
 
-                $note = isset($entry['note'])
-                    ? trim((string) $entry['note'])
-                    : null;
-
-                if ($status->requiresNote() && empty($note)) {
-                    abort(
-                        422,
-                        "Ghi chú là bắt buộc với trạng thái {$status->label()}."
-                    );
-                }
-
-                if ($status === PassengerCheckinStatus::Present) {
-                    $note = $note ?: null;
-                }
-
-                $checkin = PassengerCheckin::query()->firstOrNew([
-                    'booking_passenger_id' => $passengerId,
-                    'itinerary_checkpoint_id' => $checkpoint->id,
-                ]);
-
-                $isNew = !$checkin->exists;
-
-                if (!$isNew) {
-                    $oldStatus = $checkin->status;
-
-                    $statusChanged = $oldStatus !== $status;
-
-                    $noteChanged = $checkin->note !== $note;
-
-                    if ($statusChanged || $noteChanged) {
-                        PassengerCheckinHistory::create([
-                            'passenger_checkin_id' => $checkin->id,
-                            'old_status' => $oldStatus?->value,
-                            'new_status' => $status->value,
-                            'note' => $note,
-                            'changed_by' => $request->user()->id,
-                            'changed_at' => now(),
-                        ]);
-
-                        $updated++;
-                    }
-                } else {
-                    $created++;
-                }
-
-                $checkin->tour_schedule_id = $schedule->id;
-                $checkin->status = $status;
-                $checkin->note = $note;
-                $checkin->checked_by = $request->user()->id;
-                $checkin->checked_at = now();
-
-                $checkin->is_late_entry = false;
-
-                $checkin->save();
-
+                $daTonTai ? $updated++ : $created++;
                 $saved++;
             }
         });
