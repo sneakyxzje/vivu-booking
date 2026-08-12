@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Enums\ScheduleStatus;
 use App\Http\Resources\TourResource;
 use App\Http\Resources\UserResource;
 use App\Models\Booking;
@@ -32,8 +33,8 @@ class AdminController extends Controller
             'total_services' => Service::count(),
             'upcoming_schedules' => TourSchedule::where('start_date', '>=', now()->toDateString())->count(),
             'total_booked_slots' => (int) TourSchedule::sum('booked_people'),
-            'full_schedules' => TourSchedule::where('status', 'full')->count(),
-            'inactive_schedules' => TourSchedule::where('status', 'inactive')->count(),
+            'full_schedules' => TourSchedule::where('status', ScheduleStatus::Closed->value)->count(),
+            'inactive_schedules' => TourSchedule::whereIn('status', [ScheduleStatus::Cancelled->value, ScheduleStatus::Completed->value])->count(),
         ];
 
         $topSellingTours = Tour::withSum('schedules as total_booked', 'booked_people')

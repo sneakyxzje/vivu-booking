@@ -27,6 +27,15 @@ use Illuminate\Database\Eloquent\Model;
     'expires_at',
     'note',
     'cancel_reason',
+    'cancel_type',
+    'cancelled_at',
+    'cancelled_by',
+    'seats_released',
+    'seats_released_at',
+    'seats_released_by',
+    'refund_amount',
+    'cancellation_plan',
+    'cancellation_policy_id',
     'vnpay_transaction_no',
     'paid_at',
     'confirmed_at',
@@ -37,7 +46,21 @@ class Booking extends Model
     {
         return [
             'expires_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'seats_released_at' => 'datetime',
+            'seats_released' => 'boolean',
         ];
+    }
+
+    /**
+     * Đơn đã hủy nhưng chỗ chưa được trả về kho.
+     *
+     * Đây là ghế chết: chỗ trống về mặt vật lý nhưng chưa bán lại được vì phòng và suất ăn
+     * đã chốt theo danh sách gửi nhà cung cấp. Điều hành mở lại thủ công khi xin thêm được suất.
+     */
+    public function scopeWithHeldSeats($query)
+    {
+        return $query->where('status', 'cancelled')->where('seats_released', false);
     }
 
     public function isOverdue(): bool
@@ -75,6 +98,15 @@ class Booking extends Model
     public function discountCode()
     {
         return $this->belongsTo(DiscountCode::class);
+    }
+
+    /**
+     * Chính sách hủy đã sao chép lúc đặt. Đọc từ đây chứ không đọc qua tour, vì tour có thể
+     * đã đổi sang chính sách khác sau khi khách đặt.
+     */
+    public function cancellationPolicy()
+    {
+        return $this->belongsTo(CancellationPolicy::class);
     }
 }
 

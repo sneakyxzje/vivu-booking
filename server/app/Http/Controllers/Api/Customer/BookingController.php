@@ -12,6 +12,8 @@ use App\Models\PaymentLog;
 use App\Models\TourSchedule;
 use App\Services\BookingHoldService;
 use App\Services\BookingPolicyService;
+use App\Services\CancellationPolicyService;
+use App\Services\ScheduleLifecycleService;
 use App\Services\VNPayService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -29,6 +31,8 @@ class BookingController extends Controller
         private VNPayService $vnpayService,
         private BookingHoldService $holdService,
         private BookingPolicyService $bookingPolicy,
+        private ScheduleLifecycleService $scheduleLifecycle,
+        private CancellationPolicyService $cancellationPolicy,
     ) {
     }
 
@@ -145,6 +149,10 @@ class BookingController extends Controller
                 'status' => 'pending',
                 'expires_at' => now()->addMinutes($this->holdService->holdMinutes()),
                 'note' => $data['note'] ?? null,
+                // Sao chép chính sách hủy tại thời điểm đặt. Sửa chính sách của tour về sau
+                // không được làm đổi điều khoản mà khách đã đồng ý.
+                'cancellation_policy_id' => $tour->cancellation_policy_id
+                    ?? \App\Models\CancellationPolicy::default()?->id,
             ]);
             foreach ($data['passengers'] ?? [] as $passenger) {
                 $booking->passengers()->create([
@@ -164,7 +172,11 @@ class BookingController extends Controller
             $schedule->refresh();
 
             if ($schedule->booked_people >= $schedule->max_people) {
-                $schedule->update(['status' => ScheduleStatus::Closed->value]);
+                $this->scheduleLifecycle->transitionTo(
+                    $schedule,
+                    ScheduleStatus::Closed,
+                    'Tự động đóng bán do booking vừa lấp đầy số chỗ.',
+                );
             }
 
             $this->holdService->refreshTourAvailability($schedule);
@@ -237,6 +249,42 @@ class BookingController extends Controller
         ]);
     }
 
+    /**
+     * Mức hoàn dự kiến nếu hủy đơn này ngay bây giờ.
+     *
+     * Hiển thị cho khách TRƯỚC khi họ bấm hủy. Doc 03 mục 5.2 nêu rõ bước này là bắt buộc,
+     * vì phần lớn khiếu nại sau hủy đến từ việc khách không biết mình sẽ mất bao nhiêu.
+     *
+     * Tra theo mã tra cứu nên khách vãng lai cũng xem được, không cần đăng nhập.
+     */
+    public function refundQuote(string $publicToken): JsonResponse
+    {
+        $booking = Booking::with(['schedule', 'cancellationPolicy.rules'])
+            ->where('public_token', $publicToken)
+            ->first();
+
+        if (!$booking) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy đơn đặt tour.',
+            ], 404);
+        }
+
+        $quote = $this->cancellationPolicy->quote($booking);
+
+        return response()->json([
+            'success' => true,
+            'data' => $quote + [
+                'policy_name' => $booking->cancellationPolicy?->name,
+                'rules' => $booking->cancellationPolicy?->rules->map(fn ($rule) => [
+                    'window' => $rule->windowLabel(),
+                    'refund_percent' => $rule->refund_percent,
+                    'note' => $rule->note,
+                ]),
+            ],
+        ]);
+    }
+
     public function cancelBooking(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
@@ -288,6 +336,9 @@ class BookingController extends Controller
             $fresh->update([
                 'status' => 'cancelled',
                 'cancel_reason' => $validated['cancel_reason'],
+                'cancel_type' => 'by_customer',
+                'cancelled_at' => now(),
+                'cancelled_by' => $fresh->customer_id,
             ]);
 
             $this->holdService->releaseHold($fresh, $schedule);
@@ -384,7 +435,11 @@ class BookingController extends Controller
                         $schedule->refresh();
 
                         if ($schedule->booked_people >= $schedule->max_people) {
-                            $schedule->update(['status' => ScheduleStatus::Closed->value]);
+                            $this->scheduleLifecycle->transitionTo(
+                                $schedule,
+                                ScheduleStatus::Closed,
+                                'Tự động đóng bán do booking vừa lấp đầy số chỗ.',
+                            );
                         }
 
                         $this->holdService->refreshTourAvailability($schedule);

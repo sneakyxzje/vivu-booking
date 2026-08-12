@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Model lịch khởi hành.
@@ -55,13 +56,35 @@ class TourSchedule extends Model
     ];
 
     protected $casts = [
-        'start_date'      => 'datetime',
-        'end_date'        => 'datetime',
+        // Cast sang enum để mọi nơi đọc $schedule->status đều nhận đúng kiểu, thay vì
+        // phải tự chuẩn hóa chuỗi ở từng chỗ dùng.
+        'status'           => ScheduleStatus::class,
+        'start_date'       => 'datetime',
+        'end_date'         => 'datetime',
         'booking_deadline' => 'datetime',
-        'confirmed_at'    => 'datetime',
-        'cancelled_at'    => 'datetime',
-        'is_private'      => 'boolean',
+        'confirmed_at'     => 'datetime',
+        'cancelled_at'     => 'datetime',
+        'is_private'       => 'boolean',
     ];
+
+    /**
+     * Trả về chuỗi ngày giờ mộc, không kèm hậu tố múi giờ.
+     *
+     * Ứng dụng chạy múi giờ UTC nhưng các cột ngày giờ ở đây lưu giờ Việt Nam dưới dạng mộc:
+     * admin nhập 05:30 nghĩa là 05:30 giờ Việt Nam, và cột lưu đúng chuỗi đó.
+     *
+     * Mặc định Laravel serialize Carbon thành ISO8601 kèm hậu tố Z, tức là tuyên bố với client
+     * rằng 05:30 là giờ UTC. Trình duyệt ở GMT+7 sẽ hiển thị thành 12:30, lệch 7 tiếng trên
+     * mọi giờ khởi hành và hạn chốt.
+     *
+     * Trước khi các cột này được cast sang datetime, API trả chuỗi mộc nên client hiển thị đúng.
+     * Giữ nguyên định dạng đó để không đổi hợp đồng API, trong khi phía máy chủ vẫn có Carbon
+     * để so sánh.
+     */
+    protected function serializeDate(\DateTimeInterface $date): string
+    {
+        return $date->format('Y-m-d H:i:s');
+    }
 
     // ─── Quan hệ ────────────────────────────────────────────────────────────
 
@@ -85,6 +108,11 @@ class TourSchedule extends Model
     public function mergedInto(): BelongsTo
     {
         return $this->belongsTo(self::class, 'merged_into_schedule_id');
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class, 'tour_schedule_id');
     }
 
     // ─── Scopes ─────────────────────────────────────────────────────────────
@@ -117,11 +145,7 @@ class TourSchedule extends Model
      */
     public function isBookable(): bool
     {
-        $status = $this->status instanceof ScheduleStatus
-            ? $this->status
-            : ScheduleStatus::tryFrom((string) $this->status) ?? ScheduleStatus::Open;
-
-        if (!$status->isBookable()) {
+        if (!$this->status->isBookable()) {
             return false;
         }
 
@@ -133,7 +157,25 @@ class TourSchedule extends Model
             return false;
         }
 
+        // Chuyến chưa đặt hạn chốt thì lấy mặc định để quy tắc không im lặng bỏ qua.
+        // Xem docs/nghiep-vu/03-luong-huy-va-hoan-tien.md mục 3.
+        if (!$this->booking_deadline && $this->start_date && now()->gte($this->defaultBookingDeadline())) {
+            return false;
+        }
+
         return true;
+    }
+
+    /** Hạn chốt danh sách mặc định khi chuyến chưa được cấu hình riêng. */
+    public function defaultBookingDeadline(): ?\Illuminate\Support\Carbon
+    {
+        if (!$this->start_date) {
+            return null;
+        }
+
+        return $this->start_date->copy()->subDays(
+            (int) config('booking.booking_deadline_days', 3)
+        );
     }
 
     /** Số chỗ còn trống. */
@@ -145,11 +187,7 @@ class TourSchedule extends Model
     /** Đoàn đang đi hay không. */
     public function isRunning(): bool
     {
-        $status = $this->status instanceof ScheduleStatus
-            ? $this->status
-            : ScheduleStatus::tryFrom((string) $this->status) ?? ScheduleStatus::Open;
-
-        return $status->isRunning();
+        return $this->status->isRunning();
     }
 
     /**
@@ -158,11 +196,7 @@ class TourSchedule extends Model
      */
     public function isOperationallyLocked(): bool
     {
-        $status = $this->status instanceof ScheduleStatus
-            ? $this->status
-            : ScheduleStatus::tryFrom((string) $this->status) ?? ScheduleStatus::Open;
-
-        return in_array($status, [
+        return in_array($this->status, [
             ScheduleStatus::InProgress,
             ScheduleStatus::Completed,
             ScheduleStatus::Cancelled,

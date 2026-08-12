@@ -2,12 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Enums\ScheduleStatus;
 use App\Models\Category;
 use App\Models\Service;
 use App\Models\Tour;
 use App\Models\TourImage;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -184,11 +186,14 @@ class SampleTourSeeder extends Seeder
             ],
         ];
 
-        DB::transaction(function () use ($admin, $guide, $categories, $services, $tours) {
+        $chinhSachHuy = \App\Models\CancellationPolicy::query()->where('is_default', true)->first();
+
+        DB::transaction(function () use ($admin, $guide, $categories, $services, $tours, $chinhSachHuy) {
             foreach ($tours as $tourData) {
                 $tour = Tour::query()->updateOrCreate(
                     ['slug' => $tourData['slug']],
                     [
+                        'cancellation_policy_id' => $chinhSachHuy?->id,
                         'admin_id' => $admin->id,
                         'title' => $tourData['title'],
                         'description' => $tourData['description'],
@@ -230,12 +235,24 @@ class SampleTourSeeder extends Seeder
 
                 $tour->schedules()->delete();
                 foreach ($tourData['schedules'] as $item) {
+                    // Phải điền đủ end_date, booking_deadline và min_people.
+                    // Bỏ trống thì hai quy tắc nghiệp vụ im lặng không chạy: chặn đặt sau
+                    // hạn chốt danh sách, và tự đóng bán khi tới hạn. Cả hai đều kiểm tra
+                    // booking_deadline khác null trước khi làm gì.
+                    $startDate = Carbon::parse($item['start_date']);
+                    $numberOfDays = max(1, (int) $tourData['number_of_days']);
+
                     $tour->schedules()->create([
-                        'start_date' => $item['start_date'],
+                        'start_date' => $startDate,
+                        'end_date' => $startDate->copy()->addDays($numberOfDays - 1)->endOfDay(),
+                        'booking_deadline' => $startDate->copy()->subDays(
+                            (int) config('booking.booking_deadline_days', 3)
+                        ),
                         'guide_id' => $guide?->id,
                         'max_people' => $item['max_people'],
+                        'min_people' => $item['min_people'] ?? (int) ceil($item['max_people'] * 0.4),
                         'booked_people' => 0,
-                        'status' => 'open',
+                        'status' => ScheduleStatus::Open->value,
                     ]);
                 }
 

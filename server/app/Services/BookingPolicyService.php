@@ -59,7 +59,10 @@ class BookingPolicyService
             return;
         }
 
-        $status = $this->lifecycle->currentStatus($schedule);
+        // Dùng trạng thái thực tế theo đồng hồ, không dùng trạng thái đang lưu.
+        // Nếu tác vụ nền chưa chạy, chuyến khởi hành từ hôm qua vẫn còn ghi 'open' trong
+        // cơ sở dữ liệu; dựa vào giá trị đó thì đơn của chuyến đã đi vẫn hủy được.
+        $status = $this->lifecycle->effectiveStatus($schedule);
 
         if (!$status->blocksCancellation()) {
             return;

@@ -11,7 +11,7 @@ import adminService from "@/services/adminService";
 import type { Guide, Tour, TourSchedule } from "@/types";
 import { Toast } from "@/components/admin/CustomAlert";
 import { formatDateTime, getEndDate } from "@/utils/format";
-import { statusLabel, statusClasses } from "@/utils/schedule";
+import { statusLabel, statusClasses, tourStatusLabel } from "@/utils/schedule";
 
 export default function AdminTourDetail() {
   const { id } = useParams<{ id: string }>();
@@ -105,41 +105,39 @@ export default function AdminTourDetail() {
     }
   };
 
-  const handleUpdateStatus = async (scheduleId: number, nextStatus: string, reason?: string) => {
+  const handleUpdateStatus = async (
+    scheduleId: number,
+    nextStatus: "open" | "closed" | "confirmed" | "cancelled",
+    reason?: string,
+  ) => {
     try {
-      console.log(`Updating schedule ${scheduleId} to status: ${nextStatus}`);
-      
-      setTour((current) => {
-        if (!current) return null;
-        return {
-          ...current,
-          schedules: current.schedules?.map((item) => {
-            if (item.id === scheduleId) {
-              const updated = {
-                ...item,
-                status: nextStatus as any,
-              };
-              if (nextStatus === "cancelled") {
-                updated.cancelled_reason = reason || "Điều hành hủy chuyến";
-              }
-              return updated;
+      const updatedSchedule = await adminService.updateScheduleStatus(scheduleId, nextStatus, reason);
+
+      if (!updatedSchedule) {
+        throw new Error("Missing updated schedule response");
+      }
+
+      setTour((current) =>
+        current
+          ? {
+              ...current,
+              schedules: current.schedules?.map((item) =>
+                item.id === scheduleId ? { ...item, ...updatedSchedule } : item,
+              ),
             }
-            return item;
-          }),
-        };
-      });
+          : current,
+      );
 
       setToast({
-        message: `Đã cập nhật trạng thái chuyến đi thành "${statusLabel[nextStatus]}".`,
+        message: `Đã cập nhật trạng thái chuyến đi thành "${statusLabel[updatedSchedule.status]}".`,
         type: "success",
         isOpen: true,
       });
-    } catch {
-      setToast({
-        message: "Không thể cập nhật trạng thái chuyến đi.",
-        type: "error",
-        isOpen: true,
-      });
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message ??
+        "Không thể cập nhật trạng thái chuyến đi.";
+      setToast({ message, type: "error", isOpen: true });
     }
   };
 
@@ -203,7 +201,7 @@ export default function AdminTourDetail() {
                 : "bg-gray-100 text-gray-600")
           }
         >
-          {statusLabel[tour.status]}
+          {tourStatusLabel[tour.status]}
         </span>
       </div>
 
@@ -445,28 +443,6 @@ export default function AdminTourDetail() {
                             className="rounded-lg bg-primary-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 shadow-sm transition-all active:scale-95 duration-200"
                           >
                             Chốt chuyến
-                          </button>
-                        )}
-
-                        {/* Start tour action */}
-                        {status === "confirmed" && (
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateStatus(schedule.id, "in_progress")}
-                            className="rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 shadow-sm transition-all active:scale-95 duration-200"
-                          >
-                            Bắt đầu chuyến
-                          </button>
-                        )}
-
-                        {/* Complete tour action */}
-                        {status === "in_progress" && (
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateStatus(schedule.id, "completed")}
-                            className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 shadow-sm transition-all active:scale-95 duration-200"
-                          >
-                            Kết thúc chuyến
                           </button>
                         )}
 

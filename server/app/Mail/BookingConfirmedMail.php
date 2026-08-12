@@ -21,7 +21,7 @@ class BookingConfirmedMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Đơn đặt tour #' . $this->booking->id . ' đã được xác nhận - Vivu Booking',
+            subject: 'Đặt tour #' . $this->booking->id . ' đã được xác nhận - Vivu Booking',
         );
     }
 
@@ -31,8 +31,10 @@ class BookingConfirmedMail extends Mailable
             view: 'emails.bookings.confirmed',
             with: [
                 'booking' => $this->booking,
-                'frontendBookingUrl' => rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/')
-                    . '/booking-success/' . $this->booking->public_token,
+                'frontendBookingUrl' => rtrim(
+                    env('FRONTEND_URL', 'http://localhost:5173'),
+                    '/'
+                ) . '/booking-success/' . $this->booking->public_token,
             ],
         );
     }

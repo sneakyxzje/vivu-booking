@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
 use App\Http\Controllers\Api\Admin\AdminAttendanceController;
+use App\Http\Controllers\Api\Admin\AdminCancellationPolicyController;
 use App\Http\Controllers\Api\Admin\AdminCategoryController;
 use App\Http\Controllers\Api\Admin\AdminServiceController;
 
@@ -58,6 +59,8 @@ Route::get('/services', fn() => response()->json([
 ]));
 Route::post('/bookings', [CustomerBookingController::class, 'store']);
 Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']);
+// Mức hoàn dự kiến nếu hủy ngay bây giờ. Khách vãng lai cũng xem được bằng mã tra cứu.
+Route::get('/bookings/{publicToken}/refund-quote', [CustomerBookingController::class, 'refundQuote']);
 Route::post('/discount-codes/validate', [DiscountCodeController::class, 'validateCode']);
 Route::get('/vnpay/return', [CustomerBookingController::class, 'vnpayReturn']);
 Route::get('/reviews/{tour}', [ReviewController::class,'index']);
@@ -142,7 +145,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('guides', AdminGuideController::class);
 
         Route::get('/bookings', [AdminBookingController::class, 'index']);
+        // Phải khai trước /bookings/{id}, nếu không "held-seats" sẽ bị khớp vào {id}.
+        Route::get('/bookings/held-seats', [AdminBookingController::class, 'heldSeats']);
         Route::get('/bookings/{id}', [AdminBookingController::class, 'show']);
+        Route::put('/bookings/{id}/release-seats', [AdminBookingController::class, 'releaseHeldSeats']);
         Route::put('/bookings/{id}/confirm', [AdminBookingController::class, 'confirm']);
         Route::put('/bookings/{id}/cancel', [AdminBookingController::class, 'cancel']);
         Route::apiResource('discount-codes', AdminDiscountCodeController::class);
@@ -152,6 +158,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Quản lý danh mục tour (biển đảo, nghỉ dưỡng, ...)
         Route::apiResource('categories', AdminCategoryController::class);
+
+        // Quản lý chính sách hủy theo mốc thời gian
+        Route::apiResource('cancellation-policies', AdminCancellationPolicyController::class)
+            ->except(['show']);
     });
 });
 

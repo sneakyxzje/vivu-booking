@@ -107,7 +107,17 @@ export const buildTourPayload = (form: unknown) => {
   });
 
   (
-    (f.schedules as { id?: number; start_date: string; max_people: string; guide_id?: string }[] | undefined) ??
+    (f.schedules as
+      | {
+          id?: number;
+          start_date: string;
+          max_people: string;
+          min_people?: string;
+          booking_deadline?: string;
+          status?: string;
+          guide_id?: string;
+        }[]
+      | undefined) ??
     []
   ).forEach((item, index) => {
     if (item.id) {
@@ -115,6 +125,13 @@ export const buildTourPayload = (form: unknown) => {
     }
     data.append(`schedules[${index}][start_date]`, item.start_date);
     data.append(`schedules[${index}][max_people]`, String(item.max_people));
+    data.append(`schedules[${index}][min_people]`, String(item.min_people ?? 1));
+    if (item.booking_deadline) {
+      data.append(`schedules[${index}][booking_deadline]`, item.booking_deadline);
+    }
+    if (item.status) {
+      data.append(`schedules[${index}][status]`, item.status);
+    }
     if (item.guide_id) {
       data.append(`schedules[${index}][guide_id]`, item.guide_id);
     }

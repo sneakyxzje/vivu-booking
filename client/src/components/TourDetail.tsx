@@ -1,8 +1,9 @@
 import tourService from "@/services/tourService";
-import type { Tour, TourImage } from "@/types";
+import type { Tour, TourImage, TourSchedule } from "@/types";
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { StarIcon, ChevronRightIcon } from "@/components/Icons";
+import { isScheduleBookable } from "@/utils/schedule";
 import { TourLeftDetails } from "./TourLeftDetails";
 import { TourRightSidebar } from "./TourRightSidebar";
 
@@ -10,7 +11,7 @@ export default function TourDetail() {
   const { id } = useParams();
   const [tour, setTour] = useState<Tour | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
+  const [selectedSchedule, setSelectedSchedule] = useState<TourSchedule | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -28,10 +29,13 @@ export default function TourDetail() {
 
   useEffect(() => {
     if (tour && tour.schedules && tour.schedules.length > 0) {
-      const firstActive =
-        tour.schedules.find((s: any) => s.status === "active") ||
-        tour.schedules[0];
-      setSelectedSchedule(firstActive);
+      // Chọn sẵn chuyến đầu tiên còn đặt được. Nếu không chuyến nào đặt được thì vẫn chọn
+      // chuyến đầu, để thanh bên hiển thị đúng lý do thay vì để trống.
+      const firstBookable =
+        tour.schedules.find((schedule) => isScheduleBookable(schedule, tour.status))
+        || tour.schedules[0];
+
+      setSelectedSchedule(firstBookable);
     }
   }, [tour]);
 

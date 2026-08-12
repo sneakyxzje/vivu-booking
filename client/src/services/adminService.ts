@@ -1,6 +1,6 @@
 import api from "./api";
 import { extractObject } from "@/utils/apiHelpers";
-import type { Booking, Guide, Tour, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
+import type { Booking, Guide, Tour, TourSchedule, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
 import { buildTourPayload } from "@/services/guideService";
 
 export interface PaginatedResponse<T> {
@@ -33,6 +33,35 @@ export interface AdminDashboardData {
     status: string;
     date: string | null;
   }[];
+}
+
+export interface CancellationPolicyRule {
+  id?: number;
+  min_hours_before: number;
+  max_hours_before: number | null;
+  refund_percent: number;
+  note?: string | null;
+}
+
+export interface CancellationPolicy {
+  id: number;
+  name: string;
+  description: string | null;
+  is_default: boolean;
+  tours_count?: number;
+  rules: CancellationPolicyRule[];
+}
+
+export interface CancellationPolicyPayload {
+  name: string;
+  description?: string | null;
+  is_default?: boolean;
+  rules: CancellationPolicyRule[];
+}
+
+export interface HeldSeatsResponse {
+  bookings: PaginatedResponse<Booking>;
+  total_held_seats: number;
 }
 
 const adminService = {
@@ -69,6 +98,18 @@ const adminService = {
     return response.data?.data ?? [];
   },
 
+  updateScheduleStatus: async (
+    scheduleId: number,
+    status: "open" | "closed" | "confirmed" | "cancelled",
+    reason?: string,
+  ): Promise<TourSchedule | null> => {
+    const response = await api.patch(`/admin/schedules/${scheduleId}/status`, {
+      status,
+      ...(status === "cancelled" ? { reason } : {}),
+    });
+    return extractObject<TourSchedule>(response);
+  },
+
   // --- BOOKINGS ---
   getBookings: async (page = 1): Promise<PaginatedResponse<Booking> | null> => {
     const response = await api.get(`/admin/bookings?page=${page}`);
@@ -90,6 +131,43 @@ const adminService = {
       cancel_reason: reason,
     });
     return extractObject<Booking>(response);
+  },
+
+  // Ghế chết: đơn đã hủy sau hạn chốt nên chỗ chưa được trả về kho để bán lại.
+  getHeldSeats: async (page = 1): Promise<HeldSeatsResponse | null> => {
+    const response = await api.get(`/admin/bookings/held-seats?page=${page}`);
+    return extractObject<HeldSeatsResponse>(response);
+  },
+
+  releaseHeldSeats: async (id: number): Promise<Booking | null> => {
+    const response = await api.put(`/admin/bookings/${id}/release-seats`);
+    return extractObject<Booking>(response);
+  },
+
+  // --- CHÍNH SÁCH HỦY ---
+  getCancellationPolicies: async (): Promise<CancellationPolicy[]> => {
+    const response = await api.get("/admin/cancellation-policies");
+    return response.data?.data ?? [];
+  },
+
+  createCancellationPolicy: async (
+    payload: CancellationPolicyPayload,
+  ): Promise<CancellationPolicy | null> => {
+    const response = await api.post("/admin/cancellation-policies", payload);
+    return extractObject<CancellationPolicy>(response);
+  },
+
+  updateCancellationPolicy: async (
+    id: number,
+    payload: CancellationPolicyPayload,
+  ): Promise<CancellationPolicy | null> => {
+    const response = await api.put(`/admin/cancellation-policies/${id}`, payload);
+    return extractObject<CancellationPolicy>(response);
+  },
+
+  deleteCancellationPolicy: async (id: number): Promise<boolean> => {
+    const response = await api.delete(`/admin/cancellation-policies/${id}`);
+    return response.data?.success !== false;
   },
 
   // --- GUIDES ---

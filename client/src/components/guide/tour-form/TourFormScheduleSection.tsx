@@ -1,5 +1,5 @@
 import React from "react";
-import { CalendarDays, Clock, Users, UserRound, AlertTriangle } from "lucide-react";
+import { CalendarDays, Users, AlertTriangle } from "lucide-react";
 import type { Guide } from "@/types";
 import type { ScheduleFormItem } from "./types";
 
@@ -26,7 +26,7 @@ const getPeriod = (startDate: string, numberOfDays: number) => {
 };
 
 interface Props {
-  labelClass: string;
+  labelClass?: string;
   fieldClass: string;
   items: ScheduleFormItem[];
   numberOfDays: number;
@@ -42,7 +42,6 @@ interface Props {
 }
 
 export const TourFormScheduleSection: React.FC<Props> = ({
-  labelClass,
   fieldClass,
   items,
   numberOfDays,

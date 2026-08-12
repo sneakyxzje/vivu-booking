@@ -132,6 +132,7 @@ class AdminTourController extends Controller
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
             'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
             'schedules.*.booking_deadline' => ['nullable', 'date'],
+            'schedules.*.status' => ['nullable', 'string', 'in:open,closed'],
             'schedules.*.guide_id' => ['nullable', 'exists:users,id'],
         ]);
 
@@ -144,6 +145,10 @@ class AdminTourController extends Controller
         $serviceIds = $validated['service_ids'] ?? [];
         $itineraries = $validated['itineraries'] ?? [];
         $schedules = $validated['schedules'] ?? [];
+
+        if ($scheduleError = $this->validateScheduleRules($schedules)) {
+            return $this->error($scheduleError, 422);
+        }
 
         if (count($itineraries) > $numberOfDay) {
             return $this->error("Lịch trình chỉ được tối đa {$numberOfDay} ngày", 422);
@@ -217,7 +222,7 @@ class AdminTourController extends Controller
                     'min_people'       => $item['min_people'] ?? 1,
                     'booking_deadline' => $bookingDeadline,
                     'booked_people'    => 0,
-                    'status'           => 'open',
+                    'status'           => $item['status'] ?? 'open',
                 ]);
             }
 
@@ -286,6 +291,7 @@ class AdminTourController extends Controller
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
             'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
             'schedules.*.booking_deadline' => ['nullable', 'date'],
+            'schedules.*.status' => ['nullable', 'string', 'in:open,closed'],
             'schedules.*.guide_id' => ['nullable', 'exists:users,id'],
         ]);
 
@@ -300,6 +306,10 @@ class AdminTourController extends Controller
         $serviceIds = $validated['service_ids'] ?? [];
         $itineraries = $validated['itineraries'] ?? [];
         $schedules = $validated['schedules'] ?? [];
+
+        if ($scheduleError = $this->validateScheduleRules($schedules)) {
+            return $this->error($scheduleError, 422);
+        }
 
         if (count($itineraries) > $numberOfDay) {
             return $this->error("Lịch trình chỉ được tối đa {$numberOfDay} ngày", 422);
@@ -357,7 +367,7 @@ class AdminTourController extends Controller
                         throw ValidationException::withMessages([
                             'schedules' => sprintf(
                                 'Không thể sửa thông tin chuyến khi trạng thái là "%s".',
-                                $schedule->status->label()
+                                $schedule->status->label(),
                             ),
                         ]);
                     }
@@ -390,7 +400,7 @@ class AdminTourController extends Controller
                     if (! $schedule->isOperationallyLocked()) {
                         $payload['status'] = $schedule->booked_people >= (int) $item['max_people']
                             ? 'closed'
-                            : 'open';
+                            : ($item['status'] ?? 'open');
                     }
 
                     $schedule->update($payload);
@@ -401,7 +411,7 @@ class AdminTourController extends Controller
                 $created = $tour->schedules()->create([
                     ...$payload,
                     'booked_people' => 0,
-                    'status'        => 'open',
+                    'status'        => $item['status'] ?? 'open',
                 ]);
                 $keptScheduleIds[] = $created->id;
             }
@@ -441,6 +451,43 @@ class AdminTourController extends Controller
      *
      * PATCH /admin/schedules/{id}/status
      */
+    /**
+     * Hai ràng buộc không diễn đạt được bằng luật validate của Laravel vì phải so hai trường
+     * trong cùng một phần tử mảng.
+     *
+     * min_people lớn hơn max_people thì chuyến không bao giờ chốt được, tác vụ nền sẽ cảnh báo
+     * thiếu khách mãi mãi. booking_deadline sau ngày khởi hành thì hạn chốt vô nghĩa, khách đặt
+     * được tới tận lúc xe lăn bánh trong khi phòng và suất ăn đã chốt từ trước.
+     *
+     * @param  array<int, array<string, mixed>>  $schedules
+     */
+    private function validateScheduleRules(array $schedules): ?string
+    {
+        foreach ($schedules as $index => $item) {
+            $position = $index + 1;
+            $maxPeople = (int) ($item['max_people'] ?? 0);
+            $minPeople = (int) ($item['min_people'] ?? 1);
+
+            if ($maxPeople > 0 && $minPeople > $maxPeople) {
+                return "Lịch khởi hành thứ {$position}: số khách tối thiểu ({$minPeople}) "
+                    . "không được lớn hơn sức chứa ({$maxPeople}).";
+            }
+
+            if (empty($item['booking_deadline']) || empty($item['start_date'])) {
+                continue;
+            }
+
+            $deadline = Carbon::parse($item['booking_deadline']);
+            $startDate = Carbon::parse($item['start_date']);
+
+            if ($deadline->gte($startDate)) {
+                return "Lịch khởi hành thứ {$position}: hạn chốt danh sách phải trước ngày khởi hành.";
+            }
+        }
+
+        return null;
+    }
+
     public function updateScheduleStatus(Request $request, int $id): JsonResponse
     {
         $allowedForAdmin = [
