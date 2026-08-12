@@ -17,14 +17,26 @@ use Illuminate\Database\Eloquent\Model;
 ])]
 class CheckpointPhoto extends Model
 {
+    protected $casts = [
+        'latitude' => 'decimal:7',
+        'longitude' => 'decimal:7',
+        'captured_at' => 'datetime',
+    ];
+
     public function schedule()
     {
-        return $this->belongsTo(TourSchedule::class, 'tour_schedule_id');
+        return $this->belongsTo(
+            TourSchedule::class,
+            'tour_schedule_id'
+        );
     }
 
     public function itinerary()
     {
-        return $this->belongsTo(TourItinerary::class, 'tour_itinerary_id');
+        return $this->belongsTo(
+            TourItinerary::class,
+            'tour_itinerary_id'
+        );
     }
 
     public function checkpoint()
@@ -37,6 +49,9 @@ class CheckpointPhoto extends Model
 
     public function guide()
     {
-        return $this->belongsTo(User::class, 'guide_id');
+        return $this->belongsTo(
+            User::class,
+            'guide_id'
+        );
     }
 }
