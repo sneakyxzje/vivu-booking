@@ -90,15 +90,15 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Chỉ xóa dữ liệu do migration này điền vào.
+        //
+        // KHÔNG đổi status về giá trị cũ ở đây. Migration 000001 đã làm việc đó trong
+        // restoreLegacyStatusColumn(). Làm cả hai nơi thì lần map thứ hai không còn khớp
+        // giá trị nào nên rơi hết vào nhánh ELSE, biến mọi chuyến thành 'inactive'.
         DB::statement("
             UPDATE tour_schedules
             SET end_date = NULL,
-                booking_deadline = NULL,
-                status = CASE
-                    WHEN status = 'open' THEN 'active'
-                    WHEN status = 'closed' THEN 'full'
-                    ELSE 'inactive'
-                END
+                booking_deadline = NULL
         ");
     }
 };

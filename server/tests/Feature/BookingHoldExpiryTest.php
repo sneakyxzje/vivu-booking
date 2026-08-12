@@ -149,7 +149,8 @@ class BookingHoldExpiryTest extends TestCase
 
         $schedule->refresh();
         $this->assertSame(0, (int) $schedule->booked_people);
-        $this->assertSame('open', $schedule->status);
+        $this->assertSame(\App\Enums\ScheduleStatus::Open, $schedule->status);
+        // tours.status là cột riêng, vẫn dùng active/inactive/full, không đổi theo vòng đời chuyến.
         $this->assertSame('active', $schedule->tour->fresh()->status);
     }
 }

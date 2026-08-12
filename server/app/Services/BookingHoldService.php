@@ -169,7 +169,7 @@ class BookingHoldService
         $schedule->decrement('booked_people', min($booking->guests, (int) $schedule->booked_people));
         $schedule->refresh();
 
-        if ($this->scheduleStatusValue($schedule) === ScheduleStatus::Closed->value
+        if ($schedule->status === ScheduleStatus::Closed
             && $schedule->booked_people < $schedule->max_people) {
             $this->lifecycle->transitionTo(
                 $schedule,
@@ -211,17 +211,10 @@ class BookingHoldService
         }
 
         $hasAvailableSchedule = $tour->schedules->contains(function (TourSchedule $item) {
-            return $this->scheduleStatusValue($item) === ScheduleStatus::Open->value
+            return $item->status === ScheduleStatus::Open
                 && (int) $item->booked_people < (int) $item->max_people;
         });
 
         $tour->update(['status' => $hasAvailableSchedule ? 'active' : 'full']);
-    }
-
-    private function scheduleStatusValue(TourSchedule $schedule): string
-    {
-        return $schedule->status instanceof ScheduleStatus
-            ? $schedule->status->value
-            : (string) $schedule->status;
     }
 }

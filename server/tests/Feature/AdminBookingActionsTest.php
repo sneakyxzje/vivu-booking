@@ -52,7 +52,9 @@ class AdminBookingActionsTest extends TestCase
             'start_date' => now()->addDays(7),
             'max_people' => $maxPeople,
             'booked_people' => $guests,
-            'status' => $guests >= $maxPeople ? 'full' : 'active',
+            'status' => $guests >= $maxPeople
+                ? \App\Enums\ScheduleStatus::Closed->value
+                : \App\Enums\ScheduleStatus::Open->value,
         ]);
 
         return Booking::create([

@@ -119,6 +119,35 @@ class ScheduleLifecycleService
     }
 
     /**
+     * Trạng thái thực tế của chuyến tại thời điểm này.
+     *
+     * Khác currentStatus ở chỗ có tính tới đồng hồ. Trạng thái lưu trong cơ sở dữ liệu có thể
+     * chậm hơn thực tế khi tác vụ nền chưa kịp chạy hoặc bị dừng: một chuyến khởi hành từ hôm
+     * qua vẫn có thể còn ghi 'open'. Các quy tắc chặn phải dựa vào trạng thái thực tế, nếu không
+     * chỉ cần cron chết là mọi ràng buộc theo trạng thái thủng theo.
+     */
+    public function effectiveStatus(TourSchedule $schedule, ?Carbon $now = null): ScheduleStatus
+    {
+        $current = $this->currentStatus($schedule);
+
+        if ($current->isFinal()) {
+            return $current;
+        }
+
+        $now ??= now();
+
+        if ($this->endMoment($schedule)?->lt($now)) {
+            return ScheduleStatus::Completed;
+        }
+
+        if ($this->startMoment($schedule)?->lte($now)) {
+            return ScheduleStatus::InProgress;
+        }
+
+        return $current;
+    }
+
+    /**
      * Trạng thái mà chuyến lẽ ra phải có tính theo thời gian hiện tại.
      * Trả về null khi không cần đổi gì. Dùng cho lệnh chạy nền cập nhật trạng thái theo lịch.
      */
@@ -127,7 +156,8 @@ class ScheduleLifecycleService
         $now ??= now();
         $current = $this->currentStatus($schedule);
 
-        if ($current->isFinal() || $current === ScheduleStatus::Cancelled) {
+        // isFinal() đã bao gồm Cancelled và Completed.
+        if ($current->isFinal()) {
             return null;
         }
 

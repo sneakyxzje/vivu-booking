@@ -105,13 +105,15 @@ class BookingCancellationGuardTest extends TestCase
         $don = $this->taoDon(khoiHanh: now()->subDay()->toDateTimeString(), khach: $khach);
         Sanctum::actingAs($khach);
 
+        // Tour 2 ngày khởi hành từ hôm qua nên hôm nay đoàn vẫn đang đi, thông báo phải là
+        // "đã khởi hành" chứ không phải "đã kết thúc".
         $this->putJson("/api/my-bookings/{$don->id}/cancel", [
             'cancel_reason' => 'Khong di nua',
         ])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
-            ->assertJsonFragment(['message' => 'Chuyến đi đã kết thúc nên không thể hủy đơn. '
-                . 'Vui lòng liên hệ điều hành nếu cần khiếu nại hoặc yêu cầu hoàn tiền.']);
+            ->assertJsonFragment(['message' => 'Chuyến đi đã khởi hành nên không thể hủy đơn. '
+                . 'Vui lòng liên hệ điều hành để ghi nhận khách vắng mặt hoặc rời đoàn giữa chừng.']);
 
         $this->assertSame('pending', $don->fresh()->status);
     }
