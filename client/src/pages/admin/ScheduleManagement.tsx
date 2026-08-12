@@ -14,6 +14,7 @@ import type { Tour, Guide, ExtendedSchedule } from "@/types";
 import { Toast } from "@/components/admin/CustomAlert";
 import { formatDateTime, getEndDate } from "@/utils/format";
 import { statusLabel, statusClasses } from "@/utils/schedule";
+import Pagination from "@/components/common/Pagination";
 
 export default function ScheduleManagement() {
   const [tours, setTours] = useState<Tour[]>([]);
@@ -22,7 +23,7 @@ export default function ScheduleManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   // State phân công Hướng dẫn viên
   const [assigningScheduleId, setAssigningScheduleId] = useState<number | null>(null);
   const [pendingGuideIds, setPendingGuideIds] = useState<Record<number, string>>({});
@@ -93,12 +94,12 @@ export default function ScheduleManagement() {
   }, [allSchedules, searchQuery, statusFilter]);
 
   const totalItems = filteredSchedules.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
 
   const paginatedSchedules = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredSchedules.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredSchedules, currentPage]);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredSchedules.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredSchedules, currentPage, itemsPerPage]);
 
   // Phân công hướng dẫn viên cho chuyến khởi hành
   const assignGuide = async (scheduleId: number, guideId: number | null) => {
@@ -478,46 +479,20 @@ export default function ScheduleManagement() {
           </div>
 
           {/* PAGINATION PANEL */}
-          {totalPages >= 1 && (
-            <div className="bg-slate-50 border-t border-gray-100 px-5 py-4 flex items-center justify-between flex-wrap gap-3">
-              <span className="text-xs text-gray-500">
-                Hiển thị <strong className="text-gray-800">{Math.min(totalItems, (currentPage - 1) * ITEMS_PER_PAGE + 1)} - {Math.min(totalItems, currentPage * ITEMS_PER_PAGE)}</strong> trên tổng số <strong className="text-gray-800">{totalItems}</strong> chuyến đi
-              </span>
-
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((c) => Math.max(1, c - 1))}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  Trước
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    type="button"
-                    onClick={() => setCurrentPage(page)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer transition-all duration-150 ${page === currentPage
-                      ? "bg-primary-600 text-white shadow-xs"
-                      : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                      }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-
-                <button
-                  type="button"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((c) => Math.min(totalPages, c + 1))}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  Sau
-                </button>
-              </div>
-            </div>
-          )}
+          <div className="bg-slate-50 border-t border-gray-100 px-5 py-3">
+            <Pagination
+              currentPage={currentPage}
+              lastPage={totalPages}
+              total={totalItems}
+              perPage={itemsPerPage}
+              itemLabel="chuyến đi"
+              onPageChange={(p) => setCurrentPage(p)}
+              onPerPageChange={(newPerPage) => {
+                setItemsPerPage(newPerPage);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
         </div>
       ) : (
         <div className="p-10 text-center rounded-2xl border border-gray-100 bg-white text-sm text-gray-500">
