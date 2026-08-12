@@ -141,6 +141,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/tour-schedules/{id}/attendance', [AdminAttendanceController::class, 'show']);
         Route::get('/attendance-reports', [AdminAttendanceController::class, 'report']);
 
+        // H13a — Báo cáo chi tiết điểm danh sau chuyến (5 phần theo tài liệu 04 §5.5).
+        Route::get('/schedules/{id}/attendance-report', [AdminAttendanceController::class, 'scheduleReport']);
+
+
         // A10 — Đổi trạng thái chuyến thủ công (open ↔ closed, → confirmed, → cancelled).
         Route::patch('/schedules/{id}/status', [AdminTourController::class, 'updateScheduleStatus']);
 
