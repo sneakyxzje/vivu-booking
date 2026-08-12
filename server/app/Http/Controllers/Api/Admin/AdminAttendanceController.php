@@ -277,6 +277,11 @@ class AdminAttendanceController extends Controller
         ];
 
         // ─── 5. by_checkpoint ────────────────────────────────────────────────
+        //
+        // Mỗi phần tử tương ứng với một điểm dừng trong lịch trình.
+        // Các giá trị đếm (present, absent, ...) tính từ passenger_checkins của chuyến này.
+        // has_photo kiểm tra checkpoint_photos có ít nhất một ảnh gắn với checkpoint đó không.
+        // presence_rate = present / tổng bản ghi * 100 (không tính hành khách chưa được điểm danh).
         $byCheckpoint = $checkpoints->map(function ($cp) use ($allCheckins, $schedule) {
             $cpCheckins = $allCheckins->where('itinerary_checkpoint_id', $cp->id);
 
