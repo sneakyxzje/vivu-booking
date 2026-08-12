@@ -313,6 +313,9 @@ class AdminAttendanceController extends Controller
         })->values();
 
         // ─── 6. absent_passengers ────────────────────────────────────────────
+        //
+        // Tất cả bản ghi có status khác present — bao gồm absent, late, left_early, excused.
+        // FE có thể lọc thêm theo status nếu cần hiển thị riêng từng loại.
         $absentPassengers = $allCheckins
             ->where('status', '!=', PassengerCheckinStatus::Present)
             ->map(fn ($c) => [
