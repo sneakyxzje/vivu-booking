@@ -21,5 +21,10 @@ class TourItinerary extends Model
     {
         return $this->belongsTo(Tour::class);
     }
-}
 
+    public function checkpoints()
+    {
+        return $this->hasMany(ItineraryCheckpoint::class)
+            ->orderBy('sequence');
+    }
+}
