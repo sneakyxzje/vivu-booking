@@ -87,11 +87,7 @@ export default function ScheduleManagement() {
         String(schedule.id).includes(searchQuery);
       
       const status = schedule.status || "open";
-      const matchesStatus =
-        statusFilter === "all" ||
-        status === statusFilter ||
-        (statusFilter === "open" && status === "active") ||
-        (statusFilter === "closed" && status === "full");
+      const matchesStatus = statusFilter === "all" || status === statusFilter;
 
       return matchesSearch && matchesStatus;
     });

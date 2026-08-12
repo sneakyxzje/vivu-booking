@@ -56,7 +56,10 @@ export interface TourSchedule {
   start_date: string;
   max_people: number;
   booked_people: number;
-  status: "open" | "closed" | "confirmed" | "in_progress" | "completed" | "cancelled" | "active" | "inactive" | "full";
+  // Vòng đời chuyến khởi hành, khớp App\Enums\ScheduleStatus.
+  // Không gộp active / inactive / full vào đây: đó là giá trị của tours.status.
+  // Sau migration chuẩn hóa, chuyến không bao giờ mang ba giá trị đó nữa.
+  status: "open" | "closed" | "confirmed" | "in_progress" | "completed" | "cancelled";
   min_people?: number;
   booking_deadline?: string;
   cancelled_reason?: string | null;
