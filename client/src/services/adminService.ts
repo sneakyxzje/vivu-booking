@@ -35,6 +35,11 @@ export interface AdminDashboardData {
   }[];
 }
 
+export interface HeldSeatsResponse {
+  bookings: PaginatedResponse<Booking>;
+  total_held_seats: number;
+}
+
 const adminService = {
   // --- DASHBOARD ---
   getDashboard: async (): Promise<AdminDashboardData | null> => {
@@ -101,6 +106,17 @@ const adminService = {
     const response = await api.put(`/admin/bookings/${id}/cancel`, {
       cancel_reason: reason,
     });
+    return extractObject<Booking>(response);
+  },
+
+  // Ghế chết: đơn đã hủy sau hạn chốt nên chỗ chưa được trả về kho để bán lại.
+  getHeldSeats: async (page = 1): Promise<HeldSeatsResponse | null> => {
+    const response = await api.get(`/admin/bookings/held-seats?page=${page}`);
+    return extractObject<HeldSeatsResponse>(response);
+  },
+
+  releaseHeldSeats: async (id: number): Promise<Booking | null> => {
+    const response = await api.put(`/admin/bookings/${id}/release-seats`);
     return extractObject<Booking>(response);
   },
 
