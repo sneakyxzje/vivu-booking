@@ -26,6 +26,8 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call([
+            // Chạy trước SampleTourSeeder để tour gắn được chính sách hủy mặc định.
+            CancellationPolicySeeder::class,
             SampleTourSeeder::class,
             ReviewSeeder::class,
             DemoBookingSeeder::class,

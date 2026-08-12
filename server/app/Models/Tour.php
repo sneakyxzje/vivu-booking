@@ -24,7 +24,8 @@ use Illuminate\Database\Eloquent\Model;
     'vehicle_info',
     'pickup_location',
     'is_featured',
-    'status'
+    'status',
+    'cancellation_policy_id',
 ])]
 class Tour extends Model
 {
@@ -61,6 +62,11 @@ class Tour extends Model
     public function reviews()
     {
         return $this->hasMany(Review::class);
+    }
+
+    public function cancellationPolicy()
+    {
+        return $this->belongsTo(CancellationPolicy::class);
     }
 }
 

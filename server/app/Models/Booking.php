@@ -35,6 +35,7 @@ use Illuminate\Database\Eloquent\Model;
     'seats_released_by',
     'refund_amount',
     'cancellation_plan',
+    'cancellation_policy_id',
     'vnpay_transaction_no',
     'paid_at',
     'confirmed_at',
@@ -97,6 +98,15 @@ class Booking extends Model
     public function discountCode()
     {
         return $this->belongsTo(DiscountCode::class);
+    }
+
+    /**
+     * Chính sách hủy đã sao chép lúc đặt. Đọc từ đây chứ không đọc qua tour, vì tour có thể
+     * đã đổi sang chính sách khác sau khi khách đặt.
+     */
+    public function cancellationPolicy()
+    {
+        return $this->belongsTo(CancellationPolicy::class);
     }
 }
 

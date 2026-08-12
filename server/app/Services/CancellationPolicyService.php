@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Booking;
+use App\Models\CancellationPolicy;
 use App\Models\TourSchedule;
 use Illuminate\Support\Carbon;
 
@@ -33,6 +34,36 @@ class CancellationPolicyService
         ['min_hours_before' => 48, 'max_hours_before' => 96, 'refund_percent' => 30],    // 2 đến 3 ngày
         ['min_hours_before' => 0, 'max_hours_before' => 48, 'refund_percent' => 0],      // dưới 48 giờ
     ];
+
+    /**
+     * Quy tắc áp cho một đơn cụ thể.
+     *
+     * Thứ tự ưu tiên: chính sách đã sao chép vào đơn lúc đặt, rồi tới chính sách mặc định
+     * trong cơ sở dữ liệu, cuối cùng mới tới bảng phí viết trong mã.
+     *
+     * Đọc từ đơn chứ không đọc qua tour là điểm mấu chốt: sửa chính sách của tour về sau
+     * không được làm đổi điều khoản mà khách đã đồng ý khi đặt.
+     *
+     * @return iterable<int, array<string, mixed>|object>
+     */
+    public function rulesFor(Booking $booking): iterable
+    {
+        $booking->loadMissing('cancellationPolicy.rules');
+
+        $rules = $booking->cancellationPolicy?->rules;
+
+        if ($rules && $rules->isNotEmpty()) {
+            return $rules;
+        }
+
+        $macDinh = CancellationPolicy::default();
+
+        if ($macDinh && $macDinh->rules->isNotEmpty()) {
+            return $macDinh->rules;
+        }
+
+        return self::DEFAULT_RULES;
+    }
 
     /**
      * Số giờ còn lại tới lúc khởi hành. Âm nghĩa là đã qua giờ khởi hành.
@@ -108,6 +139,7 @@ class CancellationPolicyService
         ?Carbon $now = null,
     ): array {
         $schedule ??= $booking->schedule;
+        $rules ??= $this->rulesFor($booking);
 
         $hoursBefore = $this->hoursBeforeDeparture($schedule, $now);
         $refundPercent = $this->refundPercent($hoursBefore, $rules);
