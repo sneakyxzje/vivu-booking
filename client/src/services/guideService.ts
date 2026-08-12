@@ -1,12 +1,13 @@
 import api from "./api";
 import { extractArray, extractObject } from "@/utils/apiHelpers";
 import type {
-  AttendanceCheckin,
+  AttendanceCheckinInput,
   AttendanceData,
-  CheckpointPhoto,
   GuideBooking,
   GuideDashboardStats,
+  SaveAttendanceResult,
   Tour,
+  UploadCheckinPhotoResult,
 } from "@/types/guide";
 
 const defaultStats: GuideDashboardStats = {
@@ -204,32 +205,45 @@ const guideService = {
     return extractObject<AttendanceData>(response);
   },
 
+  /**
+   * Lưu điểm danh của một loạt hành khách tại một điểm dừng.
+   *
+   * Máy chủ áp chín quy tắc ở AttendanceService và trả 422 kèm thông báo tiếng Việt khi vi phạm,
+   * nên lỗi phải để nguyên cho màn hình đọc `message`, không nuốt đi.
+   */
   saveAttendance: async (
     scheduleId: number,
-    itineraryId: number,
-    checkins: { booking_id: number; present: boolean }[],
-  ): Promise<AttendanceCheckin[]> => {
+    checkpointId: number,
+    checkins: AttendanceCheckinInput[],
+  ): Promise<SaveAttendanceResult | null> => {
     const response = await api.put(
-      `/guide/schedules/${scheduleId}/itineraries/${itineraryId}/attendance`,
+      `/guide/schedules/${scheduleId}/checkpoints/${checkpointId}/attendance`,
       { checkins },
     );
-    return response.data?.data?.checkins ?? [];
+    return extractObject<SaveAttendanceResult>(response);
   },
 
+  /**
+   * Ảnh check-in phải kèm tọa độ nơi chụp. Máy chủ so với tọa độ điểm dừng và cảnh báo khi
+   * cách quá 200m; thiếu tọa độ thì bị từ chối chứ không lưu suông.
+   */
   uploadCheckinPhoto: async (
     scheduleId: number,
-    itineraryId: number,
+    checkpointId: number,
     photo: File,
-  ): Promise<CheckpointPhoto | null> => {
+    coords: { latitude: number; longitude: number },
+  ): Promise<UploadCheckinPhotoResult | null> => {
     const data = new FormData();
     data.append("photo", photo);
+    data.append("latitude", String(coords.latitude));
+    data.append("longitude", String(coords.longitude));
 
     const response = await api.post(
-      `/guide/schedules/${scheduleId}/itineraries/${itineraryId}/checkin-photo`,
+      `/guide/schedules/${scheduleId}/checkpoints/${checkpointId}/checkin-photo`,
       data,
       { headers: { "Content-Type": "multipart/form-data" } },
     );
-    return extractObject<CheckpointPhoto>(response);
+    return extractObject<UploadCheckinPhotoResult>(response);
   },
 };
 

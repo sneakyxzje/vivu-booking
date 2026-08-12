@@ -277,6 +277,70 @@ class AdminAttendanceReportTest extends TestCase
         $this->assertSame(1, $response->json('data.schedules.total'));
     }
 
+    // ─── Test 9: màn xem lại điểm danh của một chuyến ───────────────────────
+
+    /**
+     * Endpoint này chưa từng có bài kiểm nào, nên khi mô hình điểm danh đổi sang từng hành khách
+     * tại từng điểm dừng thì nó lặng lẽ trả thiếu khóa mà không bài nào đỏ. Giao diện quản trị
+     * đọc `guests` và `photos[].tour_itinerary_id`, cả hai đều không còn trong phản hồi.
+     */
+    public function test_xem_lai_diem_danh_tra_ve_du_diem_dung_va_danh_sach_doan(): void
+    {
+        $passenger = $this->taoHanhKhach($this->schedule);
+        $this->taoCheckin($passenger, $this->checkpoint, PassengerCheckinStatus::Present);
+
+        CheckpointPhoto::create([
+            'tour_schedule_id'        => $this->schedule->id,
+            'tour_itinerary_id'       => $this->itinerary->id,
+            'itinerary_checkpoint_id' => $this->checkpoint->id,
+            'guide_id'                => $this->schedule->guide_id,
+            'image_path'              => 'https://example.com/anh.jpg',
+            'captured_at'             => now(),
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->getJson("/api/admin/tour-schedules/{$this->schedule->id}/attendance");
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data' => [
+                    'schedule',
+                    'tour',
+                    'itineraries',
+                    'checkpoints' => [['id', 'name', 'sequence', 'is_required_photo', 'tour_itinerary']],
+                    'bookings' => [['id', 'customer_name', 'passengers' => [['id', 'name', 'type']]]],
+                    'total_passengers',
+                    'checkins' => [['booking_passenger_id', 'itinerary_checkpoint_id', 'status']],
+                    'photos' => [['id', 'tour_itinerary_id', 'itinerary_checkpoint_id', 'image_path']],
+                ],
+            ])
+            ->assertJsonPath('data.checkpoints.0.id', $this->checkpoint->id)
+            ->assertJsonPath('data.bookings.0.passengers.0.id', $passenger->id)
+            ->assertJsonPath('data.checkins.0.status', 'present');
+    }
+
+    /**
+     * Điểm dừng chưa ai điểm danh vẫn phải xuất hiện. Đó chính là chỗ điều hành cần nhìn thấy:
+     * một điểm bị bỏ quên hoàn toàn trông y hệt một điểm không tồn tại nếu suy danh sách ngược
+     * từ các bản ghi đã có.
+     */
+    public function test_diem_dung_chua_ai_diem_danh_van_nam_trong_phan_hoi(): void
+    {
+        $diemChuaGhi = $this->itinerary->checkpoints()->create([
+            'name'     => 'Diem tham quan buoi chieu',
+            'sequence' => 2,
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->getJson("/api/admin/tour-schedules/{$this->schedule->id}/attendance");
+
+        $response->assertOk();
+
+        $ids = array_column($response->json('data.checkpoints'), 'id');
+
+        $this->assertContains($diemChuaGhi->id, $ids);
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private function taoUser(string $role): User

@@ -1,9 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import adminService from "@/services/adminService";
-import type { AttendanceCheckin, AttendanceGuest, AttendanceItinerary, CheckpointPhoto } from "@/types/guide";
+import type {
+  AttendanceBooking,
+  AttendanceCheckin,
+  AttendanceCheckpoint,
+  AttendanceItinerary,
+  CheckpointPhoto,
+} from "@/types/guide";
+import { ATTENDANCE_STATUSES, ATTENDANCE_STATUS_ORDER } from "@/utils/attendance";
 import { formatDateTime } from "@/utils/format";
 
+/**
+ * Báo cáo điểm danh của một chuyến, phía quản trị. Chỉ đọc.
+ *
+ * Cùng mô hình với màn hướng dẫn viên: từng hành khách tại từng điểm dừng. Điều hành cần thấy
+ * cả người chưa được ghi nhận, nên màn này đi từ danh sách đoàn rồi tra ngược sang điểm danh,
+ * chứ không liệt kê các bản ghi điểm danh đã có.
+ */
 interface AdminAttendanceData {
   schedule: {
     id: number;
@@ -14,7 +28,9 @@ interface AdminAttendanceData {
   };
   tour: { id: number; title: string; number_of_days: number };
   itineraries: AttendanceItinerary[];
-  guests: AttendanceGuest[];
+  checkpoints: AttendanceCheckpoint[];
+  bookings: AttendanceBooking[];
+  total_passengers: number;
   checkins: AttendanceCheckin[];
   photos: CheckpointPhoto[];
 }
@@ -25,7 +41,7 @@ export default function ScheduleAttendance() {
   const [data, setData] = useState<AdminAttendanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeItineraryId, setActiveItineraryId] = useState<number | null>(null);
+  const [activeCheckpointId, setActiveCheckpointId] = useState<number | null>(null);
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,24 +55,68 @@ export default function ScheduleAttendance() {
           return;
         }
         setData(result);
-        setActiveItineraryId(result.itineraries[0]?.id ?? null);
       })
       .catch(() => setError("Không thể tải dữ liệu điểm danh."))
       .finally(() => setLoading(false));
   }, [scheduleId]);
 
-  const checkinByBooking = useMemo(() => {
+  const orderedCheckpoints = useMemo(() => {
+    return [...(data?.checkpoints ?? [])].sort((a, b) => {
+      const dayA = a.tour_itinerary?.day_number ?? 0;
+      const dayB = b.tour_itinerary?.day_number ?? 0;
+      return dayA !== dayB ? dayA - dayB : a.sequence - b.sequence;
+    });
+  }, [data]);
+
+  useEffect(() => {
+    if (activeCheckpointId === null && orderedCheckpoints.length > 0) {
+      setActiveCheckpointId(orderedCheckpoints[0].id);
+    }
+  }, [orderedCheckpoints, activeCheckpointId]);
+
+  /** Tra điểm danh theo cặp điểm dừng và hành khách. */
+  const checkinByPassenger = useMemo(() => {
     const map = new Map<string, AttendanceCheckin>();
     data?.checkins.forEach((checkin) => {
-      map.set(`${checkin.tour_itinerary_id}:${checkin.booking_id}`, checkin);
+      map.set(`${checkin.itinerary_checkpoint_id}:${checkin.booking_passenger_id}`, checkin);
     });
     return map;
   }, [data]);
 
-  const activePhotos = useMemo(
-    () => (data?.photos ?? []).filter((photo) => photo.tour_itinerary_id === activeItineraryId),
-    [data, activeItineraryId],
+  const activeCheckpoint = useMemo(
+    () => orderedCheckpoints.find((item) => item.id === activeCheckpointId) ?? null,
+    [orderedCheckpoints, activeCheckpointId],
   );
+
+  const activePhotos = useMemo(
+    () =>
+      (data?.photos ?? []).filter((photo) => photo.itinerary_checkpoint_id === activeCheckpointId),
+    [data, activeCheckpointId],
+  );
+
+  const allPassengers = useMemo(
+    () => (data?.bookings ?? []).flatMap((booking) => booking.passengers ?? []),
+    [data],
+  );
+
+  const stats = useMemo(() => {
+    const counts = { present: 0, absent: 0, late: 0, left_early: 0, excused: 0 };
+    const total = allPassengers.length;
+
+    if (activeCheckpointId === null) {
+      return { ...counts, total, recorded: 0, pending: total };
+    }
+
+    let recorded = 0;
+    allPassengers.forEach((passenger) => {
+      const checkin = checkinByPassenger.get(`${activeCheckpointId}:${passenger.id}`);
+      if (!checkin) return;
+      counts[checkin.status]++;
+      recorded++;
+    });
+
+    return { ...counts, total, recorded, pending: total - recorded };
+  }, [allPassengers, checkinByPassenger, activeCheckpointId]);
 
   if (loading) {
     return (
@@ -83,24 +143,22 @@ export default function ScheduleAttendance() {
     );
   }
 
-  const activeItinerary = data.itineraries.find((item) => item.id === activeItineraryId) ?? null;
-
-  const presentCount = activeItinerary
-    ? data.guests.filter((guest) => checkinByBooking.get(`${activeItinerary.id}:${guest.id}`)?.present).length
-    : 0;
-
-  const absentCount = activeItinerary
-    ? data.guests.filter((guest) => {
-      const c = checkinByBooking.get(`${activeItinerary.id}:${guest.id}`);
-      return c && !c.present;
-    }).length
-    : 0;
-
-  const uncheckCount = data.guests.length - presentCount - absentCount;
+  const groupedByDay = orderedCheckpoints.reduce<[number, AttendanceCheckpoint[]][]>(
+    (groups, checkpoint) => {
+      const day = checkpoint.tour_itinerary?.day_number ?? 0;
+      const existing = groups.find(([value]) => value === day);
+      if (existing) {
+        existing[1].push(checkpoint);
+      } else {
+        groups.push([day, [checkpoint]]);
+      }
+      return groups;
+    },
+    [],
+  );
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
-      {/* Header Info */}
       <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <Link
@@ -110,13 +168,17 @@ export default function ScheduleAttendance() {
             ← Quay lại Quản lý Chuyến
           </Link>
           <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 font-jakarta">
-            Báo cáo điểm danh & Check-in đoàn
+            Báo cáo điểm danh &amp; Check-in đoàn
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             <span className="font-semibold text-gray-800">{data.tour.title}</span> · Khởi hành:{" "}
-            <span className="text-primary-700 font-medium">{formatDateTime(data.schedule.start_date)}</span>
+            <span className="text-primary-700 font-medium">
+              {formatDateTime(data.schedule.start_date)}
+            </span>
             {data.schedule.guide ? (
-              <span className="ml-2 font-bold text-emerald-700">· HDV: {data.schedule.guide.name}</span>
+              <span className="ml-2 font-bold text-emerald-700">
+                · HDV: {data.schedule.guide.name}
+              </span>
             ) : (
               <span className="ml-2 text-rose-600 font-medium">· Chưa phân công HDV</span>
             )}
@@ -124,176 +186,215 @@ export default function ScheduleAttendance() {
         </div>
       </div>
 
-      {/* Tabs Ngày / Chặng */}
-      <div className="flex flex-wrap gap-2.5">
-        {data.itineraries.map((itinerary) => {
-          const isActive = activeItineraryId === itinerary.id;
-          return (
-            <button
-              key={itinerary.id}
-              type="button"
-              onClick={() => setActiveItineraryId(itinerary.id)}
-              className={`px-4 py-3 rounded-2xl text-xs font-bold transition-all ${isActive
-                  ? "bg-primary-600 text-white shadow-md -translate-y-0.5"
-                  : "bg-white border border-gray-100 text-gray-700 hover:bg-gray-50 shadow-sm"
-                }`}
-            >
-              Ngày {itinerary.day_number}
-              {itinerary.start_point && itinerary.end_point
-                ? ` · (${itinerary.start_point} → ${itinerary.end_point})`
-                : ""}
-            </button>
-          );
-        })}
-      </div>
-
-      {data.itineraries.length === 0 ? (
+      {groupedByDay.length === 0 ? (
         <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center text-gray-500">
-          Tour này chưa có lịch trình theo ngày.
+          Tour này chưa khai báo điểm dừng nào nên chưa có dữ liệu điểm danh.
         </div>
       ) : (
-        activeItinerary && (
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-            {/* Cột trái: Thống kê & Danh sách đơn */}
-            <div className="xl:col-span-2 space-y-6">
-              {/* Thống kê Nhanh */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 text-center">
-                  <span className="text-2xl font-extrabold text-emerald-700 font-jakarta">
-                    {presentCount}
-                  </span>
-                  <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider mt-0.5">
-                    Có mặt
-                  </p>
+        <>
+          <div className="space-y-3">
+            {groupedByDay.map(([day, checkpoints]) => (
+              <div key={day} className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500 w-16 shrink-0">
+                  Ngày {day}
+                </span>
+                {checkpoints.map((checkpoint) => {
+                  const isActive = activeCheckpointId === checkpoint.id;
+                  const soAnh = data.photos.filter(
+                    (photo) => photo.itinerary_checkpoint_id === checkpoint.id,
+                  ).length;
+
+                  return (
+                    <button
+                      key={checkpoint.id}
+                      type="button"
+                      onClick={() => setActiveCheckpointId(checkpoint.id)}
+                      className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        isActive
+                          ? "bg-primary-600 text-white shadow-md -translate-y-0.5"
+                          : "bg-white border border-gray-100 text-gray-700 hover:bg-gray-50 shadow-sm"
+                      }`}
+                    >
+                      <span>{checkpoint.name}</span>
+                      {checkpoint.is_required_photo && (
+                        <span title="Điểm dừng bắt buộc có ảnh check-in">
+                          {soAnh > 0 ? "📷" : "⚠️"}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+
+          {activeCheckpoint && (
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+              <div className="xl:col-span-2 space-y-6">
+                <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm space-y-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 font-jakarta">
+                      {activeCheckpoint.name}
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Ngày {activeCheckpoint.tour_itinerary?.day_number ?? "?"}
+                      {activeCheckpoint.tour_itinerary?.title
+                        ? ` · ${activeCheckpoint.tour_itinerary.title}`
+                        : ""}{" "}
+                      · <span className="font-bold text-gray-800">{stats.total} hành khách</span>
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {ATTENDANCE_STATUS_ORDER.map((status) => (
+                      <span
+                        key={status}
+                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold ${ATTENDANCE_STATUSES[status].badgeClass}`}
+                      >
+                        {ATTENDANCE_STATUSES[status].icon} {ATTENDANCE_STATUSES[status].label}:{" "}
+                        {stats[status]}
+                      </span>
+                    ))}
+                    <span className="px-2.5 py-1 rounded-lg border border-gray-200 bg-gray-50 text-gray-600 text-[11px] font-bold">
+                      Chưa ghi nhận: {stats.pending}
+                    </span>
+                  </div>
+
+                  {activeCheckpoint.is_required_photo && activePhotos.length === 0 && (
+                    <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl p-3">
+                      ⚠️ Điểm dừng bắt buộc có ảnh check-in nhưng hướng dẫn viên chưa gửi ảnh nào.
+                    </p>
+                  )}
                 </div>
-                <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-4 text-center">
-                  <span className="text-2xl font-extrabold text-rose-700 font-jakarta">
-                    {absentCount}
-                  </span>
-                  <p className="text-[11px] font-bold text-rose-800 uppercase tracking-wider mt-0.5">
-                    Vắng mặt
-                  </p>
-                </div>
-                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-center">
-                  <span className="text-2xl font-extrabold text-gray-700 font-jakarta">
-                    {uncheckCount}
-                  </span>
-                  <p className="text-[11px] font-bold text-gray-600 uppercase tracking-wider mt-0.5">
-                    Chưa ghi nhận
-                  </p>
+
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-100">
+                  <div className="px-6 py-4 bg-gray-50/50 flex items-center justify-between">
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-gray-600">
+                      Chi tiết theo từng hành khách
+                    </h3>
+                    <span className="text-xs font-semibold text-gray-500">
+                      {data.bookings.length} đơn đặt chỗ
+                    </span>
+                  </div>
+
+                  {data.bookings.length === 0 ? (
+                    <p className="p-8 text-center text-sm text-gray-500">
+                      Chưa có đơn đặt tour nào còn hiệu lực cho chuyến này.
+                    </p>
+                  ) : (
+                    data.bookings.map((booking) => (
+                      <div key={booking.id} className="p-6 space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-gray-900 text-base">
+                            {booking.customer_name}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-mono text-[11px] font-semibold">
+                            BK-{booking.id}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            📞 {booking.customer_phone || "Không có SĐT"} · 👥 {booking.guests} khách
+                          </span>
+                        </div>
+
+                        {(booking.passengers ?? []).length === 0 ? (
+                          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                            Đơn này chưa khai danh sách hành khách.
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {(booking.passengers ?? []).map((passenger) => {
+                              const checkin = checkinByPassenger.get(
+                                `${activeCheckpoint.id}:${passenger.id}`,
+                              );
+                              const config = checkin ? ATTENDANCE_STATUSES[checkin.status] : null;
+
+                              return (
+                                <div
+                                  key={passenger.id}
+                                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-gray-100 p-3"
+                                >
+                                  <div className="min-w-0">
+                                    <span className="font-semibold text-gray-900 text-sm">
+                                      👤 {passenger.name}
+                                    </span>
+                                    {checkin?.note && (
+                                      <p className="text-xs text-gray-500 mt-0.5 truncate">
+                                        “{checkin.note}”
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {checkin?.is_late_entry && (
+                                      <span
+                                        className="px-2 py-1 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-[11px] font-bold"
+                                        title="Ghi bù sau thời điểm thực tế"
+                                      >
+                                        Ghi bù
+                                      </span>
+                                    )}
+                                    <span
+                                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border ${
+                                        config
+                                          ? config.badgeClass
+                                          : "bg-gray-100 text-gray-500 border-gray-200"
+                                      }`}
+                                    >
+                                      <span>{config ? config.icon : "⏳"}</span>
+                                      <span>{config ? config.label : "Chưa điểm danh"}</span>
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
-              {/* Danh sách hành khách */}
-              <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-100">
-                <div className="px-6 py-4 bg-gray-50/50 flex items-center justify-between">
-                  <h2 className="text-xs font-extrabold uppercase tracking-wider text-gray-600">
-                    Chi tiết điểm danh: {activeItinerary.title}
-                  </h2>
-                  <span className="text-xs font-semibold text-gray-500">
-                    {data.guests.length} đơn đặt chỗ
-                  </span>
+              <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden p-6 space-y-4">
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base font-jakarta">Ảnh check-in</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Do hướng dẫn viên chụp tại {activeCheckpoint.name}
+                  </p>
                 </div>
 
-                {data.guests.length === 0 ? (
-                  <p className="p-8 text-center text-sm text-gray-500">
-                    Chưa có đơn đặt tour nào được xác nhận.
-                  </p>
+                {activePhotos.length === 0 ? (
+                  <div className="border border-dashed border-gray-200 rounded-2xl p-8 text-center bg-gray-50/50">
+                    <p className="text-xs text-gray-500">Chưa có ảnh nào tại điểm dừng này.</p>
+                  </div>
                 ) : (
-                  data.guests.map((guest) => {
-                    const checkin = checkinByBooking.get(`${activeItinerary.id}:${guest.id}`);
-                    return (
-                      <div key={guest.id} className="p-6 flex items-center justify-between gap-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-gray-900 text-base">
-                              {guest.customer_name}
-                            </span>
-                            <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-mono text-[11px] font-semibold">
-                              BK-{guest.id}
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-500">
-                            📞 {guest.customer_phone || "Không có SĐT"} · 👥 {guest.guests} khách
-                          </p>
-                          {guest.passengers && guest.passengers.length > 0 && (
-                            <div className="flex flex-wrap gap-1 pt-1">
-                              {guest.passengers.map((p) => (
-                                <span
-                                  key={p.id}
-                                  className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-[11px]"
-                                >
-                                  👤 {p.name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                  <div className="grid grid-cols-2 gap-3">
+                    {activePhotos.map((photo) => (
+                      <button
+                        key={photo.id}
+                        type="button"
+                        onClick={() => setPreviewPhotoUrl(photo.image_path)}
+                        className="group relative h-36 rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all text-left"
+                      >
+                        <img
+                          src={photo.image_path}
+                          alt={`Ảnh check-in tại ${activeCheckpoint.name}`}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
+                          🔍 Xem phóng to
                         </div>
-
-                        {/* Status badge */}
-                        <span
-                          className={`shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold border ${checkin?.present
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : checkin
-                                ? "bg-rose-50 text-rose-700 border-rose-200"
-                                : "bg-gray-100 text-gray-500 border-gray-200"
-                            }`}
-                        >
-                          <span>{checkin?.present ? "✓" : checkin ? "✕" : "⏳"}</span>
-                          <span>
-                            {checkin?.present ? "Có mặt" : checkin ? "Vắng mặt" : "Chưa điểm danh"}
-                          </span>
-                        </span>
-                      </div>
-                    );
-                  })
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
-
-            {/* Cột phải: Ảnh check-in đoàn */}
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden p-6 space-y-4">
-              <div>
-                <h3 className="font-bold text-gray-900 text-base font-jakarta">
-                  Ảnh Check-in đoàn
-                </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Do HDV chụp và gửi lên tại chặng này
-                </p>
-              </div>
-
-              {activePhotos.length === 0 ? (
-                <div className="border border-dashed border-gray-200 rounded-2xl p-8 text-center bg-gray-50/50">
-                  <p className="text-xs text-gray-500">Chưa có ảnh check-in cho chặng này.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {activePhotos.map((photo) => (
-                    <button
-                      key={photo.id}
-                      type="button"
-                      onClick={() => setPreviewPhotoUrl(photo.image_path)}
-                      className="group relative h-36 rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all text-left"
-                    >
-                      <img
-                        src={photo.image_path}
-                        alt="Ảnh check-in đoàn"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
-                        🔍 Xem phóng to
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )
+          )}
+        </>
       )}
 
-      {/* Lightbox Xem ảnh */}
       {previewPhotoUrl && (
         <div
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"

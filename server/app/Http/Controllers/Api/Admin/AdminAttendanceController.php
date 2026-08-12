@@ -36,26 +36,59 @@ class AdminAttendanceController extends Controller
             ->orderBy('day_number')
             ->get(['id', 'day_number', 'title', 'start_point', 'end_point']);
 
-        // Lấy toàn bộ hành khách của các đơn còn hiệu lực trong chuyến
-        $passengerIds = BookingPassenger::query()
-            ->whereHas('booking', fn ($q) => $q
-                ->where('tour_schedule_id', $schedule->id)
-                ->whereNotIn('status', ['cancelled', 'transferred'])
-            )
-            ->pluck('id');
+        // Điểm dừng là đơn vị điểm danh thật, phải trả về đủ kể cả điểm chưa ai ghi gì. Suy
+        // ngược danh sách từ các bản ghi điểm danh thì điểm nào bị bỏ quên hoàn toàn cũng biến
+        // mất khỏi báo cáo, đúng cái mà điều hành cần nhìn thấy nhất.
+        $checkpoints = ItineraryCheckpoint::query()
+            ->whereHas('tourItinerary', fn ($q) => $q->where('tour_id', $schedule->tour_id))
+            ->with('tourItinerary:id,day_number,title')
+            ->orderBy('sequence')
+            ->get();
+
+        // Danh sách đoàn kèm từng người, để đối chiếu ai chưa được ghi nhận.
+        $bookings = Booking::query()
+            ->where('tour_schedule_id', $schedule->id)
+            ->whereNotIn('status', ['cancelled', 'transferred'])
+            ->with('passengers:id,booking_id,name,type,note')
+            ->orderBy('customer_name')
+            ->get([
+                'id',
+                'customer_name',
+                'customer_phone',
+                'guests',
+                'adult_count',
+                'child_count',
+                'infant_count',
+                'status',
+            ]);
+
+        $passengerIds = $bookings
+            ->flatMap(fn ($booking) => $booking->passengers->pluck('id'))
+            ->values();
 
         $checkins = PassengerCheckin::query()
             ->where('tour_schedule_id', $schedule->id)
             ->with([
-                'bookingPassenger:id,name,booking_id',
+                'bookingPassenger:id,name,booking_id,type',
                 'itineraryCheckpoint:id,name,tour_itinerary_id',
+                'checkedBy:id,name',
             ])
             ->get();
 
         $photos = CheckpointPhoto::query()
             ->where('tour_schedule_id', $schedule->id)
+            ->with('checkpoint:id,name')
             ->latest()
-            ->get(['id', 'itinerary_checkpoint_id', 'image_path', 'created_at']);
+            ->get([
+                'id',
+                'tour_itinerary_id',
+                'itinerary_checkpoint_id',
+                'image_path',
+                'latitude',
+                'longitude',
+                'captured_at',
+                'created_at',
+            ]);
 
         return $this->success([
             'schedule' => [
@@ -71,6 +104,8 @@ class AdminAttendanceController extends Controller
                 'number_of_days' => (int) $schedule->tour->number_of_days,
             ],
             'itineraries'       => $itineraries,
+            'checkpoints'       => $checkpoints,
+            'bookings'          => $bookings,
             'total_passengers'  => $passengerIds->count(),
             'checkins'          => $checkins,
             'photos'            => $photos,

@@ -1,67 +1,63 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import guideService from "@/services/guideService";
-import type { AttendanceData, AttendanceGuest } from "@/types/guide";
+import type {
+  AttendanceCheckinInput,
+  AttendanceCheckpoint,
+  AttendanceData,
+  AttendancePassenger,
+  PassengerCheckinStatus,
+} from "@/types/guide";
+import {
+  ATTENDANCE_STATUSES,
+  ATTENDANCE_STATUS_ORDER,
+  MIN_ATTENDANCE_NOTE_LENGTH,
+  noteIsValid,
+  requiresNote,
+  SUGGESTED_REASONS,
+} from "@/utils/attendance";
 import { formatDateTime } from "@/utils/format";
 
-export type AttendanceStatus = "present" | "absent" | "late" | "left_early" | "excused";
+/**
+ * H11 - Điểm danh của hướng dẫn viên.
+ *
+ * Đơn vị điểm danh là từng hành khách tại từng điểm dừng, không phải từng đơn theo ngày. Một
+ * đơn hai người thì hai người có thể khác trạng thái, và một ngày hành trình có nhiều điểm dừng
+ * nên khách vắng ở điểm tham quan buổi chiều không đồng nghĩa với không lên xe buổi sáng.
+ *
+ * Màn này chỉ gửi những người hướng dẫn viên thực sự bấm. Không mặc định "có mặt" cho phần còn
+ * lại: điểm danh là dữ liệu đối chiếu khi khiếu nại, đoán hộ một trạng thái chưa ai xác nhận là
+ * tạo ra bằng chứng giả.
+ */
 
-export interface AttendanceStatusConfig {
-  label: string;
-  badgeClass: string;
-  buttonClass: string;
-  icon: string;
-}
+type AttendanceRecord = { status: PassengerCheckinStatus; note: string };
+type AttendanceMap = Record<string, AttendanceRecord>;
 
-export const ATTENDANCE_STATUSES: Record<AttendanceStatus, AttendanceStatusConfig> = {
-  present: {
-    label: "Có mặt",
-    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    buttonClass: "bg-emerald-600 text-white shadow-sm ring-emerald-500",
-    icon: "✓",
-  },
-  absent: {
-    label: "Vắng mặt",
-    badgeClass: "bg-rose-50 text-rose-700 border-rose-200",
-    buttonClass: "bg-rose-600 text-white shadow-sm ring-rose-500",
-    icon: "✕",
-  },
-  late: {
-    label: "Đi trễ",
-    badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
-    buttonClass: "bg-amber-500 text-white shadow-sm ring-amber-400",
-    icon: "🕒",
-  },
-  left_early: {
-    label: "Rời đoàn",
-    badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
-    buttonClass: "bg-purple-600 text-white shadow-sm ring-purple-500",
-    icon: "🏃",
-  },
-  excused: {
-    label: "Có lý do",
-    badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
-    buttonClass: "bg-blue-600 text-white shadow-sm ring-blue-500",
-    icon: "💬",
-  },
+const recordKey = (checkpointId: number, passengerId: number) => `${checkpointId}:${passengerId}`;
+
+const errorMessage = (error: unknown, fallback: string): string => {
+  const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+  return typeof message === "string" && message.length > 0 ? message : fallback;
 };
 
-const SUGGESTED_REASONS = [
-  "Khách báo tự đi riêng theo lịch cá nhân",
-  "Khách mệt, nghỉ ngơi tại khách sạn",
-  "Khách chưa đến kịp, đang trên đường tới điểm tập trung",
-  "Không liên lạc được qua SĐT khách",
-  "Khách rời đoàn về sớm theo nguyện vọng",
-];
+/** Lấy tọa độ hiện tại. Máy chủ bắt buộc có tọa độ mới nhận ảnh check-in. */
+const currentPosition = (): Promise<{ latitude: number; longitude: number }> =>
+  new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Thiết bị không hỗ trợ định vị."));
+      return;
+    }
 
-// Key: `${itineraryId}:${bookingId}` -> { status, note }
-type AttendanceMap = Record<
-  string,
-  { status: AttendanceStatus; note: string }
->;
-
-const attendanceKey = (itineraryId: number, bookingId: number) =>
-  `${itineraryId}:${bookingId}`;
+    navigator.geolocation.getCurrentPosition(
+      (position) =>
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        }),
+      () => reject(new Error("Không lấy được vị trí. Vui lòng bật định vị và cho phép truy cập.")),
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
+  });
 
 export const GuideAttendance: React.FC = () => {
   const { scheduleId } = useParams<{ scheduleId: string }>();
@@ -69,23 +65,40 @@ export const GuideAttendance: React.FC = () => {
   const [data, setData] = useState<AttendanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeItineraryId, setActiveItineraryId] = useState<number | null>(null);
+  const [activeCheckpointId, setActiveCheckpointId] = useState<number | null>(null);
   const [records, setRecords] = useState<AttendanceMap>({});
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
-  // State cho Modal nhập ghi chú vắng mặt
-  const [activeNoteGuest, setActiveNoteGuest] = useState<{
-    guest: AttendanceGuest;
-    status: AttendanceStatus;
+  const [activeNote, setActiveNote] = useState<{
+    passenger: AttendancePassenger;
+    customerName: string;
+    status: PassengerCheckinStatus;
   } | null>(null);
   const [noteInput, setNoteInput] = useState("");
 
-  // Lightbox xem ảnh
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /** Điểm dừng sắp theo ngày rồi tới thứ tự trong ngày, giống thứ tự đoàn thực sự đi qua. */
+  const orderedCheckpoints = useMemo(() => {
+    return [...(data?.checkpoints ?? [])].sort((a, b) => {
+      const dayA = a.tour_itinerary?.day_number ?? 0;
+      const dayB = b.tour_itinerary?.day_number ?? 0;
+      return dayA !== dayB ? dayA - dayB : a.sequence - b.sequence;
+    });
+  }, [data]);
+
+  const groupedByDay = useMemo(() => {
+    const groups = new Map<number, AttendanceCheckpoint[]>();
+    orderedCheckpoints.forEach((checkpoint) => {
+      const day = checkpoint.tour_itinerary?.day_number ?? 0;
+      groups.set(day, [...(groups.get(day) ?? []), checkpoint]);
+    });
+    return [...groups.entries()].sort((a, b) => a[0] - b[0]);
+  }, [orderedCheckpoints]);
 
   useEffect(() => {
     if (!scheduleId) return;
@@ -97,117 +110,200 @@ export const GuideAttendance: React.FC = () => {
           setError("Không tìm thấy lịch khởi hành được phân công.");
           return;
         }
+
         setData(result);
-        setActiveItineraryId(result.itineraries[0]?.id ?? null);
 
         const initial: AttendanceMap = {};
         result.checkins.forEach((checkin) => {
-          initial[attendanceKey(checkin.tour_itinerary_id, checkin.booking_id)] = {
-            status: checkin.present ? "present" : "absent",
-            note: "",
+          initial[recordKey(checkin.itinerary_checkpoint_id, checkin.booking_passenger_id)] = {
+            status: checkin.status,
+            note: checkin.note ?? "",
           };
         });
         setRecords(initial);
       })
-      .catch(() => setError("Không thể tải dữ liệu điểm danh."))
+      .catch((err) => setError(errorMessage(err, "Không thể tải dữ liệu điểm danh.")))
       .finally(() => setLoading(false));
   }, [scheduleId]);
 
+  // Chọn sẵn điểm dừng đầu tiên sau khi đã biết thứ tự thật, không dựa vào thứ tự trả về.
   useEffect(() => {
-    if (toast) {
-      const t = setTimeout(() => setToast(null), 3000);
-      return () => clearTimeout(t);
+    if (activeCheckpointId === null && orderedCheckpoints.length > 0) {
+      setActiveCheckpointId(orderedCheckpoints[0].id);
     }
+  }, [orderedCheckpoints, activeCheckpointId]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(timer);
   }, [toast]);
 
-  const activeItinerary = useMemo(
-    () => data?.itineraries.find((item) => item.id === activeItineraryId) ?? null,
-    [data, activeItineraryId],
+  const activeCheckpoint = useMemo(
+    () => orderedCheckpoints.find((item) => item.id === activeCheckpointId) ?? null,
+    [orderedCheckpoints, activeCheckpointId],
   );
 
   const activePhotos = useMemo(
-    () =>
-      (data?.photos ?? []).filter(
-        (photo) => photo.tour_itinerary_id === activeItineraryId,
-      ),
-    [data, activeItineraryId],
+    () => (data?.photos ?? []).filter((photo) => photo.itinerary_checkpoint_id === activeCheckpointId),
+    [data, activeCheckpointId],
   );
 
-  // Thống kê tiến độ
+  const allPassengers = useMemo(
+    () => (data?.bookings ?? []).flatMap((booking) => booking.passengers ?? []),
+    [data],
+  );
+
   const stats = useMemo(() => {
-    if (!data || !activeItineraryId)
-      return { present: 0, absent: 0, late: 0, leftEarly: 0, total: 0, percent: 0 };
+    const total = allPassengers.length;
+    const counts: Record<PassengerCheckinStatus, number> = {
+      present: 0,
+      absent: 0,
+      late: 0,
+      left_early: 0,
+      excused: 0,
+    };
 
-    const total = data.guests.length;
-    let present = 0;
-    let absent = 0;
-    let late = 0;
-    let leftEarly = 0;
+    if (activeCheckpointId === null) {
+      return { ...counts, total, recorded: 0, pending: total, percent: 0 };
+    }
 
-    data.guests.forEach((g) => {
-      const rec = records[attendanceKey(activeItineraryId, g.id)];
-      if (!rec || rec.status === "present") present++;
-      else if (rec.status === "absent") absent++;
-      else if (rec.status === "late") late++;
-      else if (rec.status === "left_early") leftEarly++;
+    let recorded = 0;
+    allPassengers.forEach((passenger) => {
+      const record = records[recordKey(activeCheckpointId, passenger.id)];
+      if (!record) return;
+      counts[record.status]++;
+      recorded++;
     });
 
-    const percent = total > 0 ? Math.round((present / total) * 100) : 0;
-    return { present, absent, late, leftEarly, total, percent };
-  }, [data, activeItineraryId, records]);
+    return {
+      ...counts,
+      total,
+      recorded,
+      pending: total - recorded,
+      percent: total > 0 ? Math.round((recorded / total) * 100) : 0,
+    };
+  }, [allPassengers, records, activeCheckpointId]);
 
-  const setStatus = (bookingId: number, status: AttendanceStatus) => {
-    if (!activeItineraryId) return;
-    const key = attendanceKey(activeItineraryId, bookingId);
+  const setStatus = (
+    passenger: AttendancePassenger,
+    customerName: string,
+    status: PassengerCheckinStatus,
+  ) => {
+    if (activeCheckpointId === null) return;
+
+    const key = recordKey(activeCheckpointId, passenger.id);
     const existing = records[key];
-
-    // Nếu chọn trạng thái khác "present", mở Modal nhập lý do nếu chưa có note
-    if (status !== "present") {
-      const targetGuest = data?.guests.find((g) => g.id === bookingId);
-      if (targetGuest) {
-        setActiveNoteGuest({ guest: targetGuest, status });
-        setNoteInput(existing?.note || "");
-      }
-    }
 
     setRecords((prev) => ({
       ...prev,
-      [key]: {
-        status,
-        note: existing?.note || "",
-      },
+      [key]: { status, note: existing?.note ?? "" },
     }));
+
+    // Trạng thái nào cần lý do thì mở ngay ô nhập, đỡ phải nhớ quay lại điền.
+    if (requiresNote(status)) {
+      setActiveNote({ passenger, customerName, status });
+      setNoteInput(existing?.note ?? "");
+    }
   };
 
   const handleSaveNote = () => {
-    if (!activeNoteGuest || !activeItineraryId) return;
-    const key = attendanceKey(activeItineraryId, activeNoteGuest.guest.id);
+    if (!activeNote || activeCheckpointId === null) return;
+
     setRecords((prev) => ({
       ...prev,
-      [key]: {
-        status: activeNoteGuest.status,
+      [recordKey(activeCheckpointId, activeNote.passenger.id)]: {
+        status: activeNote.status,
         note: noteInput.trim(),
       },
     }));
-    setActiveNoteGuest(null);
+
+    setActiveNote(null);
     setNoteInput("");
   };
 
   const handleSave = async () => {
-    if (!data || !scheduleId || !activeItineraryId) return;
+    if (!data || !scheduleId || activeCheckpointId === null) return;
+
+    const payload: AttendanceCheckinInput[] = [];
+    const thieuGhiChu: string[] = [];
+
+    allPassengers.forEach((passenger) => {
+      const record = records[recordKey(activeCheckpointId, passenger.id)];
+      if (!record) return;
+
+      if (!noteIsValid(record.status, record.note)) {
+        thieuGhiChu.push(passenger.name);
+        return;
+      }
+
+      payload.push({
+        booking_passenger_id: passenger.id,
+        status: record.status,
+        note: record.note.trim() || null,
+      });
+    });
+
+    if (thieuGhiChu.length > 0) {
+      setToast({
+        message:
+          `Cần ghi chú ít nhất ${MIN_ATTENDANCE_NOTE_LENGTH} ký tự cho: ` + thieuGhiChu.join(", "),
+        type: "error",
+      });
+      return;
+    }
+
+    if (payload.length === 0) {
+      setToast({ message: "Chưa chọn trạng thái cho hành khách nào.", type: "error" });
+      return;
+    }
+
     setSaving(true);
     try {
-      const checkins = data.guests.map((guest) => {
-        const rec = records[attendanceKey(activeItineraryId, guest.id)];
-        return {
-          booking_id: guest.id,
-          present: rec ? rec.status === "present" : true,
-        };
+      const result = await guideService.saveAttendance(
+        Number(scheduleId),
+        activeCheckpointId,
+        payload,
+      );
+
+      // Ghi lại theo phản hồi của máy chủ chứ không giữ nguyên trạng thái đang gõ: máy chủ có
+      // thể bỏ qua hành khách của đơn chưa xác nhận, giữ nguyên màn hình sẽ hiện sai.
+      if (result) {
+        setData((prev) => {
+          if (!prev) return prev;
+          const conLai = prev.checkins.filter(
+            (checkin) => checkin.itinerary_checkpoint_id !== activeCheckpointId,
+          );
+          return { ...prev, checkins: [...conLai, ...result.checkins] };
+        });
+
+        setRecords((prev) => {
+          const next = { ...prev };
+          allPassengers.forEach((passenger) => {
+            delete next[recordKey(activeCheckpointId, passenger.id)];
+          });
+          result.checkins.forEach((checkin) => {
+            next[recordKey(activeCheckpointId, checkin.booking_passenger_id)] = {
+              status: checkin.status,
+              note: checkin.note ?? "",
+            };
+          });
+          return next;
+        });
+
+        const boQua = payload.length - result.saved;
+        setToast({
+          message:
+            `Đã lưu điểm danh cho ${result.saved} hành khách.` +
+            (boQua > 0 ? ` Bỏ qua ${boQua} người thuộc đơn chưa xác nhận.` : ""),
+          type: "success",
+        });
+      }
+    } catch (err) {
+      setToast({
+        message: errorMessage(err, "Không thể lưu điểm danh. Vui lòng thử lại."),
+        type: "error",
       });
-      await guideService.saveAttendance(Number(scheduleId), activeItineraryId, checkins);
-      setToast({ message: "Đã lưu thông tin điểm danh thành công!", type: "success" });
-    } catch {
-      setToast({ message: "Không thể lưu điểm danh. Vui lòng thử lại.", type: "error" });
     } finally {
       setSaving(false);
     }
@@ -215,21 +311,32 @@ export const GuideAttendance: React.FC = () => {
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !scheduleId || !activeItineraryId) return;
+    if (!file || !scheduleId || activeCheckpointId === null) return;
 
     setUploading(true);
     try {
-      const photo = await guideService.uploadCheckinPhoto(
+      const coords = await currentPosition();
+      const result = await guideService.uploadCheckinPhoto(
         Number(scheduleId),
-        activeItineraryId,
+        activeCheckpointId,
         file,
+        coords,
       );
-      if (photo) {
+
+      if (result?.photo) {
+        const photo = result.photo;
         setData((prev) => (prev ? { ...prev, photos: [photo, ...prev.photos] } : prev));
-        setToast({ message: "Đã tải ảnh check-in đoàn thành công!", type: "success" });
+        setToast({
+          message: result.warning
+            ? result.warning_message ?? "Đã lưu ảnh nhưng vị trí chụp ở xa điểm dừng."
+            : "Đã tải ảnh check-in thành công.",
+          type: result.warning ? "error" : "success",
+        });
       }
-    } catch {
-      setToast({ message: "Không thể tải ảnh lên. Vui lòng thử lại.", type: "error" });
+    } catch (err) {
+      const fallback =
+        err instanceof Error ? err.message : "Không thể tải ảnh lên. Vui lòng thử lại.";
+      setToast({ message: errorMessage(err, fallback), type: "error" });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -263,10 +370,9 @@ export const GuideAttendance: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
-      {/* Notification Toast */}
       {toast && (
         <div
-          className={`fixed top-20 right-4 z-50 px-4 py-3 rounded-xl shadow-xl text-sm font-semibold text-white transition-all transform animate-bounce ${
+          className={`fixed top-20 right-4 z-50 max-w-sm px-4 py-3 rounded-xl shadow-xl text-sm font-semibold text-white ${
             toast.type === "success" ? "bg-emerald-600" : "bg-rose-600"
           }`}
         >
@@ -274,7 +380,6 @@ export const GuideAttendance: React.FC = () => {
         </div>
       )}
 
-      {/* Header Tour & HDV */}
       <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <Link
@@ -288,322 +393,362 @@ export const GuideAttendance: React.FC = () => {
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             <span className="font-semibold text-gray-800">{data.tour.title}</span> · Khởi hành:{" "}
-            <span className="text-primary-700 font-medium">{formatDateTime(data.schedule.start_date)}</span>
+            <span className="text-primary-700 font-medium">
+              {formatDateTime(data.schedule.start_date)}
+            </span>
           </p>
         </div>
 
-        {/* Action Save Button */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || data.guests.length === 0}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 active:scale-95 text-white text-sm font-bold rounded-2xl shadow-md transition-all disabled:opacity-50"
-          >
-            {saving ? (
-              <>
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                </svg>
-                <span>Đang lưu...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Lưu tất cả điểm danh</span>
-              </>
-            )}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || activeCheckpointId === null || allPassengers.length === 0}
+          className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 active:scale-95 text-white text-sm font-bold rounded-2xl shadow-md transition-all disabled:opacity-50"
+        >
+          {saving ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+              <span>Đang lưu...</span>
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Lưu điểm danh điểm dừng này</span>
+            </>
+          )}
+        </button>
       </div>
 
-      {/* Tabs Chặng/Ngày */}
-      <div className="flex flex-wrap gap-2.5">
-        {data.itineraries.map((itinerary) => {
-          const isActive = activeItineraryId === itinerary.id;
-          return (
-            <button
-              key={itinerary.id}
-              type="button"
-              onClick={() => setActiveItineraryId(itinerary.id)}
-              className={`px-4 py-3 rounded-2xl text-xs font-bold transition-all ${
-                isActive
-                  ? "bg-primary-600 text-white shadow-md -translate-y-0.5"
-                  : "bg-white border border-gray-100 text-gray-700 hover:bg-gray-50 shadow-sm"
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span>Ngày {itinerary.day_number}</span>
-                {itinerary.start_point && itinerary.end_point && (
-                  <span className={`text-[10px] ${isActive ? "text-primary-100" : "text-gray-400"}`}>
-                    ({itinerary.start_point} → {itinerary.end_point})
-                  </span>
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Content Main Area */}
-      {data.itineraries.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center text-gray-500">
-          Tour này chưa thiết lập lịch trình theo ngày.
+      {/* Điểm dừng, gom theo ngày hành trình */}
+      {groupedByDay.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center space-y-2">
+          <p className="text-gray-600 font-semibold">Tour này chưa thiết lập điểm dừng nào.</p>
+          <p className="text-xs text-gray-500">
+            Quản trị viên cần khai báo điểm dừng cho từng ngày trong lịch trình trước khi điểm danh.
+          </p>
         </div>
       ) : (
-        activeItinerary && (
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-            {/* Cột trái: Bảng điểm danh các đoàn khách */}
-            <div className="xl:col-span-2 space-y-6">
-              {/* Card Thống kê tiến độ & Tiêu đề Ngày */}
-              <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-bold text-gray-900 font-jakarta">
-                      Ngày {activeItinerary.day_number}: {activeItinerary.title}
-                    </h2>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Tổng số: <span className="font-bold text-gray-800">{stats.total} đơn khách hàng</span>
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-extrabold text-emerald-600 font-jakarta">
-                      {stats.percent}%
-                    </span>
-                    <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                      Có mặt ({stats.present}/{stats.total})
-                    </p>
-                  </div>
-                </div>
+        <>
+          <div className="space-y-3">
+            {groupedByDay.map(([day, checkpoints]) => (
+              <div key={day} className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500 w-16 shrink-0">
+                  Ngày {day}
+                </span>
+                {checkpoints.map((checkpoint) => {
+                  const isActive = activeCheckpointId === checkpoint.id;
+                  const soAnh = (data.photos ?? []).filter(
+                    (photo) => photo.itinerary_checkpoint_id === checkpoint.id,
+                  ).length;
 
-                {/* Progress bar */}
-                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden flex">
-                  <div
-                    className="bg-emerald-500 transition-all duration-500"
-                    style={{ width: `${(stats.present / (stats.total || 1)) * 100}%` }}
-                    title={`Có mặt: ${stats.present}`}
-                  />
-                  <div
-                    className="bg-rose-500 transition-all duration-500"
-                    style={{ width: `${(stats.absent / (stats.total || 1)) * 100}%` }}
-                    title={`Vắng: ${stats.absent}`}
-                  />
-                  <div
-                    className="bg-amber-400 transition-all duration-500"
-                    style={{ width: `${(stats.late / (stats.total || 1)) * 100}%` }}
-                    title={`Trễ: ${stats.late}`}
-                  />
-                </div>
+                  return (
+                    <button
+                      key={checkpoint.id}
+                      type="button"
+                      onClick={() => setActiveCheckpointId(checkpoint.id)}
+                      className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        isActive
+                          ? "bg-primary-600 text-white shadow-md -translate-y-0.5"
+                          : "bg-white border border-gray-100 text-gray-700 hover:bg-gray-50 shadow-sm"
+                      }`}
+                    >
+                      <span>{checkpoint.name}</span>
+                      {checkpoint.is_required_photo && (
+                        <span
+                          title="Điểm dừng bắt buộc có ảnh check-in"
+                          className={soAnh > 0 ? "opacity-70" : ""}
+                        >
+                          {soAnh > 0 ? "📷" : "⚠️"}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
+            ))}
+          </div>
 
-              {/* Danh sách Khách hàng & Bộ chọn 5 trạng thái */}
-              <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-100">
-                <div className="px-6 py-4 bg-gray-50/50 flex items-center justify-between">
-                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-gray-600">
-                    Danh sách hành khách đặt tour
-                  </h3>
-                  <span className="text-xs font-medium text-gray-500">
-                    Bấm nút chọn trạng thái tương ứng
-                  </span>
+          {activeCheckpoint && (
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+              <div className="xl:col-span-2 space-y-6">
+                {/* Tiến độ tại điểm dừng đang chọn */}
+                <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900 font-jakarta">
+                        {activeCheckpoint.name}
+                      </h2>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Ngày {activeCheckpoint.tour_itinerary?.day_number ?? "?"}
+                        {activeCheckpoint.tour_itinerary?.title
+                          ? ` · ${activeCheckpoint.tour_itinerary.title}`
+                          : ""}{" "}
+                        · <span className="font-bold text-gray-800">{stats.total} hành khách</span>
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-2xl font-extrabold text-primary-600 font-jakarta">
+                        {stats.percent}%
+                      </span>
+                      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                        Đã ghi ({stats.recorded}/{stats.total})
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {ATTENDANCE_STATUS_ORDER.map((status) => (
+                      <span
+                        key={status}
+                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold ${ATTENDANCE_STATUSES[status].badgeClass}`}
+                      >
+                        {ATTENDANCE_STATUSES[status].icon} {ATTENDANCE_STATUSES[status].label}:{" "}
+                        {stats[status]}
+                      </span>
+                    ))}
+                    <span className="px-2.5 py-1 rounded-lg border border-gray-200 bg-gray-50 text-gray-600 text-[11px] font-bold">
+                      Chưa ghi: {stats.pending}
+                    </span>
+                  </div>
+
+                  {activeCheckpoint.is_required_photo && activePhotos.length === 0 && (
+                    <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl p-3">
+                      ⚠️ Điểm dừng này bắt buộc có ảnh check-in. Vui lòng chụp ảnh đoàn trước khi rời điểm.
+                    </p>
+                  )}
                 </div>
 
-                {data.guests.length === 0 ? (
-                  <p className="p-8 text-center text-sm text-gray-500">
-                    Chưa có đơn đặt tour nào được xác nhận cho chuyến đi này.
-                  </p>
-                ) : (
-                  data.guests.map((guest) => {
-                    const key = attendanceKey(activeItinerary.id, guest.id);
-                    const record = records[key] || { status: "present", note: "" };
-                    const currentStatus = record.status;
+                {/* Danh sách hành khách theo từng đơn */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-100">
+                  <div className="px-6 py-4 bg-gray-50/50 flex items-center justify-between">
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-gray-600">
+                      Danh sách đoàn
+                    </h3>
+                    <span className="text-xs font-medium text-gray-500">
+                      Điểm danh theo từng người
+                    </span>
+                  </div>
 
-                    return (
-                      <div key={guest.id} className="p-6 space-y-4 hover:bg-gray-50/40 transition-colors">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                          {/* Thông tin khách */}
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-gray-900 text-base">
-                                {guest.customer_name}
-                              </span>
-                              <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-mono text-[11px] font-semibold">
-                                BK-{guest.id}
-                              </span>
-                            </div>
-                            <p className="text-xs text-gray-500">
-                              📞 {guest.customer_phone || "Không có SĐT"} · 👥 {guest.guests} khách
-                              {typeof guest.adult_count === "number" && (
-                                <span className="text-gray-400 font-normal">
-                                  {" "}
-                                  ({guest.adult_count}NL
-                                  {guest.child_count ? `, ${guest.child_count}TE` : ""}
-                                  {guest.infant_count ? `, ${guest.infant_count}EB` : ""})
-                                </span>
-                              )}
-                            </p>
+                  {data.bookings.length === 0 ? (
+                    <p className="p-8 text-center text-sm text-gray-500">
+                      Chưa có đơn đặt tour nào được xác nhận cho chuyến đi này.
+                    </p>
+                  ) : (
+                    data.bookings.map((booking) => (
+                      <div key={booking.id} className="p-6 space-y-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-gray-900 text-base">
+                            {booking.customer_name}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-mono text-[11px] font-semibold">
+                            BK-{booking.id}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            📞 {booking.customer_phone || "Không có SĐT"} · 👥 {booking.guests} khách
+                          </span>
+                        </div>
 
-                            {/* Danh sách tên thành viên */}
-                            {guest.passengers && guest.passengers.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 pt-1">
-                                {guest.passengers.map((p) => (
-                                  <span
-                                    key={p.id}
-                                    className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-[11px]"
-                                  >
-                                    👤 {p.name}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                        {(booking.passengers ?? []).length === 0 ? (
+                          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                            Đơn này chưa khai danh sách hành khách nên chưa điểm danh được.
+                          </p>
+                        ) : (
+                          <div className="space-y-3">
+                            {(booking.passengers ?? []).map((passenger) => {
+                              const record = records[recordKey(activeCheckpoint.id, passenger.id)];
+                              const thieuGhiChu =
+                                record && !noteIsValid(record.status, record.note);
 
-                          {/* Bộ 5 nút bấm Trạng thái điểm danh */}
-                          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                            {(Object.keys(ATTENDANCE_STATUSES) as AttendanceStatus[]).map((st) => {
-                              const cfg = ATTENDANCE_STATUSES[st];
-                              const isSelected = currentStatus === st;
                               return (
-                                <button
-                                  key={st}
-                                  type="button"
-                                  onClick={() => setStatus(guest.id, st)}
-                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 ${
-                                    isSelected
-                                      ? cfg.buttonClass
-                                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                                  }`}
+                                <div
+                                  key={passenger.id}
+                                  className="rounded-2xl border border-gray-100 p-4 space-y-3 hover:bg-gray-50/40 transition-colors"
                                 >
-                                  <span>{cfg.icon}</span>
-                                  <span>{cfg.label}</span>
-                                </button>
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold text-gray-900 text-sm">
+                                        👤 {passenger.name}
+                                      </span>
+                                      <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[11px] font-medium">
+                                        {passenger.type === "adult"
+                                          ? "Người lớn"
+                                          : passenger.type === "child"
+                                            ? "Trẻ em"
+                                            : "Em bé"}
+                                      </span>
+                                      {!record && (
+                                        <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-500 text-[11px] font-semibold">
+                                          Chưa ghi
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                                      {ATTENDANCE_STATUS_ORDER.map((status) => {
+                                        const config = ATTENDANCE_STATUSES[status];
+                                        const isSelected = record?.status === status;
+                                        return (
+                                          <button
+                                            key={status}
+                                            type="button"
+                                            onClick={() =>
+                                              setStatus(passenger, booking.customer_name, status)
+                                            }
+                                            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 ${
+                                              isSelected
+                                                ? config.buttonClass
+                                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                            }`}
+                                          >
+                                            <span>{config.icon}</span>
+                                            <span>{config.label}</span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  {record && requiresNote(record.status) && (
+                                    <div
+                                      className={`flex items-center justify-between gap-3 text-xs p-3 rounded-xl border ${
+                                        thieuGhiChu
+                                          ? "bg-rose-50 border-rose-200"
+                                          : "bg-amber-50/60 border-amber-100"
+                                      }`}
+                                    >
+                                      <div className="space-y-0.5 min-w-0">
+                                        <span
+                                          className={`font-bold ${thieuGhiChu ? "text-rose-800" : "text-amber-800"}`}
+                                        >
+                                          Ghi chú ({ATTENDANCE_STATUSES[record.status].label}):
+                                        </span>
+                                        <p
+                                          className={`truncate ${thieuGhiChu ? "text-rose-900" : "text-amber-900"}`}
+                                        >
+                                          {record.note ? (
+                                            `"${record.note}"`
+                                          ) : (
+                                            <i>
+                                              Bắt buộc, tối thiểu {MIN_ATTENDANCE_NOTE_LENGTH} ký tự
+                                            </i>
+                                          )}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveNote({
+                                            passenger,
+                                            customerName: booking.customer_name,
+                                            status: record.status,
+                                          });
+                                          setNoteInput(record.note);
+                                        }}
+                                        className="px-3 py-1 bg-white border border-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-50 transition-colors shrink-0"
+                                      >
+                                        Sửa ghi chú
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               );
                             })}
                           </div>
-                        </div>
-
-                        {/* Ghi chú khi khác present */}
-                        {currentStatus !== "present" && (
-                          <div className="pt-2 flex items-center justify-between gap-3 text-xs bg-amber-50/60 p-3 rounded-2xl border border-amber-100">
-                            <div className="space-y-0.5">
-                              <span className="font-bold text-amber-800">
-                                Ghi chú ({ATTENDANCE_STATUSES[currentStatus].label}):
-                              </span>
-                              <p className="text-amber-900">
-                                {record.note ? `"${record.note}"` : <i className="text-amber-600">Chưa có ghi chú lý do</i>}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveNoteGuest({ guest, status: currentStatus });
-                                setNoteInput(record.note);
-                              }}
-                              className="px-3 py-1 bg-amber-200 text-amber-900 rounded-lg font-bold hover:bg-amber-300 transition-colors shrink-0"
-                            >
-                              Sửa ghi chú
-                            </button>
-                          </div>
                         )}
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            {/* Cột phải: Ảnh check-in đoàn */}
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-gray-900 text-base font-jakarta">
-                    Ảnh Check-in đoàn
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Bằng chứng hình ảnh tại chặng này
-                  </p>
+                    ))
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                  className="px-4 py-2 bg-primary-50 text-primary-700 hover:bg-primary-100 font-bold text-xs rounded-2xl transition-colors disabled:opacity-50"
-                >
-                  {uploading ? "Đang tải..." : "+ Thêm ảnh đoàn"}
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handlePhotoUpload}
-                />
               </div>
 
-              {activePhotos.length === 0 ? (
-                <div className="border border-dashed border-gray-200 rounded-2xl p-8 text-center space-y-2 bg-gray-50/50">
-                  <span className="text-3xl">📸</span>
-                  <p className="text-xs text-gray-500">Chưa có ảnh check-in nào cho ngày này.</p>
+              {/* Ảnh check-in của điểm dừng đang chọn */}
+              <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden p-6 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-base font-jakarta">Ảnh check-in</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Ảnh gắn tọa độ tại {activeCheckpoint.name}
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-xs font-bold text-primary-600 hover:underline"
+                    disabled={uploading}
+                    className="px-4 py-2 bg-primary-50 text-primary-700 hover:bg-primary-100 font-bold text-xs rounded-2xl transition-colors disabled:opacity-50 shrink-0"
                   >
-                    + Bấm để tải ảnh check-in đầu tiên
+                    {uploading ? "Đang tải..." : "+ Thêm ảnh"}
                   </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handlePhotoUpload}
+                  />
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {activePhotos.map((photo) => (
-                    <button
-                      key={photo.id}
-                      type="button"
-                      onClick={() => setPreviewPhotoUrl(photo.image_path)}
-                      className="group relative h-36 rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all text-left"
-                    >
-                      <img
-                        src={photo.image_path}
-                        alt="Ảnh check-in đoàn"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
-                        🔍 Phóng to
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+
+                {activePhotos.length === 0 ? (
+                  <div className="border border-dashed border-gray-200 rounded-2xl p-8 text-center space-y-2 bg-gray-50/50">
+                    <span className="text-3xl">📸</span>
+                    <p className="text-xs text-gray-500">Chưa có ảnh nào tại điểm dừng này.</p>
+                    <p className="text-[11px] text-gray-400">
+                      Ảnh cần quyền định vị để đối chiếu với tọa độ điểm dừng.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    {activePhotos.map((photo) => (
+                      <button
+                        key={photo.id}
+                        type="button"
+                        onClick={() => setPreviewPhotoUrl(photo.image_path)}
+                        className="group relative h-36 rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all text-left"
+                      >
+                        <img
+                          src={photo.image_path}
+                          alt={`Ảnh check-in tại ${activeCheckpoint.name}`}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
+                          🔍 Phóng to
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )
+          )}
+        </>
       )}
 
-      {/* Modal Nhập ghi chú khi vắng / đi trễ / rời đoàn */}
-      {activeNoteGuest && (
+      {/* Nhập lý do cho trạng thái khác "có mặt" */}
+      {activeNote && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-fade-in">
             <div>
               <h3 className="text-lg font-bold text-gray-900 font-jakarta">
-                Nhập lý do ({ATTENDANCE_STATUSES[activeNoteGuest.status].label})
+                Nhập lý do ({ATTENDANCE_STATUSES[activeNote.status].label})
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Khách hàng: <span className="font-bold text-gray-800">{activeNoteGuest.guest.customer_name}</span> (BK-{activeNoteGuest.guest.id})
+                Hành khách: <span className="font-bold text-gray-800">{activeNote.passenger.name}</span>{" "}
+                · Đơn của {activeNote.customerName}
               </p>
             </div>
 
-            {/* Chip lý do gợi ý nhanh */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-gray-700">
-                Gợi ý lý do phổ biến:
-              </label>
+              <label className="block text-xs font-bold text-gray-700">Gợi ý lý do phổ biến:</label>
               <div className="flex flex-wrap gap-1.5">
-                {SUGGESTED_REASONS.map((reason, idx) => (
+                {SUGGESTED_REASONS.map((reason) => (
                   <button
-                    key={idx}
+                    key={reason}
                     type="button"
                     onClick={() => setNoteInput(reason)}
                     className="px-2.5 py-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 text-[11px] font-medium text-left transition-colors"
@@ -615,22 +760,29 @@ export const GuideAttendance: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
-                Ghi chú chi tiết:
-              </label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Ghi chú chi tiết:</label>
               <textarea
                 rows={3}
                 value={noteInput}
-                onChange={(e) => setNoteInput(e.target.value)}
-                placeholder="Nhập chi tiết ghi chú điểm danh..."
+                onChange={(event) => setNoteInput(event.target.value)}
+                placeholder="Ghi lại chuyện đã xảy ra, đủ để đọc lại vẫn hiểu..."
                 className="w-full rounded-2xl border border-gray-200 p-3 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none"
               />
+              <p
+                className={`text-[11px] mt-1 font-semibold ${
+                  noteInput.trim().length >= MIN_ATTENDANCE_NOTE_LENGTH
+                    ? "text-emerald-700"
+                    : "text-gray-500"
+                }`}
+              >
+                {noteInput.trim().length}/{MIN_ATTENDANCE_NOTE_LENGTH} ký tự tối thiểu
+              </p>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setActiveNoteGuest(null)}
+                onClick={() => setActiveNote(null)}
                 className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50"
               >
                 Hủy
@@ -638,7 +790,8 @@ export const GuideAttendance: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSaveNote}
-                className="px-5 py-2 rounded-xl bg-primary-600 text-xs font-bold text-white hover:bg-primary-700 shadow-sm"
+                disabled={noteInput.trim().length < MIN_ATTENDANCE_NOTE_LENGTH}
+                className="px-5 py-2 rounded-xl bg-primary-600 text-xs font-bold text-white hover:bg-primary-700 shadow-sm disabled:opacity-50"
               >
                 Xác nhận ghi chú
               </button>
@@ -647,7 +800,6 @@ export const GuideAttendance: React.FC = () => {
         </div>
       )}
 
-      {/* Lightbox Phóng to ảnh check-in */}
       {previewPhotoUrl && (
         <div
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
