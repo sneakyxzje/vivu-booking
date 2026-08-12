@@ -49,33 +49,53 @@ class ScheduleLifecycleTest extends TestCase
     }
 
     /**
-     * Dịch vụ phải chạy được trước khi A01 đổi kiểu cột, nếu không thì không ai kiểm chứng
-     * được nó trước lúc migration vào.
+     * Dựng model với giá trị cũ mà không đi qua tầng cast.
+     *
+     * Từ khi TourSchedule cast status sang enum, gán 'active' qua forceFill sẽ ném lỗi ngay
+     * lúc ghi. setRawAttributes bỏ qua cast nên mô phỏng được đúng thứ có thể còn nằm trong
+     * cơ sở dữ liệu của một máy chưa chạy migration chuẩn hóa.
      */
-    public function test_doc_duoc_ca_gia_tri_cu_truoc_khi_doi_kieu_cot(): void
+    private function scheduleWithLegacyStatus(string $legacy, ?string $startDate = null): TourSchedule
+    {
+        $schedule = new TourSchedule();
+
+        $schedule->setRawAttributes([
+            'id' => 1,
+            'tour_id' => 1,
+            'start_date' => $startDate ?? now()->addDays(10)->toDateTimeString(),
+            'max_people' => 20,
+            'booked_people' => 0,
+            'status' => $legacy,
+        ], true);
+
+        return $schedule;
+    }
+
+    /**
+     * Nhánh quy đổi giá trị cũ phải còn hoạt động: máy nào chưa chạy migration chuẩn hóa
+     * vẫn có thể còn 'active' hoặc 'full' trong bảng.
+     */
+    public function test_doc_duoc_ca_gia_tri_cu_con_sot_trong_co_so_du_lieu(): void
     {
         $this->assertSame(
             ScheduleStatus::Open,
-            $this->service->currentStatus($this->schedule(['status' => 'active'])),
+            $this->service->currentStatus($this->scheduleWithLegacyStatus('active')),
         );
 
         $this->assertSame(
             ScheduleStatus::Closed,
-            $this->service->currentStatus($this->schedule(['status' => 'full'])),
+            $this->service->currentStatus($this->scheduleWithLegacyStatus('full')),
         );
 
         $this->assertSame(
             ScheduleStatus::Cancelled,
-            $this->service->currentStatus($this->schedule(['status' => 'inactive'])),
+            $this->service->currentStatus($this->scheduleWithLegacyStatus('inactive')),
         );
     }
 
     public function test_gia_tri_cu_cua_chuyen_da_khoi_hanh_doc_thanh_da_ket_thuc(): void
     {
-        $schedule = $this->schedule([
-            'status' => 'active',
-            'start_date' => now()->subDays(5),
-        ]);
+        $schedule = $this->scheduleWithLegacyStatus('active', now()->subDays(5)->toDateTimeString());
 
         $this->assertSame(ScheduleStatus::Completed, $this->service->currentStatus($schedule));
     }
@@ -195,7 +215,7 @@ class ScheduleLifecycleTest extends TestCase
 
         $schedule->refresh();
 
-        $this->assertSame(ScheduleStatus::Cancelled->value, $schedule->status);
+        $this->assertSame(ScheduleStatus::Cancelled, $schedule->status);
         $this->assertNotNull($schedule->cancelled_at);
         $this->assertSame($actor->id, $schedule->cancelled_by);
         $this->assertSame('Khong du khach toi thieu.', $schedule->cancelled_reason);

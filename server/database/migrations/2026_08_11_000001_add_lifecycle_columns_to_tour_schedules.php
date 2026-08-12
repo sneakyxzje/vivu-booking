@@ -76,21 +76,28 @@ return new class extends Migration
         });
     }
 
+    /**
+     * Nới cột status để chứa được sáu trạng thái của vòng đời.
+     *
+     * Phải chạy trên mọi driver. Bỏ qua SQLite sẽ khiến máy phát triển và máy chạy thật
+     * có giá trị mặc định khác nhau ('active' so với 'open'), một khác biệt im lặng và
+     * rất khó truy ra khi có lỗi.
+     */
     private function widenStatusColumn(): void
     {
-        if (DB::getDriverName() !== 'mysql') {
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE tour_schedules MODIFY status VARCHAR(20) NOT NULL DEFAULT 'open'");
+
             return;
         }
 
-        DB::statement("ALTER TABLE tour_schedules MODIFY status VARCHAR(20) NOT NULL DEFAULT 'open'");
+        Schema::table('tour_schedules', function (Blueprint $table) {
+            $table->string('status', 20)->default('open')->change();
+        });
     }
 
     private function restoreLegacyStatusColumn(): void
     {
-        if (DB::getDriverName() !== 'mysql') {
-            return;
-        }
-
         DB::statement("
             UPDATE tour_schedules
             SET status = CASE
@@ -100,6 +107,14 @@ return new class extends Migration
             END
         ");
 
-        DB::statement("ALTER TABLE tour_schedules MODIFY status ENUM('active', 'inactive', 'full') NOT NULL DEFAULT 'active'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE tour_schedules MODIFY status ENUM('active', 'inactive', 'full') NOT NULL DEFAULT 'active'");
+
+            return;
+        }
+
+        Schema::table('tour_schedules', function (Blueprint $table) {
+            $table->string('status', 20)->default('active')->change();
+        });
     }
 };

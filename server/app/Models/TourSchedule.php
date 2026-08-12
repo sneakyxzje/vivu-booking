@@ -56,12 +56,15 @@ class TourSchedule extends Model
     ];
 
     protected $casts = [
-        'start_date'      => 'datetime',
-        'end_date'        => 'datetime',
+        // Cast sang enum để mọi nơi đọc $schedule->status đều nhận đúng kiểu, thay vì
+        // phải tự chuẩn hóa chuỗi ở từng chỗ dùng.
+        'status'           => ScheduleStatus::class,
+        'start_date'       => 'datetime',
+        'end_date'         => 'datetime',
         'booking_deadline' => 'datetime',
-        'confirmed_at'    => 'datetime',
-        'cancelled_at'    => 'datetime',
-        'is_private'      => 'boolean',
+        'confirmed_at'     => 'datetime',
+        'cancelled_at'     => 'datetime',
+        'is_private'       => 'boolean',
     ];
 
     // ─── Quan hệ ────────────────────────────────────────────────────────────
@@ -123,11 +126,7 @@ class TourSchedule extends Model
      */
     public function isBookable(): bool
     {
-        $status = $this->status instanceof ScheduleStatus
-            ? $this->status
-            : ScheduleStatus::tryFrom((string) $this->status) ?? ScheduleStatus::Open;
-
-        if (!$status->isBookable()) {
+        if (!$this->status->isBookable()) {
             return false;
         }
 
@@ -139,7 +138,25 @@ class TourSchedule extends Model
             return false;
         }
 
+        // Chuyến chưa đặt hạn chốt thì lấy mặc định để quy tắc không im lặng bỏ qua.
+        // Xem docs/nghiep-vu/03-luong-huy-va-hoan-tien.md mục 3.
+        if (!$this->booking_deadline && $this->start_date && now()->gte($this->defaultBookingDeadline())) {
+            return false;
+        }
+
         return true;
+    }
+
+    /** Hạn chốt danh sách mặc định khi chuyến chưa được cấu hình riêng. */
+    public function defaultBookingDeadline(): ?\Illuminate\Support\Carbon
+    {
+        if (!$this->start_date) {
+            return null;
+        }
+
+        return $this->start_date->copy()->subDays(
+            (int) config('booking.booking_deadline_days', 3)
+        );
     }
 
     /** Số chỗ còn trống. */
@@ -151,11 +168,7 @@ class TourSchedule extends Model
     /** Đoàn đang đi hay không. */
     public function isRunning(): bool
     {
-        $status = $this->status instanceof ScheduleStatus
-            ? $this->status
-            : ScheduleStatus::tryFrom((string) $this->status) ?? ScheduleStatus::Open;
-
-        return $status->isRunning();
+        return $this->status->isRunning();
     }
 
     /**
@@ -164,11 +177,7 @@ class TourSchedule extends Model
      */
     public function isOperationallyLocked(): bool
     {
-        $status = $this->status instanceof ScheduleStatus
-            ? $this->status
-            : ScheduleStatus::tryFrom((string) $this->status) ?? ScheduleStatus::Open;
-
-        return in_array($status, [
+        return in_array($this->status, [
             ScheduleStatus::InProgress,
             ScheduleStatus::Completed,
             ScheduleStatus::Cancelled,

@@ -87,6 +87,31 @@ enum BookingStatus: string
         ], true);
     }
 
+    /**
+     * Đơn đã trả tiền, tính vào số khách để quyết định chốt chuyến.
+     *
+     * Không tính Pending: đó là giữ chỗ chưa thanh toán, có thể tự hủy khi hết hạn.
+     * Chốt chuyến dựa trên giữ chỗ chưa trả tiền là chốt trên số ảo.
+     * Xem docs/nghiep-vu/04-luong-dieu-hanh.md mục 1.2.
+     */
+    public function isPaid(): bool
+    {
+        return in_array($this, [
+            self::DepositPaid,
+            self::Paid,
+            self::Confirmed,
+        ], true);
+    }
+
+    /** @return array<int, string> */
+    public static function paidValues(): array
+    {
+        return array_values(array_map(
+            static fn (self $case): string => $case->value,
+            array_filter(self::cases(), static fn (self $case): bool => $case->isPaid()),
+        ));
+    }
+
     /** @return array<int, string> */
     public static function terminalValues(): array
     {
