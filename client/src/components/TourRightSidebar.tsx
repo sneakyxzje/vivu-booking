@@ -3,6 +3,12 @@ import { useNavigate } from "react-router-dom";
 import type { Tour, TourSchedule } from "@/types";
 import { formatDateTime } from "@/utils/format";
 import {
+  getAvailableSlots,
+  getScheduleUnavailableReason,
+  isDeadlineOverdue,
+  isScheduleBookable,
+} from "@/utils/schedule";
+import {
   ShieldCheckIcon,
   SupportIcon,
   CreditCardIcon,
@@ -21,25 +27,8 @@ const formatPrice = (value: number | string) =>
     maximumFractionDigits: 0,
   }).format(Number(value));
 
-const getAvailableSlots = (schedule: TourSchedule | null) =>
-  schedule ? schedule.max_people - schedule.booked_people : 0;
-
-const isDeadlineOverdue = (schedule: TourSchedule | null) =>
-  schedule?.booking_deadline ? new Date(schedule.booking_deadline) < new Date() : false;
-
-const getUnavailableReason = (schedule: TourSchedule | null, tour: Tour) => {
-  if (!schedule) return "Tạm hết lịch";
-  if (tour.status === "inactive") return "Tour đang tạm ngừng";
-  if (schedule.status !== "open") {
-    return "Lịch khởi hành này hiện không khả dụng";
-  }
-  if (isDeadlineOverdue(schedule)) return "Đã quá hạn đăng ký";
-  if (getAvailableSlots(schedule) <= 0) return "Đã hết chỗ";
-  return null;
-};
-
-const isScheduleBookable = (schedule: TourSchedule | null, tour: Tour) =>
-  getUnavailableReason(schedule, tour) === null;
+const getUnavailableReason = (schedule: TourSchedule | null, tour: Tour) =>
+  getScheduleUnavailableReason(schedule, tour.status);
 
 export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
   tour,
@@ -57,13 +46,13 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const sId = Number(e.target.value);
     const found = tour.schedules?.find((s) => s.id === sId) ?? null;
-    if (found && isScheduleBookable(found, tour)) {
+    if (found && isScheduleBookable(found, tour.status)) {
       onScheduleChange(found);
     }
   };
 
   const handleBooking = () => {
-    if (!selectedSchedule || !isScheduleBookable(selectedSchedule, tour)) return;
+    if (!selectedSchedule || !isScheduleBookable(selectedSchedule, tour.status)) return;
 
     const params = new URLSearchParams({
       schedule_id: String(selectedSchedule.id),

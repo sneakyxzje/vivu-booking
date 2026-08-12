@@ -299,12 +299,12 @@ export default function ScheduleManagement() {
                       <td className="py-4 px-5 whitespace-nowrap">
                         {deadline ? (
                           <div className="flex items-center gap-1.5">
-                            <Clock className={`h-3.5 w-3.5 ${isOverdue && (status === "open" || status === "active") ? "text-amber-500 animate-pulse" : "text-gray-400"}`} />
+                            <Clock className={`h-3.5 w-3.5 ${isOverdue && status === "open" ? "text-amber-500 animate-pulse" : "text-gray-400"}`} />
                             <div>
-                              <p className={`font-semibold ${isOverdue && (status === "open" || status === "active") ? "text-amber-600" : "text-gray-955"}`}>
+                              <p className={`font-semibold ${isOverdue && status === "open" ? "text-amber-600" : "text-gray-955"}`}>
                                 {formatDateTime(deadline)}
                               </p>
-                              {isOverdue && (status === "open" || status === "active") && (
+                              {isOverdue && status === "open" && (
                                 <span className="inline-block text-[10px] bg-amber-50 text-amber-700 px-1 py-0.5 rounded font-bold uppercase tracking-wider mt-0.5">Quá hạn</span>
                               )}
                             </div>
@@ -400,7 +400,7 @@ export default function ScheduleManagement() {
                         <div className="flex flex-col gap-2 items-end">
                           <div className="flex flex-wrap gap-1 justify-end">
                             {/* Open/Close toggle */}
-                            {(status === "open" || status === "active") && (
+                            {status === "open" && (
                               <button
                                 type="button"
                                 onClick={() => handleUpdateStatus(schedule.id, "closed")}
@@ -409,7 +409,7 @@ export default function ScheduleManagement() {
                                 Đóng bán
                               </button>
                             )}
-                            {(status === "closed" || status === "full") && (
+                            {status === "closed" && (
                               <button
                                 type="button"
                                 onClick={() => handleUpdateStatus(schedule.id, "open")}
@@ -420,7 +420,7 @@ export default function ScheduleManagement() {
                             )}
 
                             {/* Confirm action */}
-                            {(status === "open" || status === "active" || status === "closed" || status === "full") && (
+                            {(status === "open" || status === "closed") && (
                               <button
                                 type="button"
                                 onClick={() => handleUpdateStatus(schedule.id, "confirmed")}
@@ -431,7 +431,7 @@ export default function ScheduleManagement() {
                             )}
 
                             {/* Cancel action */}
-                            {(status === "open" || status === "active" || status === "closed" || status === "full" || status === "confirmed") && (
+                            {(status === "open" || status === "closed" || status === "confirmed") && (
                               <button
                                 type="button"
                                 onClick={() => openCancelDialog(schedule.id)}
