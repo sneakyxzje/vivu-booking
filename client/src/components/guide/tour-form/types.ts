@@ -14,6 +14,7 @@ export interface ItineraryFormItem {
   route_points: string[];
   rest_stops: string;
   content: string;
+  checkpoints?: import("../admin/CheckpointManager").CheckpointItem[];
 }
 
 export interface ScheduleFormItem {

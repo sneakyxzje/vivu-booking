@@ -75,6 +75,10 @@ const bookingService = {
   // cũng đọc được mà không cần đăng nhập.
   getRefundQuote: (publicToken: string) =>
     api.get<{ success: boolean; data: RefundQuote }>(`/bookings/${publicToken}/refund-quote`),
+
+  // Task X06b - Gửi lại mã tra cứu về email cho khách vãng lai (Edge Case A16)
+  resendLookupCode: (payload: { email: string; phone?: string }) =>
+    api.post<{ success: boolean; message: string }>("/bookings/resend-code", payload),
 };
 
 export default bookingService;

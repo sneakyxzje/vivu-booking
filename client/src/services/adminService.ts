@@ -133,6 +133,14 @@ const adminService = {
     return extractObject<Booking>(response);
   },
 
+  // Task X07b - Mở lại đơn đã hủy nhầm trong 24 giờ (Edge Case C06)
+  reopenBooking: async (id: number, reopen_reason: string): Promise<Booking | null> => {
+    const response = await api.put(`/admin/bookings/${id}/reopen`, {
+      reopen_reason,
+    });
+    return extractObject<Booking>(response);
+  },
+
   // Ghế chết: đơn đã hủy sau hạn chốt nên chỗ chưa được trả về kho để bán lại.
   getHeldSeats: async (page = 1): Promise<HeldSeatsResponse | null> => {
     const response = await api.get(`/admin/bookings/held-seats?page=${page}`);
@@ -271,6 +279,58 @@ const adminService = {
   deleteCategory: async (id: number): Promise<boolean> => {
     const response = await api.delete(`/admin/categories/${id}`);
     return response.data?.success !== false;
+  },
+
+  // --- BÁO CÁO ĐIỂM DANH ---
+  getAttendanceReport: async (params?: {
+    from_date?: string;
+    to_date?: string;
+    search?: string;
+    status?: string;
+    page?: number;
+    per_page?: number;
+  }): Promise<{
+    kpis: {
+      overall_presence_rate: number;
+      total_checkins: number;
+      total_present: number;
+      total_absent: number;
+      missing_photos_count: number;
+    };
+    schedules: {
+      data: {
+        id: number;
+        start_date: string;
+        status: string;
+        booked_people: number;
+        tour_id: number | null;
+        tour_title: string;
+        number_of_days: number;
+        guide: { id: number; name: string; phone?: string | null } | null;
+        present_count: number;
+        absent_count: number;
+        total_checkins: number;
+        presence_rate: number;
+        photo_count: number;
+      }[];
+      current_page: number;
+      last_page: number;
+      per_page: number;
+      total: number;
+    };
+    absence_logs: {
+      id: number;
+      booking_id: number;
+      customer_name: string;
+      customer_phone: string;
+      day_number: number;
+      itinerary_title: string;
+      checked_at: string | null;
+      guide_name: string;
+    }[];
+  } | null> => {
+    const response = await api.get("/admin/attendance-reports", { params });
+    return extractObject(response);
   },
 };
 
