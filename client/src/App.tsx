@@ -69,7 +69,7 @@ const router = createBrowserRouter([
         element: <PaymentResult />,
       },
       {
-        path: "/tra-cuu-don",
+        path: "/booking-lookup",
         element: <BookingLookup />,
       },
       {

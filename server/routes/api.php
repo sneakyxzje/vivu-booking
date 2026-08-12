@@ -58,6 +58,8 @@ Route::get('/services', fn() => response()->json([
     'data' => Service::where('is_active', true)->orderBy('name')->get(),
 ]));
 Route::post('/bookings', [CustomerBookingController::class, 'store']);
+// Task X06a - API gửi lại mã tra cứu về email khách vãng lai
+Route::post('/bookings/resend-code', [CustomerBookingController::class, 'resendLookupCode']);
 Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']);
 // Mức hoàn dự kiến nếu hủy ngay bây giờ. Khách vãng lai cũng xem được bằng mã tra cứu.
 Route::get('/bookings/{publicToken}/refund-quote', [CustomerBookingController::class, 'refundQuote']);
