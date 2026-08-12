@@ -3,6 +3,7 @@ import type { Tour, TourImage, TourSchedule } from "@/types";
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { StarIcon, ChevronRightIcon } from "@/components/Icons";
+import { isScheduleBookable } from "@/utils/schedule";
 import { TourLeftDetails } from "./TourLeftDetails";
 import { TourRightSidebar } from "./TourRightSidebar";
 
@@ -28,15 +29,11 @@ export default function TourDetail() {
 
   useEffect(() => {
     if (tour && tour.schedules && tour.schedules.length > 0) {
+      // Chọn sẵn chuyến đầu tiên còn đặt được. Nếu không chuyến nào đặt được thì vẫn chọn
+      // chuyến đầu, để thanh bên hiển thị đúng lý do thay vì để trống.
       const firstBookable =
-        tour.schedules.find((schedule) => {
-          const availableSlots = schedule.max_people - schedule.booked_people;
-          const isDeadlineOverdue = schedule.booking_deadline
-            ? new Date(schedule.booking_deadline) < new Date()
-            : false;
-
-          return schedule.status === "open" && availableSlots > 0 && !isDeadlineOverdue;
-        }) || tour.schedules[0];
+        tour.schedules.find((schedule) => isScheduleBookable(schedule, tour.status))
+        || tour.schedules[0];
 
       setSelectedSchedule(firstBookable);
     }

@@ -2,6 +2,11 @@ import bookingService from "@/services/bookingService";
 import tourService from "@/services/tourService";
 import type { Tour, TourSchedule } from "@/types";
 import { formatDateTime } from "@/utils/format";
+import {
+  getAvailableSlots,
+  getScheduleUnavailableReason,
+  isScheduleBookable,
+} from "@/utils/schedule";
 import type { AxiosError } from "axios";
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -73,28 +78,9 @@ const getErrorMessage = (error: unknown) => {
 const PageState = ({ children }: { children: string }) => (
   <div className="min-h-screen flex items-center justify-center">{children}</div>
 );
-const getScheduleAvailableSlots = (schedule: TourSchedule | null | undefined) =>
-  schedule ? schedule.max_people - schedule.booked_people : 0;
-
-const isScheduleDeadlineOverdue = (schedule: TourSchedule | null | undefined) =>
-  schedule?.booking_deadline ? new Date(schedule.booking_deadline) < new Date() : false;
-
-const getScheduleUnavailableReason = (
-  schedule: TourSchedule | null | undefined,
-  tourStatus?: Tour["status"],
-) => {
-  if (!schedule) return "Tạm hết lịch";
-  if (tourStatus === "inactive") return "Tour đang tạm ngừng";
-  if (schedule.status !== "open") {
-    return "Lịch khởi hành này hiện không khả dụng";
-  }
-  if (isScheduleDeadlineOverdue(schedule)) return "Đã quá hạn đăng ký";
-  if (getScheduleAvailableSlots(schedule) <= 0) return "Đã hết chỗ";
-  return null;
-};
-
-const isScheduleBookable = (schedule: TourSchedule | null | undefined, tourStatus?: Tour["status"]) =>
-  getScheduleUnavailableReason(schedule, tourStatus) === null;
+// Lý do chuyến không đặt được nằm ở @/utils/schedule, dùng chung với thanh bên trang chi tiết
+// và bộ lọc tự chọn chuyến. Đừng chép lại logic này về đây.
+const getScheduleAvailableSlots = getAvailableSlots;
 
 const BookingForm = ({
   form,
