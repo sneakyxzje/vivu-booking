@@ -35,6 +35,30 @@ export interface AdminDashboardData {
   }[];
 }
 
+export interface CancellationPolicyRule {
+  id?: number;
+  min_hours_before: number;
+  max_hours_before: number | null;
+  refund_percent: number;
+  note?: string | null;
+}
+
+export interface CancellationPolicy {
+  id: number;
+  name: string;
+  description: string | null;
+  is_default: boolean;
+  tours_count?: number;
+  rules: CancellationPolicyRule[];
+}
+
+export interface CancellationPolicyPayload {
+  name: string;
+  description?: string | null;
+  is_default?: boolean;
+  rules: CancellationPolicyRule[];
+}
+
 export interface HeldSeatsResponse {
   bookings: PaginatedResponse<Booking>;
   total_held_seats: number;
@@ -118,6 +142,32 @@ const adminService = {
   releaseHeldSeats: async (id: number): Promise<Booking | null> => {
     const response = await api.put(`/admin/bookings/${id}/release-seats`);
     return extractObject<Booking>(response);
+  },
+
+  // --- CHÍNH SÁCH HỦY ---
+  getCancellationPolicies: async (): Promise<CancellationPolicy[]> => {
+    const response = await api.get("/admin/cancellation-policies");
+    return response.data?.data ?? [];
+  },
+
+  createCancellationPolicy: async (
+    payload: CancellationPolicyPayload,
+  ): Promise<CancellationPolicy | null> => {
+    const response = await api.post("/admin/cancellation-policies", payload);
+    return extractObject<CancellationPolicy>(response);
+  },
+
+  updateCancellationPolicy: async (
+    id: number,
+    payload: CancellationPolicyPayload,
+  ): Promise<CancellationPolicy | null> => {
+    const response = await api.put(`/admin/cancellation-policies/${id}`, payload);
+    return extractObject<CancellationPolicy>(response);
+  },
+
+  deleteCancellationPolicy: async (id: number): Promise<boolean> => {
+    const response = await api.delete(`/admin/cancellation-policies/${id}`);
+    return response.data?.success !== false;
   },
 
   // --- GUIDES ---

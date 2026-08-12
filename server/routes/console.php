@@ -30,3 +30,10 @@ Schedule::command('schedules:confirm-ready')
 Schedule::command('schedules:advance-status')
     ->everyMinute()
     ->withoutOverlapping();
+
+// C05: Đối chiếu số chỗ đã bán với số chỗ thực tế đang bị chiếm.
+// Chỉ báo cáo, không tự nắn số liệu: lệch số chỗ là dấu hiệu có lỗi nghiệp vụ ở đâu đó,
+// tự sửa sẽ che mất nguyên nhân.
+Schedule::command('bookings:check-seat-consistency')
+    ->hourly()
+    ->withoutOverlapping();

@@ -43,6 +43,23 @@ export interface ValidateDiscountResponse {
   };
 }
 
+export interface RefundQuoteRule {
+  window: string;
+  refund_percent: number;
+  note: string | null;
+}
+
+export interface RefundQuote {
+  hours_before: number | null;
+  refund_percent: number;
+  total_amount: number;
+  paid_amount: number;
+  cancellation_fee: number;
+  refund_amount: number;
+  policy_name: string | null;
+  rules: RefundQuoteRule[] | null;
+}
+
 const bookingService = {
   create: (payload: CreateBookingPayload) =>
     api.post<CreateBookingResponse>("/bookings", payload),
@@ -53,6 +70,11 @@ const bookingService = {
     api.post<ValidateDiscountResponse>("/discount-codes/validate", payload),
 
   getMyBookings: () => api.get("/my-bookings"),
+
+  // Mức hoàn dự kiến nếu hủy ngay bây giờ, xem được bằng mã tra cứu nên khách vãng lai
+  // cũng đọc được mà không cần đăng nhập.
+  getRefundQuote: (publicToken: string) =>
+    api.get<{ success: boolean; data: RefundQuote }>(`/bookings/${publicToken}/refund-quote`),
 };
 
 export default bookingService;

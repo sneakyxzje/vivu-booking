@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
 use App\Http\Controllers\Api\Admin\AdminAttendanceController;
+use App\Http\Controllers\Api\Admin\AdminCancellationPolicyController;
 use App\Http\Controllers\Api\Admin\AdminCategoryController;
 use App\Http\Controllers\Api\Admin\AdminServiceController;
 
@@ -157,6 +158,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Quản lý danh mục tour (biển đảo, nghỉ dưỡng, ...)
         Route::apiResource('categories', AdminCategoryController::class);
+
+        // Quản lý chính sách hủy theo mốc thời gian
+        Route::apiResource('cancellation-policies', AdminCancellationPolicyController::class)
+            ->except(['show']);
     });
 });
 

@@ -1,4 +1,5 @@
 import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
+import { RefundPolicyCard } from "@/components/RefundPolicyCard";
 import { useEffect, useState } from "react";
 import bookingService from "@/services/bookingService";
 import {
@@ -259,6 +260,11 @@ export default function BookingSuccess() {
 
         <div className="grid gap-8 lg:grid-cols-12 items-start">
           <div className="lg:col-span-8 space-y-8">
+            {/* Điều khoản hủy và số tiền hoàn nếu hủy bây giờ. Đơn đã hủy rồi thì không cần nữa. */}
+            {!cancelled && booking.public_token && (
+              <RefundPolicyCard publicToken={booking.public_token} />
+            )}
+
             <div className="rounded-xl bg-white p-6 md:p-8 border border-gray-100 shadow-sm">
               <h2 className="mb-6 text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta">Thông tin liên lạc</h2>
               <div className="grid gap-6 sm:grid-cols-3 text-sm">
