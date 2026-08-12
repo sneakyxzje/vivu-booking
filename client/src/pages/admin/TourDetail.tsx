@@ -11,7 +11,7 @@ import adminService from "@/services/adminService";
 import type { Guide, Tour, TourSchedule } from "@/types";
 import { Toast } from "@/components/admin/CustomAlert";
 import { formatDateTime, getEndDate } from "@/utils/format";
-import { statusLabel, statusClasses } from "@/utils/schedule";
+import { statusLabel, statusClasses, tourStatusLabel } from "@/utils/schedule";
 
 export default function AdminTourDetail() {
   const { id } = useParams<{ id: string }>();
@@ -201,7 +201,7 @@ export default function AdminTourDetail() {
                 : "bg-gray-100 text-gray-600")
           }
         >
-          {statusLabel[tour.status]}
+          {tourStatusLabel[tour.status]}
         </span>
       </div>
 
