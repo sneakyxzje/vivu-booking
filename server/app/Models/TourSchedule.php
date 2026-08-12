@@ -67,6 +67,25 @@ class TourSchedule extends Model
         'is_private'       => 'boolean',
     ];
 
+    /**
+     * Trả về chuỗi ngày giờ mộc, không kèm hậu tố múi giờ.
+     *
+     * Ứng dụng chạy múi giờ UTC nhưng các cột ngày giờ ở đây lưu giờ Việt Nam dưới dạng mộc:
+     * admin nhập 05:30 nghĩa là 05:30 giờ Việt Nam, và cột lưu đúng chuỗi đó.
+     *
+     * Mặc định Laravel serialize Carbon thành ISO8601 kèm hậu tố Z, tức là tuyên bố với client
+     * rằng 05:30 là giờ UTC. Trình duyệt ở GMT+7 sẽ hiển thị thành 12:30, lệch 7 tiếng trên
+     * mọi giờ khởi hành và hạn chốt.
+     *
+     * Trước khi các cột này được cast sang datetime, API trả chuỗi mộc nên client hiển thị đúng.
+     * Giữ nguyên định dạng đó để không đổi hợp đồng API, trong khi phía máy chủ vẫn có Carbon
+     * để so sánh.
+     */
+    protected function serializeDate(\DateTimeInterface $date): string
+    {
+        return $date->format('Y-m-d H:i:s');
+    }
+
     // ─── Quan hệ ────────────────────────────────────────────────────────────
 
     public function tour(): BelongsTo
