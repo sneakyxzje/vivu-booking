@@ -586,6 +586,58 @@ class BookingController extends Controller
         }
     }
 
+    /**
+     * =========================================================================
+     * TASK X06a: Gửi lại mã tra cứu về email đã dùng khi đặt tour (Edge Case A16)
+     * =========================================================================
+     * Khách vãng lai khi mất mã tra cứu có thể nhập Email & SĐT đã đặt tour.
+     * Hệ thống tìm kiếm các đơn hàng tương ứng và tự động gửi Mail thông báo.
+     * 
+     * @param Request $request chứa email (bắt buộc) và phone (tùy chọn)
+     * @return JsonResponse
+     */
+    public function resendLookupCode(Request $request): JsonResponse
+    {
+        // 1. Validate dữ liệu đầu vào từ phía khách hàng
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        $email = trim($validated['email']);
+        $phone = !empty($validated['phone']) ? trim($validated['phone']) : null;
+
+        // 2. Tìm kiếm các đơn đặt tour trùng khớp thông tin email (và phone nếu có)
+        $query = Booking::query()
+            ->where('customer_email', $email)
+            ->where('status', '!=', 'cancelled')
+            ->with(['tour:id,title', 'schedule:id,start_date'])
+            ->latest();
+
+        if ($phone) {
+            $query->where('customer_phone', $phone);
+        }
+
+        $bookings = $query->get();
+
+        // 3. Nếu tìm thấy ít nhất 1 đơn, tiến hành gửi Email chứa mã tra cứu
+        if ($bookings->isNotEmpty()) {
+            try {
+                Mail::to($email)->send(new \App\Mail\ResendLookupCodeMail($bookings, $email));
+            } catch (Throwable $exception) {
+                Log::warning('Lỗi khi gửi email mã tra cứu (Task X06a):', [
+                    'email' => $email,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        }
+
+        // 4. Trả về thông báo thành công chung (ngay cả khi không tìm thấy đơn để tránh kẻ xấu lợi dụng dò Email)
+        return response()->json([
+            'success' => true,
+            'message' => 'Nếu email tồn tại trong hệ thống, danh sách mã tra cứu đã được gửi về hòm thư của bạn. Vui lòng kiểm tra email (bao gồm cả mục Spam/Thư rác).',
+        ]);
+    }
 }
 
 

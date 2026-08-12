@@ -192,6 +192,97 @@ class AdminBookingController extends Controller
         );
     }
 
+    /**
+     * =========================================================================
+     * TASK X07a: Mở lại đơn đặt tour bị hủy nhầm trong 24 giờ (Edge Case C06)
+     * =========================================================================
+     * Cho phép Quản trị viên khôi phục lại các đơn hàng có trạng thái `cancelled`
+     * nếu thời gian hủy chưa vượt quá 24 giờ và chuyến khởi hành còn đủ chỗ trống.
+     * 
+     * @param Request $request chứa lý do khôi phục (reopen_reason - bắt buộc)
+     * @param int $id ID của đơn đặt tour
+     * @return JsonResponse
+     */
+    public function reopen(Request $request, int $id): JsonResponse
+    {
+        // 1. Validate lý do khôi phục đơn từ phía Quản trị viên
+        $validated = $request->validate([
+            'reopen_reason' => 'required|string|max:500',
+        ], [
+            'reopen_reason.required' => 'Vui lòng nhập lý do mở lại đơn đặt tour.',
+        ]);
+
+        $target = Booking::query()->find($id);
+
+        if (!$target) {
+            return $this->error('Không tìm thấy đơn đặt hàng.', 404);
+        }
+
+        // 2. Kiểm tra điều kiện đơn phải ở trạng thái cancelled
+        if ($target->status !== 'cancelled') {
+            return $this->error('Chỉ có thể mở lại những đơn đang ở trạng thái Đã hủy (cancelled).', 400);
+        }
+
+        // 3. Kiểm tra điều kiện giới hạn khôi phục trong vòng 24 giờ (Edge Case C06)
+        if ($target->cancelled_at && $target->cancelled_at->diffInHours(now()) > 24) {
+            return $this->error('Đơn đặt tour đã bị hủy quá 24 giờ, không thể mở lại.', 400);
+        }
+
+        try {
+            $updatedBooking = DB::transaction(function () use ($target, $validated, $request) {
+                // Khóa dòng chuyến khởi hành để kiểm tra số chỗ trống khả dụng
+                $schedule = TourSchedule::query()
+                    ->whereKey($target->tour_schedule_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$schedule) {
+                    throw new \Exception('Chuyến khởi hành của đơn này không còn tồn tại.');
+                }
+
+                // Kiểm tra chuyến đã khởi hành chưa
+                if (\Carbon\Carbon::parse($schedule->start_date)->isPast()) {
+                    throw new \Exception('Chuyến khởi hành này đã xuất phát, không thể khôi phục đơn.');
+                }
+
+                // Kiểm tra số lượng chỗ còn trống trên chuyến khởi hành
+                $availableSeats = $schedule->max_people - $schedule->booked_people;
+                if ($availableSeats < $target->guests) {
+                    throw new \Exception("Chuyến khởi hành chỉ còn {$availableSeats} chỗ trống, không đủ để khôi phục đơn {$target->guests} chỗ này.");
+                }
+
+                $booking = Booking::query()->lockForUpdate()->find($target->id);
+
+                // Nếu chỗ của đơn này đã từng được trả về kho (seats_released = true), ta cần cộng lại chỗ vào booked_people
+                if ($booking->seats_released) {
+                    $schedule->increment('booked_people', $booking->guests);
+                }
+
+                // Khôi phục trạng thái: Nếu đã có giao dịch VNPAY thành công thì về confirmed, ngược lại về pending
+                $nextStatus = $booking->vnpay_transaction_no ? 'confirmed' : 'pending';
+
+                $booking->update([
+                    'status' => $nextStatus,
+                    'reopen_reason' => $validated['reopen_reason'],
+                    'reopened_at' => now(),
+                    'reopened_by' => $request->user()?->id,
+                    'seats_released' => false,
+                    'seats_released_at' => null,
+                    'seats_released_by' => null,
+                ]);
+
+                return $booking;
+            });
+
+            return $this->success(
+                $updatedBooking->fresh(['tour', 'customer', 'schedule', 'paymentLogs']),
+                'Đã mở lại đơn đặt tour thành công và khôi phục số chỗ trên chuyến.'
+            );
+        } catch (\Exception $e) {
+            return $this->error($e->getMessage(), 400);
+        }
+    }
+
     private function sendConfirmedMailAfterResponse(Booking $booking): void
     {
         app()->terminating(function () use ($booking) {

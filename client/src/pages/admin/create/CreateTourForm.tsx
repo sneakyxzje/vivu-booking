@@ -16,6 +16,7 @@ import type {
 import tourService from "@/services/tourService";
 import adminService from "@/services/adminService";
 import type { Guide } from "@/types";
+import type { CheckpointItem } from "@/components/admin/CheckpointManager";
 
 const emptyForm: TourFormState = {
   title: "",
@@ -359,6 +360,15 @@ export const CreateTourForm: React.FC = () => {
     }));
   };
 
+  const updateCheckpoints = (itineraryIndex: number, checkpoints: CheckpointItem[]) => {
+    setForm((prev) => ({
+      ...prev,
+      itineraries: prev.itineraries.map((item, i) =>
+        i === itineraryIndex ? { ...item, checkpoints } : item,
+      ),
+    }));
+  };
+
   const addItinerary = () => {
     setForm((prev) => {
       const maxDays = Number(prev.number_of_days);
@@ -623,6 +633,7 @@ export const CreateTourForm: React.FC = () => {
               onRoutePointChange={updateRoutePoint}
               onRoutePointAdd={addRoutePoint}
               onRoutePointRemove={removeRoutePoint}
+              onCheckpointsChange={updateCheckpoints}
             />
 
             <TourFormScheduleSection

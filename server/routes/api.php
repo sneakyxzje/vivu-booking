@@ -58,6 +58,8 @@ Route::get('/services', fn() => response()->json([
     'data' => Service::where('is_active', true)->orderBy('name')->get(),
 ]));
 Route::post('/bookings', [CustomerBookingController::class, 'store']);
+// Task X06a - API gửi lại mã tra cứu về email khách vãng lai
+Route::post('/bookings/resend-code', [CustomerBookingController::class, 'resendLookupCode']);
 Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']);
 // Mức hoàn dự kiến nếu hủy ngay bây giờ. Khách vãng lai cũng xem được bằng mã tra cứu.
 Route::get('/bookings/{publicToken}/refund-quote', [CustomerBookingController::class, 'refundQuote']);
@@ -137,6 +139,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/available-guides', [AdminTourController::class, 'availableGuides']);
         Route::put('/tour-schedules/{id}/assign-guide', [AdminTourController::class, 'assignScheduleGuide']);
         Route::get('/tour-schedules/{id}/attendance', [AdminAttendanceController::class, 'show']);
+        Route::get('/attendance-reports', [AdminAttendanceController::class, 'report']);
 
         // A10 — Đổi trạng thái chuyến thủ công (open ↔ closed, → confirmed, → cancelled).
         Route::patch('/schedules/{id}/status', [AdminTourController::class, 'updateScheduleStatus']);
@@ -151,6 +154,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/bookings/{id}/release-seats', [AdminBookingController::class, 'releaseHeldSeats']);
         Route::put('/bookings/{id}/confirm', [AdminBookingController::class, 'confirm']);
         Route::put('/bookings/{id}/cancel', [AdminBookingController::class, 'cancel']);
+        // Task X07a - Mở lại đơn đã hủy nhầm trong 24h
+        Route::put('/bookings/{id}/reopen', [AdminBookingController::class, 'reopen']);
         Route::apiResource('discount-codes', AdminDiscountCodeController::class);
 
         // Quản lý dịch vụ phát sinh (khách sạn, ăn uống, ...)
