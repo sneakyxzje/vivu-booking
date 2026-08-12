@@ -1,5 +1,6 @@
 import React from "react";
 import type { ItineraryFormItem } from "./types";
+import { CheckpointManager, type CheckpointItem } from "../../admin/CheckpointManager";
 
 interface Props {
   labelClass: string;
@@ -16,6 +17,7 @@ interface Props {
   onRoutePointChange: (index: number, pointIndex: number, value: string) => void;
   onRoutePointAdd: (index: number) => void;
   onRoutePointRemove: (index: number, pointIndex: number) => void;
+  onCheckpointsChange?: (index: number, checkpoints: CheckpointItem[]) => void;
 }
 
 export const TourFormItinerarySection: React.FC<Props> = ({
@@ -148,6 +150,17 @@ export const TourFormItinerarySection: React.FC<Props> = ({
                 </div>
               ))}
             </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-gray-100">
+            <CheckpointManager
+              checkpoints={item.checkpoints || []}
+              fieldClass={fieldClass}
+              onChange={(updatedCheckpoints) => {
+                if (onCheckpointsChange) {
+                  onCheckpointsChange(index, updatedCheckpoints);
+                }
+              }}
+            />
           </div>
           <div className="mt-3">
             <label className={labelClass}>Điểm nghỉ chân</label>
