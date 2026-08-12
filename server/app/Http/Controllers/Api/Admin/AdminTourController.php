@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\TourImage;
 use App\Models\Service;
 use App\Models\Tour;
+use App\Models\TourItinerary;
 use App\Models\TourSchedule;
 use App\Models\User;
 use App\Enums\ScheduleStatus;
@@ -37,7 +38,7 @@ class AdminTourController extends Controller
             'categories',
             'services',
             'images',
-            'itineraries',
+            'itineraries.checkpoints',
             'schedules',
         ])
             ->latest()
@@ -53,7 +54,7 @@ class AdminTourController extends Controller
             'categories',
             'services',
             'images',
-            'itineraries',
+            'itineraries.checkpoints',
             'schedules.guide:id,name,email,phone,status',
         ])->find($id);
 
@@ -127,6 +128,13 @@ class AdminTourController extends Controller
             'itineraries.*.route_points' => ['nullable', 'string'],
             'itineraries.*.rest_stops' => ['nullable', 'string'],
             'itineraries.*.content' => ['required_with:itineraries', 'string'],
+            'itineraries.*.checkpoints' => ['nullable', 'array'],
+            'itineraries.*.checkpoints.*.name' => ['required_with:itineraries.*.checkpoints', 'string', 'max:255'],
+            'itineraries.*.checkpoints.*.description' => ['nullable', 'string'],
+            'itineraries.*.checkpoints.*.latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'itineraries.*.checkpoints.*.longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'itineraries.*.checkpoints.*.sequence' => ['required_with:itineraries.*.checkpoints', 'integer', 'min:1'],
+            'itineraries.*.checkpoints.*.is_required_photo' => ['nullable', 'boolean'],
             'schedules' => ['nullable', 'array'],
             'schedules.*.start_date' => ['required_with:schedules', 'date', 'after_or_equal:today'],
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
@@ -192,7 +200,7 @@ class AdminTourController extends Controller
             }
 
             foreach ($itineraries as $item) {
-                $tour->itineraries()->create([
+                $itinerary = $tour->itineraries()->create([
                     'day_number' => $item['day_number'],
                     'title' => $item['title'],
                     'start_point' => $item['start_point'] ?? null,
@@ -201,6 +209,17 @@ class AdminTourController extends Controller
                     'rest_stops' => $item['rest_stops'] ?? null,
                     'content' => $item['content'],
                 ]);
+
+                foreach ($item['checkpoints'] ?? [] as $checkpoint) {
+                    $itinerary->checkpoints()->create([
+                        'name' => $checkpoint['name'],
+                        'description' => $checkpoint['description'] ?? null,
+                        'latitude' => $checkpoint['latitude'] ?? null,
+                        'longitude' => $checkpoint['longitude'] ?? null,
+                        'sequence' => $checkpoint['sequence'],
+                        'is_required_photo' => $checkpoint['is_required_photo'] ?? false,
+                    ]);
+                }
             }
 
             foreach ($schedules as $item) {
@@ -285,6 +304,14 @@ class AdminTourController extends Controller
             'itineraries.*.route_points' => ['nullable', 'string'],
             'itineraries.*.rest_stops' => ['nullable', 'string'],
             'itineraries.*.content' => ['required_with:itineraries', 'string'],
+            'itineraries.*.checkpoints' => ['nullable', 'array'],
+            'itineraries.*.checkpoints.*.id' => ['nullable', 'exists:itinerary_checkpoints,id'],
+            'itineraries.*.checkpoints.*.name' => ['required_with:itineraries.*.checkpoints', 'string', 'max:255'],
+            'itineraries.*.checkpoints.*.description' => ['nullable', 'string'],
+            'itineraries.*.checkpoints.*.latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'itineraries.*.checkpoints.*.longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'itineraries.*.checkpoints.*.sequence' => ['required_with:itineraries.*.checkpoints', 'integer', 'min:1'],
+            'itineraries.*.checkpoints.*.is_required_photo' => ['nullable', 'boolean'],
             'schedules' => ['nullable', 'array'],
             'schedules.*.id' => ['nullable', 'exists:tour_schedules,id'],
             'schedules.*.start_date' => ['required_with:schedules', 'date'],
@@ -341,18 +368,7 @@ class AdminTourController extends Controller
             $tour->categories()->sync($categoryIds);
             $tour->services()->sync($serviceIds);
 
-            $tour->itineraries()->delete();
-            foreach ($itineraries as $item) {
-                $tour->itineraries()->create([
-                    'day_number' => $item['day_number'],
-                    'title' => $item['title'],
-                    'start_point' => $item['start_point'] ?? null,
-                    'end_point' => $item['end_point'] ?? null,
-                    'route_points' => $item['route_points'] ?? null,
-                    'rest_stops' => $item['rest_stops'] ?? null,
-                    'content' => $item['content'],
-                ]);
-            }
+            $this->syncItineraries($tour, $itineraries);
 
             $keptScheduleIds = [];
             foreach ($schedules as $item) {
@@ -461,6 +477,86 @@ class AdminTourController extends Controller
      *
      * @param  array<int, array<string, mixed>>  $schedules
      */
+    /**
+     * Đồng bộ lịch trình và điểm dừng theo id, không xóa hết rồi tạo lại.
+     *
+     * Xóa rồi tạo lại là mất dữ liệu thật: itinerary_checkpoints và passenger_checkins đều
+     * cascadeOnDelete, nên chỉ sửa mỗi tiêu đề tour cũng kéo theo mất sạch bản ghi điểm danh
+     * của các chuyến đã đi. Khách hàng đã đi rồi mà lịch sử điểm danh biến mất thì không còn
+     * căn cứ nào đối chiếu khi có khiếu nại.
+     *
+     * @param  array<int, array<string, mixed>>  $itineraries
+     */
+    private function syncItineraries(Tour $tour, array $itineraries): void
+    {
+        $keptIds = [];
+
+        foreach ($itineraries as $item) {
+            $payload = [
+                'day_number' => $item['day_number'],
+                'title' => $item['title'],
+                'start_point' => $item['start_point'] ?? null,
+                'end_point' => $item['end_point'] ?? null,
+                'route_points' => $item['route_points'] ?? null,
+                'rest_stops' => $item['rest_stops'] ?? null,
+                'content' => $item['content'],
+            ];
+
+            // Khớp theo id nếu client gửi. Không có id thì khớp theo số ngày, vì mỗi tour chỉ
+            // có một lịch trình cho mỗi ngày nên đó là khóa tự nhiên.
+            $itinerary = isset($item['id'])
+                ? $tour->itineraries()->whereKey($item['id'])->first()
+                : $tour->itineraries()->where('day_number', $item['day_number'])->first();
+
+            if ($itinerary) {
+                $itinerary->update($payload);
+            } else {
+                $itinerary = $tour->itineraries()->create($payload);
+            }
+
+            $keptIds[] = $itinerary->id;
+
+            $this->syncCheckpoints($itinerary, $item['checkpoints'] ?? []);
+        }
+
+        // Chỉ xóa ngày nào không còn trong payload.
+        $tour->itineraries()->whereKeyNot($keptIds)->delete();
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $checkpoints
+     */
+    private function syncCheckpoints(TourItinerary $itinerary, array $checkpoints): void
+    {
+        $keptIds = [];
+
+        foreach ($checkpoints as $checkpoint) {
+            $payload = [
+                'name' => $checkpoint['name'],
+                'description' => $checkpoint['description'] ?? null,
+                'latitude' => $checkpoint['latitude'] ?? null,
+                'longitude' => $checkpoint['longitude'] ?? null,
+                'sequence' => $checkpoint['sequence'],
+                'is_required_photo' => $checkpoint['is_required_photo'] ?? false,
+            ];
+
+            $existing = isset($checkpoint['id'])
+                ? $itinerary->checkpoints()->whereKey($checkpoint['id'])->first()
+                : null;
+
+            if ($existing) {
+                $existing->update($payload);
+                $keptIds[] = $existing->id;
+
+                continue;
+            }
+
+            $keptIds[] = $itinerary->checkpoints()->create($payload)->id;
+        }
+
+        $itinerary->checkpoints()->whereKeyNot($keptIds)->delete();
+    }
+
     private function validateScheduleRules(array $schedules): ?string
     {
         foreach ($schedules as $index => $item) {
