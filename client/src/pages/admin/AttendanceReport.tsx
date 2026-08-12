@@ -4,11 +4,14 @@ import adminService from "@/services/adminService";
 import { formatDateTime } from "@/utils/format";
 import { statusClasses, statusLabel } from "@/utils/schedule";
 import Pagination from "@/components/common/Pagination";
+import type { TourSchedule } from "@/types/tour";
 
 interface ScheduleItem {
   id: number;
   start_date: string;
-  status: string;
+  // Khai đúng sáu trạng thái của vòng đời thay vì string, để tra statusLabel và statusClasses
+  // không phải ép kiểu và để thêm trạng thái mới thì báo lỗi biên dịch ngay tại đây.
+  status: TourSchedule["status"];
   booked_people: number;
   tour_id: number | null;
   tour_title: string;

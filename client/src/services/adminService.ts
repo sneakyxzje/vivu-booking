@@ -301,7 +301,8 @@ const adminService = {
       data: {
         id: number;
         start_date: string;
-        status: string;
+        // Sáu trạng thái của vòng đời chuyến, khớp App\Enums\ScheduleStatus phía máy chủ.
+        status: TourSchedule["status"];
         booked_people: number;
         tour_id: number | null;
         tour_title: string;

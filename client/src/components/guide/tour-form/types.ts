@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+// CheckpointManager nằm ở components/admin, tính từ đây phải lùi hai cấp.
+import type { CheckpointItem } from "../../admin/CheckpointManager";
 
 export interface SelectOption {
   id: number;
@@ -14,7 +16,7 @@ export interface ItineraryFormItem {
   route_points: string[];
   rest_stops: string;
   content: string;
-  checkpoints?: import("../admin/CheckpointManager").CheckpointItem[];
+  checkpoints?: CheckpointItem[];
 }
 
 export interface ScheduleFormItem {

@@ -31,6 +31,7 @@ export const TourFormItinerarySection: React.FC<Props> = ({
   onRoutePointChange,
   onRoutePointAdd,
   onRoutePointRemove,
+  onCheckpointsChange,
 }) => (
   <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
     <div className="mb-4 flex items-center justify-between gap-3">
