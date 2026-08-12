@@ -25,6 +25,7 @@ import CategoryManagement from "@/pages/admin/CategoryManagement";
 import ScheduleAttendance from "@/pages/admin/ScheduleAttendance";
 import ScheduleManagement from "@/pages/admin/ScheduleManagement";
 import HeldSeatsManagement from "@/pages/admin/HeldSeatsManagement";
+import CancellationPolicyManagement from "@/pages/admin/CancellationPolicyManagement";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
 import { GuideTours } from "@/pages/guide/GuideTours";
 import { GuideBookings } from "@/pages/guide/GuideBookings";
@@ -184,6 +185,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/held-seats",
             element: <HeldSeatsManagement />,
+          },
+          {
+            path: "/admin/cancellation-policies",
+            element: <CancellationPolicyManagement />,
           },
           {
             path: "/admin/bookings",
