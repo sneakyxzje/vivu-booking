@@ -115,9 +115,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/my-tours/{id}', [GuideTourController::class, 'show']);
         Route::get('/bookings', [GuideBookingController::class, 'index']);
         Route::put('/bookings/{id}/confirm', [GuideBookingController::class, 'confirm']);
-        Route::get('/schedules/{schedule}/attendance', [AttendanceController::class, 'show']);
-        Route::put('/schedules/{schedule}/itineraries/{itinerary}/attendance', [AttendanceController::class, 'update']);
-        Route::post('/schedules/{schedule}/itineraries/{itinerary}/checkin-photo', [AttendanceController::class, 'uploadPhoto']);
+       Route::get(
+            '/schedules/{schedule}/attendance',
+            [AttendanceController::class, 'show']
+        );
+
+        Route::put(
+            '/schedules/{schedule}/checkpoints/{checkpoint}/attendance',
+            [AttendanceController::class, 'update']
+        );
+
+        Route::post(
+            '/schedules/{schedule}/checkpoints/{checkpoint}/checkin-photo',
+            [AttendanceController::class, 'uploadPhoto']
+        );
     });
 
     /*

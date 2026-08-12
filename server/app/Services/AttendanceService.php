@@ -11,15 +11,16 @@ use App\Models\PassengerCheckin;
 use App\Models\PassengerCheckinHistory;
 use App\Models\TourSchedule;
 use App\Models\User;
+use App\Notifications\PassengerAbsentAtBoundaryNotification;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
  * H08 - Các quy tắc kiểm tra khi điểm danh.
  *
- * Chín quy tắc ở docs/nghiep-vu/04-luong-dieu-hanh.md mục 5.3, gom về một chỗ vì cùng một
- * thao tác điểm danh có thể tới từ nhiều màn hình khác nhau, và điểm danh là dữ liệu dùng để
- * đối chiếu khi có khiếu nại nên không được phép ghi bừa.
+ * Chín quy tắc ở docs/nghiep-vu/04-luong-dieu-hanh.md mục 5.3,
+ * gom về một chỗ vì cùng một thao tác điểm danh có thể tới từ
+ * nhiều màn hình khác nhau.
  */
 class AttendanceService
 {
@@ -29,12 +30,14 @@ class AttendanceService
     /** Ghi chú giải thích phải đủ dài để có ý nghĩa khi đọc lại. */
     private const MIN_NOTE_LENGTH = 10;
 
-    public function __construct(private ScheduleLifecycleService $lifecycle)
-    {
+    public function __construct(
+        private ScheduleLifecycleService $lifecycle
+    ) {
     }
 
     /**
-     * Bốn quy tắc về quyền và bối cảnh, kiểm tra trước khi cho ghi bất cứ thứ gì.
+     * Bốn quy tắc về quyền và bối cảnh,
+     * kiểm tra trước khi cho ghi bất cứ thứ gì.
      */
     public function assertCanRecord(
         User $guide,
@@ -45,8 +48,6 @@ class AttendanceService
         $now ??= now();
 
         // 1. Chỉ hướng dẫn viên đang phụ trách chuyến này mới ghi được.
-        // Khi task M02 vào, chỗ này đổi sang tra bảng phân công theo giai đoạn để hỗ trợ
-        // thay hướng dẫn viên giữa chừng.
         if ((int) $schedule->guide_id !== (int) $guide->getKey()) {
             throw new BusinessRuleException(
                 'Bạn không phụ trách chuyến đi này nên không điểm danh được.',
@@ -54,8 +55,7 @@ class AttendanceService
             );
         }
 
-        // 2. Chuyến phải đang chạy. Dùng trạng thái theo đồng hồ chứ không đọc cột trong cơ sở
-        // dữ liệu, vì tác vụ nền có thể chưa kịp chuyển trạng thái.
+        // 2. Chuyến phải đang chạy.
         $status = $this->lifecycle->effectiveStatus($schedule, $now);
 
         if (!$status->isRunning()) {
@@ -69,13 +69,21 @@ class AttendanceService
         $checkpoint->loadMissing('tourItinerary');
 
         if ((int) $checkpoint->tourItinerary?->tour_id !== (int) $schedule->tour_id) {
-            throw new BusinessRuleException('Điểm dừng không thuộc lịch trình của chuyến đi này.');
+            throw new BusinessRuleException(
+                'Điểm dừng không thuộc lịch trình của chuyến đi này.'
+            );
         }
 
         // 4. Không cho tick trước cho ngày chưa tới.
-        $ngayCuaDiemDung = $this->checkpointDate($schedule, $checkpoint);
+        $ngayCuaDiemDung = $this->checkpointDate(
+            $schedule,
+            $checkpoint
+        );
 
-        if ($ngayCuaDiemDung->startOfDay()->gt($now->copy()->startOfDay())) {
+        if (
+            $ngayCuaDiemDung->startOfDay()
+                ->gt($now->copy()->startOfDay())
+        ) {
             throw new BusinessRuleException(sprintf(
                 'Điểm dừng này thuộc ngày %s, chưa tới nên chưa điểm danh được.',
                 $ngayCuaDiemDung->format('d/m/Y'),
@@ -86,8 +94,7 @@ class AttendanceService
     /**
      * Ghi điểm danh cho một hành khách tại một điểm dừng.
      *
-     * Ghi đè bản cũ thì lưu lịch sử chứ không xóa dấu vết, vì đây là dữ liệu dùng để quy trách
-     * nhiệm khi có khiếu nại.
+     * Ghi đè bản cũ thì lưu lịch sử chứ không xóa dấu vết.
      */
     public function record(
         User $guide,
@@ -100,13 +107,26 @@ class AttendanceService
     ): PassengerCheckin {
         $now ??= now();
 
-        $this->assertCanRecord($guide, $schedule, $checkpoint, $now);
+        $this->assertCanRecord(
+            $guide,
+            $schedule,
+            $checkpoint,
+            $now
+        );
 
-        // 6. Hành khách phải thuộc một đơn còn hiệu lực của đúng chuyến này.
-        $this->assertPassengerBelongsToSchedule($passenger, $schedule);
+        // 6. Hành khách phải thuộc một đơn còn hiệu lực
+        // của đúng chuyến này.
+        $this->assertPassengerBelongsToSchedule(
+            $passenger,
+            $schedule
+        );
 
-        // 7. Mọi trạng thái khác có mặt đều phải kèm lý do.
-        if ($status->requiresNote() && mb_strlen(trim((string) $note)) < self::MIN_NOTE_LENGTH) {
+        // 7. Mọi trạng thái yêu cầu lý do
+        // phải có ghi chú đủ dài.
+        if (
+            $status->requiresNote()
+            && mb_strlen(trim((string) $note)) < self::MIN_NOTE_LENGTH
+        ) {
             throw new BusinessRuleException(sprintf(
                 'Trạng thái "%s" phải kèm ghi chú ít nhất %d ký tự để giải thích lý do.',
                 $status->label(),
@@ -114,25 +134,53 @@ class AttendanceService
             ));
         }
 
-        // 5. Ghi bù muộn thì vẫn cho ghi nhưng phải đánh dấu, vì thực tế có lúc mất sóng.
+        // 5. Ghi bù muộn thì vẫn cho ghi
+        // nhưng đánh dấu là ghi muộn.
         $isLateEntry = $now->gt(
-            $this->checkpointDate($schedule, $checkpoint)->endOfDay()->addHours(self::LATE_ENTRY_AFTER_HOURS)
+            $this->checkpointDate(
+                $schedule,
+                $checkpoint
+            )
+                ->endOfDay()
+                ->addHours(self::LATE_ENTRY_AFTER_HOURS)
         );
 
-        return DB::transaction(function () use (
-            $guide, $schedule, $checkpoint, $passenger, $status, $note, $now, $isLateEntry
+        /*
+         * Lưu điểm danh.
+         */
+        $checkin = DB::transaction(function () use (
+            $guide,
+            $schedule,
+            $checkpoint,
+            $passenger,
+            $status,
+            $note,
+            $now,
+            $isLateEntry
         ) {
             $checkin = PassengerCheckin::query()
-                ->where('booking_passenger_id', $passenger->getKey())
-                ->where('itinerary_checkpoint_id', $checkpoint->getKey())
+                ->where(
+                    'booking_passenger_id',
+                    $passenger->getKey()
+                )
+                ->where(
+                    'itinerary_checkpoint_id',
+                    $checkpoint->getKey()
+                )
                 ->lockForUpdate()
                 ->first();
 
-            // 9. Sửa bản ghi đã có thì lưu lịch sử trước khi ghi đè.
+            /*
+             * Nếu đã có bản ghi thì cập nhật
+             * và lưu lịch sử thay đổi.
+             */
             if ($checkin) {
                 $trangThaiCu = $checkin->status;
 
-                if ($trangThaiCu !== $status || $checkin->note !== $note) {
+                if (
+                    $trangThaiCu !== $status
+                    || $checkin->note !== $note
+                ) {
                     PassengerCheckinHistory::create([
                         'passenger_checkin_id' => $checkin->getKey(),
                         'old_status' => $trangThaiCu?->value,
@@ -151,9 +199,12 @@ class AttendanceService
                     'is_late_entry' => $isLateEntry,
                 ]);
 
-                return $checkin;
+                return $checkin->fresh();
             }
 
+            /*
+             * Chưa có thì tạo mới.
+             */
             return PassengerCheckin::create([
                 'booking_passenger_id' => $passenger->getKey(),
                 'tour_schedule_id' => $schedule->getKey(),
@@ -165,13 +216,30 @@ class AttendanceService
                 'is_late_entry' => $isLateEntry,
             ]);
         });
+
+        /*
+         * H12
+         *
+         * Nếu hành khách vắng tại điểm đón đầu tiên
+         * hoặc điểm cuối thì gửi thông báo cho admin.
+         *
+         * Đặt sau transaction để đảm bảo điểm danh
+         * đã được lưu thành công trước khi gửi notification.
+         */
+        if ($status === PassengerCheckinStatus::Absent) {
+            $this->notifyAdminIfBoundaryCheckpoint(
+                $schedule,
+                $checkpoint,
+                $passenger,
+            );
+        }
+
+        return $checkin;
     }
 
     /**
-     * 8. Điểm dừng bắt buộc chụp ảnh thì phải có ảnh mới chốt được.
-     *
-     * Đây là cơ chế chống hướng dẫn viên ngồi nhà tick điểm danh. Ảnh chứng minh có mặt tại
-     * điểm, và cũng là bằng chứng nếu về sau khách khiếu nại là đoàn không ghé điểm đó.
+     * H08 - Điểm dừng bắt buộc chụp ảnh
+     * thì phải có ảnh mới chốt được.
      */
     public function assertCheckpointCompletable(
         TourSchedule $schedule,
@@ -182,8 +250,14 @@ class AttendanceService
         }
 
         $coAnh = CheckpointPhoto::query()
-            ->where('tour_schedule_id', $schedule->getKey())
-            ->where('itinerary_checkpoint_id', $checkpoint->getKey())
+            ->where(
+                'tour_schedule_id',
+                $schedule->getKey()
+            )
+            ->where(
+                'itinerary_checkpoint_id',
+                $checkpoint->getKey()
+            )
             ->exists();
 
         if (!$coAnh) {
@@ -195,38 +269,66 @@ class AttendanceService
     }
 
     /**
-     * Danh sách hành khách chưa được điểm danh tại một điểm dừng.
-     *
-     * Dùng cho ràng buộc mềm ở tài liệu 04 mục 5.4: không nên chuyển sang điểm dừng tiếp theo
-     * khi còn người chưa được ghi nhận.
+     * Danh sách hành khách chưa được điểm danh
+     * tại một điểm dừng.
      *
      * @return \Illuminate\Support\Collection<int, BookingPassenger>
      */
-    public function pendingPassengers(TourSchedule $schedule, ItineraryCheckpoint $checkpoint)
-    {
+    public function pendingPassengers(
+        TourSchedule $schedule,
+        ItineraryCheckpoint $checkpoint
+    ) {
         $daGhi = PassengerCheckin::query()
-            ->where('itinerary_checkpoint_id', $checkpoint->getKey())
+            ->where(
+                'itinerary_checkpoint_id',
+                $checkpoint->getKey()
+            )
             ->pluck('booking_passenger_id');
 
         return BookingPassenger::query()
             ->whereHas('booking', function ($query) use ($schedule) {
-                $query->where('tour_schedule_id', $schedule->getKey())
-                    ->whereNotIn('status', ['cancelled', 'transferred']);
+                $query
+                    ->where(
+                        'tour_schedule_id',
+                        $schedule->getKey()
+                    )
+                    ->whereNotIn(
+                        'status',
+                        ['cancelled', 'transferred']
+                    );
             })
             ->whereNotIn('id', $daGhi)
             ->get();
     }
 
-    private function assertPassengerBelongsToSchedule(BookingPassenger $passenger, TourSchedule $schedule): void
-    {
+    /**
+     * Kiểm tra hành khách có thuộc chuyến này hay không.
+     */
+    private function assertPassengerBelongsToSchedule(
+        BookingPassenger $passenger,
+        TourSchedule $schedule
+    ): void {
         $passenger->loadMissing('booking');
+
         $booking = $passenger->booking;
 
-        if (!$booking || (int) $booking->tour_schedule_id !== (int) $schedule->getKey()) {
-            throw new BusinessRuleException('Hành khách này không thuộc chuyến đi đang điểm danh.');
+        if (
+            !$booking
+            || (int) $booking->tour_schedule_id
+                !== (int) $schedule->getKey()
+        ) {
+            throw new BusinessRuleException(
+                'Hành khách này không thuộc chuyến đi đang điểm danh.'
+            );
         }
 
-        if (in_array($booking->status, ['cancelled', 'transferred'], true)) {
+        if (
+            in_array(
+                $booking->status,
+                ['cancelled', 'transferred'],
+                true
+            )
+        ) {
             throw new BusinessRuleException(
                 'Đơn của hành khách này đã hủy hoặc đã chuyển chuyến nên không nằm trong danh sách đoàn.',
             );
@@ -234,16 +336,106 @@ class AttendanceService
     }
 
     /**
+     * H12 - Báo cho điều hành khi khách vắng
+     * tại điểm đón đầu tiên hoặc điểm cuối của hành trình.
+     *
+     * Quy trình:
+     * 1. Lấy toàn bộ checkpoint của tour.
+     * 2. Sắp xếp theo ngày -> thứ tự checkpoint.
+     * 3. Xác định checkpoint đầu tiên và cuối cùng.
+     * 4. Nếu checkpoint hiện tại không phải đầu/cuối thì bỏ qua.
+     * 5. Nếu là đầu/cuối thì gửi notification cho tất cả admin.
+     */
+    private function notifyAdminIfBoundaryCheckpoint(
+        TourSchedule $schedule,
+        ItineraryCheckpoint $checkpoint,
+        BookingPassenger $passenger,
+    ): void {
+        $checkpoints = ItineraryCheckpoint::query()
+            ->whereHas('tourItinerary', function ($query) use ($schedule) {
+                $query->where(
+                    'tour_id',
+                    $schedule->tour_id
+                );
+            })
+            ->with('tourItinerary:id,day_number')
+            ->get([
+                'id',
+                'tour_itinerary_id',
+                'sequence',
+            ])
+            ->sortBy([
+                ['tourItinerary.day_number', 'asc'],
+                ['sequence', 'asc'],
+            ])
+            ->values();
+
+        if ($checkpoints->isEmpty()) {
+            return;
+        }
+
+        $firstCheckpoint = $checkpoints->first();
+        $lastCheckpoint = $checkpoints->last();
+
+        $isFirstCheckpoint =
+            (int) $checkpoint->id
+            === (int) $firstCheckpoint->id;
+
+        $isLastCheckpoint =
+            (int) $checkpoint->id
+            === (int) $lastCheckpoint->id;
+
+        /*
+         * Không phải điểm đầu cũng không phải điểm cuối
+         * thì không gửi notification.
+         */
+        if (!$isFirstCheckpoint && !$isLastCheckpoint) {
+            return;
+        }
+
+        /*
+         * Tìm tất cả tài khoản admin.
+         */
+        User::query()
+            ->where('role', 'admin')
+            ->get()
+            ->each(function (User $admin) use (
+                $schedule,
+                $checkpoint,
+                $passenger,
+                $isFirstCheckpoint
+            ) {
+                $admin->notify(
+                    new PassengerAbsentAtBoundaryNotification(
+                        $schedule,
+                        $passenger,
+                        $checkpoint,
+                        $isFirstCheckpoint,
+                    )
+                );
+            });
+    }
+
+    /**
      * Ngày thực tế của một điểm dừng trên chuyến này.
-     * Điểm dừng chỉ biết nó thuộc ngày thứ mấy của lịch trình, phải cộng với ngày khởi hành
+     *
+     * Điểm dừng chỉ biết nó thuộc ngày thứ mấy
+     * của lịch trình, phải cộng với ngày khởi hành
      * của chuyến mới ra ngày thật.
      */
-    private function checkpointDate(TourSchedule $schedule, ItineraryCheckpoint $checkpoint): Carbon
-    {
+    private function checkpointDate(
+        TourSchedule $schedule,
+        ItineraryCheckpoint $checkpoint
+    ): Carbon {
         $checkpoint->loadMissing('tourItinerary');
 
-        $ngayThu = max(1, (int) ($checkpoint->tourItinerary?->day_number ?? 1));
+        $ngayThu = max(
+            1,
+            (int) ($checkpoint->tourItinerary?->day_number ?? 1)
+        );
 
-        return Carbon::parse($schedule->start_date)->copy()->addDays($ngayThu - 1);
+        return Carbon::parse($schedule->start_date)
+            ->copy()
+            ->addDays($ngayThu - 1);
     }
 }
