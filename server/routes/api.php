@@ -154,6 +154,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/bookings/{id}/release-seats', [AdminBookingController::class, 'releaseHeldSeats']);
         Route::put('/bookings/{id}/confirm', [AdminBookingController::class, 'confirm']);
         Route::put('/bookings/{id}/cancel', [AdminBookingController::class, 'cancel']);
+        // Task X07a - Mở lại đơn đã hủy nhầm trong 24h
+        Route::put('/bookings/{id}/reopen', [AdminBookingController::class, 'reopen']);
         Route::apiResource('discount-codes', AdminDiscountCodeController::class);
 
         // Quản lý dịch vụ phát sinh (khách sạn, ăn uống, ...)

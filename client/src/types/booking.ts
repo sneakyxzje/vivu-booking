@@ -27,6 +27,9 @@ export interface Booking {
   cancel_type?: "hold_expired" | "by_customer" | "by_company" | "force_majeure" | null;
   cancelled_at?: string | null;
   cancelled_by?: number | null;
+  reopen_reason?: string | null;
+  reopened_at?: string | null;
+  reopened_by?: number | null;
   // false nghĩa là ghế chết: đơn đã hủy sau hạn chốt nên chỗ chưa được trả về kho.
   seats_released?: boolean;
   seats_released_at?: string | null;
