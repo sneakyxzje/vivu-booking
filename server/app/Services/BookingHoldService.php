@@ -210,11 +210,30 @@ class BookingHoldService
      */
     public function releaseHold(Booking $booking, ?TourSchedule $schedule): void
     {
+        // Lượt mã giảm giá luôn được trả lại, kể cả khi chỗ bị giữ. Mã giảm giá không liên quan
+        // gì tới cam kết với nhà cung cấp.
         $this->releaseDiscountUsage($booking);
 
         if (!$schedule) {
             return;
         }
+
+        if (!$this->shouldReleaseSeats($booking, $schedule)) {
+            // Ghế chết: giữ nguyên booked_people và đánh dấu để điều hành thấy trên màn hình
+            // chỗ chưa mở bán lại. Không trừ ở đây thì số chỗ đã bán mới phản ánh đúng số suất
+            // đã cam kết với nhà cung cấp.
+            $booking->forceFill([
+                'seats_released' => false,
+                'seats_released_at' => null,
+            ])->save();
+
+            return;
+        }
+
+        $booking->forceFill([
+            'seats_released' => true,
+            'seats_released_at' => now(),
+        ])->save();
 
         $schedule->decrement('booked_people', min($booking->guests, (int) $schedule->booked_people));
         $schedule->refresh();
@@ -231,6 +250,62 @@ class BookingHoldService
         $this->refreshTourAvailability($schedule);
     }
 
+    /**
+     * Mở lại chỗ thủ công cho một đơn đã hủy sau hạn chốt.
+     *
+     * Hệ thống cố ý không tự làm việc này. Chỉ điều hành mới biết có gọi được cho nhà cung cấp
+     * để xin thêm suất hay không, nên đây phải là quyết định của con người.
+     *
+     * Trả về false khi đơn không ở trạng thái mở lại được, để lời gọi phân biệt với trường hợp
+     * mở lại thành công.
+     */
+    public function releaseHeldSeats(Booking $booking, ?int $actorId = null): bool
+    {
+        return DB::transaction(function () use ($booking, $actorId) {
+            $schedule = $booking->tour_schedule_id
+                ? TourSchedule::query()
+                    ->whereKey($booking->tour_schedule_id)
+                    ->lockForUpdate()
+                    ->first()
+                : null;
+
+            $fresh = Booking::query()->whereKey($booking->getKey())->lockForUpdate()->first();
+
+            // Đọc lại sau khi khóa: hai người cùng bấm mở lại thì người sau phải thấy chỗ đã
+            // được trả và dừng, chứ không trừ booked_people lần thứ hai.
+            if (!$fresh || $fresh->status !== 'cancelled' || $fresh->seats_released) {
+                return false;
+            }
+
+            $fresh->forceFill([
+                'seats_released' => true,
+                'seats_released_at' => now(),
+                'seats_released_by' => $actorId,
+            ])->save();
+
+            if (!$schedule) {
+                return true;
+            }
+
+            $schedule->decrement('booked_people', min($fresh->guests, (int) $schedule->booked_people));
+            $schedule->refresh();
+
+            if ($schedule->status === ScheduleStatus::Closed
+                && $schedule->booked_people < $schedule->max_people) {
+                $this->lifecycle->transitionTo(
+                    $schedule,
+                    ScheduleStatus::Open,
+                    'Điều hành mở lại chỗ của đơn đã hủy sau hạn chốt danh sách.',
+                    $actorId,
+                );
+            }
+
+            $this->refreshTourAvailability($schedule);
+
+            return true;
+        });
+    }
+
     public function releaseDiscountUsage(Booking $booking): void
     {
         $booking->loadMissing('discountCode');
@@ -244,6 +319,11 @@ class BookingHoldService
 
     private function expireLocked(Booking $booking, ?TourSchedule $schedule): void
     {
+        $booking->forceFill([
+            'cancel_type' => 'hold_expired',
+            'cancelled_at' => now(),
+        ])->save();
+
         $booking->update([
             'status' => 'cancelled',
             'cancel_reason' => self::EXPIRED_REASON,

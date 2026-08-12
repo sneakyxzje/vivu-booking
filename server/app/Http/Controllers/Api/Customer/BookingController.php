@@ -294,6 +294,9 @@ class BookingController extends Controller
             $fresh->update([
                 'status' => 'cancelled',
                 'cancel_reason' => $validated['cancel_reason'],
+                'cancel_type' => 'by_customer',
+                'cancelled_at' => now(),
+                'cancelled_by' => $fresh->customer_id,
             ]);
 
             $this->holdService->releaseHold($fresh, $schedule);

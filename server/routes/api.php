@@ -142,7 +142,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('guides', AdminGuideController::class);
 
         Route::get('/bookings', [AdminBookingController::class, 'index']);
+        // Phải khai trước /bookings/{id}, nếu không "held-seats" sẽ bị khớp vào {id}.
+        Route::get('/bookings/held-seats', [AdminBookingController::class, 'heldSeats']);
         Route::get('/bookings/{id}', [AdminBookingController::class, 'show']);
+        Route::put('/bookings/{id}/release-seats', [AdminBookingController::class, 'releaseHeldSeats']);
         Route::put('/bookings/{id}/confirm', [AdminBookingController::class, 'confirm']);
         Route::put('/bookings/{id}/cancel', [AdminBookingController::class, 'cancel']);
         Route::apiResource('discount-codes', AdminDiscountCodeController::class);

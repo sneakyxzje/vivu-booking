@@ -24,6 +24,13 @@ export interface Booking {
   status: BookingStatus;
   expires_at?: string | null;
   cancel_reason?: string | null;
+  cancel_type?: "hold_expired" | "by_customer" | "by_company" | "force_majeure" | null;
+  cancelled_at?: string | null;
+  cancelled_by?: number | null;
+  // false nghĩa là ghế chết: đơn đã hủy sau hạn chốt nên chỗ chưa được trả về kho.
+  seats_released?: boolean;
+  seats_released_at?: string | null;
+  refund_amount?: string | number | null;
   note: string | null;
   vnpay_transaction_no: string | null;
   paid_at: string | null;
