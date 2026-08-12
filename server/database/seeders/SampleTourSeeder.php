@@ -186,11 +186,14 @@ class SampleTourSeeder extends Seeder
             ],
         ];
 
-        DB::transaction(function () use ($admin, $guide, $categories, $services, $tours) {
+        $chinhSachHuy = \App\Models\CancellationPolicy::query()->where('is_default', true)->first();
+
+        DB::transaction(function () use ($admin, $guide, $categories, $services, $tours, $chinhSachHuy) {
             foreach ($tours as $tourData) {
                 $tour = Tour::query()->updateOrCreate(
                     ['slug' => $tourData['slug']],
                     [
+                        'cancellation_policy_id' => $chinhSachHuy?->id,
                         'admin_id' => $admin->id,
                         'title' => $tourData['title'],
                         'description' => $tourData['description'],

@@ -146,6 +146,8 @@ class TourController extends Controller
             'itineraries',
             'schedules',
             'schedules.guide:id,name',
+            // Khách phải đọc được điều khoản hủy trước khi đặt, không phải sau khi muốn hủy.
+            'cancellationPolicy.rules',
         ])
             ->withAvg('reviews as rating', 'rating')
             ->withCount('reviews')

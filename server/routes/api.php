@@ -58,6 +58,8 @@ Route::get('/services', fn() => response()->json([
 ]));
 Route::post('/bookings', [CustomerBookingController::class, 'store']);
 Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']);
+// Mức hoàn dự kiến nếu hủy ngay bây giờ. Khách vãng lai cũng xem được bằng mã tra cứu.
+Route::get('/bookings/{publicToken}/refund-quote', [CustomerBookingController::class, 'refundQuote']);
 Route::post('/discount-codes/validate', [DiscountCodeController::class, 'validateCode']);
 Route::get('/vnpay/return', [CustomerBookingController::class, 'vnpayReturn']);
 Route::get('/reviews/{tour}', [ReviewController::class,'index']);

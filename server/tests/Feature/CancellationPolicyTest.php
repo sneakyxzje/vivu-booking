@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Booking;
+use App\Models\CancellationPolicy;
 use App\Models\TourSchedule;
 use App\Services\CancellationPolicyService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
@@ -17,6 +19,10 @@ use Tests\TestCase;
  */
 class CancellationPolicyTest extends TestCase
 {
+    // quote() tra bảng chính sách trong cơ sở dữ liệu trước khi rơi về bảng phí trong mã,
+    // nên cần schema. Không seed gì để các bài dưới chạy trên bảng mặc định.
+    use RefreshDatabase;
+
     private CancellationPolicyService $service;
 
     protected function setUp(): void
@@ -165,6 +171,47 @@ class CancellationPolicyTest extends TestCase
 
         $this->assertSame(80, $this->service->refundPercent(150.0, $quyTac));
         $this->assertSame(10, $this->service->refundPercent(50.0, $quyTac));
+    }
+
+    /**
+     * Thứ tự ưu tiên: chính sách đã sao chép vào đơn, rồi chính sách mặc định trong cơ sở
+     * dữ liệu, cuối cùng mới tới bảng phí viết trong mã.
+     */
+    public function test_chinh_sach_cua_don_thang_chinh_sach_mac_dinh(): void
+    {
+        $macDinh = CancellationPolicy::create(['name' => 'Mặc định', 'is_default' => true]);
+        $macDinh->rules()->create([
+            'min_hours_before' => 0, 'max_hours_before' => null, 'refund_percent' => 10,
+        ]);
+
+        $rieng = CancellationPolicy::create(['name' => 'Tour lễ tết', 'is_default' => false]);
+        $rieng->rules()->create([
+            'min_hours_before' => 0, 'max_hours_before' => null, 'refund_percent' => 55,
+        ]);
+
+        $booking = $this->booking(10_000_000);
+        $booking->cancellation_policy_id = $rieng->id;
+        $booking->setRelation('cancellationPolicy', $rieng);
+
+        $ketQua = $this->service->quote($booking, $this->schedule(24 * 10));
+
+        $this->assertSame(55, $ketQua['refund_percent']);
+    }
+
+    /**
+     * Đơn chưa gắn chính sách thì dùng chính sách mặc định trong cơ sở dữ liệu, không rơi
+     * thẳng về bảng phí trong mã.
+     */
+    public function test_don_khong_gan_chinh_sach_thi_dung_mac_dinh_trong_co_so_du_lieu(): void
+    {
+        $macDinh = CancellationPolicy::create(['name' => 'Mặc định', 'is_default' => true]);
+        $macDinh->rules()->create([
+            'min_hours_before' => 0, 'max_hours_before' => null, 'refund_percent' => 25,
+        ]);
+
+        $ketQua = $this->service->quote($this->booking(10_000_000), $this->schedule(24 * 10));
+
+        $this->assertSame(25, $ketQua['refund_percent']);
     }
 
     public function test_lam_tron_ve_dong_nguyen(): void
