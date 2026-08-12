@@ -37,7 +37,7 @@ class AdminTourController extends Controller
             'categories',
             'services',
             'images',
-            'itineraries',
+            'itineraries.checkpoints',
             'schedules',
         ])
             ->latest()
@@ -53,7 +53,7 @@ class AdminTourController extends Controller
             'categories',
             'services',
             'images',
-            'itineraries',
+            'itineraries.checkpoints',
             'schedules.guide:id,name,email,phone,status',
         ])->find($id);
 
@@ -127,6 +127,13 @@ class AdminTourController extends Controller
             'itineraries.*.route_points' => ['nullable', 'string'],
             'itineraries.*.rest_stops' => ['nullable', 'string'],
             'itineraries.*.content' => ['required_with:itineraries', 'string'],
+            'itineraries.*.checkpoints' => ['nullable', 'array'],
+            'itineraries.*.checkpoints.*.name' => ['required_with:itineraries.*.checkpoints', 'string', 'max:255'],
+            'itineraries.*.checkpoints.*.description' => ['nullable', 'string'],
+            'itineraries.*.checkpoints.*.latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'itineraries.*.checkpoints.*.longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'itineraries.*.checkpoints.*.sequence' => ['required_with:itineraries.*.checkpoints', 'integer', 'min:1'],
+            'itineraries.*.checkpoints.*.is_required_photo' => ['nullable', 'boolean'],
             'schedules' => ['nullable', 'array'],
             'schedules.*.start_date' => ['required_with:schedules', 'date', 'after_or_equal:today'],
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
@@ -192,7 +199,7 @@ class AdminTourController extends Controller
             }
 
             foreach ($itineraries as $item) {
-                $tour->itineraries()->create([
+                $itinerary = $tour->itineraries()->create([
                     'day_number' => $item['day_number'],
                     'title' => $item['title'],
                     'start_point' => $item['start_point'] ?? null,
@@ -201,6 +208,17 @@ class AdminTourController extends Controller
                     'rest_stops' => $item['rest_stops'] ?? null,
                     'content' => $item['content'],
                 ]);
+
+                foreach ($item['checkpoints'] ?? [] as $checkpoint) {
+                    $itinerary->checkpoints()->create([
+                        'name' => $checkpoint['name'],
+                        'description' => $checkpoint['description'] ?? null,
+                        'latitude' => $checkpoint['latitude'] ?? null,
+                        'longitude' => $checkpoint['longitude'] ?? null,
+                        'sequence' => $checkpoint['sequence'],
+                        'is_required_photo' => $checkpoint['is_required_photo'] ?? false,
+                    ]);
+                }
             }
 
             foreach ($schedules as $item) {
@@ -285,6 +303,14 @@ class AdminTourController extends Controller
             'itineraries.*.route_points' => ['nullable', 'string'],
             'itineraries.*.rest_stops' => ['nullable', 'string'],
             'itineraries.*.content' => ['required_with:itineraries', 'string'],
+            'itineraries.*.checkpoints' => ['nullable', 'array'],
+            'itineraries.*.checkpoints.*.id' => ['nullable', 'exists:itinerary_checkpoints,id'],
+            'itineraries.*.checkpoints.*.name' => ['required_with:itineraries.*.checkpoints', 'string', 'max:255'],
+            'itineraries.*.checkpoints.*.description' => ['nullable', 'string'],
+            'itineraries.*.checkpoints.*.latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'itineraries.*.checkpoints.*.longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'itineraries.*.checkpoints.*.sequence' => ['required_with:itineraries.*.checkpoints', 'integer', 'min:1'],
+            'itineraries.*.checkpoints.*.is_required_photo' => ['nullable', 'boolean'],
             'schedules' => ['nullable', 'array'],
             'schedules.*.id' => ['nullable', 'exists:tour_schedules,id'],
             'schedules.*.start_date' => ['required_with:schedules', 'date'],
@@ -342,8 +368,9 @@ class AdminTourController extends Controller
             $tour->services()->sync($serviceIds);
 
             $tour->itineraries()->delete();
+
             foreach ($itineraries as $item) {
-                $tour->itineraries()->create([
+                $itinerary = $tour->itineraries()->create([
                     'day_number' => $item['day_number'],
                     'title' => $item['title'],
                     'start_point' => $item['start_point'] ?? null,
@@ -352,6 +379,17 @@ class AdminTourController extends Controller
                     'rest_stops' => $item['rest_stops'] ?? null,
                     'content' => $item['content'],
                 ]);
+
+                foreach ($item['checkpoints'] ?? [] as $checkpoint) {
+                    $itinerary->checkpoints()->create([
+                        'name' => $checkpoint['name'],
+                        'description' => $checkpoint['description'] ?? null,
+                        'latitude' => $checkpoint['latitude'] ?? null,
+                        'longitude' => $checkpoint['longitude'] ?? null,
+                        'sequence' => $checkpoint['sequence'],
+                        'is_required_photo' => $checkpoint['is_required_photo'] ?? false,
+                    ]);
+                }
             }
 
             $keptScheduleIds = [];
