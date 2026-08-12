@@ -155,6 +155,56 @@ class BookingHoldService
     }
 
     /**
+     * Hủy đơn này thì có trả chỗ về kho để bán lại không.
+     *
+     * Câu trả lời cho câu hỏi số 8 của hội đồng. Lý do đầy đủ ở
+     * docs/nghiep-vu/03-luong-huy-va-hoan-tien.md mục 3.
+     *
+     * Hai tình huống khác nhau, không được áp chung một luật:
+     *
+     * 1. Đơn CHƯA vào danh sách đoàn (giữ chỗ quá hạn thanh toán) thì luôn trả chỗ. Chỗ đó
+     *    chưa bao giờ nằm trong danh sách gửi nhà cung cấp. Nếu giữ lại thì một người vào giữ
+     *    chỗ lúc hai giờ sáng rồi bỏ đi cũng làm mất vĩnh viễn một chỗ bán được.
+     *
+     * 2. Đơn ĐÃ vào danh sách đoàn mà hủy sau hạn chốt thì KHÔNG trả chỗ. Phòng, ghế và suất ăn
+     *    đã chốt theo danh sách này. Trả về kho là bán ra một chỗ không có dịch vụ đi kèm.
+     *    Chỗ đó thành ghế chết: hãng đã trả tiền cho nó nhưng không có khách.
+     *
+     * Điều hành vẫn mở lại được thủ công khi xin thêm được suất từ nhà cung cấp, nhưng đó là
+     * quyết định của con người chứ không phải mặc định của hệ thống.
+     */
+    public function shouldReleaseSeats(Booking $booking, ?TourSchedule $schedule): bool
+    {
+        if (!$schedule) {
+            return false;
+        }
+
+        if (!$this->hasEnteredManifest($booking)) {
+            return true;
+        }
+
+        $deadline = $schedule->booking_deadline ?? $schedule->defaultBookingDeadline();
+
+        if (!$deadline) {
+            return true;
+        }
+
+        return now()->lt($deadline);
+    }
+
+    /**
+     * Đơn đã từng được đưa vào danh sách đoàn gửi nhà cung cấp chưa.
+     *
+     * Xét paid_at và confirmed_at chứ không xét status, vì tại thời điểm hàm này chạy thì
+     * status đã bị đổi sang cancelled rồi. confirmed_at được đặt ở cả ba đường vào danh sách:
+     * thanh toán thành công, quản trị xác nhận tay, và hướng dẫn viên xác nhận.
+     */
+    private function hasEnteredManifest(Booking $booking): bool
+    {
+        return $booking->paid_at !== null || $booking->confirmed_at !== null;
+    }
+
+    /**
      * Trả chỗ + mở lại lịch/tour + hoàn lượt mã giảm giá.
      * Phải gọi bên trong transaction đã lock schedule tương ứng.
      */
