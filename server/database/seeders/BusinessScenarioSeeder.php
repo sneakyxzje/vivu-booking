@@ -201,7 +201,9 @@ class BusinessScenarioSeeder extends Seeder
             ['ma' => 'S6', 'gio' => -24, 'status' => ScheduleStatus::InProgress, 'min' => 4, 'mo_ta' => 'Đang chạy: khóa hủy, mở điểm danh'],
             ['ma' => 'S7', 'gio' => -120, 'status' => ScheduleStatus::Completed, 'min' => 4, 'mo_ta' => 'Đã kết thúc, đơn chờ chốt'],
             ['ma' => 'S8', 'gio' => 360, 'status' => ScheduleStatus::Cancelled, 'min' => 4, 'mo_ta' => 'Chuyến bị hủy, trạng thái cuối'],
-            ['ma' => 'S9', 'gio' => 720, 'status' => ScheduleStatus::Open, 'min' => 6, 'mo_ta' => 'Thiếu khách so với mức tối thiểu'],
+            // Hạn chốt rơi vào trong 18 giờ tới, tức nằm trong cửa sổ 24 giờ mà lệnh chốt chuyến
+            // xét tới. Đặt xa hơn thì lệnh không nhìn tới chuyến này và chạy xong không thấy gì.
+            ['ma' => 'S9', 'gio' => 90, 'status' => ScheduleStatus::Open, 'min' => 2, 'mo_ta' => 'Đủ khách tối thiểu và tới hạn chốt: lệnh sẽ tự chốt'],
         ];
 
         foreach ($chuyen as $item) {
@@ -290,8 +292,10 @@ class BusinessScenarioSeeder extends Seeder
         $this->taoDon('S7', 'confirmed', 2, 0, 'Chạy bookings:finalize-completed: cả hai vắng ở điểm đón, thành KHÁCH KHÔNG CÓ MẶT', 'D03', ['Vũ Đình Hải', 'Vũ Thị Hoa']);
         $this->taoDon('S7', 'confirmed', 1, 0, 'Chạy bookings:finalize-completed: không điểm danh gì, vẫn thành ĐÃ HOÀN THÀNH vì thiếu bằng chứng', 'D03', ['Bùi Thanh Khang']);
 
-        // Nhóm A: chuyến thiếu khách so với mức tối thiểu.
-        $this->taoDon('S9', 'confirmed', 2, 0, 'Chạy schedules:confirm-ready: chuyến này thiếu khách nên bị cảnh báo, không chốt', 'A');
+        // Nhóm A: hai mặt của lệnh chốt chuyến. S4 thiếu khách nên chỉ bị cảnh báo, S9 đủ khách
+        // nên được chốt thật. Có cả hai mới thấy lệnh biết phân biệt, chứ không phải cứ tới hạn
+        // là chốt bừa.
+        $this->taoDon('S9', 'confirmed', 2, 0, 'Chạy schedules:confirm-ready: đủ khách nên chuyến được chốt tự động', 'A');
     }
 
     /**

@@ -206,15 +206,61 @@ class BusinessScenarioSeederTest extends TestCase
         $this->assertFalse($don->isOverdue(), 'Đơn phải còn hạn thanh toán mới bấm hủy được.');
     }
 
-    public function test_chuyen_thieu_khach_khong_du_muc_toi_thieu(): void
+    /**
+     * Lệnh chốt chuyến chỉ xét chuyến có hạn chốt rơi trong 24 giờ tới. Hai chuyến phải nằm
+     * trong cửa sổ đó, một thiếu khách một đủ khách, thì chạy lệnh mới thấy nó biết phân biệt.
+     */
+    public function test_lenh_chot_chuyen_co_ca_ca_thieu_khach_lan_du_khach_de_xu_ly(): void
     {
-        $schedule = $this->chuyen(9);
+        $window = now()->addHours((int) config('booking.confirm_window_hours', 24));
+
+        $thieuKhach = $this->chuyen(4);
+        $duKhach = $this->chuyen(9);
+
+        foreach ([$thieuKhach, $duKhach] as $schedule) {
+            $this->assertNotNull($schedule->booking_deadline);
+            $this->assertTrue(
+                $schedule->booking_deadline->lte($window),
+                "Chuyến #{$schedule->id} nằm ngoài cửa sổ 24 giờ nên lệnh sẽ không nhìn tới.",
+            );
+        }
 
         $this->assertLessThan(
-            (int) $schedule->min_people,
-            (int) $schedule->booked_people,
-            'S9 phải thiếu khách để lệnh chốt chuyến cảnh báo.',
+            (int) $thieuKhach->min_people,
+            $this->khachDaTraTien($thieuKhach),
+            'S4 phải thiếu khách đã thanh toán để lệnh cảnh báo.',
         );
+
+        $this->assertGreaterThanOrEqual(
+            (int) $duKhach->min_people,
+            $this->khachDaTraTien($duKhach),
+            'S9 phải đủ khách đã thanh toán để lệnh chốt được.',
+        );
+    }
+
+    /** Lệnh chốt chuyến chạy xong thì S9 phải chuyển sang đã chốt, S4 thì không. */
+    public function test_chay_lenh_chot_chuyen_thi_dung_chuyen_du_khach_duoc_chot(): void
+    {
+        $this->artisan('schedules:confirm-ready')->assertSuccessful();
+
+        $this->assertSame(
+            ScheduleStatus::Confirmed->value,
+            $this->chuyen(9)->fresh()->getRawOriginal('status'),
+        );
+
+        $this->assertSame(
+            ScheduleStatus::Closed->value,
+            $this->chuyen(4)->fresh()->getRawOriginal('status'),
+            'S4 thiếu khách nên phải giữ nguyên trạng thái.',
+        );
+    }
+
+    private function khachDaTraTien(TourSchedule $schedule): int
+    {
+        return (int) Booking::query()
+            ->where('tour_schedule_id', $schedule->id)
+            ->whereIn('status', BookingStatus::paidValues())
+            ->sum('guests');
     }
 
     /**

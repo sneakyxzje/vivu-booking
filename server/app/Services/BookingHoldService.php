@@ -204,6 +204,14 @@ class BookingHoldService
         return $booking->paid_at !== null || $booking->confirmed_at !== null;
     }
 
+    /** Chuyến còn nhận đặt mới hay đã qua hạn chốt danh sách. */
+    private function conTrongHanChot(TourSchedule $schedule): bool
+    {
+        $deadline = $schedule->booking_deadline ?? $schedule->defaultBookingDeadline();
+
+        return !$deadline || now()->lt($deadline);
+    }
+
     /**
      * Trả chỗ + mở lại lịch/tour + hoàn lượt mã giảm giá.
      * Phải gọi bên trong transaction đã lock schedule tương ứng.
@@ -290,8 +298,16 @@ class BookingHoldService
             $schedule->decrement('booked_people', min($fresh->guests, (int) $schedule->booked_people));
             $schedule->refresh();
 
+            // Chỉ mở bán lại khi chuyến vẫn còn trong hạn chốt danh sách.
+            //
+            // Ghế chết theo định nghĩa chỉ sinh ra sau hạn chốt, nên nhánh này gần như luôn rơi
+            // vào chuyến đã quá hạn. Mở nó về "đang mở bán" là ghi một trạng thái không đúng:
+            // chuyến hiện là mở bán trên màn hình quản trị trong khi khách vẫn không đặt được,
+            // và tác vụ đóng bán chạy sau đó lại đóng nó về ngay. Trả chỗ về kho là chuyện của
+            // số chỗ, không phải lý do để mở lại việc bán.
             if ($schedule->status === ScheduleStatus::Closed
-                && $schedule->booked_people < $schedule->max_people) {
+                && $schedule->booked_people < $schedule->max_people
+                && $this->conTrongHanChot($schedule)) {
                 $this->lifecycle->transitionTo(
                     $schedule,
                     ScheduleStatus::Open,

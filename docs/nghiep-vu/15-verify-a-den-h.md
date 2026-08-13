@@ -80,7 +80,10 @@ Lệnh in ra bảng chín chuyến kèm trạng thái. Đăng nhập khách: `cu
 | S6 | đã qua 24h | Đang khởi hành | **Chặn hủy** ở cả hai trang. Điểm danh: một đơn đã ghi dở, một đơn chưa ghi gì |
 | S7 | đã qua 120h | Đã kết thúc | Chạy `bookings:finalize-completed`: ba đơn ra ba kết quả khác nhau |
 | S8 | còn 360h | Đã hủy chuyến | Trạng thái cuối, không đi đâu được nữa |
-| S9 | còn 720h | Đang mở bán | Thiếu khách so với mức tối thiểu, `schedules:confirm-ready` sẽ cảnh báo |
+| S9 | còn 90h | Đang mở bán | Đủ khách và tới hạn chốt, `schedules:confirm-ready` sẽ **chốt** chuyến này |
+
+S4 và S9 là cặp đối chứng cho lệnh chốt chuyến: cả hai đều tới hạn chốt, nhưng S4 thiếu khách nên
+chỉ bị cảnh báo còn S9 đủ khách nên được chốt thật.
 
 ### Ba cặp đối chứng đáng thử nhất
 
@@ -497,16 +500,110 @@ xin hủy chưa có ở đâu cả, kể cả API. Bảng phí hủy của nhóm
 **Phạm vi cố ý bỏ ngoài** nằm ở [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md), tám mảng,
 kèm lý do từng mảng.
 
-## 9. Kịch bản demo ngắn nhất
+## 9. Một buổi test đầy đủ, khoảng 40 phút
 
-Nếu chỉ có mười phút, chạy đúng bốn bước này. Đây là bốn câu hội đồng đã hỏi trực tiếp.
+Thứ tự dưới đây có tính toán: bước sau không phá dữ liệu bước trước cần, và các thao tác không
+đảo ngược được đặt sau các thao tác chỉ đọc. Đi đúng thứ tự thì một lần seed chạy hết được cả
+buổi.
 
-| Bước | Thao tác | Chứng minh nhóm |
+### Chuẩn bị
+
+```
+cd server
+php artisan migrate:fresh --seed
+```
+
+Mở sẵn ba cửa sổ trình duyệt, mỗi cửa sổ một tài khoản:
+
+| | Tài khoản | Vào |
 | --- | --- | --- |
-| 1 | Hủy đơn sau hạn chốt, chỉ ra số chỗ **không** trả về | C |
-| 2 | Mở màn Chỗ đã hủy chưa mở bán lại, mở lại kèm lý do | C |
-| 3 | Thử hủy đơn của chuyến S6 từ trang quản trị, chỉ ra bị chặn | A, D |
-| 4 | Điểm danh một người vắng, chỉ ra ghi chú bắt buộc và lịch sử sửa | H |
+| Quản trị | `admin@gmail.com` / `admin123` | `/admin` |
+| Hướng dẫn viên | `guide@gmail.com` / `guide123` | `/guide` |
+| Khách | `customer@gmail.com` / `customer123` | `/my-bookings` |
 
-Nhóm B khó demo bằng thao tác vì phải chờ mốc thời gian. Thay bằng mở
-`CancellationPolicyManagement`, đổi một mức hoàn, rồi chỉ ra đơn cũ vẫn giữ mức cũ.
+Ghi lại **id của chuyến S6** từ `/admin/schedules`, lát nữa cần để mở màn điểm danh.
+
+### Vòng 1 — Nhìn trước, chưa bấm gì (5 phút)
+
+| # | Làm | Thấy | Nhóm |
+| --- | --- | --- | --- |
+| 1 | `/admin/schedules`, lọc tour Thử Nghiệm | Chín chuyến, sáu trạng thái nằm cạnh nhau | A |
+| 2 | `/admin/bookings` → mở lần lượt năm đơn ghi "Hủy thử" → bấm **Hủy đơn** → đọc bảng dự báo → bấm **Không hủy nữa** | Mức hoàn 90 / 70 / 50 / 30 / 0 tương ứng | B |
+
+Vòng này không mất dữ liệu. Đọc xong năm con số là thấy trọn bảng phí hủy.
+
+### Vòng 2 — Cặp đối chứng của nhóm C (10 phút)
+
+| # | Làm | Thấy | Nhóm |
+| --- | --- | --- | --- |
+| 3 | Hủy **thật** đơn của **S3** | Dự báo báo trước "chỗ sẽ được trả về kho". Xong, `/admin/schedules` cho thấy S3 giảm chỗ | C |
+| 4 | Hủy **thật** đơn của **S4** | Dự báo cảnh báo đỏ **chỗ không quay lại kho**. Xong, số chỗ của S4 **giữ nguyên** | C |
+| 5 | `/admin/held-seats` | Hai dòng ghế chết: một dựng sẵn, một vừa sinh ra ở bước 4 | C |
+| 6 | Mở lại một dòng, nhập lý do | Số chỗ S4 giảm, nhưng trạng thái chuyến **vẫn Đã đóng bán** | C, A |
+
+Bước 6 là chi tiết dễ bỏ qua nhất. Trả chỗ về kho là chuyện của **số chỗ**; chuyến đã qua hạn
+chốt thì vẫn không nhận đặt mới, nên không được kéo về "đang mở bán".
+
+Bước 3 với bước 4 là hai đơn giống hệt nhau, cách nhau 60 giờ, ra hai kết quả khác nhau. Nếu chỉ
+demo được một thứ thì demo chỗ này.
+
+### Vòng 3 — Nhóm D, hai lối vào (5 phút)
+
+| # | Làm | Thấy | Nhóm |
+| --- | --- | --- | --- |
+| 7 | `/admin/bookings` → đơn của **S6** → **Hủy đơn** | Nút xác nhận bị khóa, kèm câu nêu rõ chuyến đang chạy | D |
+| 8 | Cửa sổ khách → `/my-bookings` → đơn **chờ thanh toán** của S1 → **Hủy đơn** | Hủy được, vì chuyến chưa khởi hành và đơn chưa thu tiền | D |
+
+Bước 8 cũng cho thấy giới hạn hiện tại: chỉ đơn chưa thanh toán mới có nút. Đơn đã trả tiền đi
+đường duyệt của nhóm F, chưa dựng — xem mục 8.
+
+### Vòng 4 — Nhóm H (10 phút)
+
+| # | Làm | Thấy | Nhóm |
+| --- | --- | --- | --- |
+| 9 | Cửa sổ hướng dẫn viên → `/guide/attendance/<id S6>` | Điểm dừng gom theo ngày. Một đơn đã ghi dở, một đơn chưa ghi gì | H |
+| 10 | Đánh vắng một người, gõ ghi chú dưới 10 ký tự | Bị chặn ngay tại chỗ, chưa gửi đi | H |
+| 11 | Gõ đủ ghi chú rồi lưu, sau đó sửa lại thành có mặt | Lưu được cả hai lần | H |
+| 12 | Cửa sổ quản trị → `/admin/tour-schedules/<id S6>/attendance` | Trạng thái mới, và người vừa sửa hiện dấu vết thay đổi | H |
+| 13 | Bấm sang điểm dừng của **ngày mai** rồi thử ghi | Bị từ chối: chưa tới ngày | H |
+
+### Vòng 5 — Tác vụ nền (5 phút)
+
+Chạy lần lượt, đọc kỹ phần in ra:
+
+```
+php artisan schedules:confirm-ready
+```
+S9 đủ khách nên **được chốt**; S4 thiếu khách nên chỉ **bị cảnh báo**. Cùng một lệnh, hai kết quả
+— đó là điểm cần chỉ ra: lệnh biết phân biệt chứ không chốt bừa mọi chuyến tới hạn.
+
+```
+php artisan bookings:release-expired
+```
+Đơn chờ thanh toán quá hạn của S5 bị hủy và **chỗ được trả về**, dù S5 đã qua hạn chốt. Đối chứng
+trực tiếp với ghế chết ở bước 4: chưa trả tiền thì chưa cam kết gì với nhà cung cấp.
+
+```
+php artisan bookings:finalize-completed
+```
+S7 ra ba kết quả: một đơn **khách không có mặt**, hai đơn **đã hoàn thành**. Đơn không ai điểm
+danh vẫn là đã hoàn thành — thiếu bằng chứng thì không kết luận bất lợi cho khách.
+
+### Vòng 6 — Đối soát cuối buổi
+
+```
+php artisan bookings:check-seat-consistency
+```
+
+Phải báo **"Số chỗ của mọi chuyến đều khớp"**.
+
+Đây là bước đáng giá nhất của cả buổi. Sau khi đã hủy đơn, sinh ghế chết, mở lại chỗ, nhả đơn quá
+hạn và chốt chuyến, số chỗ ghi trên từng chuyến vẫn khớp với số chỗ thực tế bị chiếm. Không phải
+vì may, mà vì mọi đường ghi đều đi qua tầng dịch vụ.
+
+Nếu lệnh này báo lệch, có lỗi thật. Đừng chạy `--fix` cho hết đỏ trước khi hiểu vì sao lệch.
+
+### Nếu chỉ có mười phút
+
+Bước 3, 4, 6 (nhóm C), bước 7 (nhóm D), bước 10 (nhóm H), rồi vòng 6. Bốn câu hội đồng đã hỏi
+trực tiếp nằm trọn trong đó.

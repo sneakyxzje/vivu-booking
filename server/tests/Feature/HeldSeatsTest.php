@@ -165,6 +165,64 @@ class HeldSeatsTest extends TestCase
             ->assertJsonPath('data.refund_amount', 3600000);
     }
 
+    /**
+     * Mở lại chỗ trả số chỗ về kho, nhưng không được kéo chuyến về "đang mở bán".
+     *
+     * Ghế chết chỉ sinh ra sau hạn chốt danh sách, nên nhánh mở lại luôn chạy trên chuyến đã quá
+     * hạn. Ghi trạng thái đang mở bán ở đó là nói dối màn hình quản trị: khách vẫn không đặt
+     * được vì hạn chốt đã qua, và tác vụ đóng bán chạy phút sau lại đóng về, thành ra trạng thái
+     * nhấp nháy mà không ai hiểu vì sao.
+     */
+    public function test_mo_lai_cho_khong_keo_chuyen_qua_han_ve_dang_mo_ban(): void
+    {
+        [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->subHour()->toDateTimeString());
+        $schedule->update(['status' => ScheduleStatus::Closed->value]);
+
+        $admin = $this->taoAdmin();
+        Sanctum::actingAs($admin);
+
+        $this->putJson("/api/admin/bookings/{$booking->id}/cancel", [
+            'cancel_reason' => 'Khach huy sat ngay di',
+        ])->assertOk();
+
+        $this->putJson("/api/admin/bookings/{$booking->id}/release-seats")->assertOk();
+
+        $schedule->refresh();
+
+        $this->assertSame(0, (int) $schedule->booked_people, 'Chỗ vẫn phải về kho.');
+        $this->assertSame(
+            ScheduleStatus::Closed->value,
+            $schedule->getRawOriginal('status'),
+            'Chuyến đã qua hạn chốt thì giữ nguyên đã đóng bán.',
+        );
+    }
+
+    /** Còn trong hạn chốt thì mở lại chỗ kéo theo mở bán lại, vì lúc đó bán tiếp được thật. */
+    public function test_mo_lai_cho_khi_con_trong_han_thi_chuyen_mo_ban_lai(): void
+    {
+        [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
+
+        $admin = $this->taoAdmin();
+        Sanctum::actingAs($admin);
+
+        // Dựng thẳng một đơn đã hủy mà chỗ chưa trả, tình huống chỉ sinh ra được bằng tay khi
+        // hạn chốt còn phía trước.
+        $booking->forceFill([
+            'status' => 'cancelled',
+            'cancelled_at' => now()->subHour(),
+            'seats_released' => false,
+        ])->save();
+
+        $schedule->update(['status' => ScheduleStatus::Closed->value]);
+
+        $this->putJson("/api/admin/bookings/{$booking->id}/release-seats")->assertOk();
+
+        $this->assertSame(
+            ScheduleStatus::Open->value,
+            $schedule->fresh()->getRawOriginal('status'),
+        );
+    }
+
     public function test_huy_truoc_han_chot_thi_cho_ve_kho_ngay(): void
     {
         [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
