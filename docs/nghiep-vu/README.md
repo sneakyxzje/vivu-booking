@@ -26,6 +26,7 @@ thiếu so với tầng **bán tour** đã có.
 | [12 - Phân công nhóm](12-phan-cong-nhom.md) | Giao việc cho bốn thành viên, lịch Mốc 1, quy tắc phối hợp, phương án cắt phạm vi |
 | [13 - Kế hoạch một tuần](13-sprint-1-tuan.md) | **Kế hoạch đang chạy.** Trọn Mốc 1 cộng nhóm K, 54 ngày công, lịch từng ngày và quy tắc làm việc trong tuần |
 | [14 - Nhóm A, B, C, D](14-nhom-a-va-d.md) | Bốn nhóm đã xong: vòng đời chuyến, chặn hủy khi đã lăn bánh, chính sách phí hủy, quy tắc trả chỗ. Kèm câu trả lời sẵn cho hội đồng |
+| [15 - Verify nhóm A đến H](15-verify-a-den-h.md) | Đối chiếu với mã gốc: mỗi nhóm đã thêm gì, luật nằm ở dòng nào, lệnh nào chứng minh, thử tay thế nào |
 
 ## Tóm tắt hiện trạng
 

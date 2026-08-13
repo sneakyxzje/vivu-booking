@@ -51,6 +51,14 @@ class GuideAttendanceTest extends TestCase
     /** Chuyến đang chạy, vì quy tắc 2 chỉ cho điểm danh khi đoàn đã lên đường. */
     private function dungChuyenDi(): void
     {
+        // Đóng băng đồng hồ vào giữa trưa trước khi dựng dữ liệu.
+        //
+        // Quy tắc 4 so theo NGÀY chứ không theo giờ. Chuyến khởi hành "hai tiếng trước" mà chạy
+        // vào lúc 00:30 thì mốc khởi hành rơi sang hôm qua, kéo theo điểm dừng của ngày thứ hai
+        // rơi vào hôm nay, và bài kiểm tick trước sẽ xanh sai. Ứng dụng chạy giờ UTC nên khe
+        // hỏng là 07:00-09:00 giờ Việt Nam, đúng lúc hay ngồi vào máy nhất.
+        $this->travelTo(now()->startOfDay()->addHours(12));
+
         $admin = $this->taoUser('admin');
         $this->guide = $this->taoUser('guide');
 
