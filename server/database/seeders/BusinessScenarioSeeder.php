@@ -513,11 +513,14 @@ class BusinessScenarioSeeder extends Seeder
             return;
         }
 
+        // Gọi tên đúng như nhãn hiện trên màn hình: danh sách đơn ghi "BK-19", danh sách chuyến
+        // ghi "#8". Viết khác đi là bắt người thử tay tự dịch thêm một lần nữa.
         $id = fn (string $khoa): string => isset($this->don[$khoa])
-            ? '#' . $this->don[$khoa]->id
+            ? 'BK-' . $this->don[$khoa]->id
             : '(không có)';
 
-        $chuyen = fn (string $ma): string => '#' . $this->schedules[$ma]->id;
+        $chuyen = fn (string $ma): string => '#' . $this->schedules[$ma]->id
+            . ' khởi hành ' . $this->schedules[$ma]->start_date->format('d/m H:i');
 
         $cmd->newLine();
         $cmd->info('=== TOUR THỬ NGHIỆM NGHIỆP VỤ — LÀM LẦN LƯỢT TỪ TRÊN XUỐNG ===');
@@ -527,30 +530,35 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->line('             guide@gmail.com / guide123');
         $cmd->line('             customer@gmail.com / customer123');
         $cmd->newLine();
+        $cmd->line(' CÁCH TÌM: mọi đơn kịch bản đều cùng tên khách và cùng tour, nên đừng dò bằng mắt.');
+        $cmd->line('   /admin/bookings   -> gõ mã đơn vào ô tìm kiếm, ví dụ  BK-19');
+        $cmd->line('   /admin/schedules  -> gõ số chuyến vào ô tìm kiếm, ví dụ  8');
+        $cmd->newLine();
 
         $cmd->comment(' VÒNG 1 — chỉ xem, chưa hủy gì.  Vào /admin/bookings');
-        $cmd->line('   Mở từng đơn, bấm "Hủy đơn" để đọc bảng dự báo, rồi bấm "Không hủy nữa":');
-        $cmd->line('     đơn ' . $id('hoan90') . '  ->  phải thấy mức hoàn 90%');
-        $cmd->line('     đơn ' . $id('hoan70') . '  ->  phải thấy mức hoàn 70%');
-        $cmd->line('     đơn ' . $id('hoan50') . '  ->  phải thấy mức hoàn 50%');
-        $cmd->line('     đơn ' . $id('hoan30') . '  ->  phải thấy mức hoàn 30% + CẢNH BÁO ghế chết');
-        $cmd->line('     đơn ' . $id('hoan0') . '  ->  phải thấy mức hoàn 0%');
+        $cmd->line('   Tìm từng mã, mở ra, bấm "Hủy đơn" để đọc bảng dự báo, rồi "Không hủy nữa":');
+        $cmd->line('     ' . $id('hoan90') . '  ->  phải thấy mức hoàn 90%');
+        $cmd->line('     ' . $id('hoan70') . '  ->  phải thấy mức hoàn 70%');
+        $cmd->line('     ' . $id('hoan50') . '  ->  phải thấy mức hoàn 50%');
+        $cmd->line('     ' . $id('hoan30') . '  ->  phải thấy mức hoàn 30% + CẢNH BÁO ghế chết');
+        $cmd->line('     ' . $id('hoan0') . '  ->  phải thấy mức hoàn 0%');
         $cmd->newLine();
 
         $cmd->comment(' VÒNG 2 — hủy thật, xem chỗ có về kho không');
-        $cmd->line('   1. Hủy đơn ' . $id('hoan50') . ' (chuyến ' . $chuyen('S3') . ') -> chỗ TRẢ về kho');
-        $cmd->line('      Vào /admin/schedules xem chuyến ' . $chuyen('S3') . ': số chỗ đã giảm');
-        $cmd->line('   2. Hủy đơn ' . $id('hoan30') . ' (chuyến ' . $chuyen('S4') . ') -> GHẾ CHẾT');
-        $cmd->line('      Xem chuyến ' . $chuyen('S4') . ': số chỗ GIỮ NGUYÊN');
+        $cmd->line('   1. Hủy ' . $id('hoan50') . ', thuộc chuyến ' . $chuyen('S3'));
+        $cmd->line('      -> chỗ TRẢ về kho. Vào /admin/schedules xem chuyến đó: số chỗ đã giảm');
+        $cmd->line('   2. Hủy ' . $id('hoan30') . ', thuộc chuyến ' . $chuyen('S4'));
+        $cmd->line('      -> GHẾ CHẾT. Xem chuyến đó: số chỗ GIỮ NGUYÊN');
         $cmd->line('   3. Vào /admin/held-seats -> có 2 dòng -> mở lại 1 dòng kèm lý do');
         $cmd->line('      Lúc này số chỗ mới giảm, nhưng chuyến vẫn "Đã đóng bán"');
         $cmd->newLine();
 
         $cmd->comment(' VÒNG 3 — chặn hủy khi chuyến đang chạy');
-        $cmd->line('   1. /admin/bookings -> đơn ' . $id('chuyenDangChay') . ' -> Hủy đơn');
+        $cmd->line('   1. /admin/bookings -> ' . $id('chuyenDangChay') . ' -> Hủy đơn');
         $cmd->line('      Nút xác nhận phải BỊ KHÓA, kèm lý do chuyến đang chạy');
-        $cmd->line('   2. Đăng nhập khách -> /my-bookings -> đơn ' . $id('khachTuHuy') . ' -> Hủy đơn');
-        $cmd->line('      Cái này hủy được, vì chưa thanh toán và chuyến chưa khởi hành');
+        $cmd->line('   2. Đăng nhập khách -> /my-bookings -> đơn "Chờ thanh toán" (' . $id('khachTuHuy') . ')');
+        $cmd->line('      -> Hủy đơn. Cái này hủy được, vì chưa trả tiền và chuyến chưa khởi hành');
+        $cmd->line('      Trang khách không hiện mã đơn, nhưng chỉ có đúng một đơn chờ thanh toán');
         $cmd->newLine();
 
         $cmd->comment(' VÒNG 4 — điểm danh.  Đăng nhập hướng dẫn viên');
@@ -575,7 +583,7 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->newLine();
 
         $cmd->comment(' THÊM (không bắt buộc)');
-        $cmd->line('   Mở lại đơn hủy nhầm: /admin/bookings -> đơn ' . $id('moiHuy') . ' -> nút Mở lại');
+        $cmd->line('   Mở lại đơn hủy nhầm: /admin/bookings -> ' . $id('moiHuy') . ' -> nút Mở lại');
         $cmd->line('   Xem mức hoàn không cần đăng nhập: /booking-success/' . ($this->don['hoan90']->public_token ?? ''));
         $cmd->newLine();
 
