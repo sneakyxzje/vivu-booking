@@ -508,12 +508,42 @@ buổi.
 
 ### Chuẩn bị
 
+**Bước 1 — lấy mã mới và dựng lại dữ liệu.**
+
 ```
+git pull origin dev
+
 cd server
+php artisan optimize:clear
 php artisan migrate:fresh --seed
 ```
 
-Mở sẵn ba cửa sổ trình duyệt, mỗi cửa sổ một tài khoản:
+`migrate:fresh` **xóa sạch cơ sở dữ liệu rồi dựng lại**. Toàn bộ dữ liệu hiện tại là dữ liệu mẫu
+nên không mất gì, nhưng nếu có đơn nào tự tạo mà muốn giữ thì sao lưu trước.
+
+Chạy xong, lệnh in ra bảng chín chuyến và năm mã tra cứu. **Chụp lại hoặc để nguyên cửa sổ đó**,
+lát nữa cần dùng.
+
+**Seed ngay trước khi ngồi test.** Mọi mốc thời gian tính lùi từ lúc chạy seeder: S5 khởi hành
+sau 26 giờ, S6 đang chạy và kết thúc sau 24 giờ. Seed hôm nay rồi test ngày mai thì mấy chuyến
+đó đã trôi qua và không còn đúng tình huống nữa.
+
+**Bước 2 — chạy hai tiến trình, mỗi cái một cửa sổ dòng lệnh.**
+
+```
+cd server
+php artisan serve
+```
+
+```
+cd client
+npm run dev
+```
+
+Không cần chạy `php artisan schedule:work`. Seeder đặt sẵn trạng thái của cả chín chuyến, nên
+không phải chờ tác vụ nền; các lệnh ở vòng 5 chạy tay để nhìn thấy chúng làm gì.
+
+**Bước 3 — đăng nhập.**
 
 | | Tài khoản | Vào |
 | --- | --- | --- |
@@ -521,7 +551,16 @@ Mở sẵn ba cửa sổ trình duyệt, mỗi cửa sổ một tài khoản:
 | Hướng dẫn viên | `guide@gmail.com` / `guide123` | `/guide` |
 | Khách | `customer@gmail.com` / `customer123` | `/my-bookings` |
 
-Ghi lại **id của chuyến S6** từ `/admin/schedules`, lát nữa cần để mở màn điểm danh.
+Cùng một trình duyệt chỉ giữ được một phiên đăng nhập, nên hoặc dùng hai trình duyệt khác nhau,
+hoặc đăng nhập lần lượt theo từng vòng. Thứ tự các vòng bên dưới đã gom theo vai: vòng 1 tới 3
+chủ yếu là quản trị, vòng 4 là hướng dẫn viên, vòng 5 và 6 chạy ở dòng lệnh.
+
+**Bước 4 — ghi lại một con số.** Vào `/admin/schedules`, lọc tour *Thử Nghiệm Nghiệp Vụ*, ghi lại
+**id của chuyến S6** (chuyến đang khởi hành). Vòng 4 cần id này để mở màn điểm danh.
+
+**Giờ hiển thị.** Ứng dụng chạy theo giờ UTC còn Việt Nam là UTC+7, nên giờ khởi hành trên màn
+hình lệch 7 tiếng so với đồng hồ trên tường. Không ảnh hưởng gì tới các luật đang thử, vì mọi so
+sánh đều là tương đối; chỉ đừng ngạc nhiên khi thấy chuyến "đang chạy" ghi giờ khởi hành lạ.
 
 ### Vòng 1 — Nhìn trước, chưa bấm gì (5 phút)
 
@@ -607,3 +646,24 @@ Nếu lệnh này báo lệch, có lỗi thật. Đừng chạy `--fix` cho hế
 
 Bước 3, 4, 6 (nhóm C), bước 7 (nhóm D), bước 10 (nhóm H), rồi vòng 6. Bốn câu hội đồng đã hỏi
 trực tiếp nằm trọn trong đó.
+
+### Khi có gì đó không như mô tả
+
+Trước khi đi tìm lỗi trong mã, loại trừ ba nguyên nhân hay gặp hơn:
+
+| Hiện tượng | Nguyên nhân thường gặp |
+| --- | --- |
+| Trạng thái các chuyến không giống bảng | Seed từ hôm trước, mốc thời gian đã trôi. Seed lại |
+| Màn điểm danh của hướng dẫn viên báo chưa có điểm dừng | Mở nhầm chuyến của tour khác, không phải tour Thử Nghiệm |
+| Đơn chờ thanh toán biến mất khỏi trang khách | Đúng như vậy: tác vụ nhả chỗ hủy đơn quá hạn ngay khi mở danh sách. Đơn để bấm thử nằm ở S1 và còn hạn |
+| Hủy đơn báo lỗi mà không rõ vì sao | Đọc kỹ câu thông báo, nó lấy nguyên từ tầng dịch vụ và nêu đúng luật đang chặn |
+| Lệnh đối chiếu ở vòng 6 báo lệch | Đây là lỗi thật. Đừng chạy `--fix` cho hết đỏ trước khi hiểu vì sao lệch |
+
+Cách phân biệt lỗi dữ liệu mẫu với lỗi ứng dụng:
+
+```
+php artisan test --filter=BusinessScenarioSeederTest
+```
+
+Bộ này khóa từng con số trong bảng chín chuyến. Nó xanh mà màn hình vẫn sai thì lỗi nằm ở ứng
+dụng; nó đỏ thì dữ liệu mẫu đã trôi mốc thời gian, seed lại là xong.
