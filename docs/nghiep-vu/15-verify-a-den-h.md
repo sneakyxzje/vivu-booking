@@ -55,6 +55,67 @@ HTTP chứng minh luật được áp**. Đã có lần bộ kiểm tầng dịc
 thật thủng bốn quy tắc, vì bộ đó không đi qua controller. Nhóm H bên dưới có cả hai loại, và đó
 là lý do.
 
+## 2b. Dữ liệu để thử tay
+
+`BusinessScenarioSeeder` dựng sẵn một tour tên **Tour Thử Nghiệm Nghiệp Vụ 3N2Đ** với chín
+chuyến phủ hết sáu trạng thái vòng đời và năm bậc phí hủy. Mọi tình huống của A, B, C, D, H đều
+có sẵn dữ liệu, không phải tự tạo bằng tay.
+
+```
+cd server
+php artisan migrate:fresh --seed        # dựng lại toàn bộ
+php artisan db:seed --class=BusinessScenarioSeeder   # chỉ dựng lại phòng thí nghiệm
+```
+
+Lệnh in ra bảng chín chuyến kèm trạng thái. Đăng nhập khách: `customer@gmail.com` /
+`customer123` — mọi đơn kịch bản đều gắn vào tài khoản này để xem một lần là hết.
+
+| Mã | Cách hiện tại | Trạng thái | Dùng để thử |
+| --- | --- | --- | --- |
+| S1 | còn 480h | Đang mở bán | Hủy → hoàn **90%**, chỗ trả về kho. Có sẵn một đơn vừa hủy 2 giờ trước để thử **mở lại đơn** |
+| S2 | còn 240h | Đang mở bán | Hủy → hoàn **70%** |
+| S3 | còn 120h | Đang mở bán | Hủy → hoàn **50%**, vẫn **trước** hạn chốt nên chỗ trả về |
+| S4 | còn 60h | Đã đóng bán | Hủy → hoàn **30%** nhưng **sau** hạn chốt nên sinh **ghế chết**. Có sẵn một ghế chết cho màn mở lại chỗ |
+| S5 | còn 26h | Đã chốt chuyến | Hủy → hoàn **0%**. Có sẵn một đơn quá hạn thanh toán để chạy `bookings:release-expired` |
+| S6 | đã qua 24h | Đang khởi hành | **Chặn hủy** ở cả hai trang. Điểm danh: một đơn đã ghi dở, một đơn chưa ghi gì |
+| S7 | đã qua 120h | Đã kết thúc | Chạy `bookings:finalize-completed`: ba đơn ra ba kết quả khác nhau |
+| S8 | còn 360h | Đã hủy chuyến | Trạng thái cuối, không đi đâu được nữa |
+| S9 | còn 720h | Đang mở bán | Thiếu khách so với mức tối thiểu, `schedules:confirm-ready` sẽ cảnh báo |
+
+### Ba cặp đối chứng đáng thử nhất
+
+Dữ liệu cố ý dựng thành từng cặp gần giống nhau nhưng ra kết quả khác nhau. Hiểu được vì sao
+khác là hiểu được luật.
+
+**S3 với S4 — hai cổng đặt ở hai mốc khác nhau.** Cả hai đều là đơn đã thanh toán, chỉ cách nhau
+60 giờ. Hủy S3 thì chỗ về kho, hủy S4 thì thành ghế chết. Vì tiền theo bậc giờ còn chỗ theo hạn
+chốt 72 giờ, và hai mốc đó độc lập.
+
+**Ghế chết ở S4 với đơn quá hạn ở S5 — cùng "hủy sau hạn chốt", khác kết quả.** Đơn S4 đã thanh
+toán nên chỗ đã cam kết với nhà cung cấp, giữ lại. Đơn S5 chưa trả tiền nên chưa có cam kết nào,
+trả chỗ về kho ngay. Chạy `php artisan bookings:release-expired` để thấy.
+
+**Ba đơn của S7 — cùng một chuyến, ba kết luận.** Đơn thứ nhất cả hai khách có mặt, đơn thứ hai
+cả hai vắng, đơn thứ ba không ai điểm danh. Chạy `php artisan bookings:finalize-completed`:
+
+| Đơn | Bằng chứng | Kết quả |
+| --- | --- | --- |
+| 1 | Cả hai có mặt | Đã hoàn thành |
+| 2 | Cả hai vắng | **Khách không có mặt** |
+| 3 | Không ghi gì | Đã hoàn thành |
+
+Đơn thứ ba là chỗ quan trọng. Thiếu bằng chứng thì **không** kết luận bất lợi cho khách.
+
+### Kiểm chứng chính dữ liệu mẫu
+
+Dữ liệu mẫu sai còn tệ hơn không có, vì người thử tay sẽ đi tìm lỗi trong mã ứng dụng trong khi
+lỗi nằm ở mốc thời gian của dữ liệu. Bộ kiểm thử khóa từng con số trong bảng trên:
+
+```
+php artisan test --filter=BusinessScenarioSeederTest
+php artisan bookings:check-seat-consistency      # phải báo mọi chuyến đều khớp
+```
+
 ---
 
 ## 3. Nhóm A - Chuyến đi có vòng đời

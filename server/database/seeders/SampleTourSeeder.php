@@ -230,7 +230,19 @@ class SampleTourSeeder extends Seeder
 
                 $tour->itineraries()->delete();
                 foreach ($tourData['itineraries'] as $item) {
-                    $tour->itineraries()->create($item);
+                    $itinerary = $tour->itineraries()->create($item);
+
+                    // Mỗi ngày một điểm dừng tối thiểu. Không có điểm dừng thì màn điểm danh của
+                    // hướng dẫn viên rỗng và trông như tính năng chưa chạy, trong khi thực ra là
+                    // chưa khai báo dữ liệu. Tọa độ đặt ở trung tâm điểm đến để luồng tải ảnh
+                    // check-in có mốc đối chiếu khoảng cách.
+                    $itinerary->checkpoints()->create([
+                        'name' => 'Điểm tập trung ngày ' . $item['day_number'],
+                        'sequence' => 1,
+                        'is_required_photo' => $item['day_number'] === 1,
+                        'latitude' => 21.0245,
+                        'longitude' => 105.8572,
+                    ]);
                 }
 
                 $tour->schedules()->delete();

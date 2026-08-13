@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Booking;
-use App\Models\BookingCheckin;
 use App\Models\DiscountCode;
 use App\Models\Tour;
 use App\Models\TourSchedule;
@@ -148,30 +147,14 @@ class DemoBookingSeeder extends Seeder
             ]);
         });
 
-        // Điểm danh mẫu cho chuyến Hạ Long gần nhất: chặng ngày 1
-        $haLong = $tours->get('tour-ha-long-3n2d');
-        $firstItinerary = $haLong?->itineraries->sortBy('day_number')->first();
-        $firstSchedule = $haLong?->schedules->first();
-
-        if ($firstItinerary && $firstSchedule) {
-            Booking::query()
-                ->where('tour_schedule_id', $firstSchedule->id)
-                ->where('status', 'confirmed')
-                ->where('note', 'like', '[demo]%')
-                ->get()
-                ->each(function (Booking $booking, int $i) use ($firstItinerary, $guide) {
-                    BookingCheckin::query()->updateOrCreate(
-                        [
-                            'booking_id' => $booking->id,
-                            'tour_itinerary_id' => $firstItinerary->id,
-                        ],
-                        [
-                            'present' => $i % 4 !== 3,
-                            'checked_at' => now()->subHours(2),
-                            'guide_id' => $guide?->id,
-                        ],
-                    );
-                });
-        }
+        // Điểm danh không seed ở đây nữa.
+        //
+        // Seeder này từng ghi vào booking_checkins, tức bảng cũ theo đơn và theo ngày. Từ nhóm H
+        // thì điểm danh nằm ở passenger_checkins theo từng người tại từng điểm dừng, và migration
+        // chuyển dữ liệu đã chạy xong từ trước lúc seed. Ghi tiếp vào bảng cũ chỉ tạo ra dữ liệu
+        // không màn hình nào đọc, lại làm tưởng là đã có dữ liệu điểm danh.
+        //
+        // Dữ liệu điểm danh để thử tay nằm ở BusinessScenarioSeeder.
+        unset($guide);
     }
 }

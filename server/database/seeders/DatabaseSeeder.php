@@ -31,6 +31,9 @@ class DatabaseSeeder extends Seeder
             SampleTourSeeder::class,
             ReviewSeeder::class,
             DemoBookingSeeder::class,
+            // Chạy cuối: dựng tour thử nghiệm phủ mọi tình huống A, B, C, D, H để thử tay.
+            // Seed lại riêng bằng: php artisan db:seed --class=BusinessScenarioSeeder
+            BusinessScenarioSeeder::class,
         ]);
     }
 }
