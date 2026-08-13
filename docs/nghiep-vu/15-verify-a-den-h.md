@@ -1,10 +1,10 @@
-# 15 - Verify nhóm A đến H: từ mã gốc đã thêm được gì
+﻿# 15 - Verify nhóm A đến H: từ mã gốc đã thêm được gì
 
 Tài liệu này để **kiểm chứng**, không phải để giới thiệu. [14 - Nhóm A, B, C, D đã giải quyết
 bài toán gì](14-nhom-a-va-d.md) kể câu chuyện nghiệp vụ; tài liệu này chỉ ra chỗ đứng của từng
 luật trong mã và cách tự chứng minh nó còn sống.
 
-Đọc theo thứ tự: mốc so sánh, ba cách verify, rồi từng nhóm.
+**Muốn thử tay ngay thì nhảy thẳng xuống mục 2.**
 
 ## 1. Mốc so sánh
 
@@ -31,7 +31,27 @@ git grep -h "public function test" bafa231 -- server/tests | wc -l
 git grep -h "public function test" HEAD -- server/tests | wc -l
 ```
 
-## 2. Ba cách verify
+## 2. Đọc tài liệu này thế nào
+
+Chỉ có **một** quy trình thử tay, ở [mục 11](#11-một-buổi-test-đầy-đủ-khoảng-40-phút). Các mục 5
+tới 9 không phải là các bài thử khác nhau; chúng giải thích **vì sao** từng bước ở mục 11 lại ra
+kết quả đó.
+
+Muốn bắt tay vào thử ngay thì bỏ qua tất cả, chạy:
+
+```
+cd server
+php artisan migrate:fresh --seed
+```
+
+Lệnh in ra danh sách việc cần bấm, theo thứ tự, **kèm số hiệu đơn và chuyến thật của lần chạy
+đó**. Cứ làm từ trên xuống. Quay lại tài liệu này khi muốn biết vì sao một bước ra kết quả như
+vậy, hoặc khi màn hình không giống mô tả.
+
+Nhãn `S1` tới `S9` trong tài liệu là quy ước riêng để gọi tên chín chuyến; **trên màn hình không
+có chữ nào như thế**. Bảng cuối phần in ra của seeder ghi rõ chuyến `#mấy` ứng với `S` nào.
+
+## 3. Ba cách verify
 
 **Tầng 1 - chạy bộ kiểm thử.** Nhanh nhất, chứng minh luật còn hiệu lực chứ không chỉ tồn tại
 trong mã chết.
@@ -47,15 +67,15 @@ Toàn bộ 214 bài phải xanh. Mỗi nhóm bên dưới có lệnh lọc riên
 thích trước, phần thân sau: chú thích nói **vì sao**, thân nói **thế nào**. Hội đồng hỏi vì sao
 nhiều hơn hỏi thế nào.
 
-**Tầng 3 - thử tay trên giao diện.** Chạy ở máy nhà vì cần MySQL. Mỗi nhóm có kịch bản thử
-riêng, chọn đúng những tình huống hội đồng đã hỏi.
+**Tầng 3 - thử tay trên giao diện.** Chạy ở máy nhà vì cần MySQL. Một quy trình duy nhất ở mục
+11, và danh sách việc cần bấm do seeder in ra kèm số hiệu thật.
 
 Một điều cần phân biệt khi verify: **kiểm thử ở tầng dịch vụ chứng minh luật đúng, kiểm thử qua
 HTTP chứng minh luật được áp**. Đã có lần bộ kiểm tầng dịch vụ xanh 21/21 trong khi đường API
 thật thủng bốn quy tắc, vì bộ đó không đi qua controller. Nhóm H bên dưới có cả hai loại, và đó
 là lý do.
 
-## 2b. Dữ liệu để thử tay
+## 4. Dữ liệu để thử tay
 
 `BusinessScenarioSeeder` dựng sẵn một tour tên **Tour Thử Nghiệm Nghiệp Vụ 3N2Đ** với chín
 chuyến phủ hết sáu trạng thái vòng đời và năm bậc phí hủy. Mọi tình huống của A, B, C, D, H đều
@@ -67,8 +87,12 @@ php artisan migrate:fresh --seed        # dựng lại toàn bộ
 php artisan db:seed --class=BusinessScenarioSeeder   # chỉ dựng lại phòng thí nghiệm
 ```
 
-Lệnh in ra bảng chín chuyến kèm trạng thái. Đăng nhập khách: `customer@gmail.com` /
-`customer123` — mọi đơn kịch bản đều gắn vào tài khoản này để xem một lần là hết.
+Lệnh in ra **danh sách việc cần bấm kèm số hiệu đơn và chuyến thật**, cộng bảng tra cứu chín
+chuyến ở cuối. Bảng dưới đây chỉ để tra khi cần hiểu ý đồ của từng chuyến; lúc thao tác thì bám
+theo phần seeder in ra, vì ở đó là số hiệu thật của lần chạy hiện tại.
+
+Đăng nhập khách: `customer@gmail.com` / `customer123` — mọi đơn kịch bản đều gắn vào tài khoản
+này để xem một lần là hết.
 
 | Mã | Cách hiện tại | Trạng thái | Dùng để thử |
 | --- | --- | --- | --- |
@@ -121,7 +145,7 @@ php artisan bookings:check-seat-consistency      # phải báo mọi chuyến đ
 
 ---
 
-## 3. Nhóm A - Chuyến đi có vòng đời
+## 5. Nhóm A - Chuyến đi có vòng đời
 
 ### Mã gốc làm gì
 
@@ -173,16 +197,9 @@ php artisan test --filter="ScheduleStatusTest|ScheduleLifecycleTest|ScheduleAuto
 
 Bài quan trọng nhất: chuyển từ `in_progress` sang `cancelled` bị từ chối.
 
-### Thử tay
-
-1. Tạo chuyến mới, xác nhận trạng thái mặc định là **Đang mở bán**.
-2. Đặt đủ chỗ, xác nhận chuyến tự chuyển **Đã đóng bán**.
-3. Đẩy `start_date` về quá khứ, chạy `php artisan schedules:advance-status`, xác nhận chuyến
-   chuyển **Đang khởi hành**.
-
 ---
 
-## 4. Nhóm D - Đơn của chuyến đã lăn bánh thì khóa
+## 6. Nhóm D - Đơn của chuyến đã lăn bánh thì khóa
 
 ### Mã gốc làm gì
 
@@ -234,25 +251,12 @@ php artisan test --filter="BookingCancellationGuardTest|BookingFinalizationTest"
 
 Bài quan trọng nhất: `test_diem_danh_thieu_nguoi_thi_khong_ket_luan_khong_co_mat`.
 
-### Thử tay
-
-1. Mở `/admin/bookings`, tìm đơn của chuyến **S6** (đang khởi hành).
-2. Bấm Hủy đơn, nhập lý do, xác nhận — phải bị từ chối kèm thông báo nêu rõ chuyến đang chạy.
-3. Chạy `php artisan bookings:release-expired` — tác vụ nền cũng không đụng được vào đơn đó.
-
-Đây là câu hội đồng hỏi trực tiếp.
-
-Lối vào thứ hai, từ trang khách:
-
-4. Đăng nhập khách, vào `/my-bookings`, tìm đơn chờ thanh toán của **S1** — có nút **Hủy đơn**.
-5. Hủy được bình thường, vì chuyến chưa khởi hành.
-
 Khách chỉ tự hủy được đơn **chưa thanh toán**; đơn đã thu tiền đi đường duyệt của nhóm F, chưa
-dựng. Xem mục 8.
+dựng. Xem mục 10.
 
 ---
 
-## 5. Nhóm B - Hủy trước bao lâu thì hoàn bao nhiêu
+## 7. Nhóm B - Hủy trước bao lâu thì hoàn bao nhiêu
 
 ### Mã gốc làm gì
 
@@ -297,25 +301,20 @@ php artisan test --filter="CancellationPolicyTest|RefundQuoteApiTest|AdminCancel
 
 Bài quan trọng nhất: sửa chính sách không hồi tố đơn cũ.
 
-### Thử tay
+### Muốn thử thêm phần không hồi tố
 
-Hai đường đều xem được, không phải hủy thật:
+Vòng 1 của buổi test đã cho thấy năm bậc phí. Muốn chứng minh nốt việc sửa chính sách không hồi
+tố thì làm thêm hai bước, và **phải làm cả hai** mới đủ nghĩa:
 
-- `/admin/bookings` → mở đơn của S1 tới S5 → bấm **Hủy đơn**. Hộp thoại hiện mức hoàn, phí hủy,
-  số hoàn khách và tình trạng chỗ, trước khi xác nhận. Bấm **Không hủy nữa** để thoát.
-- Hoặc mở `/booking-success/<mã tra cứu>` — seeder in sẵn năm mã ứng với năm bậc.
+1. `/admin/cancellation-policies` đổi mức hoàn của một bậc, rồi xem lại năm đơn cũ — số **giữ
+   nguyên**, vì chính sách đã sao chép vào đơn lúc đặt.
+2. Đặt một đơn mới trên trang khách — đơn mới **ăn theo mức vừa sửa**.
 
-1. Xem lần lượt năm đơn, đối chiếu với bảng 90 / 70 / 50 / 30 / 0.
-2. Vào `/admin/cancellation-policies` đổi mức hoàn của một bậc.
-3. Xem lại đúng năm đơn đó, xác nhận số **vẫn giữ nguyên** — chính sách đã sao chép vào đơn lúc đặt.
-4. Đặt một đơn mới trên trang khách, xác nhận đơn mới **ăn theo mức vừa sửa**.
-
-Bước 3 với bước 4 đi liền nhau mới đủ nghĩa: một mình bước 3 chỉ chứng minh số không đổi, có thể
-vì chính sách chưa được đọc lần nào.
+Một mình bước 1 chỉ chứng minh số không đổi, có thể vì chính sách chưa được đọc lần nào.
 
 ---
 
-## 6. Nhóm C - Hủy rồi thì chỗ có bán lại được không
+## 8. Nhóm C - Hủy rồi thì chỗ có bán lại được không
 
 ### Mã gốc làm gì
 
@@ -366,22 +365,9 @@ nó không còn ý nghĩa. Phải hỏi hai cột dấu vết.
 php artisan test --filter="SeatReleaseRuleTest|HeldSeatsTest|SeatConsistencyCommandTest"
 ```
 
-### Thử tay
-
-Dùng cặp đối chứng S3 và S4 đã dựng sẵn.
-
-1. `/admin/bookings` → hủy đơn của **S3**. Hộp thoại báo trước "chỗ sẽ được trả về kho". Hủy xong
-   xem `/admin/schedules`: số chỗ của S3 giảm.
-2. Hủy đơn của **S4**. Hộp thoại cảnh báo đỏ **chỗ không quay lại kho**. Hủy xong xem lại: số chỗ
-   của S4 **giữ nguyên**.
-3. Mở `/admin/held-seats`, mở lại chỗ đó kèm lý do, lúc này số chỗ mới giảm.
-
-Bước 2 là câu hội đồng hỏi trực tiếp. Điểm đáng chỉ ra khi demo: hệ thống **nói trước** hậu quả
-chứ không để người dùng tự phát hiện sau.
-
 ---
 
-## 7. Nhóm H - Điểm danh chi tiết
+## 9. Nhóm H - Điểm danh chi tiết
 
 ### Mã gốc làm gì
 
@@ -436,7 +422,7 @@ tắc có số hiệu ghi ngay trên đoạn cài đặt.
 | 5 | Ghi bù muộn thì đánh dấu | Vẫn cho ghi nhưng truy vết được |
 | 6 | Hành khách thuộc đơn còn hiệu lực | Đơn đã hủy không nằm trong danh sách đoàn |
 | 7 | Ghi chú tối thiểu 10 ký tự | Ghi "vang" thì sáu tháng sau đọc lại vô nghĩa |
-| 8 | Điểm bắt buộc ảnh phải có ảnh | **Chưa có nơi gọi**, xem mục 8 |
+| 8 | Điểm bắt buộc ảnh phải có ảnh | **Chưa có nơi gọi**, xem mục 10 |
 | 9 | Sửa thì lưu lịch sử | Không ghi đè lặng lẽ dữ liệu đối chiếu |
 
 ### Hai chi tiết đáng đọc kỹ
@@ -463,16 +449,9 @@ php artisan test --filter=AdminAttendanceReportTest
 áp**. Đã có lần bộ thứ nhất xanh toàn bộ trong khi controller tự ghi thẳng vào model, bỏ qua bốn
 quy tắc. Bộ thứ hai sinh ra để bịt đúng khe đó, bốn bài trong nó đỏ nếu ai lặp lại lỗi ấy.
 
-### Thử tay
-
-1. Vào màn điểm danh của hướng dẫn viên, chọn một điểm dừng, đánh vắng một người.
-2. Xác nhận bị bắt nhập ghi chú, và ghi chú dưới 10 ký tự không lưu được.
-3. Sửa lại thành có mặt, vào màn báo cáo quản trị xem lịch sử thay đổi.
-4. Thử điểm danh cho một điểm dừng thuộc ngày mai — bị chặn.
-
 ---
 
-## 8. Ranh giới - những gì nhóm A đến H chưa làm
+## 10. Ranh giới - những gì nhóm A đến H chưa làm
 
 Nói trước còn hơn để hội đồng tìm ra.
 
@@ -500,7 +479,7 @@ xin hủy chưa có ở đâu cả, kể cả API. Bảng phí hủy của nhóm
 **Phạm vi cố ý bỏ ngoài** nằm ở [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md), tám mảng,
 kèm lý do từng mảng.
 
-## 9. Một buổi test đầy đủ, khoảng 40 phút
+## 11. Một buổi test đầy đủ, khoảng 40 phút
 
 Thứ tự dưới đây có tính toán: bước sau không phá dữ liệu bước trước cần, và các thao tác không
 đảo ngược được đặt sau các thao tác chỉ đọc. Đi đúng thứ tự thì một lần seed chạy hết được cả
@@ -594,7 +573,7 @@ demo được một thứ thì demo chỗ này.
 | 8 | Cửa sổ khách → `/my-bookings` → đơn **chờ thanh toán** của S1 → **Hủy đơn** | Hủy được, vì chuyến chưa khởi hành và đơn chưa thu tiền | D |
 
 Bước 8 cũng cho thấy giới hạn hiện tại: chỉ đơn chưa thanh toán mới có nút. Đơn đã trả tiền đi
-đường duyệt của nhóm F, chưa dựng — xem mục 8.
+đường duyệt của nhóm F, chưa dựng — xem mục 10.
 
 ### Vòng 4 — Nhóm H (10 phút)
 

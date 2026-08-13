@@ -50,8 +50,16 @@ class BusinessScenarioSeeder extends Seeder
     /** @var array<string, TourSchedule> */
     private array $schedules = [];
 
-    /** @var array<int, array{ma: string, tinh_huong: string, nhom: string}> */
-    private array $summary = [];
+    /**
+     * Các đơn cần gọi tên đích danh trong bản hướng dẫn in ra cuối lần chạy.
+     *
+     * Người thử tay nhìn màn hình chỉ thấy "đơn #37", không thấy nhãn kịch bản nào. Bảng hướng
+     * dẫn phải nói bằng đúng con số họ nhìn thấy, nếu không mỗi bước lại phải tự dò xem đơn nào
+     * là đơn nào.
+     *
+     * @var array<string, Booking>
+     */
+    private array $don = [];
 
     public function run(): void
     {
@@ -73,7 +81,7 @@ class BusinessScenarioSeeder extends Seeder
         $this->dungCacDon();
         $this->dungDiemDanh();
         $this->dongBoSoCho();
-        $this->inBangTinhHuong();
+        $this->inHuongDan();
     }
 
     /**
@@ -241,11 +249,11 @@ class BusinessScenarioSeeder extends Seeder
     private function dungCacDon(): void
     {
         // Nhóm B: mỗi chuyến một đơn đã thanh toán, để bấm hủy và xem báo giá hoàn.
-        $this->taoDon('S1', 'confirmed', 2, 0, 'Hủy thử: phải thấy hoàn 90%, chỗ trả về kho', 'B, C');
-        $this->taoDon('S2', 'confirmed', 2, 0, 'Hủy thử: phải thấy hoàn 70%', 'B');
-        $this->taoDon('S3', 'confirmed', 2, 1, 'Hủy thử: phải thấy hoàn 50%, chỗ vẫn trả về kho', 'B, C');
-        $this->taoDon('S4', 'confirmed', 2, 0, 'Hủy thử: hoàn 30% nhưng chỗ KHÔNG trả về, sinh ghế chết', 'B, C');
-        $this->taoDon('S5', 'confirmed', 2, 0, 'Hủy thử: hoàn 0%, chỗ không trả về', 'B, C');
+        $this->don['hoan90'] = $this->taoDon('S1', 'confirmed', 2, 0, 'Hủy thử: phải thấy hoàn 90%, chỗ trả về kho', 'B, C');
+        $this->don['hoan70'] = $this->taoDon('S2', 'confirmed', 2, 0, 'Hủy thử: phải thấy hoàn 70%', 'B');
+        $this->don['hoan50'] = $this->taoDon('S3', 'confirmed', 2, 1, 'Hủy thử: phải thấy hoàn 50%, chỗ vẫn trả về kho', 'B, C');
+        $this->don['hoan30'] = $this->taoDon('S4', 'confirmed', 2, 0, 'Hủy thử: hoàn 30% nhưng chỗ KHÔNG trả về, sinh ghế chết', 'B, C');
+        $this->don['hoan0'] = $this->taoDon('S5', 'confirmed', 2, 0, 'Hủy thử: hoàn 0%, chỗ không trả về', 'B, C');
 
         // Nhóm C: ghế chết có sẵn, để màn Chỗ đã hủy chưa mở bán lại có dữ liệu ngay.
         $gheChet = $this->taoDon('S4', 'cancelled', 3, 0, 'Ghế chết dựng sẵn: mở màn Chỗ đã hủy chưa mở bán lại', 'C');
@@ -262,6 +270,7 @@ class BusinessScenarioSeeder extends Seeder
         // hạn bị tác vụ nhả chỗ hủy ngay lúc mở danh sách, chưa kịp bấm đã thành đã hủy.
         $khachTuHuy = $this->taoDon('S1', 'pending', 2, 0, 'Trang khách: bấm Hủy đơn để tự hủy đơn chưa thanh toán', 'D');
         $khachTuHuy->forceFill(['expires_at' => now()->addDay()])->save();
+        $this->don['khachTuHuy'] = $khachTuHuy;
 
         // Đối chứng cho ghế chết: đơn chưa thanh toán thì luôn trả chỗ, kể cả quá hạn chốt.
         $quaHan = $this->taoDon('S5', 'pending', 2, 0, 'Chạy bookings:release-expired: đơn tự hủy và TRẢ chỗ dù đã qua hạn chốt', 'C');
@@ -270,6 +279,7 @@ class BusinessScenarioSeeder extends Seeder
             'paid_at' => null,
             'confirmed_at' => null,
         ])->save();
+        $this->don['quaHan'] = $quaHan;
 
         // X07: đơn vừa hủy trong 24 giờ, nút mở lại còn hiệu lực.
         $moiHuy = $this->taoDon('S1', 'cancelled', 1, 0, 'Mở lại đơn hủy nhầm: mới hủy 2 giờ trước nên còn trong hạn 24 giờ', 'X07');
@@ -281,9 +291,10 @@ class BusinessScenarioSeeder extends Seeder
             'seats_released' => true,
             'seats_released_at' => now()->subHours(2),
         ])->save();
+        $this->don['moiHuy'] = $moiHuy;
 
         // Nhóm D: đơn của chuyến đang chạy, thử hủy từ cả trang khách lẫn trang quản trị.
-        $this->taoDon('S6', 'confirmed', 2, 0, 'Thử hủy: phải bị chặn ở CẢ trang khách lẫn trang quản trị', 'D', ['Nguyễn Văn An', 'Trần Thị Bình']);
+        $this->don['chuyenDangChay'] = $this->taoDon('S6', 'confirmed', 2, 0, 'Thử hủy: phải bị chặn vì chuyến đang chạy', 'D', ['Nguyễn Văn An', 'Trần Thị Bình']);
         $this->taoDon('S6', 'confirmed', 2, 1, 'Điểm danh: đơn ba người, dùng để thử năm trạng thái', 'H', ['Lê Minh Cường', 'Phạm Thu Dung', 'Lê Bảo Duy']);
         $this->taoDon('S6', 'confirmed', 1, 0, 'Điểm danh: chưa ghi gì, để thử ghi lần đầu', 'H', ['Hoàng Văn Em']);
 
@@ -353,11 +364,7 @@ class BusinessScenarioSeeder extends Seeder
             ]);
         }
 
-        $this->summary[] = [
-            'ma' => $maChuyen,
-            'nhom' => $nhom,
-            'tinh_huong' => $tinhHuong,
-        ];
+        unset($nhom);
 
         return $booking;
     }
@@ -491,20 +498,104 @@ class BusinessScenarioSeeder extends Seeder
         }
     }
 
-    private function inBangTinhHuong(): void
+    /**
+     * In ra danh sách việc cần làm, bằng đúng con số hiện trên màn hình.
+     *
+     * Không dùng nhãn kịch bản kiểu "chuyến S4" ở đây. Người mở trang quản trị chỉ thấy đơn #37
+     * và chuyến #12; bắt họ tự dò xem cái nào ứng với nhãn nào là chỗ mà hướng dẫn thử tay hay
+     * đứt gãy nhất.
+     */
+    private function inHuongDan(): void
     {
-        $this->command?->newLine();
-        $this->command?->info('Đã dựng tour "' . $this->tour->title . '" (slug: ' . self::TOUR_SLUG . ')');
-        $this->command?->newLine();
+        $cmd = $this->command;
 
+        if (!$cmd) {
+            return;
+        }
+
+        $id = fn (string $khoa): string => isset($this->don[$khoa])
+            ? '#' . $this->don[$khoa]->id
+            : '(không có)';
+
+        $chuyen = fn (string $ma): string => '#' . $this->schedules[$ma]->id;
+
+        $cmd->newLine();
+        $cmd->info('=== TOUR THỬ NGHIỆM NGHIỆP VỤ — LÀM LẦN LƯỢT TỪ TRÊN XUỐNG ===');
+        $cmd->newLine();
+
+        $cmd->line(' Đăng nhập:  admin@gmail.com / admin123');
+        $cmd->line('             guide@gmail.com / guide123');
+        $cmd->line('             customer@gmail.com / customer123');
+        $cmd->newLine();
+
+        $cmd->comment(' VÒNG 1 — chỉ xem, chưa hủy gì.  Vào /admin/bookings');
+        $cmd->line('   Mở từng đơn, bấm "Hủy đơn" để đọc bảng dự báo, rồi bấm "Không hủy nữa":');
+        $cmd->line('     đơn ' . $id('hoan90') . '  ->  phải thấy mức hoàn 90%');
+        $cmd->line('     đơn ' . $id('hoan70') . '  ->  phải thấy mức hoàn 70%');
+        $cmd->line('     đơn ' . $id('hoan50') . '  ->  phải thấy mức hoàn 50%');
+        $cmd->line('     đơn ' . $id('hoan30') . '  ->  phải thấy mức hoàn 30% + CẢNH BÁO ghế chết');
+        $cmd->line('     đơn ' . $id('hoan0') . '  ->  phải thấy mức hoàn 0%');
+        $cmd->newLine();
+
+        $cmd->comment(' VÒNG 2 — hủy thật, xem chỗ có về kho không');
+        $cmd->line('   1. Hủy đơn ' . $id('hoan50') . ' (chuyến ' . $chuyen('S3') . ') -> chỗ TRẢ về kho');
+        $cmd->line('      Vào /admin/schedules xem chuyến ' . $chuyen('S3') . ': số chỗ đã giảm');
+        $cmd->line('   2. Hủy đơn ' . $id('hoan30') . ' (chuyến ' . $chuyen('S4') . ') -> GHẾ CHẾT');
+        $cmd->line('      Xem chuyến ' . $chuyen('S4') . ': số chỗ GIỮ NGUYÊN');
+        $cmd->line('   3. Vào /admin/held-seats -> có 2 dòng -> mở lại 1 dòng kèm lý do');
+        $cmd->line('      Lúc này số chỗ mới giảm, nhưng chuyến vẫn "Đã đóng bán"');
+        $cmd->newLine();
+
+        $cmd->comment(' VÒNG 3 — chặn hủy khi chuyến đang chạy');
+        $cmd->line('   1. /admin/bookings -> đơn ' . $id('chuyenDangChay') . ' -> Hủy đơn');
+        $cmd->line('      Nút xác nhận phải BỊ KHÓA, kèm lý do chuyến đang chạy');
+        $cmd->line('   2. Đăng nhập khách -> /my-bookings -> đơn ' . $id('khachTuHuy') . ' -> Hủy đơn');
+        $cmd->line('      Cái này hủy được, vì chưa thanh toán và chuyến chưa khởi hành');
+        $cmd->newLine();
+
+        $cmd->comment(' VÒNG 4 — điểm danh.  Đăng nhập hướng dẫn viên');
+        $cmd->line('   Vào thẳng:  /guide/attendance/' . $this->schedules['S6']->id);
+        $cmd->line('   1. Đánh vắng một người, gõ ghi chú DƯỚI 10 ký tự -> bị chặn tại chỗ');
+        $cmd->line('   2. Gõ đủ ghi chú -> lưu được -> sửa lại thành có mặt -> lưu lần nữa');
+        $cmd->line('   3. Bấm sang điểm dừng của NGÀY MAI rồi thử ghi -> bị từ chối');
+        $cmd->line('   4. Quay lại quản trị: /admin/tour-schedules/' . $this->schedules['S6']->id . '/attendance');
+        $cmd->line('      Xem trạng thái mới và dấu vết lần sửa');
+        $cmd->newLine();
+
+        $cmd->comment(' VÒNG 5 — bốn lệnh, chạy lần lượt và đọc kỹ dòng in ra');
+        $cmd->line('   php artisan schedules:confirm-ready');
+        $cmd->line('     -> chuyến ' . $chuyen('S4') . ' thiếu khách: chỉ cảnh báo');
+        $cmd->line('     -> chuyến ' . $chuyen('S9') . ' đủ khách: được chốt');
+        $cmd->line('   php artisan bookings:release-expired');
+        $cmd->line('     -> đơn ' . $id('quaHan') . ' tự hủy và TRẢ chỗ, dù đã qua hạn chốt');
+        $cmd->line('   php artisan bookings:finalize-completed');
+        $cmd->line('     -> chuyến ' . $chuyen('S7') . ': 1 đơn KHÔNG CÓ MẶT, 2 đơn ĐÃ HOÀN THÀNH');
+        $cmd->line('   php artisan bookings:check-seat-consistency');
+        $cmd->line('     -> phải báo "Số chỗ của mọi chuyến đều khớp"');
+        $cmd->newLine();
+
+        $cmd->comment(' THÊM (không bắt buộc)');
+        $cmd->line('   Mở lại đơn hủy nhầm: /admin/bookings -> đơn ' . $id('moiHuy') . ' -> nút Mở lại');
+        $cmd->line('   Xem mức hoàn không cần đăng nhập: /booking-success/' . ($this->don['hoan90']->public_token ?? ''));
+        $cmd->newLine();
+
+        $this->inBangChuyen();
+
+        $cmd->line(' Giải thích vì sao từng bước ra kết quả đó: docs/nghiep-vu/15-verify-a-den-h.md');
+        $cmd->newLine();
+    }
+
+    /** Bảng tra cứu chín chuyến, để đối chiếu khi màn hình không giống mô tả. */
+    private function inBangChuyen(): void
+    {
         $rows = [];
 
         foreach ($this->schedules as $ma => $schedule) {
             $gio = (int) round(now()->diffInHours($schedule->start_date, false));
 
             $rows[] = [
+                '#' . $schedule->id,
                 $ma,
-                $schedule->start_date->format('d/m H:i'),
                 $gio >= 0 ? "còn {$gio}h" : 'đã qua ' . abs($gio) . 'h',
                 ScheduleStatus::from($schedule->getRawOriginal('status'))->label(),
                 (int) $schedule->booked_people . '/' . (int) $schedule->max_people,
@@ -512,33 +603,8 @@ class BusinessScenarioSeeder extends Seeder
         }
 
         $this->command?->table(
-            ['Mã', 'Khởi hành', 'Cách hiện tại', 'Trạng thái', 'Chỗ'],
+            ['Chuyến', 'Mã trong tài liệu', 'Cách hiện tại', 'Trạng thái', 'Chỗ'],
             $rows,
         );
-
-        // Báo giá hoàn tiền hiện ở trang /booking-success/{public_token}, tra theo mã tra cứu
-        // chứ không theo id đơn. In sẵn ở đây để mở thẳng bằng trình duyệt, khỏi phải đi tìm.
-        $donHuyThu = Booking::query()
-            ->where('tour_id', $this->tour->id)
-            ->where('note', 'like', '%Hủy thử%')
-            ->orderBy('id')
-            ->get(['public_token', 'note', 'tour_schedule_id']);
-
-        if ($donHuyThu->isNotEmpty()) {
-            $this->command?->line('Xem mức hoàn dự kiến: mở /booking-success/<mã tra cứu>');
-
-            $this->command?->table(
-                ['Mức hoàn', 'Mã tra cứu'],
-                $donHuyThu->map(function (Booking $don) {
-                    preg_match('/hoàn (\d+%)/u', (string) $don->note, $khop);
-
-                    return [$khop[1] ?? '?', $don->public_token];
-                })->all(),
-            );
-        }
-
-        $this->command?->line('Đăng nhập khách: customer@gmail.com / customer123');
-        $this->command?->line('Kịch bản thử tay từng nhóm: docs/nghiep-vu/15-verify-a-den-h.md');
-        $this->command?->newLine();
     }
 }
