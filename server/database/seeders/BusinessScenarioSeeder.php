@@ -507,6 +507,27 @@ class BusinessScenarioSeeder extends Seeder
             $rows,
         );
 
+        // Báo giá hoàn tiền hiện ở trang /booking-success/{public_token}, tra theo mã tra cứu
+        // chứ không theo id đơn. In sẵn ở đây để mở thẳng bằng trình duyệt, khỏi phải đi tìm.
+        $donHuyThu = Booking::query()
+            ->where('tour_id', $this->tour->id)
+            ->where('note', 'like', '%Hủy thử%')
+            ->orderBy('id')
+            ->get(['public_token', 'note', 'tour_schedule_id']);
+
+        if ($donHuyThu->isNotEmpty()) {
+            $this->command?->line('Xem mức hoàn dự kiến: mở /booking-success/<mã tra cứu>');
+
+            $this->command?->table(
+                ['Mức hoàn', 'Mã tra cứu'],
+                $donHuyThu->map(function (Booking $don) {
+                    preg_match('/hoàn (\d+%)/u', (string) $don->note, $khop);
+
+                    return [$khop[1] ?? '?', $don->public_token];
+                })->all(),
+            );
+        }
+
         $this->command?->line('Đăng nhập khách: customer@gmail.com / customer123');
         $this->command?->line('Kịch bản thử tay từng nhóm: docs/nghiep-vu/15-verify-a-den-h.md');
         $this->command?->newLine();

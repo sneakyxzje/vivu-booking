@@ -233,11 +233,15 @@ Bài quan trọng nhất: `test_diem_danh_thieu_nguoi_thi_khong_ket_luan_khong_c
 
 ### Thử tay
 
-1. Đặt chuyến sang **Đang khởi hành**.
-2. Thử hủy đơn từ trang khách — bị chặn.
-3. Thử hủy chính đơn đó từ trang quản trị — cũng bị chặn, cùng thông báo.
+1. Mở `/admin/bookings`, tìm đơn của chuyến **S6** (đang khởi hành).
+2. Bấm Hủy đơn, nhập lý do, xác nhận — phải bị từ chối kèm thông báo nêu rõ chuyến đang chạy.
+3. Chạy `php artisan bookings:release-expired` — tác vụ nền cũng không đụng được vào đơn đó.
 
-Bước 3 là câu hội đồng hỏi trực tiếp.
+Đây là câu hội đồng hỏi trực tiếp.
+
+Lưu ý về lối vào thứ hai: **trang khách chưa có nút hủy**. API `PUT /api/my-bookings/{id}/cancel`
+đã có và đã chịu cùng luật chặn, nhưng `MyBookingsTab.tsx` mới chỉ hiện trạng thái. Muốn thử lối
+này phải gọi thẳng API. Xem mục 8.
 
 ---
 
@@ -288,9 +292,16 @@ Bài quan trọng nhất: sửa chính sách không hồi tố đơn cũ.
 
 ### Thử tay
 
-1. Đặt một đơn, xem điều khoản hủy hiện trên trang xác nhận.
-2. Vào trang quản trị đổi mức hoàn của chính sách đó.
-3. Quay lại đơn cũ, xác nhận nó **vẫn giữ mức cũ**.
+Seeder in ra mã tra cứu của năm đơn ứng với năm bậc hoàn. Mở `/booking-success/<mã tra cứu>` là
+thấy ngay mức hoàn dự kiến của đơn đó.
+
+1. Mở lần lượt năm mã, đối chiếu với bảng 90 / 70 / 50 / 30 / 0.
+2. Vào `/admin/cancellation-policies` đổi mức hoàn của một bậc.
+3. Mở lại đúng năm mã đó, xác nhận số **vẫn giữ nguyên** — chính sách đã sao chép vào đơn lúc đặt.
+4. Đặt một đơn mới trên trang khách, xác nhận đơn mới **ăn theo mức vừa sửa**.
+
+Bước 3 với bước 4 đi liền nhau mới đủ nghĩa: một mình bước 3 chỉ chứng minh số không đổi, có thể
+vì chính sách chưa được đọc lần nào.
 
 ---
 
@@ -463,6 +474,17 @@ nhật ký thư gửi hỏng, lệnh dọn đơn tồn đọng.
 **Kiểm tra quyền điểm danh còn tra `tour_schedules.guide_id`.** Khi M02 làm phân công theo giai
 đoạn thì phải đổi sang tra bảng phân công. Chỗ cần sửa đã ghi chú sẵn trong mã.
 
+**Hai lỗ ở giao diện, phát hiện khi dựng kịch bản thử tay.** Luật phía máy chủ đủ, chỉ thiếu chỗ
+bấm:
+
+1. **Trang khách chưa có nút hủy đơn.** `MyBookingsTab.tsx` chỉ hiện trạng thái. API và luật
+   chặn đã có đủ, nên đây là việc dựng giao diện, không phải việc nghiệp vụ.
+2. **Hộp thoại hủy đơn của quản trị không hiện mức hoàn**, và câu chú thích trong đó còn ghi
+   "Hủy đơn sẽ trả lại chỗ cho lịch khởi hành" — **sai từ khi nhóm C vào**: hủy sau hạn chốt thì
+   chỗ không trả về. Người hủy đọc câu đó sẽ hiểu ngược hẳn kết quả thật.
+
+Lỗ thứ hai đáng sửa trước, vì câu chữ sai còn tệ hơn thiếu câu chữ.
+
 **Phạm vi cố ý bỏ ngoài** nằm ở [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md), tám mảng,
 kèm lý do từng mảng.
 
@@ -474,7 +496,7 @@ Nếu chỉ có mười phút, chạy đúng bốn bước này. Đây là bốn
 | --- | --- | --- |
 | 1 | Hủy đơn sau hạn chốt, chỉ ra số chỗ **không** trả về | C |
 | 2 | Mở màn Chỗ đã hủy chưa mở bán lại, mở lại kèm lý do | C |
-| 3 | Đặt chuyến sang đang khởi hành, thử hủy từ cả hai trang | A, D |
+| 3 | Thử hủy đơn của chuyến S6 từ trang quản trị, chỉ ra bị chặn | A, D |
 | 4 | Điểm danh một người vắng, chỉ ra ghi chú bắt buộc và lịch sử sửa | H |
 
 Nhóm B khó demo bằng thao tác vì phải chờ mốc thời gian. Thay bằng mở
