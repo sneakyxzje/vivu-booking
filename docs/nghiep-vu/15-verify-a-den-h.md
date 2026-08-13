@@ -239,9 +239,13 @@ Bài quan trọng nhất: `test_diem_danh_thieu_nguoi_thi_khong_ket_luan_khong_c
 
 Đây là câu hội đồng hỏi trực tiếp.
 
-Lưu ý về lối vào thứ hai: **trang khách chưa có nút hủy**. API `PUT /api/my-bookings/{id}/cancel`
-đã có và đã chịu cùng luật chặn, nhưng `MyBookingsTab.tsx` mới chỉ hiện trạng thái. Muốn thử lối
-này phải gọi thẳng API. Xem mục 8.
+Lối vào thứ hai, từ trang khách:
+
+4. Đăng nhập khách, vào `/my-bookings`, tìm đơn chờ thanh toán của **S1** — có nút **Hủy đơn**.
+5. Hủy được bình thường, vì chuyến chưa khởi hành.
+
+Khách chỉ tự hủy được đơn **chưa thanh toán**; đơn đã thu tiền đi đường duyệt của nhóm F, chưa
+dựng. Xem mục 8.
 
 ---
 
@@ -482,9 +486,13 @@ nhật ký thư gửi hỏng, lệnh dọn đơn tồn đọng.
 **Kiểm tra quyền điểm danh còn tra `tour_schedules.guide_id`.** Khi M02 làm phân công theo giai
 đoạn thì phải đổi sang tra bảng phân công. Chỗ cần sửa đã ghi chú sẵn trong mã.
 
-**Trang khách chưa có nút hủy đơn.** `MyBookingsTab.tsx` mới chỉ hiện trạng thái. API
-`PUT /api/my-bookings/{id}/cancel` và luật chặn đằng sau nó đã có đủ, nên đây là việc dựng giao
-diện chứ không phải việc nghiệp vụ. Hệ quả khi verify: nhóm D chỉ thử được từ trang quản trị.
+**Khách chỉ tự hủy được đơn chưa thanh toán.** `Customer\BookingController::cancelBooking` chặn
+mọi trạng thái khác `pending`, và đó là **đúng thiết kế**: đơn đã thu tiền thì khách gửi yêu cầu
+hủy, điều hành duyệt rồi mới hoàn. Tiền ra khỏi công ty phải có người chịu trách nhiệm, không để
+một cú bấm quyết định.
+
+Luồng yêu cầu và duyệt đó là **nhóm F**, chưa dựng. Hệ quả khi verify: đường khách đã trả tiền
+xin hủy chưa có ở đâu cả, kể cả API. Bảng phí hủy của nhóm B hiện chỉ chạm tới đường quản trị hủy.
 
 **Phạm vi cố ý bỏ ngoài** nằm ở [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md), tám mảng,
 kèm lý do từng mảng.

@@ -190,6 +190,22 @@ class BusinessScenarioSeederTest extends TestCase
         );
     }
 
+    /**
+     * Trang khách chỉ cho tự hủy đơn chưa thanh toán, và đơn quá hạn thì bị tác vụ nhả chỗ hủy
+     * mất ngay khi mở danh sách. Phải có sẵn một đơn còn hạn, nếu không màn hình không có gì để
+     * bấm và người thử tay tưởng nút hủy hỏng.
+     */
+    public function test_co_don_cho_thanh_toan_con_han_de_thu_nut_huy_tren_trang_khach(): void
+    {
+        $don = Booking::query()
+            ->where('tour_schedule_id', $this->chuyen(1)->id)
+            ->where('status', 'pending')
+            ->first();
+
+        $this->assertNotNull($don, 'Thiếu đơn chờ thanh toán trên S1.');
+        $this->assertFalse($don->isOverdue(), 'Đơn phải còn hạn thanh toán mới bấm hủy được.');
+    }
+
     public function test_chuyen_thieu_khach_khong_du_muc_toi_thieu(): void
     {
         $schedule = $this->chuyen(9);

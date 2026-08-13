@@ -256,6 +256,11 @@ class BusinessScenarioSeeder extends Seeder
             'refund_amount' => 4500000,
         ])->save();
 
+        // Đơn chờ thanh toán còn hạn, để bấm thử nút hủy trên trang khách. Phải còn hạn: đơn quá
+        // hạn bị tác vụ nhả chỗ hủy ngay lúc mở danh sách, chưa kịp bấm đã thành đã hủy.
+        $khachTuHuy = $this->taoDon('S1', 'pending', 2, 0, 'Trang khách: bấm Hủy đơn để tự hủy đơn chưa thanh toán', 'D');
+        $khachTuHuy->forceFill(['expires_at' => now()->addDay()])->save();
+
         // Đối chứng cho ghế chết: đơn chưa thanh toán thì luôn trả chỗ, kể cả quá hạn chốt.
         $quaHan = $this->taoDon('S5', 'pending', 2, 0, 'Chạy bookings:release-expired: đơn tự hủy và TRẢ chỗ dù đã qua hạn chốt', 'C');
         $quaHan->forceFill([

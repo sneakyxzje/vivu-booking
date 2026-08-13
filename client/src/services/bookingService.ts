@@ -71,6 +71,18 @@ const bookingService = {
 
   getMyBookings: () => api.get("/my-bookings"),
 
+  /**
+   * Khách tự hủy đơn của mình.
+   *
+   * Máy chủ chỉ nhận đơn chưa thanh toán, và từ chối kèm lý do khi chuyến đã khởi hành. Lỗi để
+   * nguyên cho màn hình đọc `message`, vì câu giải thích của tầng dịch vụ cụ thể hơn bất cứ câu
+   * chung chung nào viết ở đây.
+   */
+  cancelMyBooking: (id: number, cancelReason: string) =>
+    api.put<{ success: boolean; message: string }>(`/my-bookings/${id}/cancel`, {
+      cancel_reason: cancelReason,
+    }),
+
   // Mức hoàn dự kiến nếu hủy ngay bây giờ, xem được bằng mã tra cứu nên khách vãng lai
   // cũng đọc được mà không cần đăng nhập.
   getRefundQuote: (publicToken: string) =>

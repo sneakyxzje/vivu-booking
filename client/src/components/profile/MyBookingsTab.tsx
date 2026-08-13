@@ -36,6 +36,12 @@ export const MyBookingsTab: React.FC = () => {
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
+  // Hủy đơn
+  const [cancelTarget, setCancelTarget] = useState<ExtendedBooking | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelError, setCancelError] = useState("");
+
   useEffect(() => {
     const fetchBookings = async () => {
       setLoadingBookings(true);
@@ -64,6 +70,58 @@ export const MyBookingsTab: React.FC = () => {
       item.id.toString().includes(searchQuery);
     return matchesFilter && matchesQuery;
   });
+
+  /**
+   * Đơn chưa thanh toán thì khách tự hủy được.
+   *
+   * Đơn đã thanh toán đi đường khác: khách gửi yêu cầu, điều hành duyệt rồi mới hoàn tiền. Tiền
+   * ra khỏi công ty thì phải có người chịu trách nhiệm, không để một cú bấm quyết định. Luồng đó
+   * là nhóm F trong docs/nghiep-vu/11-backlog-trien-khai.md, chưa dựng.
+   */
+  const coTheTuHuy = (booking: ExtendedBooking) => booking.status === "pending";
+
+  const moFormHuy = (booking: ExtendedBooking) => {
+    setCancelTarget(booking);
+    setCancelReason("");
+    setCancelError("");
+  };
+
+  const dongFormHuy = () => {
+    setCancelTarget(null);
+    setCancelReason("");
+    setCancelError("");
+  };
+
+  const xacNhanHuy = async () => {
+    if (!cancelTarget || !cancelReason.trim()) return;
+
+    setCancelLoading(true);
+    setCancelError("");
+
+    try {
+      await bookingService.cancelMyBooking(cancelTarget.id, cancelReason.trim());
+
+      // Cập nhật tại chỗ thay vì tải lại cả danh sách: đơn vừa hủy phải đổi trạng thái ngay
+      // trước mắt khách, còn các đơn khác không có lý do gì phải nhấp nháy theo.
+      setBookings((prev) =>
+        prev.map((item) =>
+          item.id === cancelTarget.id ? { ...item, status: "cancelled" } : item,
+        ),
+      );
+
+      setSelectedBooking((prev) =>
+        prev && prev.id === cancelTarget.id ? { ...prev, status: "cancelled" } : prev,
+      );
+
+      dongFormHuy();
+    } catch (err) {
+      // Thông báo của máy chủ nói rõ vì sao, ví dụ chuyến đã khởi hành nên không hủy được nữa.
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setCancelError(message || "Không hủy được đơn. Vui lòng thử lại hoặc liên hệ tổng đài.");
+    } finally {
+      setCancelLoading(false);
+    }
+  };
 
   const renderStatusBadge = (status: string) => {
     switch (status) {
@@ -226,6 +284,15 @@ export const MyBookingsTab: React.FC = () => {
                   </span>
 
                   <div className="flex items-center gap-2">
+                    {coTheTuHuy(item) && (
+                      <button
+                        onClick={() => moFormHuy(item)}
+                        className="px-3.5 py-1.5 text-xs font-semibold bg-white text-rose-600 hover:bg-rose-50 rounded-xl transition-colors flex items-center gap-1.5 border border-rose-200"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        Hủy đơn
+                      </button>
+                    )}
                     {item.status === "confirmed" && (
                       <button
                         onClick={() => setShowReviewModal(item)}
@@ -434,6 +501,96 @@ export const MyBookingsTab: React.FC = () => {
               </div>
             </div>
 
+          </div>
+        )}
+      </Modal>
+
+      {/* MODAL: KHÁCH TỰ HỦY ĐƠN CHƯA THANH TOÁN */}
+      <Modal
+        isOpen={!!cancelTarget}
+        onClose={dongFormHuy}
+        size="lg"
+        title={
+          <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full uppercase tracking-wider border border-rose-200">
+            Hủy đơn đặt tour #{cancelTarget?.id}
+          </span>
+        }
+        subtitle={
+          <span className="text-base font-bold text-gray-900 block mt-1 font-plus-jakarta">
+            {cancelTarget?.tour?.title}
+          </span>
+        }
+      >
+        {cancelTarget && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200/70 text-xs text-gray-700 space-y-1.5">
+              <p>
+                <span className="text-gray-500">Khởi hành:</span>{" "}
+                <strong className="text-gray-900">{formatDateTime(cancelTarget.departure_date)}</strong>
+              </p>
+              <p>
+                <span className="text-gray-500">Số khách:</span>{" "}
+                <strong className="text-gray-900">{cancelTarget.guests} người</strong>
+              </p>
+              <p>
+                <span className="text-gray-500">Giá trị đơn:</span>{" "}
+                <strong className="text-gray-900">
+                  {Number(cancelTarget.total_amount).toLocaleString("vi-VN")} đ
+                </strong>
+              </p>
+            </div>
+
+            {/* Đơn này chưa thu tiền nên không có gì để hoàn. Nói thẳng ra, đừng hiện bảng phí
+                hủy với con số 0 đồng - khách sẽ tưởng mình vừa mất tiền. */}
+            <div className="bg-emerald-50/70 rounded-lg p-4 border border-emerald-200 text-xs text-emerald-900 space-y-1">
+              <p className="font-bold">Đơn chưa thanh toán nên không phát sinh phí hủy.</p>
+              <p>
+                Chỗ giữ sẽ được trả lại ngay cho chuyến, và mã giảm giá đã dùng (nếu có) được hoàn
+                lượt để bạn dùng lần sau.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                Lý do hủy <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                rows={3}
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="VD: Đổi lịch công tác, chưa sắp xếp được thời gian..."
+                className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400"
+              />
+              <p className="text-[11px] text-gray-400 mt-1">
+                Lý do giúp chúng tôi cải thiện dịch vụ. Hủy xong không khôi phục lại được, bạn cần
+                đặt đơn mới nếu đổi ý.
+              </p>
+            </div>
+
+            {cancelError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700">
+                {cancelError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={dongFormHuy}
+                disabled={cancelLoading}
+                className="px-4 py-2.5 bg-white border border-gray-200 text-xs font-semibold rounded-xl text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Không hủy nữa
+              </button>
+              <button
+                type="button"
+                onClick={xacNhanHuy}
+                disabled={cancelLoading || !cancelReason.trim()}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-50"
+              >
+                {cancelLoading ? "Đang hủy..." : "Xác nhận hủy đơn"}
+              </button>
+            </div>
           </div>
         )}
       </Modal>
