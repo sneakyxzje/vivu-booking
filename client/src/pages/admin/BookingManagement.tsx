@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Booking } from "@/types";
 import adminService from "@/services/adminService";
+import type { CancelPreview } from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
-import { formatDateTime } from "@/utils/format";
+import { formatDateTime, formatPrice } from "@/utils/format";
 
 export default function BookingManagement() {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -21,6 +22,8 @@ export default function BookingManagement() {
 
   const [cancelMode, setCancelMode] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [cancelPreview, setCancelPreview] = useState<CancelPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [reopenMode, setReopenMode] = useState(false);
   const [reopenReason, setReopenReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -125,7 +128,32 @@ export default function BookingManagement() {
     setSelectedBooking(null);
     setCancelMode(false);
     setCancelReason("");
+    setCancelPreview(null);
     setActionError("");
+  };
+
+  /**
+   * Mở form hủy và hỏi máy chủ trước xem hủy đơn này sẽ ra sao.
+   *
+   * Hỏi máy chủ chứ không tự tính ở đây: bảng phí đã sao chép vào từng đơn lúc đặt, và quy tắc
+   * trả chỗ phụ thuộc hạn chốt danh sách của chuyến. Tính lại ở trình duyệt thì sớm muộn cũng
+   * lệch với con số máy chủ thực sự áp dụng.
+   */
+  const openCancelForm = async () => {
+    if (!selectedBooking) return;
+
+    setCancelMode(true);
+    setActionError("");
+    setCancelPreview(null);
+    setPreviewLoading(true);
+
+    try {
+      setCancelPreview(await adminService.getCancelPreview(selectedBooking.id));
+    } catch (err) {
+      setActionError(extractApiError(err, "Không lấy được dự báo hủy đơn."));
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   // Cập nhật đơn trong cả modal lẫn danh sách sau khi admin thao tác
@@ -163,6 +191,7 @@ export default function BookingManagement() {
         applyBookingUpdate(updated);
         setCancelMode(false);
         setCancelReason("");
+        setCancelPreview(null);
       }
     } catch (err) {
       setActionError(extractApiError(err, "Không thể hủy đơn. Vui lòng thử lại."));
@@ -584,7 +613,7 @@ export default function BookingManagement() {
             )}
             {(selectedBooking?.status === "pending" || selectedBooking?.status === "confirmed") && !cancelMode && !reopenMode && (
               <button
-                onClick={() => { setCancelMode(true); setActionError(""); }}
+                onClick={openCancelForm}
                 disabled={actionLoading}
                 className="px-4 py-2 bg-white border border-rose-200 text-sm font-semibold rounded-md text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50 cursor-pointer"
               >
@@ -778,6 +807,61 @@ export default function BookingManagement() {
             {/* Form nhập lý do hủy */}
             {cancelMode && (
               <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-4 space-y-3">
+                {previewLoading && (
+                  <p className="text-xs font-medium text-gray-500">Đang tính mức hoàn và tình trạng chỗ...</p>
+                )}
+
+                {/* Chuyến đang chạy hoặc đã kết thúc thì không hủy được. Nói ngay ở đây thay vì
+                    để người ta gõ xong lý do rồi mới nhận lỗi. */}
+                {cancelPreview && !cancelPreview.can_cancel && (
+                  <div className="rounded-lg border border-rose-300 bg-white px-3 py-2.5">
+                    <p className="text-sm font-bold text-rose-700">Không hủy được đơn này</p>
+                    <p className="text-xs text-rose-700 mt-0.5">{cancelPreview.blocked_reason}</p>
+                  </div>
+                )}
+
+                {cancelPreview && cancelPreview.can_cancel && (
+                  <div className="rounded-lg border border-gray-200 bg-white p-3 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">
+                        Còn {Math.max(0, Math.round(cancelPreview.hours_before ?? 0))} giờ tới khởi hành
+                        {cancelPreview.policy_name ? ` · ${cancelPreview.policy_name}` : ""}
+                      </span>
+                      <span className="font-bold text-gray-900">
+                        Mức hoàn {cancelPreview.refund_percent}%
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-md bg-gray-50 py-2">
+                        <p className="text-[11px] text-gray-500">Đã thu</p>
+                        <p className="text-sm font-bold text-gray-900">{formatPrice(cancelPreview.paid_amount)}</p>
+                      </div>
+                      <div className="rounded-md bg-amber-50 py-2">
+                        <p className="text-[11px] text-amber-700">Phí hủy</p>
+                        <p className="text-sm font-bold text-amber-800">{formatPrice(cancelPreview.cancellation_fee)}</p>
+                      </div>
+                      <div className="rounded-md bg-emerald-50 py-2">
+                        <p className="text-[11px] text-emerald-700">Hoàn khách</p>
+                        <p className="text-sm font-bold text-emerald-800">{formatPrice(cancelPreview.refund_amount)}</p>
+                      </div>
+                    </div>
+
+                    {/* Điểm dễ hiểu sai nhất: hủy sau hạn chốt danh sách thì chỗ ở lại với đơn,
+                        vì suất đã cam kết với nhà cung cấp và không hủy được nữa. */}
+                    {cancelPreview.seats_will_be_released ? (
+                      <p className="text-xs text-gray-600">
+                        Chỗ sẽ được trả về kho và lịch khởi hành bán tiếp được ngay.
+                      </p>
+                    ) : (
+                      <p className="rounded-md bg-rose-100 px-3 py-2 text-xs font-semibold text-rose-800">
+                        Đơn này đã qua hạn chốt danh sách. Hủy xong <strong>chỗ không quay lại kho</strong>,
+                        nó thành ghế chết và chỉ mở bán lại được bằng tay ở mục Chỗ đã hủy chưa mở bán lại.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <label className="block text-sm font-semibold text-rose-800">
                   Lý do hủy đơn <span className="text-rose-500">*</span>
                 </label>
@@ -789,12 +873,12 @@ export default function BookingManagement() {
                   className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm outline-none focus:border-rose-400"
                 />
                 <p className="text-xs text-rose-600">
-                  Hủy đơn sẽ trả lại chỗ cho lịch khởi hành và hoàn lượt mã giảm giá (nếu có).
-                  {selectedBooking.vnpay_transaction_no && " Đơn này ĐÃ thanh toán qua VNPay — cần hoàn tiền cho khách thủ công."}
+                  Lượt mã giảm giá luôn được hoàn lại.
+                  {selectedBooking.vnpay_transaction_no && " Đơn này ĐÃ thanh toán qua VNPay — cần chuyển tiền hoàn cho khách thủ công."}
                 </p>
                 <div className="flex justify-end gap-2">
                   <button
-                    onClick={() => { setCancelMode(false); setCancelReason(""); }}
+                    onClick={() => { setCancelMode(false); setCancelReason(""); setCancelPreview(null); }}
                     disabled={actionLoading}
                     className="px-3.5 py-2 bg-white border border-gray-200 text-xs font-semibold rounded-md text-gray-600 hover:bg-gray-100 cursor-pointer"
                   >
@@ -802,7 +886,12 @@ export default function BookingManagement() {
                   </button>
                   <button
                     onClick={handleCancel}
-                    disabled={actionLoading || !cancelReason.trim()}
+                    disabled={
+                      actionLoading
+                      || previewLoading
+                      || !cancelReason.trim()
+                      || cancelPreview?.can_cancel === false
+                    }
                     className="px-3.5 py-2 bg-rose-600 text-xs font-semibold rounded-md text-white hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
                   >
                     {actionLoading ? "Đang hủy..." : "Xác nhận hủy đơn"}

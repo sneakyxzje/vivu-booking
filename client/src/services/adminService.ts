@@ -64,6 +64,23 @@ export interface HeldSeatsResponse {
   total_held_seats: number;
 }
 
+/** Hậu quả của việc hủy một đơn, tính trước khi thực hiện. */
+export interface CancelPreview {
+  /** Số giờ còn lại tới khởi hành. Âm nghĩa là đã qua giờ đi. */
+  hours_before: number | null;
+  refund_percent: number;
+  total_amount: number;
+  paid_amount: number;
+  cancellation_fee: number;
+  refund_amount: number;
+  can_cancel: boolean;
+  /** Câu giải thích khi không hủy được, lấy nguyên từ tầng dịch vụ. */
+  blocked_reason: string | null;
+  /** false nghĩa là hủy xong sẽ thành ghế chết. */
+  seats_will_be_released: boolean;
+  policy_name: string | null;
+}
+
 const adminService = {
   // --- DASHBOARD ---
   getDashboard: async (): Promise<AdminDashboardData | null> => {
@@ -124,6 +141,17 @@ const adminService = {
   confirmBooking: async (id: number): Promise<Booking | null> => {
     const response = await api.put(`/admin/bookings/${id}/confirm`);
     return extractObject<Booking>(response);
+  },
+
+  /**
+   * Hậu quả của việc hủy, lấy trước khi bấm xác nhận.
+   *
+   * Hai con số quan trọng nhất là mức hoàn và chỗ có về kho hay không. Người hủy phải biết
+   * trước, không phải phát hiện ra sau khi thấy số chỗ không nhúc nhích.
+   */
+  getCancelPreview: async (id: number): Promise<CancelPreview | null> => {
+    const response = await api.get(`/admin/bookings/${id}/cancel-preview`);
+    return extractObject<CancelPreview>(response);
   },
 
   cancelBooking: async (id: number, reason: string): Promise<Booking | null> => {

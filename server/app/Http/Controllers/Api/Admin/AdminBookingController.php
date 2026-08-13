@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Enums\ScheduleStatus;
+use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Mail\BookingCancelledMail;
 use App\Mail\BookingConfirmedMail;
@@ -10,6 +11,7 @@ use App\Models\Booking;
 use App\Models\TourSchedule;
 use App\Services\BookingHoldService;
 use App\Services\BookingPolicyService;
+use App\Services\CancellationPolicyService;
 use App\Services\ScheduleLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,6 +26,7 @@ class AdminBookingController extends Controller
         private BookingHoldService $holdService,
         private BookingPolicyService $bookingPolicy,
         private ScheduleLifecycleService $scheduleLifecycle,
+        private CancellationPolicyService $cancellationPolicy,
     ) {
     }
 
@@ -135,6 +138,50 @@ class AdminBookingController extends Controller
     /**
      * Admin hủy đơn (pending hoặc confirmed) kèm lý do — trả lại chỗ và lượt mã giảm giá.
      */
+    /**
+     * Dự báo hậu quả của việc hủy một đơn, trả về trước khi quản trị bấm xác nhận.
+     *
+     * Ba câu hỏi mà người bấm nút cần biết trước, không phải sau: đơn này có hủy được không,
+     * khách được hoàn bao nhiêu, và chỗ có quay lại kho để bán tiếp không.
+     *
+     * Đặc biệt là câu thứ ba. Hủy sau hạn chốt danh sách thì chỗ ở lại với đơn dưới dạng ghế
+     * chết, và người hủy phải biết điều đó trước khi hủy chứ không phải phát hiện ra khi thấy
+     * số chỗ không nhúc nhích.
+     */
+    public function cancelPreview(int $id): JsonResponse
+    {
+        $booking = Booking::query()
+            ->with(['schedule', 'cancellationPolicy.rules'])
+            ->find($id);
+
+        if (!$booking) {
+            return $this->error('Không tìm thấy đơn đặt hàng', 404);
+        }
+
+        $schedule = $booking->schedule;
+
+        $coTheHuy = true;
+        $lyDoChan = null;
+
+        try {
+            $this->bookingPolicy->assertCancellable($booking, $schedule);
+        } catch (BusinessRuleException $e) {
+            $coTheHuy = false;
+            $lyDoChan = $e->getMessage();
+        }
+
+        $duBao = $this->cancellationPolicy->quote($booking, $schedule);
+
+        return $this->success($duBao + [
+            'can_cancel' => $coTheHuy,
+            'blocked_reason' => $lyDoChan,
+            // Dự báo, không phải cam kết: tới lúc bấm hủy thật thì lớp dịch vụ tính lại trên
+            // bản ghi đã khóa. Hai kết quả chỉ lệch nhau nếu hạn chốt rơi đúng vào khoảng giữa.
+            'seats_will_be_released' => $this->holdService->shouldReleaseSeats($booking, $schedule),
+            'policy_name' => $booking->cancellationPolicy?->name,
+        ], 'Lấy dự báo hủy đơn thành công');
+    }
+
     public function cancel(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
@@ -189,9 +236,17 @@ class AdminBookingController extends Controller
 
         $this->sendCancelledMailAfterResponse($booking);
 
+        // Nói đúng chuyện vừa xảy ra. Câu cũ khẳng định luôn là đã trả lại chỗ, sai kể từ khi
+        // có quy tắc giữ chỗ sau hạn chốt: đơn hủy muộn để lại ghế chết, và người vừa bấm hủy
+        // cần biết ngay để còn xử lý với nhà cung cấp.
+        $daTraCho = (bool) $booking->fresh()->seats_released;
+
         return $this->success(
             $booking->fresh(['tour', 'customer', 'schedule', 'paymentLogs']),
-            'Đã hủy đơn đặt tour và trả lại chỗ.'
+            $daTraCho
+                ? 'Đã hủy đơn đặt tour và trả lại chỗ cho lịch khởi hành.'
+                : 'Đã hủy đơn đặt tour. Đơn hủy sau hạn chốt danh sách nên chỗ chưa được trả về kho, '
+                    . 'xem mục Chỗ đã hủy chưa mở bán lại để quyết định mở bán tiếp.'
         );
     }
 

@@ -168,6 +168,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/bookings/{id}', [AdminBookingController::class, 'show']);
         Route::put('/bookings/{id}/release-seats', [AdminBookingController::class, 'releaseHeldSeats']);
         Route::put('/bookings/{id}/confirm', [AdminBookingController::class, 'confirm']);
+        Route::get('/bookings/{id}/cancel-preview', [AdminBookingController::class, 'cancelPreview']);
         Route::put('/bookings/{id}/cancel', [AdminBookingController::class, 'cancel']);
         // Task X07a - Mở lại đơn đã hủy nhầm trong 24h
         Route::put('/bookings/{id}/reopen', [AdminBookingController::class, 'reopen']);

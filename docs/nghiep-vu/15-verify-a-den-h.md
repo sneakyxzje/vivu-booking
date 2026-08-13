@@ -292,12 +292,15 @@ Bài quan trọng nhất: sửa chính sách không hồi tố đơn cũ.
 
 ### Thử tay
 
-Seeder in ra mã tra cứu của năm đơn ứng với năm bậc hoàn. Mở `/booking-success/<mã tra cứu>` là
-thấy ngay mức hoàn dự kiến của đơn đó.
+Hai đường đều xem được, không phải hủy thật:
 
-1. Mở lần lượt năm mã, đối chiếu với bảng 90 / 70 / 50 / 30 / 0.
+- `/admin/bookings` → mở đơn của S1 tới S5 → bấm **Hủy đơn**. Hộp thoại hiện mức hoàn, phí hủy,
+  số hoàn khách và tình trạng chỗ, trước khi xác nhận. Bấm **Không hủy nữa** để thoát.
+- Hoặc mở `/booking-success/<mã tra cứu>` — seeder in sẵn năm mã ứng với năm bậc.
+
+1. Xem lần lượt năm đơn, đối chiếu với bảng 90 / 70 / 50 / 30 / 0.
 2. Vào `/admin/cancellation-policies` đổi mức hoàn của một bậc.
-3. Mở lại đúng năm mã đó, xác nhận số **vẫn giữ nguyên** — chính sách đã sao chép vào đơn lúc đặt.
+3. Xem lại đúng năm đơn đó, xác nhận số **vẫn giữ nguyên** — chính sách đã sao chép vào đơn lúc đặt.
 4. Đặt một đơn mới trên trang khách, xác nhận đơn mới **ăn theo mức vừa sửa**.
 
 Bước 3 với bước 4 đi liền nhau mới đủ nghĩa: một mình bước 3 chỉ chứng minh số không đổi, có thể
@@ -358,11 +361,16 @@ php artisan test --filter="SeatReleaseRuleTest|HeldSeatsTest|SeatConsistencyComm
 
 ### Thử tay
 
-1. Hủy một đơn **trước** hạn chốt, xác nhận số chỗ giảm và chuyến mở bán lại.
-2. Đẩy `booking_deadline` về quá khứ, hủy đơn khác, xác nhận số chỗ **không** giảm.
-3. Vào màn Chỗ đã hủy chưa mở bán lại, mở lại chỗ đó kèm lý do, xác nhận số chỗ giảm.
+Dùng cặp đối chứng S3 và S4 đã dựng sẵn.
 
-Bước 2 là câu hội đồng hỏi trực tiếp.
+1. `/admin/bookings` → hủy đơn của **S3**. Hộp thoại báo trước "chỗ sẽ được trả về kho". Hủy xong
+   xem `/admin/schedules`: số chỗ của S3 giảm.
+2. Hủy đơn của **S4**. Hộp thoại cảnh báo đỏ **chỗ không quay lại kho**. Hủy xong xem lại: số chỗ
+   của S4 **giữ nguyên**.
+3. Mở `/admin/held-seats`, mở lại chỗ đó kèm lý do, lúc này số chỗ mới giảm.
+
+Bước 2 là câu hội đồng hỏi trực tiếp. Điểm đáng chỉ ra khi demo: hệ thống **nói trước** hậu quả
+chứ không để người dùng tự phát hiện sau.
 
 ---
 
@@ -474,16 +482,9 @@ nhật ký thư gửi hỏng, lệnh dọn đơn tồn đọng.
 **Kiểm tra quyền điểm danh còn tra `tour_schedules.guide_id`.** Khi M02 làm phân công theo giai
 đoạn thì phải đổi sang tra bảng phân công. Chỗ cần sửa đã ghi chú sẵn trong mã.
 
-**Hai lỗ ở giao diện, phát hiện khi dựng kịch bản thử tay.** Luật phía máy chủ đủ, chỉ thiếu chỗ
-bấm:
-
-1. **Trang khách chưa có nút hủy đơn.** `MyBookingsTab.tsx` chỉ hiện trạng thái. API và luật
-   chặn đã có đủ, nên đây là việc dựng giao diện, không phải việc nghiệp vụ.
-2. **Hộp thoại hủy đơn của quản trị không hiện mức hoàn**, và câu chú thích trong đó còn ghi
-   "Hủy đơn sẽ trả lại chỗ cho lịch khởi hành" — **sai từ khi nhóm C vào**: hủy sau hạn chốt thì
-   chỗ không trả về. Người hủy đọc câu đó sẽ hiểu ngược hẳn kết quả thật.
-
-Lỗ thứ hai đáng sửa trước, vì câu chữ sai còn tệ hơn thiếu câu chữ.
+**Trang khách chưa có nút hủy đơn.** `MyBookingsTab.tsx` mới chỉ hiện trạng thái. API
+`PUT /api/my-bookings/{id}/cancel` và luật chặn đằng sau nó đã có đủ, nên đây là việc dựng giao
+diện chứ không phải việc nghiệp vụ. Hệ quả khi verify: nhóm D chỉ thử được từ trang quản trị.
 
 **Phạm vi cố ý bỏ ngoài** nằm ở [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md), tám mảng,
 kèm lý do từng mảng.

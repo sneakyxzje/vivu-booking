@@ -72,6 +72,99 @@ class HeldSeatsTest extends TestCase
         return [$schedule, $booking];
     }
 
+    /**
+     * Người bấm nút phải biết trước hậu quả, không phải phát hiện ra sau.
+     *
+     * Trước khi có dự báo này, hộp thoại hủy khẳng định "hủy đơn sẽ trả lại chỗ cho lịch khởi
+     * hành" trong mọi trường hợp - sai kể từ khi có quy tắc giữ chỗ sau hạn chốt, và sai theo
+     * hướng nguy hiểm: điều hành hủy xong tưởng chỗ đã về kho nên không đi xin thêm suất.
+     */
+    public function test_du_bao_bao_truoc_rang_huy_som_thi_cho_ve_kho(): void
+    {
+        [, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
+        Sanctum::actingAs($this->taoAdmin());
+
+        $this->getJson("/api/admin/bookings/{$booking->id}/cancel-preview")
+            ->assertOk()
+            ->assertJsonPath('data.can_cancel', true)
+            ->assertJsonPath('data.seats_will_be_released', true);
+    }
+
+    public function test_du_bao_canh_bao_ghe_chet_truoc_khi_huy(): void
+    {
+        [, $booking] = $this->taoChuyenVaDon(hanChot: now()->subHour()->toDateTimeString());
+        Sanctum::actingAs($this->taoAdmin());
+
+        $this->getJson("/api/admin/bookings/{$booking->id}/cancel-preview")
+            ->assertOk()
+            ->assertJsonPath('data.can_cancel', true)
+            ->assertJsonPath('data.seats_will_be_released', false);
+    }
+
+    /**
+     * Dự báo phải khớp với việc thật sự xảy ra khi bấm hủy. Hai con số lệch nhau thì dự báo còn
+     * tệ hơn không có, vì nó khiến người ta tin vào một kết quả không đúng.
+     */
+    public function test_du_bao_khop_voi_ket_qua_huy_that(): void
+    {
+        [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->subHour()->toDateTimeString());
+        Sanctum::actingAs($this->taoAdmin());
+
+        $duBao = $this->getJson("/api/admin/bookings/{$booking->id}/cancel-preview")->json('data');
+
+        $this->putJson("/api/admin/bookings/{$booking->id}/cancel", [
+            'cancel_reason' => 'Khach huy sat ngay di',
+        ])->assertOk();
+
+        $this->assertSame(
+            $duBao['seats_will_be_released'],
+            (bool) $booking->fresh()->seats_released,
+            'Dự báo trả chỗ phải khớp với kết quả thật.',
+        );
+
+        $this->assertSame(4, (int) $schedule->fresh()->booked_people);
+    }
+
+    /** Chuyến đang chạy thì dự báo phải nói không hủy được, kèm lý do để hiện ngay trên màn hình. */
+    public function test_du_bao_noi_ro_khi_khong_huy_duoc(): void
+    {
+        [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->subDay()->toDateTimeString());
+
+        $schedule->update([
+            'status' => ScheduleStatus::InProgress->value,
+            'start_date' => now()->subHours(3),
+            'end_date' => now()->addDay(),
+        ]);
+
+        Sanctum::actingAs($this->taoAdmin());
+
+        $response = $this->getJson("/api/admin/bookings/{$booking->id}/cancel-preview")
+            ->assertOk()
+            ->assertJsonPath('data.can_cancel', false);
+
+        $this->assertNotEmpty($response->json('data.blocked_reason'));
+    }
+
+    /** Mức hoàn trong dự báo phải là con số thật của bảng phí, không phải số làm tròn cho đẹp. */
+    public function test_du_bao_tra_ve_dung_muc_hoan_theo_so_gio_con_lai(): void
+    {
+        [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
+
+        // Đẩy ngày khởi hành ra xa để rơi vào bậc hoàn cao nhất.
+        $schedule->update([
+            'start_date' => now()->addDays(20),
+            'end_date' => now()->addDays(22),
+        ]);
+
+        Sanctum::actingAs($this->taoAdmin());
+
+        $this->getJson("/api/admin/bookings/{$booking->id}/cancel-preview")
+            ->assertOk()
+            ->assertJsonPath('data.refund_percent', 90)
+            ->assertJsonPath('data.cancellation_fee', 400000)
+            ->assertJsonPath('data.refund_amount', 3600000);
+    }
+
     public function test_huy_truoc_han_chot_thi_cho_ve_kho_ngay(): void
     {
         [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
