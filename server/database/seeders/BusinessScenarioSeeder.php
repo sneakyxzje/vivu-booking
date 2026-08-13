@@ -15,6 +15,7 @@ use App\Models\Tour;
 use App\Models\TourItinerary;
 use App\Models\TourSchedule;
 use App\Models\User;
+use App\Services\BookingChangeRequestService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -79,6 +80,7 @@ class BusinessScenarioSeeder extends Seeder
         $this->dungTour();
         $this->dungCacChuyen();
         $this->dungCacDon();
+        $this->dungYeuCauHuy();
         $this->dungDiemDanh();
         $this->dongBoSoCho();
         $this->inHuongDan();
@@ -293,6 +295,11 @@ class BusinessScenarioSeeder extends Seeder
         ])->save();
         $this->don['moiHuy'] = $moiHuy;
 
+        // Nhóm F: đơn đã thanh toán để khách gửi yêu cầu hủy, và một yêu cầu dựng sẵn để màn
+        // duyệt của điều hành có dữ liệu ngay mà không phải tự gửi trước.
+        $this->don['xinHuy'] = $this->taoDon('S2', 'confirmed', 2, 0, 'Trang khách: bấm Yêu cầu hủy, đơn đã thanh toán nên phải chờ duyệt', 'F');
+        $this->don['choDuyet'] = $this->taoDon('S1', 'confirmed', 2, 0, 'Đã có yêu cầu hủy chờ duyệt, vào màn Yêu cầu hủy của khách để duyệt', 'F');
+
         // Nhóm D: đơn của chuyến đang chạy, thử hủy từ cả trang khách lẫn trang quản trị.
         $this->don['chuyenDangChay'] = $this->taoDon('S6', 'confirmed', 2, 0, 'Thử hủy: phải bị chặn vì chuyến đang chạy', 'D', ['Nguyễn Văn An', 'Trần Thị Bình']);
         $this->taoDon('S6', 'confirmed', 2, 1, 'Điểm danh: đơn ba người, dùng để thử năm trạng thái', 'H', ['Lê Minh Cường', 'Phạm Thu Dung', 'Lê Bảo Duy']);
@@ -367,6 +374,25 @@ class BusinessScenarioSeeder extends Seeder
         unset($nhom);
 
         return $booking;
+    }
+
+    /**
+     * Một yêu cầu hủy dựng sẵn ở trạng thái chờ duyệt.
+     *
+     * Đi qua chính lớp dịch vụ chứ không tự ghi vào bảng: mức hoàn phải được chốt bằng đúng
+     * công thức mà luồng thật dùng, nếu không màn duyệt sẽ hiện một con số không ai tính ra được.
+     */
+    private function dungYeuCauHuy(): void
+    {
+        if (!isset($this->don['choDuyet'])) {
+            return;
+        }
+
+        app(BookingChangeRequestService::class)->requestCancellation(
+            $this->don['choDuyet'],
+            'Gia đình có việc đột xuất, mong công ty hỗ trợ hủy và hoàn theo chính sách.',
+            $this->customer,
+        );
     }
 
     /**
@@ -551,6 +577,14 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->line('      -> GHẾ CHẾT. Xem chuyến đó: số chỗ GIỮ NGUYÊN');
         $cmd->line('   3. Vào /admin/held-seats -> có 2 dòng -> mở lại 1 dòng kèm lý do');
         $cmd->line('      Lúc này số chỗ mới giảm, nhưng chuyến vẫn "Đã đóng bán"');
+        $cmd->newLine();
+
+        $cmd->comment(' VÒNG 2b — yêu cầu hủy của khách đã thanh toán (nhóm F)');
+        $cmd->line('   1. Khách: /my-bookings -> ' . $id('xinHuy') . ' -> nút "Yêu cầu hủy"');
+        $cmd->line('      Xem mức hoàn, nhập lý do, gửi. ĐƠN PHẢI GIỮ NGUYÊN "Đã xác nhận"');
+        $cmd->line('   2. Quản trị: /admin/change-requests -> có 2 yêu cầu chờ duyệt');
+        $cmd->line('      Mở yêu cầu của ' . $id('choDuyet') . ' -> Duyệt -> đơn mới chuyển sang đã hủy');
+        $cmd->line('   3. Mở yêu cầu còn lại -> Từ chối, nhập lý do -> đơn giữ nguyên');
         $cmd->newLine();
 
         $cmd->comment(' VÒNG 3 — chặn hủy khi chuyến đang chạy');

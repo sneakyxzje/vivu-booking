@@ -26,6 +26,7 @@ import ScheduleAttendance from "@/pages/admin/ScheduleAttendance";
 import AttendanceReport from "@/pages/admin/AttendanceReport";
 import ScheduleManagement from "@/pages/admin/ScheduleManagement";
 import HeldSeatsManagement from "@/pages/admin/HeldSeatsManagement";
+import ChangeRequestManagement from "@/pages/admin/ChangeRequestManagement";
 import CancellationPolicyManagement from "@/pages/admin/CancellationPolicyManagement";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
 import { GuideTours } from "@/pages/guide/GuideTours";
@@ -186,6 +187,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/schedules",
             element: <ScheduleManagement />,
+          },
+          {
+            path: "/admin/change-requests",
+            element: <ChangeRequestManagement />,
           },
           {
             path: "/admin/held-seats",

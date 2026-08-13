@@ -60,6 +60,33 @@ export interface RefundQuote {
   rules: RefundQuoteRule[] | null;
 }
 
+export type ChangeRequestStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "cancelled_by_customer";
+
+/** Yêu cầu thay đổi khách gửi lên, hiện mới dùng cho loại xin hủy. */
+export interface BookingChangeRequest {
+  id: number;
+  booking_id: number;
+  type: "cancel" | "transfer" | "change_guests" | "change_passenger";
+  status: ChangeRequestStatus;
+  /** Mức hoàn chốt tại thời điểm gửi, không tính lại lúc duyệt. */
+  estimated_refund: string | number | null;
+  estimated_refund_percent: number | null;
+  request_note: string | null;
+  review_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+/** Mức hoàn dự kiến của đơn đã thanh toán, kèm yêu cầu đang chờ nếu có. */
+export interface CancelRequestPreview extends RefundQuote {
+  seats_will_be_released: boolean;
+  pending_request: BookingChangeRequest | null;
+}
+
 const bookingService = {
   create: (payload: CreateBookingPayload) =>
     api.post<CreateBookingResponse>("/bookings", payload),
@@ -87,6 +114,26 @@ const bookingService = {
   // cũng đọc được mà không cần đăng nhập.
   getRefundQuote: (publicToken: string) =>
     api.get<{ success: boolean; data: RefundQuote }>(`/bookings/${publicToken}/refund-quote`),
+
+  /*
+   * Đơn ĐÃ thanh toán đi đường khác hẳn: khách không tự hủy mà gửi yêu cầu, điều hành duyệt
+   * rồi hệ thống mới thực thi. Xem docs/nghiep-vu/03-luong-huy-va-hoan-tien.md mục 5.
+   */
+
+  /** Mức hoàn khách sẽ nhận nếu gửi yêu cầu ngay bây giờ. Bắt buộc cho khách xem trước khi gửi. */
+  getCancelRequestPreview: (bookingId: number) =>
+    api.get<{ success: boolean; data: CancelRequestPreview }>(
+      `/my-bookings/${bookingId}/cancel-preview`,
+    ),
+
+  requestCancellation: (bookingId: number, reason: string) =>
+    api.post<{ success: boolean; message: string; data: BookingChangeRequest }>(
+      `/my-bookings/${bookingId}/cancel-request`,
+      { reason },
+    ),
+
+  withdrawChangeRequest: (id: number) =>
+    api.put<{ success: boolean; message: string }>(`/my-change-requests/${id}/withdraw`),
 
   // Task X06b - Gửi lại mã tra cứu về email cho khách vãng lai (Edge Case A16)
   resendLookupCode: (payload: { email: string; phone?: string }) =>

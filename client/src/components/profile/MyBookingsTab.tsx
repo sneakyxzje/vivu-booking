@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import bookingService from "@/services/bookingService";
+import type { CancelRequestPreview } from "@/services/bookingService";
 import type { Booking } from "@/types";
 import { formatDateTime } from "@/utils/format";
 import { Modal } from "@/components/Modal";
@@ -36,11 +37,20 @@ export const MyBookingsTab: React.FC = () => {
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
-  // Hủy đơn
+  // Hủy đơn chưa thanh toán
   const [cancelTarget, setCancelTarget] = useState<ExtendedBooking | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState("");
+
+  // Yêu cầu hủy đơn đã thanh toán, phải chờ điều hành duyệt
+  const [requestTarget, setRequestTarget] = useState<ExtendedBooking | null>(null);
+  const [requestPreview, setRequestPreview] = useState<CancelRequestPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [requestReason, setRequestReason] = useState("");
+  const [requestLoading, setRequestLoading] = useState(false);
+  const [requestError, setRequestError] = useState("");
+  const [requestSent, setRequestSent] = useState(false);
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -79,6 +89,56 @@ export const MyBookingsTab: React.FC = () => {
    * là nhóm F trong docs/nghiep-vu/11-backlog-trien-khai.md, chưa dựng.
    */
   const coTheTuHuy = (booking: ExtendedBooking) => booking.status === "pending";
+
+  /** Đơn đã thu tiền thì không tự hủy, chỉ gửi yêu cầu cho điều hành duyệt. */
+  const coTheGuiYeuCau = (booking: ExtendedBooking) => booking.status === "confirmed";
+
+  const layLoiMayChu = (err: unknown, macDinh: string): string => {
+    const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+    return message || macDinh;
+  };
+
+  const moFormYeuCau = async (booking: ExtendedBooking) => {
+    setRequestTarget(booking);
+    setRequestReason("");
+    setRequestError("");
+    setRequestSent(false);
+    setRequestPreview(null);
+    setPreviewLoading(true);
+
+    try {
+      const response = await bookingService.getCancelRequestPreview(booking.id);
+      setRequestPreview(response.data?.data ?? null);
+    } catch (err) {
+      setRequestError(layLoiMayChu(err, "Không lấy được mức hoàn dự kiến."));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const dongFormYeuCau = () => {
+    setRequestTarget(null);
+    setRequestPreview(null);
+    setRequestReason("");
+    setRequestError("");
+    setRequestSent(false);
+  };
+
+  const guiYeuCauHuy = async () => {
+    if (!requestTarget || requestReason.trim().length < 10) return;
+
+    setRequestLoading(true);
+    setRequestError("");
+
+    try {
+      await bookingService.requestCancellation(requestTarget.id, requestReason.trim());
+      setRequestSent(true);
+    } catch (err) {
+      setRequestError(layLoiMayChu(err, "Không gửi được yêu cầu. Vui lòng thử lại."));
+    } finally {
+      setRequestLoading(false);
+    }
+  };
 
   const moFormHuy = (booking: ExtendedBooking) => {
     setCancelTarget(booking);
@@ -293,6 +353,15 @@ export const MyBookingsTab: React.FC = () => {
                         Hủy đơn
                       </button>
                     )}
+                    {coTheGuiYeuCau(item) && (
+                      <button
+                        onClick={() => moFormYeuCau(item)}
+                        className="px-3.5 py-1.5 text-xs font-semibold bg-white text-rose-600 hover:bg-rose-50 rounded-xl transition-colors flex items-center gap-1.5 border border-rose-200"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        Yêu cầu hủy
+                      </button>
+                    )}
                     {item.status === "confirmed" && (
                       <button
                         onClick={() => setShowReviewModal(item)}
@@ -501,6 +570,162 @@ export const MyBookingsTab: React.FC = () => {
               </div>
             </div>
 
+          </div>
+        )}
+      </Modal>
+
+      {/* MODAL: YÊU CẦU HỦY ĐƠN ĐÃ THANH TOÁN, PHẢI CHỜ ĐIỀU HÀNH DUYỆT */}
+      <Modal
+        isOpen={!!requestTarget}
+        onClose={dongFormYeuCau}
+        size="lg"
+        title={
+          <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full uppercase tracking-wider border border-rose-200">
+            Yêu cầu hủy đơn #{requestTarget?.id}
+          </span>
+        }
+        subtitle={
+          <span className="text-base font-bold text-gray-900 block mt-1 font-plus-jakarta">
+            {requestTarget?.tour?.title}
+          </span>
+        }
+      >
+        {requestTarget && (
+          <div className="space-y-4">
+            {requestSent ? (
+              <div className="py-6 text-center space-y-3">
+                <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <h4 className="text-base font-bold text-gray-900 font-plus-jakarta">
+                  Đã gửi yêu cầu hủy
+                </h4>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                  Bộ phận điều hành sẽ xem xét và phản hồi. Đơn của bạn vẫn giữ nguyên cho tới khi
+                  yêu cầu được duyệt, nên bạn vẫn đi được nếu đổi ý trước lúc đó.
+                </p>
+                <button
+                  type="button"
+                  onClick={dongFormYeuCau}
+                  className="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold rounded-xl"
+                >
+                  Đóng
+                </button>
+              </div>
+            ) : (
+              <>
+                {previewLoading && (
+                  <p className="text-xs font-medium text-gray-500">Đang tính mức hoàn dự kiến...</p>
+                )}
+
+                {/* Đơn đã có yêu cầu chờ duyệt thì không gửi thêm được nữa. */}
+                {requestPreview?.pending_request && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 space-y-1">
+                    <p className="font-bold">Đơn này đã có một yêu cầu hủy đang chờ duyệt.</p>
+                    <p>
+                      Gửi lúc {formatDateTime(requestPreview.pending_request.created_at)}. Vui lòng
+                      đợi bộ phận điều hành phản hồi.
+                    </p>
+                  </div>
+                )}
+
+                {/*
+                  Cho khách xác nhận con số TRƯỚC khi gửi là bước bắt buộc theo tài liệu 03
+                  mục 5.2. Đây là cách duy nhất tránh khiếu nại "tôi tưởng được hoàn nhiều hơn".
+                */}
+                {requestPreview && !requestPreview.pending_request && (
+                  <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">
+                        Còn {Math.max(0, Math.round(requestPreview.hours_before ?? 0))} giờ tới khởi hành
+                      </span>
+                      <span className="font-bold text-gray-900">
+                        Mức hoàn {requestPreview.refund_percent}%
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-md bg-gray-50 py-2">
+                        <p className="text-[11px] text-gray-500">Bạn đã trả</p>
+                        <p className="text-sm font-bold text-gray-900">
+                          {Number(requestPreview.paid_amount).toLocaleString("vi-VN")} đ
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-amber-50 py-2">
+                        <p className="text-[11px] text-amber-700">Phí hủy</p>
+                        <p className="text-sm font-bold text-amber-800">
+                          {Number(requestPreview.cancellation_fee).toLocaleString("vi-VN")} đ
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-emerald-50 py-2">
+                        <p className="text-[11px] text-emerald-700">Bạn nhận lại</p>
+                        <p className="text-sm font-bold text-emerald-800">
+                          {Number(requestPreview.refund_amount).toLocaleString("vi-VN")} đ
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-gray-500">
+                      Mức hoàn được chốt theo thời điểm bạn gửi yêu cầu, nên bạn không bị thiệt nếu
+                      việc duyệt mất vài ngày.
+                    </p>
+                  </div>
+                )}
+
+                {requestPreview && !requestPreview.pending_request && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                      Lý do xin hủy <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={requestReason}
+                      onChange={(e) => setRequestReason(e.target.value)}
+                      placeholder="VD: Gia đình có việc đột xuất, không thu xếp được lịch..."
+                      className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400"
+                    />
+                    <p
+                      className={`text-[11px] mt-1 font-semibold ${
+                        requestReason.trim().length >= 10 ? "text-emerald-700" : "text-gray-500"
+                      }`}
+                    >
+                      {requestReason.trim().length}/10 ký tự tối thiểu
+                    </p>
+                  </div>
+                )}
+
+                {requestError && (
+                  <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700">
+                    {requestError}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={dongFormYeuCau}
+                    disabled={requestLoading}
+                    className="px-4 py-2.5 bg-white border border-gray-200 text-xs font-semibold rounded-xl text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    type="button"
+                    onClick={guiYeuCauHuy}
+                    disabled={
+                      requestLoading
+                      || previewLoading
+                      || !requestPreview
+                      || !!requestPreview.pending_request
+                      || requestReason.trim().length < 10
+                    }
+                    className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-sm disabled:opacity-50"
+                  >
+                    {requestLoading ? "Đang gửi..." : "Gửi yêu cầu hủy"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </Modal>

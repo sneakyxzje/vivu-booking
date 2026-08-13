@@ -17,6 +17,7 @@ use App\Models\Service;
 
 // Customer
 use App\Http\Controllers\Api\Customer\BookingController as CustomerBookingController;
+use App\Http\Controllers\Api\Customer\ChangeRequestController as CustomerChangeRequestController;
 use App\Http\Controllers\Api\Customer\ReviewController;
 
 // Guide
@@ -31,6 +32,7 @@ use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminTourController;
 use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
+use App\Http\Controllers\Api\Admin\AdminChangeRequestController;
 use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
 use App\Http\Controllers\Api\Admin\AdminAttendanceController;
 use App\Http\Controllers\Api\Admin\AdminCancellationPolicyController;
@@ -101,7 +103,14 @@ Route::middleware('auth:sanctum')->group(function () {
     */
     Route::middleware('role:customer')->group(function () {
         Route::get('/my-bookings', [CustomerBookingController::class, 'myBookings']);
+        // Chỉ dùng được cho đơn chưa thanh toán. Đơn đã thu tiền đi đường yêu cầu bên dưới.
         Route::put('/my-bookings/{id}/cancel', [CustomerBookingController::class, 'cancelBooking']);
+
+        // F02 - Yêu cầu hủy của khách đã thanh toán, phải chờ điều hành duyệt.
+        Route::get('/my-bookings/{id}/cancel-preview', [CustomerChangeRequestController::class, 'preview']);
+        Route::post('/my-bookings/{id}/cancel-request', [CustomerChangeRequestController::class, 'store']);
+        Route::get('/my-change-requests', [CustomerChangeRequestController::class, 'index']);
+        Route::put('/my-change-requests/{id}/withdraw', [CustomerChangeRequestController::class, 'withdraw']);
     });
 
     /*
@@ -168,6 +177,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/bookings/{id}', [AdminBookingController::class, 'show']);
         Route::put('/bookings/{id}/release-seats', [AdminBookingController::class, 'releaseHeldSeats']);
         Route::put('/bookings/{id}/confirm', [AdminBookingController::class, 'confirm']);
+        // F03 - Duyệt yêu cầu thay đổi của khách. Khai trước /bookings/{id} không cần thiết vì
+        // khác tiền tố, nhưng giữ cạnh nhóm đơn hàng cho dễ tìm.
+        Route::get('/change-requests', [AdminChangeRequestController::class, 'index']);
+        Route::get('/change-requests/{id}', [AdminChangeRequestController::class, 'show']);
+        Route::put('/change-requests/{id}/approve', [AdminChangeRequestController::class, 'approve']);
+        Route::put('/change-requests/{id}/reject', [AdminChangeRequestController::class, 'reject']);
+
         Route::get('/bookings/{id}/cancel-preview', [AdminBookingController::class, 'cancelPreview']);
         Route::put('/bookings/{id}/cancel', [AdminBookingController::class, 'cancel']);
         // Task X07a - Mở lại đơn đã hủy nhầm trong 24h

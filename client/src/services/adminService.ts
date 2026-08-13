@@ -64,6 +64,52 @@ export interface HeldSeatsResponse {
   total_held_seats: number;
 }
 
+export type ChangeRequestStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "cancelled_by_customer";
+
+/** Yêu cầu thay đổi do khách gửi, hiện mới có loại xin hủy. */
+export interface ChangeRequest {
+  id: number;
+  booking_id: number;
+  type: "cancel" | "transfer" | "change_guests" | "change_passenger";
+  status: ChangeRequestStatus;
+  /** Mức hoàn chốt lúc khách gửi. Đây là số hệ thống sẽ trả, không phải số tính lại. */
+  estimated_refund: string | number | null;
+  estimated_refund_percent: number | null;
+  request_note: string | null;
+  review_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  booking?: Booking | null;
+  /** Quan hệ đặt tên khác cột khóa ngoại, nếu không object sẽ đè lên chính cột id. */
+  requester?: { id: number; name: string; email: string } | null;
+  reviewer?: { id: number; name: string } | null;
+}
+
+export interface ChangeRequestListResponse {
+  requests: PaginatedResponse<ChangeRequest>;
+  pending_count: number;
+}
+
+export interface ChangeRequestDetail {
+  request: ChangeRequest;
+  /** Mức hoàn nếu tính lại ngay bây giờ. Lệch với số chốt nghĩa là yêu cầu đã nằm chờ lâu. */
+  current_quote: {
+    hours_before: number | null;
+    refund_percent: number;
+    total_amount: number;
+    paid_amount: number;
+    cancellation_fee: number;
+    refund_amount: number;
+  };
+  seats_will_be_released: boolean;
+  can_approve: boolean;
+  blocked_reason: string | null;
+}
+
 /** Hậu quả của việc hủy một đơn, tính trước khi thực hiện. */
 export interface CancelPreview {
   /** Số giờ còn lại tới khởi hành. Âm nghĩa là đã qua giờ đi. */
@@ -149,6 +195,34 @@ const adminService = {
    * Hai con số quan trọng nhất là mức hoàn và chỗ có về kho hay không. Người hủy phải biết
    * trước, không phải phát hiện ra sau khi thấy số chỗ không nhúc nhích.
    */
+  // --- YÊU CẦU THAY ĐỔI CỦA KHÁCH ---
+  getChangeRequests: async (
+    status = "pending",
+    page = 1,
+  ): Promise<ChangeRequestListResponse | null> => {
+    const response = await api.get(`/admin/change-requests?status=${status}&page=${page}`);
+    return extractObject<ChangeRequestListResponse>(response);
+  },
+
+  getChangeRequest: async (id: number): Promise<ChangeRequestDetail | null> => {
+    const response = await api.get(`/admin/change-requests/${id}`);
+    return extractObject<ChangeRequestDetail>(response);
+  },
+
+  approveChangeRequest: async (id: number, reviewNote?: string) => {
+    const response = await api.put(`/admin/change-requests/${id}/approve`, {
+      review_note: reviewNote || null,
+    });
+    return response.data?.message ?? "Đã duyệt yêu cầu.";
+  },
+
+  rejectChangeRequest: async (id: number, reviewNote: string) => {
+    const response = await api.put(`/admin/change-requests/${id}/reject`, {
+      review_note: reviewNote,
+    });
+    return response.data?.message ?? "Đã từ chối yêu cầu.";
+  },
+
   getCancelPreview: async (id: number): Promise<CancelPreview | null> => {
     const response = await api.get(`/admin/bookings/${id}/cancel-preview`);
     return extractObject<CancelPreview>(response);
