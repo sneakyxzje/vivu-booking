@@ -218,7 +218,55 @@ class AdminAttendanceController extends Controller
                 'per_page'     => $paginatedSchedules->perPage(),
                 'total'        => $paginatedSchedules->total(),
             ],
+            'absence_logs' => $this->absenceLogs($allScheduleIds),
         ], 'Lấy báo cáo điểm danh thành công');
+    }
+
+    /**
+     * Nhật ký các lần khách không có mặt, gộp qua mọi chuyến trong bộ lọc.
+     *
+     * Điều hành cần một chỗ nhìn thấy toàn bộ trường hợp vắng mà không phải mở từng chuyến.
+     * Đây cũng là dữ liệu đầu tiên được lôi ra khi khách khiếu nại, nên phải kèm ai ghi và ghi
+     * lúc nào, không chỉ tên người vắng.
+     *
+     * @param  \Illuminate\Support\Collection<int, int>  $scheduleIds
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function absenceLogs($scheduleIds)
+    {
+        return PassengerCheckin::query()
+            ->whereIn('tour_schedule_id', $scheduleIds)
+            ->whereNot('status', PassengerCheckinStatus::Present->value)
+            ->with([
+                'bookingPassenger:id,booking_id,name',
+                'bookingPassenger.booking:id,customer_name,customer_phone',
+                'itineraryCheckpoint:id,name,tour_itinerary_id',
+                'itineraryCheckpoint.tourItinerary:id,day_number,title',
+                'checkedBy:id,name',
+            ])
+            ->latest('checked_at')
+            ->limit(200)
+            ->get()
+            ->map(function (PassengerCheckin $checkin) {
+                $booking = $checkin->bookingPassenger?->booking;
+                $itinerary = $checkin->itineraryCheckpoint?->tourItinerary;
+
+                return [
+                    'id' => $checkin->id,
+                    'booking_id' => (int) ($booking?->id ?? 0),
+                    'passenger_name' => $checkin->bookingPassenger?->name ?? '',
+                    'customer_name' => $booking?->customer_name ?? '',
+                    'customer_phone' => $booking?->customer_phone ?? '',
+                    'day_number' => (int) ($itinerary?->day_number ?? 0),
+                    'itinerary_title' => $itinerary?->title ?? '',
+                    'checkpoint_name' => $checkin->itineraryCheckpoint?->name ?? '',
+                    'status' => $checkin->status->value,
+                    'status_label' => $checkin->status->label(),
+                    'note' => $checkin->note,
+                    'checked_at' => $checkin->checked_at?->toDateTimeString(),
+                    'guide_name' => $checkin->checkedBy?->name ?? '',
+                ];
+            });
     }
 
     /**

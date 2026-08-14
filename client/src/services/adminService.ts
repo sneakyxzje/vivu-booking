@@ -64,6 +64,68 @@ export interface HeldSeatsResponse {
   total_held_seats: number;
 }
 
+/*
+ * Báo cáo điểm danh tổng hợp.
+ *
+ * Khai một lần ở đây và cho màn hình dùng lại. Trước đó cùng một hợp đồng được viết hai lần,
+ * một ở service một ở trang báo cáo, rồi lệch nhau: trang khai absence_logs còn máy chủ không
+ * trả, TypeScript vẫn xanh và màn hình vỡ ngay khi mở.
+ */
+
+export interface AttendanceScheduleRow {
+  id: number;
+  start_date: string;
+  /** Sáu trạng thái của vòng đời chuyến, khớp App\Enums\ScheduleStatus phía máy chủ. */
+  status: TourSchedule["status"];
+  booked_people: number;
+  tour_id: number | null;
+  tour_title: string;
+  number_of_days: number;
+  guide: { id: number; name: string; phone?: string | null } | null;
+  present_count: number;
+  absent_count: number;
+  total_checkins: number;
+  presence_rate: number;
+  late_entry_count: number;
+  photo_count: number;
+}
+
+/** Một lần khách không có mặt, gộp từ mọi chuyến trong bộ lọc. */
+export interface AttendanceAbsenceLog {
+  id: number;
+  booking_id: number;
+  passenger_name: string;
+  customer_name: string;
+  customer_phone: string;
+  day_number: number;
+  itinerary_title: string;
+  checkpoint_name: string;
+  status: string;
+  status_label: string;
+  note: string | null;
+  checked_at: string | null;
+  guide_name: string;
+}
+
+export interface AttendanceReportData {
+  kpis: {
+    overall_presence_rate: number;
+    total_checkins: number;
+    total_present: number;
+    total_absent: number;
+    late_entry_count: number;
+    missing_photos_count: number;
+  };
+  schedules: {
+    data: AttendanceScheduleRow[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+  };
+  absence_logs: AttendanceAbsenceLog[];
+}
+
 export type ChangeRequestStatus =
   | "pending"
   | "approved"
@@ -384,49 +446,9 @@ const adminService = {
     status?: string;
     page?: number;
     per_page?: number;
-  }): Promise<{
-    kpis: {
-      overall_presence_rate: number;
-      total_checkins: number;
-      total_present: number;
-      total_absent: number;
-      missing_photos_count: number;
-    };
-    schedules: {
-      data: {
-        id: number;
-        start_date: string;
-        // Sáu trạng thái của vòng đời chuyến, khớp App\Enums\ScheduleStatus phía máy chủ.
-        status: TourSchedule["status"];
-        booked_people: number;
-        tour_id: number | null;
-        tour_title: string;
-        number_of_days: number;
-        guide: { id: number; name: string; phone?: string | null } | null;
-        present_count: number;
-        absent_count: number;
-        total_checkins: number;
-        presence_rate: number;
-        photo_count: number;
-      }[];
-      current_page: number;
-      last_page: number;
-      per_page: number;
-      total: number;
-    };
-    absence_logs: {
-      id: number;
-      booking_id: number;
-      customer_name: string;
-      customer_phone: string;
-      day_number: number;
-      itinerary_title: string;
-      checked_at: string | null;
-      guide_name: string;
-    }[];
-  } | null> => {
+  }): Promise<AttendanceReportData | null> => {
     const response = await api.get("/admin/attendance-reports", { params });
-    return extractObject(response);
+    return extractObject<AttendanceReportData>(response);
   },
 };
 

@@ -254,6 +254,71 @@ class AdminAttendanceReportTest extends TestCase
         $this->assertSame(1, $response->json('data.kpis.total_checkins'));
     }
 
+    /**
+     * Màn báo cáo có tab Nhật ký vắng mặt đọc thẳng absence_logs.
+     *
+     * Trước đây phản hồi không có khóa này, giao diện đọc undefined.length và cả trang vỡ ngay
+     * khi mở. Bộ kiểm cũ chỉ soi kpis và schedules nên không thấy gì. Bài này khóa nốt khóa còn
+     * lại của hợp đồng.
+     */
+    public function test_bao_cao_tra_ve_nhat_ky_vang_mat(): void
+    {
+        $coMat = $this->taoHanhKhach($this->schedule);
+        $vangMat = $this->taoHanhKhach($this->schedule);
+
+        $this->taoCheckin($coMat, $this->checkpoint, PassengerCheckinStatus::Present);
+        $this->taoCheckin(
+            $vangMat,
+            $this->checkpoint,
+            PassengerCheckinStatus::Absent,
+            'Goi ba lan khong nghe may, xe phai roi diem don.',
+        );
+
+        $response = $this->actingAs($this->admin)
+            ->getJson('/api/admin/attendance-reports')
+            ->assertOk()
+            ->assertJsonStructure([
+                'data' => [
+                    'absence_logs' => [[
+                        'id',
+                        'booking_id',
+                        'passenger_name',
+                        'customer_name',
+                        'customer_phone',
+                        'day_number',
+                        'itinerary_title',
+                        'checkpoint_name',
+                        'status',
+                        'status_label',
+                        'note',
+                        'checked_at',
+                        'guide_name',
+                    ]],
+                ],
+            ]);
+
+        $logs = $response->json('data.absence_logs');
+
+        $this->assertCount(1, $logs, 'Chỉ người vắng mới vào nhật ký, người có mặt thì không.');
+        $this->assertSame('absent', $logs[0]['status']);
+        $this->assertSame($vangMat->name, $logs[0]['passenger_name']);
+    }
+
+    /** Không có ai vắng thì trả mảng rỗng, không phải thiếu khóa. */
+    public function test_khong_co_ai_vang_thi_nhat_ky_la_mang_rong(): void
+    {
+        $this->taoCheckin(
+            $this->taoHanhKhach($this->schedule),
+            $this->checkpoint,
+            PassengerCheckinStatus::Present,
+        );
+
+        $this->actingAs($this->admin)
+            ->getJson('/api/admin/attendance-reports')
+            ->assertOk()
+            ->assertJsonCount(0, 'data.absence_logs');
+    }
+
     // ─── Test 8: Bộ lọc from_date, to_date, status, search ─────────────────
 
     public function test_bo_loc_from_date_va_to_date_hoat_dong_dung(): void

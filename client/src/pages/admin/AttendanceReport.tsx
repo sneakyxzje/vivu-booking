@@ -4,52 +4,15 @@ import adminService from "@/services/adminService";
 import { formatDateTime } from "@/utils/format";
 import { statusClasses, statusLabel } from "@/utils/schedule";
 import Pagination from "@/components/common/Pagination";
-import type { TourSchedule } from "@/types/tour";
+import type { AttendanceReportData } from "@/services/adminService";
 
-interface ScheduleItem {
-  id: number;
-  start_date: string;
-  // Khai đúng sáu trạng thái của vòng đời thay vì string, để tra statusLabel và statusClasses
-  // không phải ép kiểu và để thêm trạng thái mới thì báo lỗi biên dịch ngay tại đây.
-  status: TourSchedule["status"];
-  booked_people: number;
-  tour_id: number | null;
-  tour_title: string;
-  number_of_days: number;
-  guide: { id: number; name: string; phone?: string | null } | null;
-  present_count: number;
-  absent_count: number;
-  total_checkins: number;
-  presence_rate: number;
-  photo_count: number;
-}
-
-interface ReportData {
-  kpis: {
-    overall_presence_rate: number;
-    total_checkins: number;
-    total_present: number;
-    total_absent: number;
-    missing_photos_count: number;
-  };
-  schedules: {
-    data: ScheduleItem[];
-    current_page: number;
-    last_page: number;
-    per_page: number;
-    total: number;
-  };
-  absence_logs: {
-    id: number;
-    booking_id: number;
-    customer_name: string;
-    customer_phone: string;
-    day_number: number;
-    itinerary_title: string;
-    checked_at: string | null;
-    guide_name: string;
-  }[];
-}
+/*
+ * Kiểu của báo cáo khai một lần ở adminService và dùng lại ở đây.
+ *
+ * Trước đó hợp đồng này được viết hai lần, một ở service một ở trang này, rồi lệch nhau: trang
+ * khai absence_logs còn máy chủ không trả về, TypeScript vẫn xanh và màn hình vỡ ngay khi mở.
+ */
+type ReportData = AttendanceReportData;
 
 export default function AttendanceReport() {
   const [data, setData] = useState<ReportData | null>(null);
@@ -468,8 +431,15 @@ export default function AttendanceReport() {
                   absence_logs.map((log) => (
                     <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="py-4 px-4">
-                        <p className="font-bold text-gray-900 text-base">{log.customer_name}</p>
-                        <p className="text-sm text-gray-500">📞 {log.customer_phone}</p>
+                        {/* Điểm danh theo từng người, nên tên hành khách mới là chủ thể ở đây.
+                            Người đứng đơn chỉ là đầu mối liên hệ. */}
+                        <p className="font-bold text-gray-900 text-base">{log.passenger_name}</p>
+                        <p className="text-sm text-gray-500">
+                          Đơn của {log.customer_name} · 📞 {log.customer_phone}
+                        </p>
+                        <span className="inline-flex mt-1 px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold">
+                          {log.status_label}
+                        </span>
                       </td>
                       <td className="py-4 px-4 whitespace-nowrap">
                         <span className="font-mono text-xs font-bold bg-gray-100 text-gray-700 px-2.5 py-1.5 rounded-md">
@@ -478,8 +448,9 @@ export default function AttendanceReport() {
                       </td>
                       <td className="py-4 px-4">
                         <p className="font-semibold text-gray-800 text-sm">
-                          Ngày {log.day_number}: {log.itinerary_title}
+                          Ngày {log.day_number}: {log.checkpoint_name || log.itinerary_title}
                         </p>
+                        {log.note && <p className="text-xs text-gray-500 mt-0.5">“{log.note}”</p>}
                       </td>
                       <td className="py-4 px-4 whitespace-nowrap text-sm font-medium text-gray-700">
                         {log.guide_name}
