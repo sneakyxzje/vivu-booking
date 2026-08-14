@@ -96,16 +96,9 @@ export interface ChangeRequestListResponse {
 
 export interface ChangeRequestDetail {
   request: ChangeRequest;
-  /** Mức hoàn nếu tính lại ngay bây giờ. Lệch với số chốt nghĩa là yêu cầu đã nằm chờ lâu. */
-  current_quote: {
-    hours_before: number | null;
-    refund_percent: number;
-    total_amount: number;
-    paid_amount: number;
-    cancellation_fee: number;
-    refund_amount: number;
-  };
+  /** false nghĩa là duyệt xong sẽ thành ghế chết. */
   seats_will_be_released: boolean;
+  /** false khi chuyến đã khởi hành trong lúc yêu cầu nằm chờ. */
   can_approve: boolean;
   blocked_reason: string | null;
 }

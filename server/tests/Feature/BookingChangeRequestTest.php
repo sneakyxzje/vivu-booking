@@ -258,17 +258,28 @@ class BookingChangeRequestTest extends TestCase
 
         Sanctum::actingAs($this->dieuHanh);
 
-        $this->getJson("/api/admin/change-requests/{$yeuCau->id}")
-            ->assertOk()
-            ->assertJsonPath('data.current_quote.refund_percent', 0);
-
         $this->putJson("/api/admin/change-requests/{$yeuCau->id}/approve")->assertOk();
 
         $this->assertEquals(
             9_000_000,
             (float) $don->fresh()->refund_amount,
-            'Khách vẫn nhận mức đã chốt lúc gửi.',
+            'Khách vẫn nhận mức đã chốt lúc gửi, không phải mức tính lại lúc duyệt.',
         );
+    }
+
+    /**
+     * Màn duyệt chỉ được đưa ra một con số. Trả về thêm mức tính lại tại thời điểm xem chỉ làm
+     * người duyệt phân vân giữa hai số, trong khi chỉ một số được chi và không có đường nào đổi.
+     */
+    public function test_chi_tiet_yeu_cau_khong_tra_ve_muc_hoan_tinh_lai(): void
+    {
+        $yeuCau = $this->guiYeuCau($this->taoDon());
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->getJson("/api/admin/change-requests/{$yeuCau->id}")
+            ->assertOk()
+            ->assertJsonMissingPath('data.current_quote');
     }
 
     public function test_tu_choi_thi_don_giu_nguyen_va_bat_buoc_co_ly_do(): void

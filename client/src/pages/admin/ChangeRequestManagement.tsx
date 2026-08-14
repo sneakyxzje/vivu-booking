@@ -282,45 +282,24 @@ export default function ChangeRequestManagement() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-4">
-                <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
-                  Sẽ hoàn cho khách
-                </p>
-                <p className="text-xl font-extrabold text-emerald-800 mt-1">
-                  {soTien(detail.request.estimated_refund)}
-                </p>
-                <p className="text-[11px] text-emerald-700 mt-0.5">
-                  {detail.request.estimated_refund_percent}% — chốt lúc khách gửi
-                </p>
-              </div>
-              <div className="rounded-lg border border-gray-200 bg-white p-4">
-                <p className="text-[11px] font-bold text-gray-600 uppercase tracking-wider">
-                  Nếu tính lại bây giờ
-                </p>
-                <p className="text-xl font-extrabold text-gray-700 mt-1">
-                  {soTien(detail.current_quote.refund_amount)}
-                </p>
-                <p className="text-[11px] text-gray-500 mt-0.5">
-                  {detail.current_quote.refund_percent}% — còn{" "}
-                  {Math.max(0, Math.round(detail.current_quote.hours_before ?? 0))} giờ
-                </p>
-              </div>
-            </div>
-
             {/*
-              Hai con số lệch nhau nghĩa là yêu cầu đã nằm chờ qua một mốc phí. Hệ thống vẫn trả
-              theo mức chốt lúc gửi, vì khách không kiểm soát được tốc độ duyệt - nhưng điều hành
-              phải nhìn thấy khoản chênh đó chứ không để nó lặng lẽ đi qua.
+              Một con số duy nhất.
+              Mức hoàn đã chốt lúc khách gửi và không có đường nào đổi được, nên hiện thêm mức
+              tính lại tại thời điểm xem chỉ làm người duyệt phân vân giữa hai số. Muốn biết
+              duyệt nhanh hay chậm thì đối chiếu ngày gửi với ngày duyệt, đều đã lưu sẵn.
             */}
-            {detail.request.estimated_refund_percent !== detail.current_quote.refund_percent && (
-              <p className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-xs font-semibold text-amber-900">
-                Yêu cầu đã nằm chờ qua một mốc phí. Khách vẫn nhận mức chốt lúc gửi, cao hơn mức
-                hiện tại {soTien(
-                  Number(detail.request.estimated_refund ?? 0) - detail.current_quote.refund_amount,
-                )}.
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-5">
+              <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
+                Sẽ hoàn cho khách
               </p>
-            )}
+              <p className="text-2xl font-extrabold text-emerald-800 mt-1">
+                {soTien(detail.request.estimated_refund)}
+              </p>
+              <p className="text-[11px] text-emerald-700 mt-1">
+                {detail.request.estimated_refund_percent}% giá trị đơn, chốt lúc khách gửi ngày{" "}
+                {formatDateTime(detail.request.created_at)}
+              </p>
+            </div>
 
             {detail.seats_will_be_released ? (
               <p className="text-xs text-gray-600">

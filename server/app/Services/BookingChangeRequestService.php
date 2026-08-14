@@ -189,19 +189,6 @@ class BookingChangeRequestService
         });
     }
 
-    /**
-     * Mức hoàn nếu tính lại ngay bây giờ.
-     *
-     * Màn duyệt hiện cả con số này lẫn con số chốt lúc gửi. Hai số lệch nhau nghĩa là yêu cầu
-     * đã nằm chờ qua một mốc phí, và điều hành cần biết điều đó trước khi bấm duyệt.
-     */
-    public function currentQuote(BookingChangeRequest $request): array
-    {
-        $booking = $request->booking;
-
-        return $this->cancellationPolicy->quote($booking, $booking?->schedule);
-    }
-
     private function assertCoTheGuiYeuCau(Booking $booking, ?TourSchedule $schedule): void
     {
         // Đơn chưa thanh toán tự hủy được, không cần xin phép ai.

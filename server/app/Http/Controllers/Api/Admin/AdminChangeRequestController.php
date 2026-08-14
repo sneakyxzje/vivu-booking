@@ -55,11 +55,11 @@ class AdminChangeRequestController extends Controller
     }
 
     /**
-     * Chi tiết một yêu cầu, kèm mọi con số cần để quyết định.
+     * Chi tiết một yêu cầu, chỉ gồm những gì thực sự dùng để quyết định.
      *
-     * Hiện cả mức hoàn lúc gửi lẫn mức tính lại bây giờ. Hai số lệch nhau nghĩa là yêu cầu đã
-     * nằm chờ qua một mốc phí; hệ thống vẫn trả khách theo mức lúc gửi, nhưng điều hành cần
-     * nhìn thấy khoản chênh đó chứ không để nó lặng lẽ.
+     * Không trả về mức hoàn tính lại tại thời điểm xem. Mức hoàn đã chốt lúc khách gửi và không
+     * có đường nào đổi được, nên một con số thứ hai chỉ làm người duyệt phân vân giữa hai số
+     * trong khi chỉ một số được chi.
      */
     public function show(int $id): JsonResponse
     {
@@ -86,7 +86,6 @@ class AdminChangeRequestController extends Controller
 
         return $this->success([
             'request' => $yeuCau,
-            'current_quote' => $this->changeRequests->currentQuote($yeuCau),
             'seats_will_be_released' => $this->holdService->shouldReleaseSeats($booking, $schedule),
             'can_approve' => $conDuyetDuoc && !$yeuCau->status->isClosed(),
             'blocked_reason' => $lyDoChan,
