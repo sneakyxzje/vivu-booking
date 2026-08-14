@@ -587,6 +587,15 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->line('   3. Mở yêu cầu còn lại -> Từ chối, nhập lý do -> đơn giữ nguyên');
         $cmd->newLine();
 
+        $cmd->comment(' VÒNG 2c — sửa danh sách hành khách (nhóm G)');
+        $cmd->line('   1. Khách: /my-bookings -> ' . $id('hoan90') . ' -> nút "Hành khách"');
+        $cmd->line('      Còn xa hạn chốt nên sửa được. Thử khai hai người TRÙNG số giấy tờ -> bị chặn');
+        $cmd->line('      Thử khai ngày sinh người lớn nhưng chọn loại "Trẻ em" -> bị chặn');
+        $cmd->line('   2. Mở ' . $id('hoan0') . ' -> chuyến này đã qua hạn chốt');
+        $cmd->line('      Các ô bị khóa, kèm câu giải thích. Cùng một khách, khác thời điểm');
+        $cmd->line('   3. Quản trị vẫn sửa được ' . $id('hoan0') . ' qua API admin');
+        $cmd->newLine();
+
         $cmd->comment(' VÒNG 3 — chặn hủy khi chuyến đang chạy');
         $cmd->line('   1. /admin/bookings -> ' . $id('chuyenDangChay') . ' -> Hủy đơn');
         $cmd->line('      Nút xác nhận phải BỊ KHÓA, kèm lý do chuyến đang chạy');

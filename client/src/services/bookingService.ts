@@ -87,6 +87,34 @@ export interface CancelRequestPreview extends RefundQuote {
   pending_request: BookingChangeRequest | null;
 }
 
+/** Một dòng hành khách gửi lên khi lưu danh sách. */
+export interface PassengerInput {
+  name: string;
+  type: "adult" | "child" | "infant";
+  gender?: string | null;
+  date_of_birth?: string | null;
+  identity_number?: string | null;
+  id_type?: string | null;
+  phone?: string | null;
+  special_request?: string | null;
+  is_contact?: boolean;
+}
+
+export interface PassengerListResponse {
+  passengers: BookingPassengerRow[];
+  guests: number;
+  /** false khi đã qua hạn chốt danh sách hoặc đoàn đã lên đường. */
+  can_edit: boolean;
+  locked_reason: string | null;
+  /** Khai thiếu người, thiếu giấy tờ, chưa chọn người liên hệ. */
+  warnings: string[];
+}
+
+export interface BookingPassengerRow extends PassengerInput {
+  id: number;
+  booking_id: number;
+}
+
 const bookingService = {
   create: (payload: CreateBookingPayload) =>
     api.post<CreateBookingResponse>("/bookings", payload),
@@ -134,6 +162,24 @@ const bookingService = {
 
   withdrawChangeRequest: (id: number) =>
     api.put<{ success: boolean; message: string }>(`/my-change-requests/${id}/withdraw`),
+
+  /*
+   * Danh sách hành khách.
+   *
+   * Quyền sửa phụ thuộc THỜI ĐIỂM chứ không phải vai trò: trước hạn chốt danh sách khách tự
+   * sửa, sau đó danh sách đã gửi nhà cung cấp nên chỉ điều hành sửa được. Máy chủ trả sẵn
+   * can_edit để màn hình khỏi tự suy ra và suy sai.
+   */
+  getPassengers: (bookingId: number) =>
+    api.get<{ success: boolean; data: PassengerListResponse }>(
+      `/my-bookings/${bookingId}/passengers`,
+    ),
+
+  updatePassengers: (bookingId: number, passengers: PassengerInput[]) =>
+    api.put<{ success: boolean; message: string; data: { warnings: string[] } }>(
+      `/my-bookings/${bookingId}/passengers`,
+      { passengers },
+    ),
 
   // Task X06b - Gửi lại mã tra cứu về email cho khách vãng lai (Edge Case A16)
   resendLookupCode: (payload: { email: string; phone?: string }) =>

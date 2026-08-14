@@ -1,0 +1,387 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\ScheduleStatus;
+use App\Models\Booking;
+use App\Models\BookingPassenger;
+use App\Models\Tour;
+use App\Models\TourSchedule;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+/**
+ * G06 - Thông tin hành khách và quyền sửa theo mốc thời gian.
+ *
+ * Câu số 3 của hội đồng. Luật ở docs/nghiep-vu/02-luong-dat-tour.md mục 3.1.
+ *
+ * Điểm cần khóa chặt: quyền sửa không phụ thuộc vai trò mà phụ thuộc thời điểm. Cùng một khách,
+ * cùng một đơn, trước hạn chốt danh sách thì sửa được và sau đó thì không.
+ */
+class PassengerPolicyTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $khach;
+    private User $dieuHanh;
+    private TourSchedule $schedule;
+
+    private function taoUser(string $role): User
+    {
+        return User::create([
+            'name' => ucfirst($role) . ' Test',
+            'email' => $role . '-' . Str::random(6) . '@example.com',
+            'password' => Hash::make('password123'),
+            'role' => $role,
+            'status' => 'active',
+        ]);
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->khach = $this->taoUser('customer');
+        $this->dieuHanh = $this->taoUser('admin');
+
+        $tour = Tour::factory()->create(['status' => 'active', 'number_of_days' => 2]);
+
+        $this->schedule = TourSchedule::create([
+            'tour_id' => $tour->id,
+            'status' => ScheduleStatus::Open->value,
+            'start_date' => now()->addDays(20),
+            'end_date' => now()->addDays(22),
+            'booking_deadline' => now()->addDays(17),
+            'max_people' => 10,
+            'min_people' => 2,
+            'booked_people' => 2,
+        ]);
+    }
+
+    private function taoDon(int $guests = 2): Booking
+    {
+        return Booking::create([
+            'public_token' => (string) Str::uuid(),
+            'tour_id' => $this->schedule->tour_id,
+            'customer_id' => $this->khach->id,
+            'tour_schedule_id' => $this->schedule->id,
+            'customer_name' => $this->khach->name,
+            'customer_email' => $this->khach->email,
+            'departure_date' => $this->schedule->start_date,
+            'guests' => $guests,
+            'adult_count' => $guests,
+            'child_count' => 0,
+            'infant_count' => 0,
+            'total_amount' => 5_000_000 * $guests,
+            'status' => 'confirmed',
+            'paid_at' => now()->subDay(),
+            'confirmed_at' => now()->subDay(),
+        ]);
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function danhSach(array $ghiDe = []): array
+    {
+        $mac = [
+            [
+                'name' => 'Nguyen Van An',
+                'type' => 'adult',
+                'gender' => 'male',
+                'identity_number' => '001199001234',
+                'id_type' => 'cccd',
+                'is_contact' => true,
+            ],
+            [
+                'name' => 'Tran Thi Binh',
+                'type' => 'adult',
+                'gender' => 'female',
+                'identity_number' => '001199005678',
+                'id_type' => 'cccd',
+            ],
+        ];
+
+        return $ghiDe === [] ? $mac : $ghiDe;
+    }
+
+    // --- Quyền sửa theo mốc thời gian --------------------------------------------------
+
+    public function test_truoc_han_chot_thi_khach_tu_sua_duoc(): void
+    {
+        $don = $this->taoDon();
+        Sanctum::actingAs($this->khach);
+
+        $this->putJson("/api/my-bookings/{$don->id}/passengers", [
+            'passengers' => $this->danhSach(),
+        ])->assertOk();
+
+        $this->assertSame(2, $don->passengers()->count());
+        $this->assertSame('Nguyen Van An', $don->passengers()->first()->name);
+    }
+
+    /**
+     * Bài quan trọng nhất. Qua hạn chốt thì danh sách đã gửi khách sạn và nhà xe, khách sửa
+     * nghĩa là hệ thống nói một đằng còn nhà cung cấp giữ một nẻo.
+     */
+    public function test_sau_han_chot_thi_khach_khong_sua_duoc_nua(): void
+    {
+        $don = $this->taoDon();
+        $this->schedule->update(['booking_deadline' => now()->subHour()]);
+
+        Sanctum::actingAs($this->khach);
+
+        $this->putJson("/api/my-bookings/{$don->id}/passengers", [
+            'passengers' => $this->danhSach(),
+        ])->assertStatus(422);
+
+        $this->assertSame(0, $don->passengers()->count());
+    }
+
+    /** Cùng thời điểm đó điều hành vẫn sửa được, vì họ là người gọi báo nhà cung cấp. */
+    public function test_sau_han_chot_thi_dieu_hanh_van_sua_duoc(): void
+    {
+        $don = $this->taoDon();
+        $this->schedule->update(['booking_deadline' => now()->subHour()]);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->putJson("/api/admin/bookings/{$don->id}/passengers", [
+            'passengers' => $this->danhSach(),
+        ])->assertOk();
+
+        $this->assertSame(2, $don->passengers()->count());
+    }
+
+    /** Đoàn đã lên đường thì danh sách là dữ liệu đang dùng để điểm danh, không ai sửa. */
+    public function test_chuyen_dang_chay_thi_ca_dieu_hanh_cung_khong_sua_duoc(): void
+    {
+        $don = $this->taoDon();
+        $this->schedule->update([
+            'status' => ScheduleStatus::InProgress->value,
+            'start_date' => now()->subHours(3),
+            'end_date' => now()->addDay(),
+            'booking_deadline' => now()->subDays(4),
+        ]);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->putJson("/api/admin/bookings/{$don->id}/passengers", [
+            'passengers' => $this->danhSach(),
+        ])->assertStatus(422);
+    }
+
+    public function test_man_hinh_biet_truoc_con_sua_duoc_hay_khong(): void
+    {
+        $don = $this->taoDon();
+        Sanctum::actingAs($this->khach);
+
+        $this->getJson("/api/my-bookings/{$don->id}/passengers")
+            ->assertOk()
+            ->assertJsonPath('data.can_edit', true);
+
+        $this->schedule->update(['booking_deadline' => now()->subHour()]);
+
+        $response = $this->getJson("/api/my-bookings/{$don->id}/passengers")
+            ->assertOk()
+            ->assertJsonPath('data.can_edit', false);
+
+        $this->assertNotEmpty($response->json('data.locked_reason'));
+    }
+
+    public function test_khach_khong_sua_duoc_don_cua_nguoi_khac(): void
+    {
+        $don = $this->taoDon();
+        Sanctum::actingAs($this->taoUser('customer'));
+
+        $this->putJson("/api/my-bookings/{$don->id}/passengers", [
+            'passengers' => $this->danhSach(),
+        ])->assertStatus(404);
+    }
+
+    // --- Quy tắc kiểm tra ---------------------------------------------------------------
+
+    public function test_trung_so_giay_to_trong_cung_don_bi_tu_choi(): void
+    {
+        $don = $this->taoDon();
+        Sanctum::actingAs($this->khach);
+
+        $this->putJson("/api/my-bookings/{$don->id}/passengers", [
+            'passengers' => [
+                ['name' => 'Nguyen Van An', 'type' => 'adult', 'identity_number' => '001199001234'],
+                ['name' => 'Tran Thi Binh', 'type' => 'adult', 'identity_number' => '001199001234'],
+            ],
+        ])->assertStatus(422);
+
+        $this->assertSame(0, $don->passengers()->count());
+    }
+
+    /** Bỏ trống số giấy tờ thì không tính là trùng, vì nhiều khách chưa hỏi kịp thông tin. */
+    public function test_hai_nguoi_cung_bo_trong_giay_to_thi_khong_bi_coi_la_trung(): void
+    {
+        $don = $this->taoDon();
+        Sanctum::actingAs($this->khach);
+
+        $this->putJson("/api/my-bookings/{$don->id}/passengers", [
+            'passengers' => [
+                ['name' => 'Nguyen Van An', 'type' => 'adult'],
+                ['name' => 'Tran Thi Binh', 'type' => 'adult'],
+            ],
+        ])->assertOk();
+    }
+
+    /**
+     * Loại khách quyết định giá vé, nên khai một người lớn thành trẻ em là trả thiếu tiền.
+     */
+    public function test_ngay_sinh_khong_khop_loai_khach_thi_bi_tu_choi(): void
+    {
+        $don = $this->taoDon();
+        Sanctum::actingAs($this->khach);
+
+        $this->putJson("/api/my-bookings/{$don->id}/passengers", [
+            'passengers' => [
+                [
+                    'name' => 'Nguyen Van An',
+                    'type' => 'child',
+                    'date_of_birth' => now()->subYears(30)->toDateString(),
+                ],
+            ],
+        ])->assertStatus(422);
+    }
+
+    /** Tính tuổi tại NGÀY KHỞI HÀNH, không phải hôm nay. */
+    public function test_tuoi_tinh_theo_ngay_khoi_hanh_chu_khong_phai_hom_nay(): void
+    {
+        $don = $this->taoDon(1);
+        Sanctum::actingAs($this->khach);
+
+        // Hôm nay bé còn 11 tuổi, nhưng tới ngày khởi hành thì đã tròn 12.
+        $sinhNhat = now()->addDays(5)->subYears(12);
+
+        $this->putJson("/api/my-bookings/{$don->id}/passengers", [
+            'passengers' => [
+                [
+                    'name' => 'Le Minh Cuong',
+                    'type' => 'adult',
+                    'date_of_birth' => $sinhNhat->toDateString(),
+                ],
+            ],
+        ])->assertOk();
+
+        // Khai là trẻ em thì sai, vì tới lúc đi đã đủ tuổi người lớn.
+        $this->putJson("/api/my-bookings/{$don->id}/passengers", [
+            'passengers' => [
+                [
+                    'name' => 'Le Minh Cuong',
+                    'type' => 'child',
+                    'date_of_birth' => $sinhNhat->toDateString(),
+                ],
+            ],
+        ])->assertStatus(422);
+    }
+
+    public function test_khong_co_ngay_sinh_thi_bo_qua_luat_tuoi(): void
+    {
+        $don = $this->taoDon(1);
+        Sanctum::actingAs($this->khach);
+
+        $this->putJson("/api/my-bookings/{$don->id}/passengers", [
+            'passengers' => [['name' => 'Nguyen Van An', 'type' => 'child']],
+        ])->assertOk();
+    }
+
+    // --- G05: cảnh báo khai thiếu -------------------------------------------------------
+
+    public function test_khai_thieu_nguoi_thi_canh_bao_nhung_van_luu_duoc(): void
+    {
+        $don = $this->taoDon(guests: 4);
+        Sanctum::actingAs($this->khach);
+
+        $response = $this->putJson("/api/my-bookings/{$don->id}/passengers", [
+            'passengers' => $this->danhSach(),
+        ])->assertOk();
+
+        $canhBao = $response->json('data.warnings');
+
+        $this->assertNotEmpty($canhBao);
+        $this->assertStringContainsString('2 trên 4', $canhBao[0]);
+    }
+
+    public function test_dieu_hanh_liet_ke_duoc_cac_don_khai_thieu_cua_mot_chuyen(): void
+    {
+        $donDu = $this->taoDon(2);
+        $donThieu = $this->taoDon(4);
+
+        foreach ([$donDu, $donThieu] as $don) {
+            BookingPassenger::create([
+                'booking_id' => $don->id,
+                'name' => 'Khach ' . $don->id,
+                'type' => 'adult',
+                'identity_number' => '00119900' . $don->id,
+                'is_contact' => true,
+            ]);
+        }
+
+        BookingPassenger::create([
+            'booking_id' => $donDu->id,
+            'name' => 'Khach hai',
+            'type' => 'adult',
+            'identity_number' => '001199777' . $donDu->id,
+        ]);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $response = $this->getJson("/api/admin/schedules/{$this->schedule->id}/incomplete-passengers")
+            ->assertOk()
+            ->assertJsonPath('data.can_export_manifest', false);
+
+        $ids = array_column($response->json('data.bookings'), 'booking_id');
+
+        $this->assertContains($donThieu->id, $ids);
+    }
+
+    /** Chưa chọn người liên hệ thì hướng dẫn viên không biết gọi ai. */
+    public function test_canh_bao_khi_chua_chon_nguoi_lien_he(): void
+    {
+        $don = $this->taoDon(2);
+        Sanctum::actingAs($this->khach);
+
+        $response = $this->putJson("/api/my-bookings/{$don->id}/passengers", [
+            'passengers' => [
+                ['name' => 'Nguyen Van An', 'type' => 'adult', 'identity_number' => '001199001234'],
+                ['name' => 'Tran Thi Binh', 'type' => 'adult', 'identity_number' => '001199005678'],
+            ],
+        ])->assertOk();
+
+        $this->assertTrue(
+            collect($response->json('data.warnings'))
+                ->contains(fn ($item) => str_contains($item, 'người liên hệ')),
+        );
+    }
+
+    // --- Luật áp cả ở đường đặt tour ----------------------------------------------------
+
+    /**
+     * Danh sách khai lúc đặt phải chịu cùng bộ luật với danh sách sửa về sau. Hai đường ghi mà
+     * hai bộ luật thì sớm muộn cũng có đơn lọt qua đường không kiểm.
+     */
+    public function test_dat_tour_voi_giay_to_trung_nhau_cung_bi_tu_choi(): void
+    {
+        $this->postJson('/api/bookings', [
+            'tour_id' => $this->schedule->tour_id,
+            'tour_schedule_id' => $this->schedule->id,
+            'customer_name' => 'Nguyen Van An',
+            'customer_email' => 'khach@example.com',
+            'customer_phone' => '0901234567',
+            'adult_count' => 2,
+            'passengers' => [
+                ['name' => 'Nguyen Van An', 'type' => 'adult', 'identity_number' => '001199001234'],
+                ['name' => 'Tran Thi Binh', 'type' => 'adult', 'identity_number' => '001199001234'],
+            ],
+        ])->assertStatus(422);
+
+        $this->assertSame(0, Booking::query()->count());
+    }
+}

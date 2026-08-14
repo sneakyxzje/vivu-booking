@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import bookingService from "@/services/bookingService";
-import type { CancelRequestPreview } from "@/services/bookingService";
+import type {
+  CancelRequestPreview,
+  PassengerInput,
+  PassengerListResponse,
+} from "@/services/bookingService";
 import type { Booking } from "@/types";
 import { formatDateTime } from "@/utils/format";
 import { Modal } from "@/components/Modal";
@@ -51,6 +55,15 @@ export const MyBookingsTab: React.FC = () => {
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestError, setRequestError] = useState("");
   const [requestSent, setRequestSent] = useState(false);
+
+  // Sửa danh sách hành khách
+  const [paxTarget, setPaxTarget] = useState<ExtendedBooking | null>(null);
+  const [paxData, setPaxData] = useState<PassengerListResponse | null>(null);
+  const [paxRows, setPaxRows] = useState<PassengerInput[]>([]);
+  const [paxLoading, setPaxLoading] = useState(false);
+  const [paxSaving, setPaxSaving] = useState(false);
+  const [paxError, setPaxError] = useState("");
+  const [paxSaved, setPaxSaved] = useState("");
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -122,6 +135,107 @@ export const MyBookingsTab: React.FC = () => {
     setRequestReason("");
     setRequestError("");
     setRequestSent(false);
+  };
+
+  const dongHanhKhach = () => {
+    setPaxTarget(null);
+    setPaxData(null);
+    setPaxRows([]);
+    setPaxError("");
+    setPaxSaved("");
+  };
+
+  const moHanhKhach = async (booking: ExtendedBooking) => {
+    setPaxTarget(booking);
+    setPaxData(null);
+    setPaxRows([]);
+    setPaxError("");
+    setPaxSaved("");
+    setPaxLoading(true);
+
+    try {
+      const result = (await bookingService.getPassengers(booking.id)).data?.data ?? null;
+      setPaxData(result);
+
+      // Khai chưa đủ thì bù dòng trống cho tới đúng số khách đã đặt, để khách không phải tự
+      // bấm thêm từng dòng và không nhầm số.
+      const rows: PassengerInput[] = (result?.passengers ?? []).map((p) => ({
+        name: p.name ?? "",
+        type: p.type ?? "adult",
+        gender: p.gender ?? "",
+        date_of_birth: p.date_of_birth ?? "",
+        identity_number: p.identity_number ?? "",
+        id_type: p.id_type ?? "cccd",
+        phone: p.phone ?? "",
+        special_request: p.special_request ?? "",
+        is_contact: !!p.is_contact,
+      }));
+
+      while (rows.length < (result?.guests ?? 0)) {
+        rows.push({
+          name: "",
+          type: "adult",
+          gender: "",
+          date_of_birth: "",
+          identity_number: "",
+          id_type: "cccd",
+          phone: "",
+          special_request: "",
+          is_contact: rows.length === 0,
+        });
+      }
+
+      setPaxRows(rows);
+    } catch (err) {
+      setPaxError(layLoiMayChu(err, "Không tải được danh sách hành khách."));
+    } finally {
+      setPaxLoading(false);
+    }
+  };
+
+  const suaDong = (index: number, field: keyof PassengerInput, value: string | boolean) => {
+    setPaxRows((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) {
+          // Chỉ một người được đánh dấu liên hệ, chọn người mới thì bỏ người cũ.
+          return field === "is_contact" && value === true ? { ...row, is_contact: false } : row;
+        }
+        return { ...row, [field]: value };
+      }),
+    );
+  };
+
+  const luuHanhKhach = async () => {
+    if (!paxTarget) return;
+
+    setPaxSaving(true);
+    setPaxError("");
+    setPaxSaved("");
+
+    try {
+      const response = await bookingService.updatePassengers(
+        paxTarget.id,
+        paxRows.map((row) => ({
+          ...row,
+          gender: row.gender || null,
+          date_of_birth: row.date_of_birth || null,
+          identity_number: row.identity_number?.trim() || null,
+          phone: row.phone?.trim() || null,
+          special_request: row.special_request?.trim() || null,
+        })),
+      );
+
+      const canhBao = response.data?.data?.warnings ?? [];
+      setPaxSaved(
+        canhBao.length > 0
+          ? `Đã lưu. Lưu ý: ${canhBao.join(" ")}`
+          : "Đã lưu danh sách hành khách.",
+      );
+    } catch (err) {
+      setPaxError(layLoiMayChu(err, "Không lưu được danh sách hành khách."));
+    } finally {
+      setPaxSaving(false);
+    }
   };
 
   const guiYeuCauHuy = async () => {
@@ -353,6 +467,15 @@ export const MyBookingsTab: React.FC = () => {
                         Hủy đơn
                       </button>
                     )}
+                    {item.status !== "cancelled" && (
+                      <button
+                        onClick={() => moHanhKhach(item)}
+                        className="px-3.5 py-1.5 text-xs font-semibold bg-white text-primary-700 hover:bg-primary-50 rounded-xl transition-colors flex items-center gap-1.5 border border-primary-200"
+                      >
+                        <UserCheck className="w-3.5 h-3.5" />
+                        Hành khách
+                      </button>
+                    )}
                     {coTheGuiYeuCau(item) && (
                       <button
                         onClick={() => moFormYeuCau(item)}
@@ -570,6 +693,182 @@ export const MyBookingsTab: React.FC = () => {
               </div>
             </div>
 
+          </div>
+        )}
+      </Modal>
+
+      {/* MODAL: SỬA DANH SÁCH HÀNH KHÁCH */}
+      <Modal
+        isOpen={!!paxTarget}
+        onClose={dongHanhKhach}
+        size="3xl"
+        title={
+          <span className="text-xs font-bold text-primary-600 bg-primary-50 px-2.5 py-1 rounded-full uppercase tracking-wider border border-primary-200">
+            Hành khách đơn #{paxTarget?.id}
+          </span>
+        }
+        subtitle={
+          <span className="text-base font-bold text-gray-900 block mt-1 font-plus-jakarta">
+            {paxTarget?.tour?.title}
+          </span>
+        }
+      >
+        {paxLoading && <p className="text-sm text-gray-500">Đang tải...</p>}
+
+        {paxData && (
+          <div className="space-y-4">
+            {/*
+              Quyền sửa phụ thuộc thời điểm, không phụ thuộc vai trò. Qua hạn chốt danh sách thì
+              danh sách đã gửi khách sạn và nhà xe, sửa một phía làm hai bên lệch nhau.
+            */}
+            {!paxData.can_edit && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
+                <p className="font-bold">Danh sách đã khóa</p>
+                <p className="mt-0.5">{paxData.locked_reason}</p>
+              </div>
+            )}
+
+            {paxData.warnings.length > 0 && paxData.can_edit && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 space-y-1">
+                {paxData.warnings.map((item) => (
+                  <p key={item}>{item}</p>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {paxRows.map((row, index) => (
+                <div key={index} className="rounded-xl border border-gray-200 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-700">
+                      Hành khách {index + 1}
+                    </span>
+                    <label className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-600">
+                      <input
+                        type="radio"
+                        name="pax-contact"
+                        checked={!!row.is_contact}
+                        disabled={!paxData.can_edit}
+                        onChange={() => suaDong(index, "is_contact", true)}
+                      />
+                      Người liên hệ
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      value={row.name}
+                      disabled={!paxData.can_edit}
+                      onChange={(e) => suaDong(index, "name", e.target.value)}
+                      placeholder="Họ và tên như trên giấy tờ"
+                      className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:opacity-60"
+                    />
+                    <select
+                      value={row.type}
+                      disabled={!paxData.can_edit}
+                      onChange={(e) => suaDong(index, "type", e.target.value)}
+                      className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
+                    >
+                      <option value="adult">Người lớn (từ 12 tuổi)</option>
+                      <option value="child">Trẻ em (2 đến 11 tuổi)</option>
+                      <option value="infant">Em bé (dưới 2 tuổi)</option>
+                    </select>
+                    <select
+                      value={row.gender ?? ""}
+                      disabled={!paxData.can_edit}
+                      onChange={(e) => suaDong(index, "gender", e.target.value)}
+                      className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
+                    >
+                      <option value="">Giới tính</option>
+                      <option value="male">Nam</option>
+                      <option value="female">Nữ</option>
+                      <option value="other">Khác</option>
+                    </select>
+                    <input
+                      type="date"
+                      value={row.date_of_birth ?? ""}
+                      disabled={!paxData.can_edit}
+                      onChange={(e) => suaDong(index, "date_of_birth", e.target.value)}
+                      className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
+                    />
+                    <select
+                      value={row.id_type ?? "cccd"}
+                      disabled={!paxData.can_edit}
+                      onChange={(e) => suaDong(index, "id_type", e.target.value)}
+                      className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
+                    >
+                      <option value="cccd">Căn cước công dân</option>
+                      <option value="cmnd">Chứng minh nhân dân</option>
+                      <option value="passport">Hộ chiếu</option>
+                      <option value="birth_certificate">Giấy khai sinh</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={row.identity_number ?? ""}
+                      disabled={!paxData.can_edit}
+                      onChange={(e) => suaDong(index, "identity_number", e.target.value)}
+                      placeholder="Số giấy tờ"
+                      className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
+                    />
+                    <input
+                      type="text"
+                      value={row.phone ?? ""}
+                      disabled={!paxData.can_edit}
+                      onChange={(e) => suaDong(index, "phone", e.target.value)}
+                      placeholder="Số điện thoại"
+                      className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
+                    />
+                    <input
+                      type="text"
+                      value={row.special_request ?? ""}
+                      disabled={!paxData.can_edit}
+                      onChange={(e) => suaDong(index, "special_request", e.target.value)}
+                      placeholder="Ăn chay, dị ứng, cần hỗ trợ..."
+                      className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[11px] text-gray-500">
+              Số giấy tờ và ngày sinh dùng để mua bảo hiểm du lịch và khai báo lưu trú tại khách
+              sạn, nên cần đúng như trên giấy tờ.
+            </p>
+
+            {paxError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700">
+                {paxError}
+              </div>
+            )}
+
+            {paxSaved && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-800">
+                {paxSaved}
+              </div>
+            )}
+
+            {paxData.can_edit && (
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={dongHanhKhach}
+                  disabled={paxSaving}
+                  className="px-4 py-2.5 bg-white border border-gray-200 text-xs font-semibold rounded-xl text-gray-600 hover:bg-gray-50"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={luuHanhKhach}
+                  disabled={paxSaving || paxRows.some((row) => !row.name.trim())}
+                  className="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold rounded-xl disabled:opacity-50"
+                >
+                  {paxSaving ? "Đang lưu..." : "Lưu danh sách"}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </Modal>

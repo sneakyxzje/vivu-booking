@@ -18,6 +18,7 @@ use App\Models\Service;
 // Customer
 use App\Http\Controllers\Api\Customer\BookingController as CustomerBookingController;
 use App\Http\Controllers\Api\Customer\ChangeRequestController as CustomerChangeRequestController;
+use App\Http\Controllers\Api\Customer\PassengerController as CustomerPassengerController;
 use App\Http\Controllers\Api\Customer\ReviewController;
 
 // Guide
@@ -33,6 +34,7 @@ use App\Http\Controllers\Api\Admin\AdminTourController;
 use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminChangeRequestController;
+use App\Http\Controllers\Api\Admin\AdminPassengerController;
 use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
 use App\Http\Controllers\Api\Admin\AdminAttendanceController;
 use App\Http\Controllers\Api\Admin\AdminCancellationPolicyController;
@@ -111,6 +113,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/my-bookings/{id}/cancel-request', [CustomerChangeRequestController::class, 'store']);
         Route::get('/my-change-requests', [CustomerChangeRequestController::class, 'index']);
         Route::put('/my-change-requests/{id}/withdraw', [CustomerChangeRequestController::class, 'withdraw']);
+
+        // G03 - Khách sửa danh sách hành khách, chỉ trước hạn chốt danh sách.
+        Route::get('/my-bookings/{id}/passengers', [CustomerPassengerController::class, 'index']);
+        Route::put('/my-bookings/{id}/passengers', [CustomerPassengerController::class, 'update']);
     });
 
     /*
@@ -183,6 +189,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/change-requests/{id}', [AdminChangeRequestController::class, 'show']);
         Route::put('/change-requests/{id}/approve', [AdminChangeRequestController::class, 'approve']);
         Route::put('/change-requests/{id}/reject', [AdminChangeRequestController::class, 'reject']);
+
+        // G03, G05 - Danh sách hành khách. Điều hành sửa được cả sau hạn chốt.
+        Route::get('/bookings/{id}/passengers', [AdminPassengerController::class, 'index']);
+        Route::put('/bookings/{id}/passengers', [AdminPassengerController::class, 'update']);
+        Route::get('/schedules/{id}/incomplete-passengers', [AdminPassengerController::class, 'incomplete']);
 
         Route::get('/bookings/{id}/cancel-preview', [AdminBookingController::class, 'cancelPreview']);
         Route::put('/bookings/{id}/cancel', [AdminBookingController::class, 'cancel']);

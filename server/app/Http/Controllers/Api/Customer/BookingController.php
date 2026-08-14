@@ -13,6 +13,7 @@ use App\Models\TourSchedule;
 use App\Services\BookingHoldService;
 use App\Services\BookingPolicyService;
 use App\Services\CancellationPolicyService;
+use App\Services\PassengerPolicyService;
 use App\Services\ScheduleLifecycleService;
 use App\Services\VNPayService;
 use Illuminate\Support\Facades\Log;
@@ -33,6 +34,7 @@ class BookingController extends Controller
         private BookingPolicyService $bookingPolicy,
         private ScheduleLifecycleService $scheduleLifecycle,
         private CancellationPolicyService $cancellationPolicy,
+        private PassengerPolicyService $passengerPolicy,
     ) {
     }
 
@@ -52,8 +54,14 @@ class BookingController extends Controller
             'passengers' => 'nullable|array|max:50',
             'passengers.*.name' => 'required_with:passengers|string|max:255',
             'passengers.*.type' => 'required_with:passengers|in:adult,child,infant',
+            'passengers.*.gender' => 'nullable|in:male,female,other',
             'passengers.*.date_of_birth' => 'nullable|date|before_or_equal:today',
             'passengers.*.identity_number' => 'nullable|string|max:50',
+            'passengers.*.id_type' => 'nullable|in:cccd,cmnd,passport,birth_certificate',
+            'passengers.*.nationality' => 'nullable|string|max:60',
+            'passengers.*.phone' => 'nullable|string|max:20',
+            'passengers.*.special_request' => 'nullable|string|max:500',
+            'passengers.*.is_contact' => 'nullable|boolean',
             'passengers.*.note' => 'nullable|string|max:255',
         ]);
 
@@ -154,14 +162,12 @@ class BookingController extends Controller
                 'cancellation_policy_id' => $tour->cancellation_policy_id
                     ?? \App\Models\CancellationPolicy::default()?->id,
             ]);
-            foreach ($data['passengers'] ?? [] as $passenger) {
-                $booking->passengers()->create([
-                    'name' => $passenger['name'],
-                    'type' => $passenger['type'],
-                    'date_of_birth' => $passenger['date_of_birth'] ?? null,
-                    'identity_number' => $passenger['identity_number'] ?? null,
-                    'note' => $passenger['note'] ?? null,
-                ]);
+            // Ghi qua PassengerPolicyService để danh sách khai lúc đặt chịu đúng những luật mà
+            // danh sách sửa về sau phải chịu. Hai đường ghi mà hai bộ luật thì sớm muộn cũng có
+            // đơn lọt qua đường này với số giấy tờ trùng nhau.
+            if (!empty($data['passengers'])) {
+                $this->passengerPolicy->validateList($booking, $data['passengers']);
+                $this->passengerPolicy->replaceList($booking, $data['passengers']);
             }
 
             if ($discount['model']) {

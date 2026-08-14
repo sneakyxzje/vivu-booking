@@ -50,8 +50,16 @@ export interface BookingPassenger {
   booking_id: number;
   name: string;
   type: "adult" | "child" | "infant";
+  gender?: "male" | "female" | "other" | null;
   date_of_birth?: string | null;
   identity_number?: string | null;
+  id_type?: "cccd" | "cmnd" | "passport" | "birth_certificate" | null;
+  nationality?: string | null;
+  phone?: string | null;
+  /** Ăn chay, dị ứng, cần hỗ trợ di chuyển. Nhà cung cấp cần biết trước. */
+  special_request?: string | null;
+  /** Người hướng dẫn viên gọi khi cần liên hệ đoàn nhỏ này. */
+  is_contact?: boolean;
   note?: string | null;
 }
 
