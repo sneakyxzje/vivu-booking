@@ -30,6 +30,14 @@ use Throwable;
 
 class BookingController extends Controller
 {
+    /**
+     * Khoảng thời gian coi hai lần bấm đặt giống nhau là một.
+     *
+     * Sáu mươi giây theo docs/nghiep-vu/08-danh-muc-edge-case.md tình huống A04. Đủ dài để phủ
+     * một lần bấm lại vì sốt ruột, đủ ngắn để không chặn người thật sự muốn đặt đơn thứ hai.
+     */
+    private const DUPLICATE_WINDOW_SECONDS = 60;
+
     public function __construct(
         private VNPayService $vnpayService,
         private BookingHoldService $holdService,
@@ -102,7 +110,11 @@ class BookingController extends Controller
         // để khách mới dùng được ngay slot vừa được trả lại.
         $this->holdService->releaseOverdueForSchedule((int) $data['tour_schedule_id']);
 
-        $booking = DB::transaction(function () use ($data, $user, $guestId) {
+        // Đặt ngoài giao dịch để biết được kết quả sau khi giao dịch đóng: đơn trùng thì không
+        // gửi lại thư và không tạo lại liên kết thanh toán.
+        $laDonTrung = false;
+
+        $booking = DB::transaction(function () use ($data, $user, $guestId, &$laDonTrung) {
             $schedule = TourSchedule::query()
                 ->where('id', $data['tour_schedule_id'])
                 ->where('tour_id', $data['tour_id'])
@@ -138,6 +150,34 @@ class BookingController extends Controller
                 + ($infantCount * (float) $tour->infant_price);
             $discount = $this->resolveDiscount($data['discount_code'] ?? null, (float) $subtotalAmount);
             $totalAmount = max(0, $subtotalAmount - $discount['amount']);
+
+            /*
+             * X01 - Khách bấm đặt hai lần.
+             *
+             * Mạng chậm, khách bấm rồi không thấy gì nên bấm lại. Không chặn thì thành hai đơn
+             * giống hệt nhau, trừ hai lần số chỗ, gửi hai thư. Khách gọi lên bảo chỉ đặt một, và
+             * nếu đã qua hạn chốt thì đơn thừa còn thành ghế chết do lỗi của chính hệ thống.
+             *
+             * Nhận diện theo email, chuyến và tổng tiền trong 60 giây. Ba yếu tố cùng khớp trong
+             * một phút gần như chắc chắn là một lần đặt bị gửi hai lần; còn người thật muốn đặt
+             * thêm một đơn y hệt thì chờ một phút, cái giá đó rẻ hơn nhiều so với đơn trùng.
+             *
+             * Kiểm bên trong giao dịch đã khóa dòng chuyến, nên hai yêu cầu gửi cùng lúc cũng
+             * phải xếp hàng và người vào sau nhìn thấy đơn của người vào trước.
+             */
+            $donTrung = Booking::query()
+                ->where('customer_email', $data['customer_email'])
+                ->where('tour_schedule_id', $schedule->id)
+                ->where('total_amount', $totalAmount)
+                ->where('created_at', '>=', now()->subSeconds(self::DUPLICATE_WINDOW_SECONDS))
+                ->latest('id')
+                ->first();
+
+            if ($donTrung) {
+                $laDonTrung = true;
+
+                return $donTrung->load(['tour', 'schedule']);
+            }
 
             $booking = Booking::create([
                 'public_token' => (string) Str::uuid(),
@@ -194,13 +234,22 @@ class BookingController extends Controller
         });
 
         $paymentUrl = $this->vnpayService->createPayment($booking);
-        $this->sendBookingCreatedMailAfterResponse($booking, $paymentUrl);
+
+        // Đơn trùng thì không gửi thư lần hai. Nhận hai thư xác nhận cho một lần đặt làm khách
+        // tưởng mình vừa đặt hai chuyến và gọi lên hỏi, đúng thứ mà luật chống trùng sinh ra để
+        // tránh.
+        if (!$laDonTrung) {
+            $this->sendBookingCreatedMailAfterResponse($booking, $paymentUrl);
+        }
 
         $response = response()->json([
             'success' => true,
-            'message' => 'Đặt tour thành công. Vui lòng thanh toán trong '
-                . $this->holdService->holdMinutes()
-                . ' phút để giữ chỗ.',
+            'message' => $laDonTrung
+                ? 'Đơn đặt tour của bạn đã được ghi nhận trước đó. Vui lòng thanh toán trong '
+                    . $this->holdService->holdMinutes() . ' phút để giữ chỗ.'
+                : 'Đặt tour thành công. Vui lòng thanh toán trong '
+                    . $this->holdService->holdMinutes()
+                    . ' phút để giữ chỗ.',
             'data' => [
                 'booking' => $booking,
                 'payment_url' => $paymentUrl,

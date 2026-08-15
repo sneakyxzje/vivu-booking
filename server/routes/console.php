@@ -37,6 +37,12 @@ Schedule::command('bookings:finalize-completed')
     ->everyMinute()
     ->withoutOverlapping();
 
+// X12: Dọn đơn giữ chỗ còn treo của chuyến đã kết thúc. Chạy thưa vì đây là nhóm lọt lưới,
+// không phải luồng thường: đơn quá hạn bình thường đã có bookings:release-expired lo mỗi phút.
+Schedule::command('bookings:expire-stale-holds')
+    ->hourly()
+    ->withoutOverlapping();
+
 // C05: Đối chiếu số chỗ đã bán với số chỗ thực tế đang bị chiếm.
 // Chỉ báo cáo, không tự nắn số liệu: lệch số chỗ là dấu hiệu có lỗi nghiệp vụ ở đâu đó,
 // tự sửa sẽ che mất nguyên nhân.

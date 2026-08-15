@@ -333,16 +333,56 @@ class BookingHoldService
         $booking->discountCode->decrement('used_count');
     }
 
-    private function expireLocked(Booking $booking, ?TourSchedule $schedule): void
+    /**
+     * X12 - Dọn một đơn giữ chỗ còn treo của chuyến đã kết thúc.
+     *
+     * Đơn pending bình thường tự hủy khi qua expires_at. Đơn lọt lưới - tác vụ nền chết một
+     * hôm, hoặc expires_at rỗng vì được tạo bằng tay - thì nằm mãi ở "chờ thanh toán". Chuyến
+     * đi xong rồi mà đơn vẫn treo, và nó vẫn đang tính vào booked_people.
+     *
+     * Lệnh chốt đơn sau chuyến ở D03 cố ý bỏ qua nhóm này, vì chưa trả tiền thì không kết luận
+     * được là đã đi hay không có mặt. Đây là chỗ dọn phần còn lại.
+     *
+     * Trả về true khi vừa dọn được đơn này.
+     */
+    public function expireStaleHold(Booking $booking, string $reason): bool
     {
+        return DB::transaction(function () use ($booking, $reason) {
+            $schedule = $booking->tour_schedule_id
+                ? TourSchedule::query()
+                    ->whereKey($booking->tour_schedule_id)
+                    ->lockForUpdate()
+                    ->first()
+                : null;
+
+            $fresh = Booking::query()->whereKey($booking->getKey())->lockForUpdate()->first();
+
+            // Đọc lại sau khi khóa: khách hoàn toàn có thể vừa thanh toán xong trong lúc lệnh
+            // chạy, và hủy một đơn vừa trả tiền là mất tiền của người thật.
+            if (!$fresh || $fresh->status !== 'pending') {
+                return false;
+            }
+
+            $this->expireLocked($fresh, $schedule, $reason, 'stale_hold');
+
+            return true;
+        });
+    }
+
+    private function expireLocked(
+        Booking $booking,
+        ?TourSchedule $schedule,
+        ?string $reason = null,
+        string $cancelType = 'hold_expired',
+    ): void {
         $booking->forceFill([
-            'cancel_type' => 'hold_expired',
+            'cancel_type' => $cancelType,
             'cancelled_at' => now(),
         ])->save();
 
         $booking->update([
             'status' => 'cancelled',
-            'cancel_reason' => self::EXPIRED_REASON,
+            'cancel_reason' => $reason ?? self::EXPIRED_REASON,
         ]);
 
         $this->releaseHold($booking, $schedule);

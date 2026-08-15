@@ -628,6 +628,8 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->line('     -> đơn ' . $id('quaHan') . ' tự hủy và TRẢ chỗ, dù đã qua hạn chốt');
         $cmd->line('   php artisan bookings:finalize-completed');
         $cmd->line('     -> chuyến ' . $chuyen('S7') . ': 1 đơn KHÔNG CÓ MẶT, 2 đơn ĐÃ HOÀN THÀNH');
+        $cmd->line('   php artisan bookings:expire-stale-holds');
+        $cmd->line('     -> dọn đơn chờ thanh toán còn treo của chuyến đã kết thúc');
         $cmd->line('   php artisan bookings:check-seat-consistency');
         $cmd->line('     -> phải báo "Số chỗ của mọi chuyến đều khớp"');
         $cmd->newLine();
