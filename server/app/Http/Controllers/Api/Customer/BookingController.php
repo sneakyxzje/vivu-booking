@@ -114,7 +114,11 @@ class BookingController extends Controller
         // gửi lại thư và không tạo lại liên kết thanh toán.
         $laDonTrung = false;
 
-        $booking = DB::transaction(function () use ($data, $user, $guestId, &$laDonTrung) {
+        // Mã giảm giá vừa hết lượt trong lúc khách điền thông tin. Đơn vẫn tạo theo giá gốc,
+        // nhưng phải nói cho khách biết vì họ đang chờ thấy con số đã giảm.
+        $thongBaoMaGiam = null;
+
+        $booking = DB::transaction(function () use ($data, $user, $guestId, &$laDonTrung, &$thongBaoMaGiam) {
             $schedule = TourSchedule::query()
                 ->where('id', $data['tour_schedule_id'])
                 ->where('tour_id', $data['tour_id'])
@@ -150,6 +154,7 @@ class BookingController extends Controller
                 + ($infantCount * (float) $tour->infant_price);
             $discount = $this->resolveDiscount($data['discount_code'] ?? null, (float) $subtotalAmount);
             $totalAmount = max(0, $subtotalAmount - $discount['amount']);
+            $thongBaoMaGiam = $discount['notice'];
 
             /*
              * X01 - Khách bấm đặt hai lần.
@@ -242,17 +247,24 @@ class BookingController extends Controller
             $this->sendBookingCreatedMailAfterResponse($booking, $paymentUrl);
         }
 
+        $thongBao = $laDonTrung
+            ? 'Đơn đặt tour của bạn đã được ghi nhận trước đó. Vui lòng thanh toán trong '
+                . $this->holdService->holdMinutes() . ' phút để giữ chỗ.'
+            : 'Đặt tour thành công. Vui lòng thanh toán trong '
+                . $this->holdService->holdMinutes() . ' phút để giữ chỗ.';
+
+        if ($thongBaoMaGiam) {
+            $thongBao = $thongBaoMaGiam . ' ' . $thongBao;
+        }
+
         $response = response()->json([
             'success' => true,
-            'message' => $laDonTrung
-                ? 'Đơn đặt tour của bạn đã được ghi nhận trước đó. Vui lòng thanh toán trong '
-                    . $this->holdService->holdMinutes() . ' phút để giữ chỗ.'
-                : 'Đặt tour thành công. Vui lòng thanh toán trong '
-                    . $this->holdService->holdMinutes()
-                    . ' phút để giữ chỗ.',
+            'message' => $thongBao,
             'data' => [
                 'booking' => $booking,
                 'payment_url' => $paymentUrl,
+                // Tách riêng để giao diện làm nổi được, thay vì trộn vào câu thông báo chung.
+                'discount_notice' => $thongBaoMaGiam,
             ],
         ], 201);
 
@@ -566,10 +578,28 @@ class BookingController extends Controller
         ]));
     }
 
+    /**
+     * X03 - Kiểm lại mã giảm giá ngay trong giao dịch tạo đơn.
+     *
+     * Khách nhập mã ở bước xem giá, rồi điền thông tin vài phút mới bấm đặt. Trong khoảng đó
+     * mã hoàn toàn có thể hết lượt vì người khác vừa dùng nốt, hoặc vừa qua hạn. Kiểm lại dưới
+     * khóa dòng là bắt buộc, nếu không hai người cùng dùng lượt cuối và cả hai đều qua.
+     *
+     * Hai loại hỏng, hai cách xử lý khác nhau:
+     *
+     * - Mã không tồn tại: khách gõ sai, từ chối và nói rõ để họ sửa.
+     * - Mã có thật nhưng vừa hết lượt hoặc hết hạn: KHÔNG từ chối đơn. Khách đã điền xong hết
+     *   thông tin, chặn ở bước cuối vì lý do không phải lỗi của họ là cách chắc chắn nhất để
+     *   mất một đơn hàng. Tạo đơn giá gốc và nói rõ trong thông báo trả về.
+     *
+     * Xem docs/nghiep-vu/08-danh-muc-edge-case.md tình huống A11.
+     *
+     * @return array{model: DiscountCode|null, amount: float, notice: string|null}
+     */
     private function resolveDiscount(?string $code, float $subtotalAmount): array
     {
         if (! $code) {
-            return ['model' => null, 'amount' => 0.0];
+            return ['model' => null, 'amount' => 0.0, 'notice' => null];
         }
 
         $discountCode = DiscountCode::query()
@@ -577,15 +607,27 @@ class BookingController extends Controller
             ->lockForUpdate()
             ->first();
 
-        if (! $discountCode || ! $discountCode->isUsableFor($subtotalAmount)) {
+        if (! $discountCode) {
             throw ValidationException::withMessages([
-                'discount_code' => 'Mã giảm giá không hợp lệ hoặc không còn khả dụng.',
+                'discount_code' => 'Mã giảm giá không tồn tại. Vui lòng kiểm tra lại.',
             ]);
+        }
+
+        if (! $discountCode->isUsableFor($subtotalAmount)) {
+            return [
+                'model' => null,
+                'amount' => 0.0,
+                'notice' => sprintf(
+                    'Mã giảm giá %s không còn áp dụng được nên đơn được tạo theo giá gốc.',
+                    $discountCode->code,
+                ),
+            ];
         }
 
         return [
             'model' => $discountCode,
             'amount' => $discountCode->calculateDiscount($subtotalAmount),
+            'notice' => null,
         ];
     }
 
