@@ -183,6 +183,33 @@ export interface ChangeRequestDetail {
   blocked_reason: string | null;
 }
 
+/** Một chuyến có thể chuyển đơn sang, kèm chênh lệch đã tính sẵn. */
+export interface TransferOption {
+  schedule_id: number;
+  tour_id: number;
+  tour_title: string | null;
+  start_date: string;
+  remaining_seats: number;
+  can_transfer: boolean;
+  blocked_reason: string | null;
+  /** Dương là chuyến đích đắt hơn, âm là rẻ hơn. */
+  price_difference: number;
+  /** Phí đổi lịch, chỉ phát sinh từ lần chuyển thứ hai và khi khách khởi xướng. */
+  fee: number;
+  new_total: number;
+  transfer_count: number;
+}
+
+export interface TransferOptionsResponse {
+  booking: {
+    id: number;
+    guests: number;
+    total_amount: number;
+    transfer_count: number;
+  };
+  options: TransferOption[];
+}
+
 /** Một mục trong dòng thời gian thay đổi của đơn. */
 export interface BookingAuditEntry {
   id: number;
@@ -323,6 +350,31 @@ const adminService = {
       review_note: reviewNote,
     });
     return response.data?.message ?? "Đã từ chối yêu cầu.";
+  },
+
+  /**
+   * I05 - Các chuyến có thể chuyển đơn sang.
+   *
+   * Máy chủ tính sẵn chênh lệch cho từng lựa chọn và loại bỏ chuyến không chuyển được, nên màn
+   * hình chỉ việc hiển thị. Tính lại ở trình duyệt thì sớm muộn cũng lệch với con số máy chủ áp.
+   */
+  getTransferOptions: async (
+    bookingId: number,
+    sameTour = true,
+  ): Promise<TransferOptionsResponse | null> => {
+    const response = await api.get(
+      `/admin/bookings/${bookingId}/transfer-options?same_tour=${sameTour ? 1 : 0}`,
+    );
+    return extractObject<TransferOptionsResponse>(response);
+  },
+
+  transferBooking: async (bookingId: number, toScheduleId: number, reason: string) => {
+    const response = await api.post(`/admin/bookings/${bookingId}/transfer`, {
+      to_schedule_id: toScheduleId,
+      reason,
+      initiated_by: "company",
+    });
+    return response.data?.message ?? "Đã chuyển chuyến.";
   },
 
   /** E04 - Dòng thời gian thay đổi của một đơn: ai làm gì, lúc nào, vì sao. */

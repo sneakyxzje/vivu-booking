@@ -603,6 +603,13 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->line('   hoàn bao nhiêu, chỗ có về kho không, và lý do');
         $cmd->newLine();
 
+        $cmd->comment(' VÒNG 2e — chuyển chuyến (nhóm I)');
+        $cmd->line('   /admin/bookings -> ' . $id('hoan90') . ' -> nút "Chuyển chuyến"');
+        $cmd->line('   Chọn chuyến đích, đọc chênh lệch giá tính sẵn, nhập lý do, xác nhận');
+        $cmd->line('   Rồi vào /admin/schedules xem: chuyến cũ giảm chỗ, chuyến mới tăng chỗ');
+        $cmd->line('   Bỏ tick "Chỉ trong cùng tour" để thấy cả chuyến của tour khác');
+        $cmd->newLine();
+
         $cmd->comment(' VÒNG 3 — chặn hủy khi chuyến đang chạy');
         $cmd->line('   1. /admin/bookings -> ' . $id('chuyenDangChay') . ' -> Hủy đơn');
         $cmd->line('      Nút xác nhận phải BỊ KHÓA, kèm lý do chuyến đang chạy');

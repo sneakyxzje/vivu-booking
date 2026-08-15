@@ -29,6 +29,9 @@ enum BookingAuditAction: string
 
     case PassengersUpdated = 'passengers_updated';
 
+    /** Chuyển đơn sang chuyến khác, cùng tour hoặc khác tour. */
+    case Transferred = 'transferred';
+
     public function label(): string
     {
         return match ($this) {
@@ -43,6 +46,7 @@ enum BookingAuditAction: string
             self::CancelRequestWithdrawn => 'Khách rút lại yêu cầu hủy',
             self::Finalized => 'Chốt đơn sau chuyến',
             self::PassengersUpdated => 'Cập nhật danh sách hành khách',
+            self::Transferred => 'Chuyển sang chuyến khác',
         };
     }
 
@@ -58,6 +62,9 @@ enum BookingAuditAction: string
             self::Cancelled,
             self::CancelRequestApproved,
             self::Reopened,
+            // Chuyển chuyến làm đổi tổng tiền của đơn: giá tour đích khác, và từ lần thứ hai
+            // còn cộng thêm phí đổi lịch.
+            self::Transferred,
         ], true);
     }
 

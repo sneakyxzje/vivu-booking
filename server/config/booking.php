@@ -42,4 +42,17 @@ return [
 
     'confirm_window_hours' => (int) env('BOOKING_CONFIRM_WINDOW_HOURS', 24),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Phí đổi lịch
+    |--------------------------------------------------------------------------
+    |
+    | Lần chuyển chuyến đầu tiên miễn phí. Từ lần thứ hai thu khoản này, vì mỗi
+    | lần đổi đều kéo theo việc báo lại với khách sạn và nhà xe. Hãng khởi xướng
+    | thì không bao giờ thu, lỗi không thuộc về khách.
+    |
+    */
+
+    'transfer_fee' => (int) env('BOOKING_TRANSFER_FEE', 200000),
+
 ];

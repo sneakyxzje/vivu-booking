@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Booking } from "@/types";
 import adminService from "@/services/adminService";
-import type { BookingAuditEntry, CancelPreview } from "@/services/adminService";
+import type { BookingAuditEntry, CancelPreview, TransferOption } from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
 import { formatDateTime, formatPrice } from "@/utils/format";
 
@@ -28,6 +28,14 @@ export default function BookingManagement() {
   // E04 - Dòng thời gian thay đổi của đơn
   const [history, setHistory] = useState<BookingAuditEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+
+  // I06 - Chuyển đơn sang chuyến khác
+  const [transferMode, setTransferMode] = useState(false);
+  const [transferOptions, setTransferOptions] = useState<TransferOption[]>([]);
+  const [transferLoading, setTransferLoading] = useState(false);
+  const [transferTargetId, setTransferTargetId] = useState<number | null>(null);
+  const [transferReason, setTransferReason] = useState("");
+  const [sameTourOnly, setSameTourOnly] = useState(true);
   const [reopenMode, setReopenMode] = useState(false);
   const [reopenReason, setReopenReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -191,6 +199,58 @@ export default function BookingManagement() {
       if (updated) applyBookingUpdate(updated);
     } catch (err) {
       setActionError(extractApiError(err, "Không thể xác nhận đơn. Vui lòng thử lại."));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openTransferForm = async (sameTour = sameTourOnly) => {
+    if (!selectedBooking) return;
+
+    setTransferMode(true);
+    setActionError("");
+    setTransferTargetId(null);
+    setTransferReason("");
+    setTransferLoading(true);
+    setSameTourOnly(sameTour);
+
+    try {
+      const result = await adminService.getTransferOptions(selectedBooking.id, sameTour);
+      setTransferOptions(result?.options ?? []);
+    } catch (err) {
+      setActionError(extractApiError(err, "Không lấy được danh sách chuyến có thể chuyển."));
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  const closeTransferForm = () => {
+    setTransferMode(false);
+    setTransferOptions([]);
+    setTransferTargetId(null);
+    setTransferReason("");
+  };
+
+  const handleTransfer = async () => {
+    if (!selectedBooking || !transferTargetId || transferReason.trim().length < 10) return;
+
+    setActionLoading(true);
+    setActionError("");
+
+    try {
+      await adminService.transferBooking(
+        selectedBooking.id,
+        transferTargetId,
+        transferReason.trim(),
+      );
+
+      const detailed = await adminService.getBookingById(selectedBooking.id);
+      if (detailed) applyBookingUpdate(detailed);
+
+      setHistory(await adminService.getBookingHistory(selectedBooking.id));
+      closeTransferForm();
+    } catch (err) {
+      setActionError(extractApiError(err, "Không chuyển được chuyến."));
     } finally {
       setActionLoading(false);
     }
@@ -626,7 +686,18 @@ export default function BookingManagement() {
                 {actionLoading ? "Đang xử lý..." : "Xác nhận đơn"}
               </button>
             )}
-            {(selectedBooking?.status === "pending" || selectedBooking?.status === "confirmed") && !cancelMode && !reopenMode && (
+            {/* I06 - Chỉ đơn đã thanh toán mới chuyển; đơn chưa trả tiền thì hủy rồi đặt lại
+                đơn giản hơn nhiều. */}
+            {selectedBooking?.status === "confirmed" && !cancelMode && !reopenMode && !transferMode && (
+              <button
+                onClick={() => openTransferForm()}
+                disabled={actionLoading}
+                className="px-4 py-2 bg-white border border-blue-200 text-sm font-semibold rounded-md text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Chuyển chuyến
+              </button>
+            )}
+            {(selectedBooking?.status === "pending" || selectedBooking?.status === "confirmed") && !cancelMode && !reopenMode && !transferMode && (
               <button
                 onClick={openCancelForm}
                 disabled={actionLoading}
@@ -892,6 +963,122 @@ export default function BookingManagement() {
             {actionError && (
               <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
                 {actionError}
+              </div>
+            )}
+
+            {/* I06 - Chọn chuyến đích và xem trước chênh lệch */}
+            {transferMode && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-semibold text-blue-800">
+                    Chuyển sang chuyến khác
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={sameTourOnly}
+                      onChange={(e) => openTransferForm(e.target.checked)}
+                    />
+                    Chỉ trong cùng tour
+                  </label>
+                </div>
+
+                {transferLoading && (
+                  <p className="text-xs text-gray-500">Đang tìm chuyến phù hợp...</p>
+                )}
+
+                {!transferLoading && transferOptions.length === 0 && (
+                  <p className="rounded-md bg-white border border-gray-200 px-3 py-2.5 text-xs text-gray-600">
+                    Không có chuyến nào đang mở bán còn đủ {selectedBooking.guests} chỗ để chuyển sang.
+                  </p>
+                )}
+
+                {/* Máy chủ đã loại các chuyến không chuyển được và tính sẵn chênh lệch, nên ở đây
+                    chỉ hiển thị. Bày ra lựa chọn rồi báo lỗi khi bấm là bắt người dùng tự dò. */}
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {transferOptions.map((option) => {
+                    const chenh = option.price_difference + option.fee;
+                    const dangChon = transferTargetId === option.schedule_id;
+
+                    return (
+                      <button
+                        key={option.schedule_id}
+                        type="button"
+                        onClick={() => setTransferTargetId(option.schedule_id)}
+                        className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                          dangChon
+                            ? "border-blue-500 bg-white ring-2 ring-blue-200"
+                            : "border-gray-200 bg-white hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-sm font-bold text-gray-900">
+                            {formatDateTime(option.start_date)}
+                          </span>
+                          <span className="text-[11px] text-gray-500">
+                            còn {option.remaining_seats} chỗ
+                          </span>
+                        </div>
+
+                        {!sameTourOnly && option.tour_title && (
+                          <p className="text-xs text-gray-600 mt-0.5">{option.tour_title}</p>
+                        )}
+
+                        <p
+                          className={`mt-1 text-xs font-semibold ${
+                            chenh > 0
+                              ? "text-amber-800"
+                              : chenh < 0
+                                ? "text-emerald-800"
+                                : "text-gray-500"
+                          }`}
+                        >
+                          {chenh > 0 && `Thu thêm ${formatPrice(chenh)}`}
+                          {chenh < 0 && `Chuyến mới rẻ hơn ${formatPrice(Math.abs(chenh))}`}
+                          {chenh === 0 && "Không chênh lệch"}
+                          {option.fee > 0 && ` (gồm phí đổi lịch ${formatPrice(option.fee)})`}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-blue-800 mb-1">
+                    Lý do chuyển <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={transferReason}
+                    onChange={(e) => setTransferReason(e.target.value)}
+                    placeholder="VD: Khách xin đổi sang ngày khác vì bận việc đột xuất..."
+                    className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
+                  />
+                </div>
+
+                <p className="text-[11px] text-gray-500">
+                  Chuyển do công ty thực hiện nên không thu phí đổi lịch. Phần chênh lệch giá xử lý
+                  riêng với khách.
+                </p>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={closeTransferForm}
+                    disabled={actionLoading}
+                    className="px-3.5 py-2 bg-white border border-gray-200 text-xs font-semibold rounded-md text-gray-600 hover:bg-gray-100 cursor-pointer"
+                  >
+                    Không chuyển nữa
+                  </button>
+                  <button
+                    onClick={handleTransfer}
+                    disabled={
+                      actionLoading || !transferTargetId || transferReason.trim().length < 10
+                    }
+                    className="px-3.5 py-2 bg-blue-600 text-xs font-semibold rounded-md text-white hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+                  >
+                    {actionLoading ? "Đang chuyển..." : "Xác nhận chuyển"}
+                  </button>
+                </div>
               </div>
             )}
 

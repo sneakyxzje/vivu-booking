@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminChangeRequestController;
 use App\Http\Controllers\Api\Admin\AdminPassengerController;
+use App\Http\Controllers\Api\Admin\AdminTransferController;
 use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
 use App\Http\Controllers\Api\Admin\AdminAttendanceController;
 use App\Http\Controllers\Api\Admin\AdminCancellationPolicyController;
@@ -197,6 +198,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // E04 - Dòng thời gian thay đổi của một đơn.
         Route::get('/bookings/{id}/history', [AdminBookingController::class, 'history']);
+
+        // I05 - Chuyển đơn sang chuyến khác.
+        Route::get('/bookings/{id}/transfer-options', [AdminTransferController::class, 'options']);
+        Route::post('/bookings/{id}/transfer', [AdminTransferController::class, 'store']);
+        Route::get('/bookings/{id}/transfers', [AdminTransferController::class, 'history']);
 
         Route::get('/bookings/{id}/cancel-preview', [AdminBookingController::class, 'cancelPreview']);
         Route::put('/bookings/{id}/cancel', [AdminBookingController::class, 'cancel']);
