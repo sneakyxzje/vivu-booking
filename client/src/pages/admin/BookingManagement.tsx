@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Booking } from "@/types";
 import adminService from "@/services/adminService";
-import type { CancelPreview } from "@/services/adminService";
+import type { BookingAuditEntry, CancelPreview } from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
 import { formatDateTime, formatPrice } from "@/utils/format";
 
@@ -24,6 +24,10 @@ export default function BookingManagement() {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelPreview, setCancelPreview] = useState<CancelPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  // E04 - Dòng thời gian thay đổi của đơn
+  const [history, setHistory] = useState<BookingAuditEntry[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [reopenMode, setReopenMode] = useState(false);
   const [reopenReason, setReopenReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -113,6 +117,9 @@ export default function BookingManagement() {
   const openDetails = async (booking: Booking) => {
     setSelectedBooking(booking);
     setIsModalOpen(true);
+    setHistory([]);
+    setShowHistory(false);
+
     try {
       const detailed = await adminService.getBookingById(booking.id);
       if (detailed) {
@@ -120,6 +127,14 @@ export default function BookingManagement() {
       }
     } catch (err) {
       console.error("Lỗi lấy chi tiết đơn đặt hàng: ", err);
+    }
+
+    // Tải nhật ký song song với chi tiết. Nó là thứ đầu tiên người ta mở khi có khiếu nại, nên
+    // đừng bắt bấm thêm một lần nữa mới đi lấy.
+    try {
+      setHistory(await adminService.getBookingHistory(booking.id));
+    } catch (err) {
+      console.error("Lỗi lấy lịch sử đơn đặt hàng: ", err);
     }
   };
 
@@ -777,6 +792,82 @@ export default function BookingManagement() {
                   <p className="text-[11px] text-blue-600 mt-2 font-mono">
                     Khôi phục lúc: {formatDateTime(selectedBooking.reopened_at)}
                   </p>
+                )}
+              </div>
+            )}
+
+            {/*
+              E04 - Dòng thời gian thay đổi của đơn.
+              Trước khi có nhật ký, dấu vết nằm rải rác ở cancelled_by, reviewed_by,
+              seats_released_by, mỗi chỗ một kiểu và không ghép lại được theo thứ tự.
+            */}
+            {history.length > 0 && (
+              <div className="pt-4 border-t border-gray-200 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setShowHistory((prev) => !prev)}
+                  className="flex w-full items-center justify-between text-left"
+                >
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Lịch sử thay đổi ({history.length})
+                  </span>
+                  <span className="text-xs font-bold text-primary-600">
+                    {showHistory ? "Thu gọn" : "Xem"}
+                  </span>
+                </button>
+
+                {showHistory && (
+                  <ol className="space-y-3">
+                    {history.map((entry) => (
+                      <li
+                        key={entry.id}
+                        className={`rounded-lg border p-3 ${
+                          entry.touches_money
+                            ? "border-amber-200 bg-amber-50/60"
+                            : "border-gray-200 bg-gray-50/60"
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <span className="text-sm font-bold text-gray-900">
+                            {entry.action_label}
+                          </span>
+                          <span className="font-mono text-[11px] text-gray-500">
+                            {formatDateTime(entry.created_at)}
+                          </span>
+                        </div>
+
+                        <p className="mt-0.5 text-xs text-gray-600">
+                          {entry.actor_name
+                            ? `${entry.actor_name}${entry.actor_role ? ` (${entry.actor_role})` : ""}`
+                            : "Tác vụ nền tự động"}
+                          {entry.ip_address ? ` · ${entry.ip_address}` : ""}
+                        </p>
+
+                        {typeof entry.old_values?.status === "string"
+                          && typeof entry.new_values?.status === "string" && (
+                          <p className="mt-1 font-mono text-[11px] text-gray-500">
+                            {String(entry.old_values.status)} → {String(entry.new_values.status)}
+                          </p>
+                        )}
+
+                        {typeof entry.new_values?.refund_amount !== "undefined" && (
+                          <p className="mt-1 text-xs font-bold text-amber-800">
+                            Hoàn khách {formatPrice(Number(entry.new_values.refund_amount))}
+                          </p>
+                        )}
+
+                        {entry.new_values?.seats_released === false && (
+                          <p className="mt-1 text-xs font-semibold text-rose-700">
+                            Chỗ không quay lại kho, thành ghế chết.
+                          </p>
+                        )}
+
+                        {entry.reason && (
+                          <p className="mt-1 text-xs italic text-gray-700">“{entry.reason}”</p>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
                 )}
               </div>
             )}

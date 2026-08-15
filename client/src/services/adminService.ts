@@ -183,6 +183,23 @@ export interface ChangeRequestDetail {
   blocked_reason: string | null;
 }
 
+/** Một mục trong dòng thời gian thay đổi của đơn. */
+export interface BookingAuditEntry {
+  id: number;
+  action: string;
+  action_label: string;
+  /** Thao tác này có làm thay đổi tiền hay không, dùng để làm nổi khi đối soát. */
+  touches_money: boolean;
+  actor_name: string | null;
+  /** Vai trò chép lại tại thời điểm thao tác, không phải vai trò hiện tại của tài khoản. */
+  actor_role: string | null;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  reason: string | null;
+  ip_address: string | null;
+  created_at: string;
+}
+
 /** Hậu quả của việc hủy một đơn, tính trước khi thực hiện. */
 export interface CancelPreview {
   /** Số giờ còn lại tới khởi hành. Âm nghĩa là đã qua giờ đi. */
@@ -306,6 +323,12 @@ const adminService = {
       review_note: reviewNote,
     });
     return response.data?.message ?? "Đã từ chối yêu cầu.";
+  },
+
+  /** E04 - Dòng thời gian thay đổi của một đơn: ai làm gì, lúc nào, vì sao. */
+  getBookingHistory: async (id: number): Promise<BookingAuditEntry[]> => {
+    const response = await api.get(`/admin/bookings/${id}/history`);
+    return response.data?.data ?? [];
   },
 
   getCancelPreview: async (id: number): Promise<CancelPreview | null> => {

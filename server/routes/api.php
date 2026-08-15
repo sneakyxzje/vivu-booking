@@ -195,6 +195,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/bookings/{id}/passengers', [AdminPassengerController::class, 'update']);
         Route::get('/schedules/{id}/incomplete-passengers', [AdminPassengerController::class, 'incomplete']);
 
+        // E04 - Dòng thời gian thay đổi của một đơn.
+        Route::get('/bookings/{id}/history', [AdminBookingController::class, 'history']);
+
         Route::get('/bookings/{id}/cancel-preview', [AdminBookingController::class, 'cancelPreview']);
         Route::put('/bookings/{id}/cancel', [AdminBookingController::class, 'cancel']);
         // Task X07a - Mở lại đơn đã hủy nhầm trong 24h

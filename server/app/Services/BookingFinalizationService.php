@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\BookingAuditAction;
 use App\Enums\BookingStatus;
 use App\Enums\PassengerCheckinStatus;
 use App\Enums\ScheduleStatus;
@@ -25,6 +26,7 @@ class BookingFinalizationService
 {
     public function __construct(
         private ScheduleLifecycleService $lifecycle,
+        private BookingAuditLogger $auditLogger,
     ) {
     }
 
@@ -92,12 +94,25 @@ class BookingFinalizationService
                 return null;
             }
 
+            $trangThaiCu = (string) $locked->status;
             $trangThai = $this->resolveStatus($locked, $firstCheckpoint);
 
             $locked->forceFill([
                 'status' => $trangThai->value,
                 'completed_at' => $now,
             ])->save();
+
+            // Chốt thành "khách không có mặt" là kết luận bất lợi cho khách và đóng đường hoàn
+            // tiền, nên phải để lại dấu vết dù đây là tác vụ nền không có người bấm.
+            $this->auditLogger->logStatusChange(
+                $locked,
+                BookingAuditAction::Finalized,
+                $trangThaiCu,
+                $trangThai->value,
+                $trangThai === BookingStatus::NoShow
+                    ? 'Mọi hành khách trên đơn đều được ghi vắng tại điểm đón đầu tiên.'
+                    : null,
+            );
 
             return $trangThai;
         });

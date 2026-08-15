@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Customer;
 
 use App\Http\Controllers\Controller;
+use App\Enums\BookingAuditAction;
 use App\Enums\ScheduleStatus;
 use App\Mail\BookingCreatedMail;
 use App\Mail\BookingPaidMail;
@@ -10,6 +11,7 @@ use App\Models\Booking;
 use App\Models\DiscountCode;
 use App\Models\PaymentLog;
 use App\Models\TourSchedule;
+use App\Services\BookingAuditLogger;
 use App\Services\BookingHoldService;
 use App\Services\BookingPolicyService;
 use App\Services\CancellationPolicyService;
@@ -35,6 +37,7 @@ class BookingController extends Controller
         private ScheduleLifecycleService $scheduleLifecycle,
         private CancellationPolicyService $cancellationPolicy,
         private PassengerPolicyService $passengerPolicy,
+        private BookingAuditLogger $auditLogger,
     ) {
     }
 
@@ -348,6 +351,15 @@ class BookingController extends Controller
             ]);
 
             $this->holdService->releaseHold($fresh, $schedule);
+
+            $this->auditLogger->logStatusChange(
+                $fresh,
+                BookingAuditAction::Cancelled,
+                'pending',
+                'cancelled',
+                $validated['cancel_reason'],
+                ['seats_released' => (bool) $fresh->fresh()->seats_released],
+            );
 
             return true;
         });

@@ -596,6 +596,13 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->line('   3. Quản trị vẫn sửa được ' . $id('hoan0') . ' qua API admin');
         $cmd->newLine();
 
+        $cmd->comment(' VÒNG 2d — nhật ký thay đổi đơn (nhóm E)');
+        $cmd->line('   Sau khi làm vòng 2 và 2b, mở lại bất kỳ đơn nào vừa thao tác ở /admin/bookings');
+        $cmd->line('   -> mục "Lịch sử thay đổi" ở cuối, bấm Xem');
+        $cmd->line('   Đọc được: ai làm gì, lúc nào, từ trạng thái nào sang trạng thái nào,');
+        $cmd->line('   hoàn bao nhiêu, chỗ có về kho không, và lý do');
+        $cmd->newLine();
+
         $cmd->comment(' VÒNG 3 — chặn hủy khi chuyến đang chạy');
         $cmd->line('   1. /admin/bookings -> ' . $id('chuyenDangChay') . ' -> Hủy đơn');
         $cmd->line('      Nút xác nhận phải BỊ KHÓA, kèm lý do chuyến đang chạy');

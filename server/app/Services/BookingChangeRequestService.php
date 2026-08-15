@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\BookingAuditAction;
 use App\Enums\BookingStatus;
 use App\Enums\ChangeRequestStatus;
 use App\Enums\ChangeRequestType;
@@ -28,6 +29,7 @@ class BookingChangeRequestService
         private BookingPolicyService $bookingPolicy,
         private CancellationPolicyService $cancellationPolicy,
         private BookingHoldService $holdService,
+        private BookingAuditLogger $auditLogger,
     ) {
     }
 
@@ -62,7 +64,7 @@ class BookingChangeRequestService
             // không để tới lúc duyệt mới tính.
             $duBao = $this->cancellationPolicy->quote($locked, $schedule);
 
-            return BookingChangeRequest::query()->create([
+            $yeuCau = BookingChangeRequest::query()->create([
                 'booking_id' => $locked->getKey(),
                 'type' => ChangeRequestType::Cancel,
                 'payload' => [
@@ -76,6 +78,20 @@ class BookingChangeRequestService
                 'requested_email' => $locked->customer_email,
                 'request_note' => $lyDo,
             ]);
+
+            $this->auditLogger->log(
+                $locked,
+                BookingAuditAction::CancelRequested,
+                null,
+                [
+                    'request_id' => $yeuCau->getKey(),
+                    'estimated_refund' => $duBao['refund_amount'],
+                    'refund_percent' => $duBao['refund_percent'],
+                ],
+                $lyDo,
+            );
+
+            return $yeuCau;
         });
     }
 
@@ -124,6 +140,8 @@ class BookingChangeRequestService
              */
             $this->bookingPolicy->assertCancellable($booking, $schedule);
 
+            $trangThaiCu = (string) $booking->status;
+
             $booking->update([
                 'status' => BookingStatus::Cancelled->value,
                 'cancel_reason' => $locked->request_note,
@@ -135,6 +153,21 @@ class BookingChangeRequestService
             ]);
 
             $this->holdService->releaseHold($booking, $schedule);
+
+            $this->auditLogger->logStatusChange(
+                $booking,
+                BookingAuditAction::CancelRequestApproved,
+                $trangThaiCu,
+                BookingStatus::Cancelled->value,
+                $ghiChu,
+                [
+                    'request_id' => $locked->getKey(),
+                    'refund_amount' => $locked->estimated_refund,
+                    // Ghi lại chỗ có về kho hay không, vì đó là thứ quyết định còn bán được nữa
+                    // hay không và người đọc nhật ký sau này không tính lại được.
+                    'seats_released' => (bool) $booking->fresh()->seats_released,
+                ],
+            );
 
             $locked->update([
                 'status' => ChangeRequestStatus::Approved,
@@ -168,6 +201,16 @@ class BookingChangeRequestService
                 'review_note' => $lyDo,
             ]);
 
+            if ($locked->booking) {
+                $this->auditLogger->log(
+                    $locked->booking,
+                    BookingAuditAction::CancelRequestRejected,
+                    null,
+                    ['request_id' => $locked->getKey()],
+                    $lyDo,
+                );
+            }
+
             return $locked->fresh(['booking']);
         });
     }
@@ -184,6 +227,15 @@ class BookingChangeRequestService
             $this->assertConDuyetDuoc($locked);
 
             $locked->update(['status' => ChangeRequestStatus::CancelledByCustomer]);
+
+            if ($locked->booking) {
+                $this->auditLogger->log(
+                    $locked->booking,
+                    BookingAuditAction::CancelRequestWithdrawn,
+                    null,
+                    ['request_id' => $locked->getKey()],
+                );
+            }
 
             return $locked->fresh();
         });

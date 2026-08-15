@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\BookingAuditAction;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Booking;
 use App\Models\BookingPassenger;
@@ -28,6 +29,7 @@ class PassengerPolicyService
 
     public function __construct(
         private ScheduleLifecycleService $lifecycle,
+        private BookingAuditLogger $auditLogger,
     ) {
     }
 
@@ -255,6 +257,10 @@ class PassengerPolicyService
      */
     public function replaceList(Booking $booking, array $passengers): void
     {
+        // Ghi lại tên cũ trước khi xóa. Đổi tên hành khách sát ngày đi là chuyện nhạy cảm: có
+        // thể là sửa lỗi chính tả, cũng có thể là chuyển suất cho người khác mà không xin phép.
+        $tenCu = $booking->passengers()->pluck('name')->all();
+
         $booking->passengers()->delete();
 
         foreach ($passengers as $passenger) {
@@ -271,6 +277,19 @@ class PassengerPolicyService
                 'is_contact' => (bool) ($passenger['is_contact'] ?? false),
                 'note' => $passenger['note'] ?? null,
             ]);
+        }
+
+        $tenMoi = array_map(static fn (array $item): string => $item['name'], $passengers);
+
+        // Chỉ ghi khi danh sách tên thực sự đổi. Khách mở ra sửa số điện thoại rồi lưu lại thì
+        // không cần một dòng nhật ký, còn đổi tên thì cần.
+        if ($tenCu !== $tenMoi) {
+            $this->auditLogger->log(
+                $booking,
+                BookingAuditAction::PassengersUpdated,
+                ['passengers' => $tenCu],
+                ['passengers' => $tenMoi],
+            );
         }
     }
 

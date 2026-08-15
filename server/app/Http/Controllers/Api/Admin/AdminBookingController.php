@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Enums\BookingAuditAction;
 use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Mail\BookingCancelledMail;
 use App\Mail\BookingConfirmedMail;
 use App\Models\Booking;
+use App\Models\BookingAuditLog;
 use App\Models\TourSchedule;
+use App\Services\BookingAuditLogger;
 use App\Services\BookingHoldService;
 use App\Services\BookingPolicyService;
 use App\Services\CancellationPolicyService;
@@ -27,6 +30,7 @@ class AdminBookingController extends Controller
         private BookingPolicyService $bookingPolicy,
         private ScheduleLifecycleService $scheduleLifecycle,
         private CancellationPolicyService $cancellationPolicy,
+        private BookingAuditLogger $auditLogger,
     ) {
     }
 
@@ -84,10 +88,58 @@ class AdminBookingController extends Controller
             );
         }
 
+        // Mở lại ghế chết là quyết định của con người sau khi xin thêm suất từ nhà cung cấp,
+        // nên phải ghi lại ai quyết định và vào lúc nào.
+        $this->auditLogger->log(
+            $booking,
+            BookingAuditAction::SeatsReleased,
+            ['seats_released' => false],
+            ['seats_released' => true, 'guests' => (int) $booking->guests],
+        );
+
         return $this->success(
             $booking->fresh(['tour:id,title', 'schedule:id,start_date,max_people,booked_people']),
             'Đã mở lại chỗ để bán tiếp.',
         );
+    }
+
+    /**
+     * E04 - Dòng thời gian của một đơn: ai làm gì, lúc nào, vì sao.
+     *
+     * Câu hỏi cần trả lời được ở đây: ai đã duyệt khoản hoàn này, trước đó đơn ở trạng thái nào,
+     * và chỗ có quay lại kho không. Trước khi có nhật ký, những mảnh đó nằm rải rác ở cancelled_by,
+     * reviewed_by, seats_released_by và không ai ghép lại được theo thứ tự thời gian.
+     */
+    public function history(int $id): JsonResponse
+    {
+        $booking = Booking::query()->find($id);
+
+        if (!$booking) {
+            return $this->error('Không tìm thấy đơn đặt hàng', 404);
+        }
+
+        $logs = BookingAuditLog::query()
+            ->where('booking_id', $booking->getKey())
+            ->with('actor:id,name,email')
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (BookingAuditLog $log) => [
+                'id' => $log->id,
+                'action' => $log->action->value,
+                'action_label' => $log->action->label(),
+                'touches_money' => $log->action->touchesMoney(),
+                'actor_name' => $log->actor?->name,
+                // Vai trò chép lại lúc thao tác, không đọc từ tài khoản hiện tại.
+                'actor_role' => $log->actor_role,
+                'old_values' => $log->old_values,
+                'new_values' => $log->new_values,
+                'reason' => $log->reason,
+                'ip_address' => $log->ip_address,
+                'created_at' => $log->created_at?->toDateTimeString(),
+            ]);
+
+        return $this->success($logs, 'Lấy lịch sử đơn đặt hàng thành công');
     }
 
     public function show(int $id): JsonResponse
@@ -119,6 +171,13 @@ class AdminBookingController extends Controller
                 'confirmed_at' => now(),
                 'expires_at' => null,
             ]);
+
+            $this->auditLogger->logStatusChange(
+                $booking,
+                BookingAuditAction::Confirmed,
+                'pending',
+                'confirmed',
+            );
 
             return $booking;
         });
@@ -217,6 +276,8 @@ class AdminBookingController extends Controller
                 return null;
             }
 
+            $trangThaiCu = (string) $booking->status;
+
             $booking->update([
                 'status' => 'cancelled',
                 'cancel_reason' => $validated['cancel_reason'],
@@ -226,6 +287,17 @@ class AdminBookingController extends Controller
             ]);
 
             $this->holdService->releaseHold($booking, $schedule);
+
+            $this->auditLogger->logStatusChange(
+                $booking,
+                BookingAuditAction::Cancelled,
+                $trangThaiCu,
+                'cancelled',
+                $validated['cancel_reason'],
+                // Chỗ có về kho hay thành ghế chết là hệ quả quan trọng nhất của lần hủy này,
+                // và người đọc nhật ký sau này không tự tính lại được vì hạn chốt đã trôi qua.
+                ['seats_released' => (bool) $booking->fresh()->seats_released],
+            );
 
             return $booking;
         });
@@ -353,6 +425,14 @@ class AdminBookingController extends Controller
                     'seats_released_at' => null,
                     'seats_released_by' => null,
                 ]);
+
+                $this->auditLogger->logStatusChange(
+                    $booking,
+                    BookingAuditAction::Reopened,
+                    'cancelled',
+                    $nextStatus,
+                    $validated['reopen_reason'],
+                );
 
                 return $booking;
             });
