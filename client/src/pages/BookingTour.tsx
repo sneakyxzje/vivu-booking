@@ -41,11 +41,22 @@ type BookingFormProps = {
   onSubmit: (event: FormEvent, passengers: PassengerFormItem[]) => void;
 };
 
+/**
+ * Một dòng hành khách trong biểu mẫu đặt tour.
+ *
+ * Cùng bộ trường với màn sửa ở trang đơn của tôi. Hai nơi khai khác nhau thì khách phải quay
+ * lại điền nốt sau khi đặt, và những trường chỉ có ở một nơi sẽ luôn trống trên đơn mới.
+ */
 type PassengerFormItem = {
   name: string;
   type: PassengerType;
+  gender: string;
   dateOfBirth: string;
+  idType: string;
   identityNumber: string;
+  phone: string;
+  specialRequest: string;
+  isContact: boolean;
   note: string;
 };
 
@@ -119,8 +130,14 @@ const BookingForm = ({
       defaultPassengerTypes.map((fallback, index) => ({
         name: current[index]?.name ?? "",
         type: current[index]?.type ?? fallback,
+        gender: current[index]?.gender ?? "",
         dateOfBirth: current[index]?.dateOfBirth ?? "",
+        idType: current[index]?.idType ?? "cccd",
         identityNumber: current[index]?.identityNumber ?? "",
+        phone: current[index]?.phone ?? "",
+        specialRequest: current[index]?.specialRequest ?? "",
+        // Mặc định người đầu tiên là đầu mối liên hệ, khách đổi được nếu muốn.
+        isContact: current[index]?.isContact ?? index === 0,
         note: current[index]?.note ?? "",
       })),
     );
@@ -129,10 +146,16 @@ const BookingForm = ({
   const updatePassenger = (
     index: number,
     field: keyof PassengerFormItem,
-    value: string,
+    value: string | boolean,
   ) => {
     setPassengers((current) =>
-      current.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
+      current.map((item, i) => {
+        if (i !== index) {
+          // Chỉ một người được đánh dấu liên hệ, chọn người mới thì bỏ người cũ.
+          return field === "isContact" && value === true ? { ...item, isContact: false } : item;
+        }
+        return { ...item, [field]: value };
+      }),
     );
   };
 
@@ -449,33 +472,90 @@ const BookingForm = ({
                       </div>
                     </div>
 
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                        Giới tính
+                      </label>
+                      <select
+                        value={passenger.gender}
+                        onChange={(event) => updatePassenger(index, "gender", event.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 text-gray-700"
+                      >
+                        <option value="">Chưa chọn</option>
+                        <option value="male">Nam</option>
+                        <option value="female">Nữ</option>
+                        <option value="other">Khác</option>
+                      </select>
+                    </div>
+
+                    {/*
+                      Giấy tờ chỉ hỏi với người lớn. Trẻ em và em bé đi theo giấy khai sinh hoặc
+                      theo giấy tờ của bố mẹ, hỏi số căn cước ở đây chỉ làm khách bối rối.
+                    */}
                     {requiresIdentityDocument && (
                       <div>
                         <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                          Số CCCD / CMND / Hộ chiếu
+                          Giấy tờ tùy thân
                         </label>
-                        <input
-                          type="text"
-                          placeholder="Nhập số giấy tờ cá nhân..."
-                          value={passenger.identityNumber}
-                          onChange={(event) => updatePassenger(index, "identityNumber", event.target.value)}
-                          className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
-                        />
+                        <div className="flex gap-2">
+                          <select
+                            value={passenger.idType}
+                            onChange={(event) => updatePassenger(index, "idType", event.target.value)}
+                            className="w-2/5 px-2.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500 text-gray-700"
+                          >
+                            <option value="cccd">CCCD</option>
+                            <option value="cmnd">CMND</option>
+                            <option value="passport">Hộ chiếu</option>
+                          </select>
+                          <input
+                            type="text"
+                            placeholder="Nhập số giấy tờ..."
+                            value={passenger.identityNumber}
+                            onChange={(event) => updatePassenger(index, "identityNumber", event.target.value)}
+                            className="w-3/5 px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          />
+                        </div>
                       </div>
                     )}
 
                     <div>
                       <label className="block text-[11px] font-semibold text-gray-600 mb-1">
-                        Yêu cầu / Ghi chú đặc biệt
+                        Số điện thoại riêng
                       </label>
                       <input
                         type="text"
-                        placeholder="VD: Ăn chay, say xe..."
-                        value={passenger.note}
-                        onChange={(event) => updatePassenger(index, "note", event.target.value)}
+                        placeholder="Để hướng dẫn viên liên hệ khi cần"
+                        value={passenger.phone}
+                        onChange={(event) => updatePassenger(index, "phone", event.target.value)}
                         className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
                       />
                     </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                        Yêu cầu đặc biệt
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="VD: Ăn chay, dị ứng hải sản, cần hỗ trợ di chuyển..."
+                        value={passenger.specialRequest}
+                        onChange={(event) => updatePassenger(index, "specialRequest", event.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Thông tin này được gửi cho nhà hàng và khách sạn trước ngày đi.
+                      </p>
+                    </div>
+
+                    <label className="sm:col-span-2 flex items-center gap-2 text-[11px] font-semibold text-gray-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="pax-contact"
+                        checked={passenger.isContact}
+                        onChange={() => updatePassenger(index, "isContact", true)}
+                      />
+                      Là người hướng dẫn viên liên hệ khi cần
+                    </label>
                   </div>
                 </div>
               );
@@ -760,8 +840,13 @@ export const BookingTour = () => {
           .map((passenger) => ({
             name: passenger.name.trim(),
             type: passenger.type,
+            gender: passenger.gender || null,
             date_of_birth: passenger.dateOfBirth || null,
+            id_type: passenger.identityNumber.trim() ? passenger.idType : null,
             identity_number: passenger.identityNumber.trim() || null,
+            phone: passenger.phone.trim() || null,
+            special_request: passenger.specialRequest.trim() || null,
+            is_contact: passenger.isContact,
             note: passenger.note.trim() || null,
           })),
       });

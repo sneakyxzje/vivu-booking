@@ -126,6 +126,24 @@ export interface AttendanceReportData {
   absence_logs: AttendanceAbsenceLog[];
 }
 
+/** Một đơn còn khai thiếu thông tin hành khách. */
+export interface IncompleteBookingRow {
+  booking_id: number;
+  customer_name: string;
+  customer_phone: string | null;
+  guests: number;
+  declared: number;
+  missing: number;
+  warnings: string[];
+}
+
+export interface IncompletePassengersResponse {
+  bookings: IncompleteBookingRow[];
+  total_missing: number;
+  /** Danh sách đoàn chỉ xuất được khi mọi đơn đã khai đủ người. */
+  can_export_manifest: boolean;
+}
+
 export type ChangeRequestStatus =
   | "pending"
   | "approved"
@@ -250,6 +268,18 @@ const adminService = {
    * Hai con số quan trọng nhất là mức hoàn và chỗ có về kho hay không. Người hủy phải biết
    * trước, không phải phát hiện ra sau khi thấy số chỗ không nhúc nhích.
    */
+  /**
+   * G05 - Các đơn của một chuyến còn khai thiếu hành khách.
+   *
+   * Điều hành cần biết trước khi gửi danh sách đoàn cho nhà cung cấp, thay vì mở từng đơn đếm.
+   */
+  getIncompletePassengers: async (
+    scheduleId: number,
+  ): Promise<IncompletePassengersResponse | null> => {
+    const response = await api.get(`/admin/schedules/${scheduleId}/incomplete-passengers`);
+    return extractObject<IncompletePassengersResponse>(response);
+  },
+
   // --- YÊU CẦU THAY ĐỔI CỦA KHÁCH ---
   getChangeRequests: async (
     status = "pending",

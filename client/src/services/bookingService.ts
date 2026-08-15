@@ -1,11 +1,25 @@
 import type { Booking } from "@/types";
 import api from "./api";
 
+/**
+ * Một hành khách gửi lên máy chủ.
+ *
+ * Dùng chung cho cả lúc đặt tour lẫn lúc sửa danh sách về sau, vì máy chủ nhận đúng một bộ
+ * trường và áp đúng một bộ luật cho cả hai đường. Khai hai kiểu riêng thì sớm muộn một bên mọc
+ * thêm trường mà bên kia không có, và khách phải đặt xong mới điền nốt được.
+ */
 export interface PassengerPayload {
   name: string;
   type: "adult" | "child" | "infant";
+  gender?: string | null;
   date_of_birth?: string | null;
   identity_number?: string | null;
+  id_type?: string | null;
+  phone?: string | null;
+  /** Ăn chay, dị ứng, cần hỗ trợ di chuyển. Gửi cho nhà hàng và khách sạn trước ngày đi. */
+  special_request?: string | null;
+  /** Người hướng dẫn viên gọi khi cần liên hệ nhóm khách này. */
+  is_contact?: boolean;
   note?: string | null;
 }
 
@@ -87,18 +101,8 @@ export interface CancelRequestPreview extends RefundQuote {
   pending_request: BookingChangeRequest | null;
 }
 
-/** Một dòng hành khách gửi lên khi lưu danh sách. */
-export interface PassengerInput {
-  name: string;
-  type: "adult" | "child" | "infant";
-  gender?: string | null;
-  date_of_birth?: string | null;
-  identity_number?: string | null;
-  id_type?: string | null;
-  phone?: string | null;
-  special_request?: string | null;
-  is_contact?: boolean;
-}
+/** Cùng một hành khách, dù đang đặt tour hay đang sửa danh sách. */
+export type PassengerInput = PassengerPayload;
 
 export interface PassengerListResponse {
   passengers: BookingPassengerRow[];

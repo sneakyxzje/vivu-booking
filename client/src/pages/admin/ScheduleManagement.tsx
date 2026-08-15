@@ -10,6 +10,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import adminService from "@/services/adminService";
+import type { IncompletePassengersResponse } from "@/services/adminService";
 import type { Tour, Guide, ExtendedSchedule } from "@/types";
 import { Toast } from "@/components/admin/CustomAlert";
 import { formatDateTime, getEndDate } from "@/utils/format";
@@ -32,6 +33,11 @@ export default function ScheduleManagement() {
   const [cancellingScheduleId, setCancellingScheduleId] = useState<number | null>(null);
   const [cancelReasonInput, setCancelReasonInput] = useState("");
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+
+  // G05 - Kiểm tra danh sách đoàn trước khi gửi nhà cung cấp
+  const [manifestScheduleId, setManifestScheduleId] = useState<number | null>(null);
+  const [manifest, setManifest] = useState<IncompletePassengersResponse | null>(null);
+  const [manifestLoading, setManifestLoading] = useState(false);
 
   const [toast, setToast] = useState({
     message: "",
@@ -178,6 +184,20 @@ export default function ScheduleManagement() {
     setCancellingScheduleId(scheduleId);
     setCancelReasonInput("");
     setIsCancelModalOpen(true);
+  };
+
+  const openManifestCheck = async (scheduleId: number) => {
+    setManifestScheduleId(scheduleId);
+    setManifest(null);
+    setManifestLoading(true);
+
+    try {
+      setManifest(await adminService.getIncompletePassengers(scheduleId));
+    } catch (err) {
+      console.error("Lỗi kiểm tra danh sách đoàn:", err);
+    } finally {
+      setManifestLoading(false);
+    }
   };
 
   const confirmCancelSchedule = () => {
@@ -413,6 +433,21 @@ export default function ScheduleManagement() {
                       <td className="py-4 px-5 text-right whitespace-nowrap">
                         <div className="flex flex-col gap-2 items-end">
                           <div className="flex flex-wrap gap-1 justify-end">
+                            {/*
+                              G05 - Danh sách đoàn chỉ gửi được cho nhà cung cấp khi mọi đơn đã
+                              khai đủ người. Kiểm ngay trên hàng chuyến, vì đây là lúc điều hành
+                              chuẩn bị gửi chứ không phải lúc mở từng đơn.
+                            */}
+                            {status !== "cancelled" && (
+                              <button
+                                type="button"
+                                onClick={() => openManifestCheck(schedule.id)}
+                                className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 duration-150 cursor-pointer"
+                              >
+                                Danh sách đoàn
+                              </button>
+                            )}
+
                             {/* Open/Close toggle */}
                             {status === "open" && (
                               <button
@@ -497,6 +532,76 @@ export default function ScheduleManagement() {
       ) : (
         <div className="p-10 text-center rounded-2xl border border-gray-100 bg-white text-sm text-gray-500">
           Không tìm thấy chuyến đi nào khớp với bộ lọc.
+        </div>
+      )}
+
+      {/* G05 - Kiểm tra danh sách đoàn trước khi gửi nhà cung cấp */}
+      {manifestScheduleId !== null && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
+          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
+            <div>
+              <h4 className="text-base font-bold text-gray-900">
+                Danh sách đoàn — chuyến #{manifestScheduleId}
+              </h4>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Chỉ gửi được cho khách sạn và nhà xe khi mọi đơn đã khai đủ hành khách.
+              </p>
+            </div>
+
+            {manifestLoading && <p className="text-sm text-gray-500">Đang kiểm tra...</p>}
+
+            {manifest && (
+              <>
+                {manifest.can_export_manifest ? (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
+                    Mọi đơn đã khai đủ hành khách. Xuất được danh sách đoàn.
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+                    Còn thiếu {manifest.total_missing} hành khách chưa khai. Chưa xuất được danh sách đoàn.
+                  </div>
+                )}
+
+                {manifest.bookings.length > 0 && (
+                  <div className="space-y-2">
+                    {manifest.bookings.map((row) => (
+                      <div
+                        key={row.booking_id}
+                        className="rounded-lg border border-gray-200 p-3 text-xs space-y-1"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-gray-900">
+                            BK-{row.booking_id} · {row.customer_name}
+                          </span>
+                          <span className="font-mono text-gray-500">
+                            {row.declared}/{row.guests} người
+                          </span>
+                        </div>
+                        {row.customer_phone && (
+                          <p className="text-gray-500">📞 {row.customer_phone}</p>
+                        )}
+                        {row.warnings.map((warning) => (
+                          <p key={warning} className="text-amber-800">
+                            {warning}
+                          </p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setManifestScheduleId(null)}
+                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
