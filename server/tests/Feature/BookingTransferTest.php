@@ -204,6 +204,76 @@ class BookingTransferTest extends TestCase
         $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
     }
 
+    /**
+     * Bài này bịt một lỗ từng có thật.
+     *
+     * Trước đây chuyển chuyến luôn trả chỗ về kho ở chuyến gốc, không hỏi hạn chốt - mâu thuẫn
+     * trực tiếp với nhóm C, nơi cùng tình huống đó thì chỗ phải giữ lại thành ghế chết. Hệ quả
+     * là chuyến gốc tưởng còn chỗ và bán cho người không có phòng, không có bảo hiểm.
+     *
+     * Về tiền còn tệ hơn hủy muộn: hủy thì công ty giữ lại phần lớn tiền theo bảng phí, còn
+     * chuyển thì tiền đi theo khách sang chuyến mới trong khi suất cũ đã trả rồi.
+     */
+    public function test_qua_han_chot_thi_khong_chuyen_duoc_nua(): void
+    {
+        $don = $this->taoDon();
+        $this->chuyenGoc->update(['booking_deadline' => now()->subHour()]);
+
+        $this->expectException(\App\Exceptions\BusinessRuleException::class);
+
+        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+    }
+
+    /** Hãng khởi xướng được miễn hạn báo trước, nhưng không miễn được hạn chốt danh sách. */
+    public function test_hang_khoi_xuong_cung_khong_lach_duoc_han_chot(): void
+    {
+        $don = $this->taoDon();
+        $this->chuyenGoc->update(['booking_deadline' => now()->subHour()]);
+
+        $duBao = $this->service()->preview($don, $this->chuyenDich, 'company');
+
+        $this->assertFalse($duBao['can_transfer']);
+        $this->assertStringContainsString('hạn chốt', $duBao['blocked_reason']);
+    }
+
+    /** Từ chối vì quá hạn chốt thì số chỗ hai đầu phải giữ nguyên. */
+    public function test_tu_choi_vi_qua_han_chot_thi_so_cho_giu_nguyen(): void
+    {
+        $don = $this->taoDon();
+        $this->chuyenGoc->update(['booking_deadline' => now()->subHour()]);
+
+        try {
+            $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+        } catch (\App\Exceptions\BusinessRuleException) {
+            // Bỏ qua, phần cần kiểm nằm bên dưới.
+        }
+
+        $this->assertSame(2, (int) $this->chuyenGoc->fresh()->booked_people);
+        $this->assertSame(0, (int) $this->chuyenDich->fresh()->booked_people);
+    }
+
+    /**
+     * Ghép chuyến đi đường riêng nên không bị luật hạn chốt chặn: ở đó chuyến nguồn bị hủy hẳn,
+     * chỗ trống của nó không còn ý nghĩa tồn kho.
+     */
+    public function test_ghep_chuyen_khong_bi_han_chot_chan(): void
+    {
+        // Ghép đòi hai chuyến lệch nhau tối đa 2 ngày, nên dựng riêng một chuyến sát ngày.
+        $chuyenKe = $this->taoChuyen(now()->addDays(31));
+
+        $this->taoDon();
+        $this->chuyenGoc->update(['booking_deadline' => now()->subHour()]);
+
+        app(\App\Services\ScheduleMergeService::class)->merge(
+            $this->chuyenGoc->fresh(),
+            $chuyenKe,
+            'Chuyen goc thieu khach nen ghep sang chuyen khac.',
+            $this->dieuHanh,
+        );
+
+        $this->assertSame(2, (int) $chuyenKe->fresh()->booked_people);
+    }
+
     public function test_chuyen_dich_da_dong_ban_thi_tu_choi(): void
     {
         $don = $this->taoDon();
@@ -215,18 +285,24 @@ class BookingTransferTest extends TestCase
     }
 
     /**
-     * Khách phải báo trước 7 ngày; hãng khởi xướng thì bỏ qua vì lỗi không thuộc về khách.
+     * Hai luật khác nhau, đừng lẫn:
+     *
+     * - Hạn báo trước 7 ngày là phép lịch sự với vận hành, hãng khởi xướng thì bỏ qua được.
+     * - Hạn chốt danh sách là sự thật về tiền đã trả cho nhà cung cấp, không ai bỏ qua được.
+     *
+     * Chuyến ở mốc 5 ngày nằm giữa hai mốc đó: chưa qua hạn chốt (còn 2 ngày nữa), nhưng đã
+     * quá hạn báo trước của khách.
      */
     public function test_khach_doi_sat_ngay_di_thi_tu_choi_nhung_hang_van_chuyen_duoc(): void
     {
-        $chuyenGan = $this->taoChuyen(now()->addDays(3));
+        $chuyenGan = $this->taoChuyen(now()->addDays(5));
         $don = $this->taoDon($chuyenGan);
 
         $duBaoKhach = $this->service()->preview($don, $this->chuyenDich, 'customer');
-        $this->assertFalse($duBaoKhach['can_transfer']);
+        $this->assertFalse($duBaoKhach['can_transfer'], 'Khách đã quá hạn báo trước 7 ngày.');
 
         $duBaoHang = $this->service()->preview($don, $this->chuyenDich, 'company');
-        $this->assertTrue($duBaoHang['can_transfer']);
+        $this->assertTrue($duBaoHang['can_transfer'], 'Hãng bỏ qua được hạn báo trước.');
     }
 
     // --- Chênh lệch giá và phí ----------------------------------------------------------

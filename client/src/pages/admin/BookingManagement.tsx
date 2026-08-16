@@ -36,6 +36,9 @@ export default function BookingManagement() {
   const [transferTargetId, setTransferTargetId] = useState<number | null>(null);
   const [transferReason, setTransferReason] = useState("");
   const [sameTourOnly, setSameTourOnly] = useState(true);
+  // Khách gọi lên xin đổi thì vẫn là "customer", dù người bấm nút là điều hành. Chỉ chọn
+  // "company" khi công ty tự chuyển vì lý do vận hành.
+  const [initiatedBy, setInitiatedBy] = useState<"customer" | "company">("customer");
   const [reopenMode, setReopenMode] = useState(false);
   const [reopenReason, setReopenReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -204,7 +207,10 @@ export default function BookingManagement() {
     }
   };
 
-  const openTransferForm = async (sameTour = sameTourOnly) => {
+  const openTransferForm = async (
+    sameTour = sameTourOnly,
+    khoiXuong: "customer" | "company" = initiatedBy,
+  ) => {
     if (!selectedBooking) return;
 
     setTransferMode(true);
@@ -213,9 +219,10 @@ export default function BookingManagement() {
     setTransferReason("");
     setTransferLoading(true);
     setSameTourOnly(sameTour);
+    setInitiatedBy(khoiXuong);
 
     try {
-      const result = await adminService.getTransferOptions(selectedBooking.id, sameTour);
+      const result = await adminService.getTransferOptions(selectedBooking.id, sameTour, khoiXuong);
       setTransferOptions(result?.options ?? []);
     } catch (err) {
       setActionError(extractApiError(err, "Không lấy được danh sách chuyến có thể chuyển."));
@@ -242,6 +249,7 @@ export default function BookingManagement() {
         selectedBooking.id,
         transferTargetId,
         transferReason.trim(),
+        initiatedBy,
       );
 
       const detailed = await adminService.getBookingById(selectedBooking.id);
@@ -983,6 +991,36 @@ export default function BookingManagement() {
                   </label>
                 </div>
 
+                {/* Ai khởi xướng quyết định hai luật: hạn báo trước 7 ngày và phí đổi lịch.
+                    Khách gọi lên xin đổi thì vẫn là khách, dù người bấm nút là điều hành. */}
+                <div className="flex items-center gap-4 text-xs">
+                  <span className="font-semibold text-gray-700">Ai yêu cầu:</span>
+                  <label className="flex items-center gap-1.5 text-gray-700">
+                    <input
+                      type="radio"
+                      name="transfer-initiator"
+                      checked={initiatedBy === "customer"}
+                      onChange={() => openTransferForm(sameTourOnly, "customer")}
+                    />
+                    Khách xin đổi
+                  </label>
+                  <label className="flex items-center gap-1.5 text-gray-700">
+                    <input
+                      type="radio"
+                      name="transfer-initiator"
+                      checked={initiatedBy === "company"}
+                      onChange={() => openTransferForm(sameTourOnly, "company")}
+                    />
+                    Công ty chuyển
+                  </label>
+                </div>
+
+                <p className="text-[11px] text-gray-500">
+                  {initiatedBy === "customer"
+                    ? "Khách xin đổi: cần báo trước 7 ngày, và từ lần thứ hai có phí đổi lịch."
+                    : "Công ty chuyển: miễn hạn báo trước và miễn phí đổi lịch. Vẫn không chuyển được sau hạn chốt danh sách."}
+                </p>
+
                 {transferLoading && (
                   <p className="text-xs text-gray-500">Đang tìm chuyến phù hợp...</p>
                 )}
@@ -1055,11 +1093,6 @@ export default function BookingManagement() {
                     className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
                   />
                 </div>
-
-                <p className="text-[11px] text-gray-500">
-                  Chuyển do công ty thực hiện nên không thu phí đổi lịch. Phần chênh lệch giá xử lý
-                  riêng với khách.
-                </p>
 
                 <div className="flex justify-end gap-2">
                   <button

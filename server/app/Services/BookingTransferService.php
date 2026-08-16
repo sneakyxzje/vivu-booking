@@ -210,6 +210,33 @@ class BookingTransferService
                     $trangThaiGoc->label(),
                 ));
             }
+
+            /*
+             * Qua hạn chốt danh sách của chuyến gốc thì không chuyển được nữa.
+             *
+             * Đây là cùng một mốc mà nhóm C dùng để quyết định trả chỗ, và vì đúng một lý do:
+             * sau mốc đó suất ở chuyến gốc đã trả tiền cho nhà cung cấp và không rút lại được.
+             *
+             * Nếu vẫn cho chuyển, công ty trả tiền hai suất mà chỉ thu của khách một suất -
+             * phòng bỏ trống ở chuyến gốc, phải mua thêm một suất ở chuyến đích, giá thu không
+             * đổi. Khác hẳn hủy muộn, vì hủy thì công ty còn giữ lại phần lớn tiền theo bảng phí.
+             *
+             * Áp cho cả khách lẫn hãng. Hãng khởi xướng được miễn hạn báo trước và miễn phí đổi
+             * lịch, nhưng không miễn được sự thật là suất kia đã trả tiền rồi.
+             *
+             * Ghép chuyến đi đường riêng và không bị luật này chặn: ở đó chuyến nguồn bị hủy
+             * hẳn, nên chỗ trống của nó không còn ý nghĩa tồn kho nữa.
+             */
+            $hanChot = $fromSchedule->booking_deadline ?? $fromSchedule->defaultBookingDeadline();
+
+            if ($hanChot && now()->gte($hanChot)) {
+                throw new BusinessRuleException(sprintf(
+                    'Chuyến hiện tại đã qua hạn chốt danh sách ngày %s. Suất ở chuyến này đã cam kết '
+                        . 'với nhà cung cấp nên không chuyển đi được; nếu khách không đi được, xử lý '
+                        . 'theo luồng hủy đơn.',
+                    Carbon::parse($hanChot)->format('d/m/Y H:i'),
+                ));
+            }
         }
 
         // 2. Chuyến đích phải đang mở bán và còn đủ chỗ cho toàn bộ số khách của đơn.

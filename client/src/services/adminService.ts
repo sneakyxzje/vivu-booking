@@ -407,18 +407,31 @@ const adminService = {
   getTransferOptions: async (
     bookingId: number,
     sameTour = true,
+    initiatedBy: "customer" | "company" = "customer",
   ): Promise<TransferOptionsResponse | null> => {
     const response = await api.get(
-      `/admin/bookings/${bookingId}/transfer-options?same_tour=${sameTour ? 1 : 0}`,
+      `/admin/bookings/${bookingId}/transfer-options?same_tour=${sameTour ? 1 : 0}`
+        + `&initiated_by=${initiatedBy}`,
     );
     return extractObject<TransferOptionsResponse>(response);
   },
 
-  transferBooking: async (bookingId: number, toScheduleId: number, reason: string) => {
+  /**
+   * `initiatedBy` quyết định hai luật: hạn báo trước 7 ngày và phí đổi lịch.
+   *
+   * Khách gọi lên xin đổi thì vẫn là `customer`, dù người bấm nút là điều hành. Gửi `company`
+   * cho mọi trường hợp là nói dối hệ thống để lách hai luật đó.
+   */
+  transferBooking: async (
+    bookingId: number,
+    toScheduleId: number,
+    reason: string,
+    initiatedBy: "customer" | "company" = "customer",
+  ) => {
     const response = await api.post(`/admin/bookings/${bookingId}/transfer`, {
       to_schedule_id: toScheduleId,
       reason,
-      initiated_by: "company",
+      initiated_by: initiatedBy,
     });
     return response.data?.message ?? "Đã chuyển chuyến.";
   },
