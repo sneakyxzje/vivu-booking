@@ -219,6 +219,72 @@ class ScheduleMergeTest extends TestCase
         $this->service()->merge($this->nguon->fresh(), $chuyenChat, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
     }
 
+    /**
+     * Ghép phải xong trước hạn chốt của CẢ HAI chuyến.
+     *
+     * Mục đích của ghép là gửi một danh sách đúng thay vì hai danh sách sai. Ghép sau khi danh
+     * sách đã gửi thì phải gọi hủy chuyến nguồn và xin thêm suất cho chuyến đích - hai lần làm
+     * việc với nhà cung cấp, và có thể bị từ chối.
+     */
+    public function test_chuyen_nguon_qua_han_chot_thi_khong_ghep_duoc(): void
+    {
+        $this->taoDon($this->nguon);
+        $this->nguon->update(['booking_deadline' => now()->subHour()]);
+
+        $duBao = $this->service()->preview($this->nguon->fresh(), $this->dich);
+
+        $this->assertFalse($duBao['can_merge']);
+        $this->assertStringContainsString('hạn chốt', $duBao['blocked_reason']);
+    }
+
+    /**
+     * Chuyến đích qua hạn chốt là trường hợp nghiêm trọng hơn: ghép thêm khách vào làm
+     * booked_people vượt quá số suất đã cam kết với nhà cung cấp.
+     */
+    public function test_chuyen_dich_qua_han_chot_thi_khong_ghep_duoc(): void
+    {
+        $this->taoDon($this->nguon);
+        $this->dich->update(['booking_deadline' => now()->subHour()]);
+
+        $this->expectException(\App\Exceptions\BusinessRuleException::class);
+
+        $this->service()->merge($this->nguon->fresh(), $this->dich->fresh(), 'Hai chuyen deu thieu khach.', $this->dieuHanh);
+    }
+
+    /** Bị chặn vì hạn chốt thì hai chuyến phải giữ nguyên mọi thứ. */
+    public function test_bi_chan_vi_han_chot_thi_hai_chuyen_giu_nguyen(): void
+    {
+        $don = $this->taoDon($this->nguon);
+        $this->dich->update(['booking_deadline' => now()->subHour()]);
+
+        try {
+            $this->service()->merge($this->nguon->fresh(), $this->dich->fresh(), 'Ghep thu.', $this->dieuHanh);
+        } catch (\App\Exceptions\BusinessRuleException) {
+            // Bỏ qua, phần cần kiểm nằm bên dưới.
+        }
+
+        $this->assertSame(2, (int) $this->nguon->fresh()->booked_people);
+        $this->assertSame($this->nguon->id, (int) $don->fresh()->tour_schedule_id);
+        $this->assertSame(ScheduleStatus::Open->value, $this->nguon->fresh()->getRawOriginal('status'));
+        $this->assertNull($this->nguon->fresh()->merged_into_schedule_id);
+    }
+
+    /** Chuyến qua hạn chốt không xuất hiện trong danh sách gợi ý ghép. */
+    public function test_chuyen_qua_han_chot_khong_hien_trong_goi_y(): void
+    {
+        $this->taoDon($this->nguon);
+        $this->dich->update(['booking_deadline' => now()->subHour()]);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $response = $this->getJson("/api/admin/schedules/{$this->nguon->id}/merge-candidates")
+            ->assertOk();
+
+        $ids = array_column($response->json('data.candidates'), 'schedule_id');
+
+        $this->assertNotContains($this->dich->id, $ids);
+    }
+
     public function test_chuyen_dang_chay_thi_khong_ghep_duoc(): void
     {
         $this->nguon->update([

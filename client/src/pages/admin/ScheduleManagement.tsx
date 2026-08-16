@@ -625,9 +625,13 @@ export default function ScheduleManagement() {
             {mergeLoading && <p className="text-sm text-gray-500">Đang tìm chuyến phù hợp...</p>}
 
             {mergeData && mergeData.candidates.length === 0 && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                Không có chuyến nào ghép được. Chuyến đích phải cùng tour, chưa khởi hành, còn đủ
-                chỗ và lệch ngày không quá 2 ngày.
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-1">
+                <p className="font-semibold">Không có chuyến nào ghép được.</p>
+                <p className="text-xs">
+                  Chuyến đích phải cùng tour, còn đủ chỗ, lệch ngày không quá 2 ngày, và{" "}
+                  <strong>cả hai chuyến đều còn trước hạn chốt danh sách</strong> — vì mục đích của
+                  ghép là gửi một danh sách đúng cho nhà cung cấp, thay vì gửi hai rồi đi vá.
+                </p>
               </div>
             )}
 

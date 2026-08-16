@@ -197,6 +197,35 @@ class ScheduleMergeService
             }
         }
 
+        /*
+         * Cả hai chuyến phải còn trước hạn chốt danh sách.
+         *
+         * Mục đích của ghép là gửi MỘT danh sách đúng thay vì hai danh sách sai. Ghép sau khi
+         * danh sách đã gửi đi thì không còn là ghép nữa, mà là đi vá: phải gọi hủy chuyến nguồn
+         * và xin thêm suất cho chuyến đích, hai lần làm việc với nhà cung cấp và có thể bị từ chối.
+         *
+         * Về dữ liệu còn nghiêm trọng hơn. Ghép vào chuyến đích đã qua hạn chốt làm booked_people
+         * của nó vượt quá số suất đã cam kết - phá đúng bất biến mà cả hệ thống dựa vào. Con số
+         * chỉ đúng trở lại nếu điều hành thực sự xin được thêm suất, mà hệ thống không kiểm chứng
+         * được điều đó.
+         *
+         * Chuyến nào tụt dưới mức tối thiểu sau hạn chốt thì chỉ còn hai đường: vẫn chạy, hoặc
+         * hủy chuyến và đền bù. Ghép không còn là lựa chọn.
+         */
+        foreach ([['chuyến nguồn', $from], ['chuyến đích', $to]] as [$ten, $schedule]) {
+            $hanChot = $schedule->booking_deadline ?? $schedule->defaultBookingDeadline();
+
+            if ($hanChot && now()->gte($hanChot)) {
+                throw new BusinessRuleException(sprintf(
+                    'Đã qua hạn chốt danh sách của %s (#%d) ngày %s. Danh sách đã gửi nhà cung cấp '
+                        . 'nên không ghép được nữa; nếu chuyến không đủ khách, xử lý theo luồng hủy chuyến.',
+                    $ten,
+                    $schedule->getKey(),
+                    Carbon::parse($hanChot)->format('d/m/Y H:i'),
+                ));
+            }
+        }
+
         // 3. Chuyến đích còn đủ chỗ cho toàn bộ khách của chuyến nguồn.
         $canChuyen = (int) $this->bookingsToTransfer($from)->sum('guests');
         $conTrong = (int) $to->max_people - (int) $to->booked_people;

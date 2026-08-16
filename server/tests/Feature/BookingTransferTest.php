@@ -253,25 +253,29 @@ class BookingTransferTest extends TestCase
     }
 
     /**
-     * Ghép chuyến đi đường riêng nên không bị luật hạn chốt chặn: ở đó chuyến nguồn bị hủy hẳn,
-     * chỗ trống của nó không còn ý nghĩa tồn kho.
+     * Chuyển và ghép là hai đường riêng, nhưng cùng dừng ở hạn chốt.
+     *
+     * Hai đường ghi cùng chạm số chỗ mà một đường có luật, một đường không, là mẫu lỗi đã lặp
+     * lại nhiều lần trong dự án này. Bài này khóa cả hai lại cùng lúc.
      */
-    public function test_ghep_chuyen_khong_bi_han_chot_chan(): void
+    public function test_ca_chuyen_lan_ghep_deu_dung_o_han_chot(): void
     {
-        // Ghép đòi hai chuyến lệch nhau tối đa 2 ngày, nên dựng riêng một chuyến sát ngày.
         $chuyenKe = $this->taoChuyen(now()->addDays(31));
 
         $this->taoDon();
         $this->chuyenGoc->update(['booking_deadline' => now()->subHour()]);
 
-        app(\App\Services\ScheduleMergeService::class)->merge(
-            $this->chuyenGoc->fresh(),
-            $chuyenKe,
-            'Chuyen goc thieu khach nen ghep sang chuyen khac.',
-            $this->dieuHanh,
+        $duBaoChuyen = $this->service()->preview(
+            Booking::query()->where('tour_schedule_id', $this->chuyenGoc->id)->first(),
+            $this->chuyenDich,
+            'company',
         );
 
-        $this->assertSame(2, (int) $chuyenKe->fresh()->booked_people);
+        $duBaoGhep = app(\App\Services\ScheduleMergeService::class)
+            ->preview($this->chuyenGoc->fresh(), $chuyenKe);
+
+        $this->assertFalse($duBaoChuyen['can_transfer']);
+        $this->assertFalse($duBaoGhep['can_merge']);
     }
 
     public function test_chuyen_dich_da_dong_ban_thi_tu_choi(): void
