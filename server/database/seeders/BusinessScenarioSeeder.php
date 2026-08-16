@@ -214,6 +214,10 @@ class BusinessScenarioSeeder extends Seeder
             // Hạn chốt rơi vào trong 18 giờ tới, tức nằm trong cửa sổ 24 giờ mà lệnh chốt chuyến
             // xét tới. Đặt xa hơn thì lệnh không nhìn tới chuyến này và chạy xong không thấy gì.
             ['ma' => 'S9', 'gio' => 90, 'status' => ScheduleStatus::Open, 'min' => 2, 'mo_ta' => 'Đủ khách tối thiểu và tới hạn chốt: lệnh sẽ tự chốt'],
+            // Hai chuyến sát ngày nhau, mỗi chuyến ít khách. Đây là tình huống ghép chuyến:
+            // không chuyến nào đủ mức tối thiểu, dồn về một thì cả hai đoàn đều được đi.
+            ['ma' => 'S10', 'gio' => 600, 'status' => ScheduleStatus::Open, 'min' => 6, 'mo_ta' => 'Ít khách, dùng làm chuyến nguồn để ghép'],
+            ['ma' => 'S11', 'gio' => 624, 'status' => ScheduleStatus::Open, 'min' => 6, 'mo_ta' => 'Ít khách, cách S10 một ngày, dùng làm chuyến đích'],
         ];
 
         foreach ($chuyen as $item) {
@@ -314,6 +318,13 @@ class BusinessScenarioSeeder extends Seeder
         // nên được chốt thật. Có cả hai mới thấy lệnh biết phân biệt, chứ không phải cứ tới hạn
         // là chốt bừa.
         $this->taoDon('S9', 'confirmed', 2, 0, 'Chạy schedules:confirm-ready: đủ khách nên chuyến được chốt tự động', 'A');
+
+        // Nhóm L: hai chuyến sát ngày, mỗi chuyến ít khách. Chuyến nguồn có thêm một đơn chưa
+        // thanh toán, để thấy nó bị hủy thay vì bị chuyển theo.
+        $this->taoDon('S10', 'confirmed', 2, 0, 'Ghép chuyến: đơn đã thanh toán sẽ được chuyển sang chuyến đích', 'L');
+        $donChuaTra = $this->taoDon('S10', 'pending', 2, 0, 'Ghép chuyến: đơn chưa thanh toán sẽ bị hủy và mời đặt lại', 'L');
+        $donChuaTra->forceFill(['expires_at' => now()->addDay()])->save();
+        $this->taoDon('S11', 'confirmed', 2, 0, 'Ghép chuyến: đơn có sẵn ở chuyến đích', 'L');
     }
 
     /**
@@ -608,6 +619,15 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->line('   Chọn chuyến đích, đọc chênh lệch giá tính sẵn, nhập lý do, xác nhận');
         $cmd->line('   Rồi vào /admin/schedules xem: chuyến cũ giảm chỗ, chuyến mới tăng chỗ');
         $cmd->line('   Bỏ tick "Chỉ trong cùng tour" để thấy cả chuyến của tour khác');
+        $cmd->newLine();
+
+        $cmd->comment(' VÒNG 2f — ghép chuyến (nhóm L)');
+        $cmd->line('   /admin/schedules -> chuyến ' . $chuyen('S10') . ' -> nút "Ghép chuyến"');
+        $cmd->line('   Chọn chuyến ' . $chuyen('S11') . ' -> đọc "chuyển 1 đơn, hủy 1 đơn chưa thanh toán"');
+        $cmd->line('   Nhập lý do, xác nhận. Sau đó xem lại danh sách chuyến:');
+        $cmd->line('     - chuyến nguồn thành "Đã hủy chuyến", số chỗ về 0');
+        $cmd->line('     - chuyến đích cộng thêm khách');
+        $cmd->line('     - đơn chưa thanh toán bị hủy, KHÔNG bị kéo sang ngày mới');
         $cmd->newLine();
 
         $cmd->comment(' VÒNG 3 — chặn hủy khi chuyến đang chạy');

@@ -10,7 +10,10 @@ import {
   RotateCcw,
 } from "lucide-react";
 import adminService from "@/services/adminService";
-import type { IncompletePassengersResponse } from "@/services/adminService";
+import type {
+  IncompletePassengersResponse,
+  MergeCandidatesResponse,
+} from "@/services/adminService";
 import type { Tour, Guide, ExtendedSchedule } from "@/types";
 import { Toast } from "@/components/admin/CustomAlert";
 import { formatDateTime, getEndDate } from "@/utils/format";
@@ -38,6 +41,15 @@ export default function ScheduleManagement() {
   const [manifestScheduleId, setManifestScheduleId] = useState<number | null>(null);
   const [manifest, setManifest] = useState<IncompletePassengersResponse | null>(null);
   const [manifestLoading, setManifestLoading] = useState(false);
+
+  // L03 - Ghép chuyến
+  const [mergeScheduleId, setMergeScheduleId] = useState<number | null>(null);
+  const [mergeData, setMergeData] = useState<MergeCandidatesResponse | null>(null);
+  const [mergeLoading, setMergeLoading] = useState(false);
+  const [mergeTargetId, setMergeTargetId] = useState<number | null>(null);
+  const [mergeReason, setMergeReason] = useState("");
+  const [mergeSaving, setMergeSaving] = useState(false);
+  const [mergeError, setMergeError] = useState("");
 
   const [toast, setToast] = useState({
     message: "",
@@ -197,6 +209,55 @@ export default function ScheduleManagement() {
       console.error("Lỗi kiểm tra danh sách đoàn:", err);
     } finally {
       setManifestLoading(false);
+    }
+  };
+
+  const openMergeDialog = async (scheduleId: number) => {
+    setMergeScheduleId(scheduleId);
+    setMergeData(null);
+    setMergeTargetId(null);
+    setMergeReason("");
+    setMergeError("");
+    setMergeLoading(true);
+
+    try {
+      setMergeData(await adminService.getMergeCandidates(scheduleId));
+    } catch (err) {
+      console.error("Lỗi tải danh sách chuyến có thể ghép:", err);
+    } finally {
+      setMergeLoading(false);
+    }
+  };
+
+  const closeMergeDialog = () => {
+    setMergeScheduleId(null);
+    setMergeData(null);
+    setMergeTargetId(null);
+    setMergeReason("");
+    setMergeError("");
+  };
+
+  const confirmMerge = async () => {
+    if (!mergeScheduleId || !mergeTargetId || mergeReason.trim().length < 10) return;
+
+    setMergeSaving(true);
+    setMergeError("");
+
+    try {
+      const message = await adminService.mergeSchedule(
+        mergeScheduleId,
+        mergeTargetId,
+        mergeReason.trim(),
+      );
+
+      closeMergeDialog();
+      setToast({ message, type: "success", isOpen: true });
+      loadData();
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      setMergeError(response?.message || "Không ghép được chuyến.");
+    } finally {
+      setMergeSaving(false);
     }
   };
 
@@ -468,6 +529,18 @@ export default function ScheduleManagement() {
                               </button>
                             )}
 
+                            {/* L03 - Ghép chuyến. Chỉ có nghĩa khi chuyến chưa khởi hành và
+                                đang ít khách, nên để cạnh nút chốt chuyến. */}
+                            {(status === "open" || status === "closed" || status === "confirmed") && (
+                              <button
+                                type="button"
+                                onClick={() => openMergeDialog(schedule.id)}
+                                className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-all active:scale-95 duration-150 cursor-pointer"
+                              >
+                                Ghép chuyến
+                              </button>
+                            )}
+
                             {/* Confirm action */}
                             {(status === "open" || status === "closed") && (
                               <button
@@ -532,6 +605,110 @@ export default function ScheduleManagement() {
       ) : (
         <div className="p-10 text-center rounded-2xl border border-gray-100 bg-white text-sm text-gray-500">
           Không tìm thấy chuyến đi nào khớp với bộ lọc.
+        </div>
+      )}
+
+      {/* L03 - Ghép chuyến */}
+      {mergeScheduleId !== null && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
+          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
+            <div>
+              <h4 className="text-base font-bold text-gray-900">
+                Ghép chuyến #{mergeScheduleId} vào chuyến khác
+              </h4>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Toàn bộ đơn đã thanh toán sẽ chuyển sang chuyến đích, giá giữ nguyên. Chuyến này
+                sau đó chuyển thành đã hủy.
+              </p>
+            </div>
+
+            {mergeLoading && <p className="text-sm text-gray-500">Đang tìm chuyến phù hợp...</p>}
+
+            {mergeData && mergeData.candidates.length === 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                Không có chuyến nào ghép được. Chuyến đích phải cùng tour, chưa khởi hành, còn đủ
+                chỗ và lệch ngày không quá 2 ngày.
+              </div>
+            )}
+
+            {/* Máy chủ đã loại chuyến không ghép được và tính sẵn tác động, nên đây chỉ hiển thị. */}
+            <div className="space-y-2">
+              {mergeData?.candidates.map((item) => {
+                const dangChon = mergeTargetId === item.schedule_id;
+
+                return (
+                  <button
+                    key={item.schedule_id}
+                    type="button"
+                    onClick={() => setMergeTargetId(item.schedule_id)}
+                    className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                      dangChon
+                        ? "border-blue-500 bg-blue-50/60 ring-2 ring-blue-200"
+                        : "border-gray-200 bg-white hover:bg-gray-50"
+                    }`}
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-sm font-bold text-gray-900">
+                        #{item.schedule_id} · {formatDateTime(item.start_date)}
+                      </span>
+                      <span className="text-[11px] text-gray-500">
+                        {item.booked_people}/{item.max_people} chỗ
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-600">
+                      Chuyển {item.transferring} đơn ({item.transferring_guests} khách)
+                      {item.cancelling > 0 && (
+                        <span className="text-amber-800 font-semibold">
+                          {" "}· hủy {item.cancelling} đơn chưa thanh toán
+                        </span>
+                      )}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Lý do ghép <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                rows={2}
+                value={mergeReason}
+                onChange={(e) => setMergeReason(e.target.value)}
+                placeholder="VD: Hai chuyến đều chưa đủ khách tối thiểu nên dồn về một chuyến..."
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+              />
+              <p className="text-[11px] text-gray-400 mt-1">
+                Khách sẽ đọc được nội dung này khi được thông báo đổi ngày khởi hành.
+              </p>
+            </div>
+
+            {mergeError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                {mergeError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeMergeDialog}
+                disabled={mergeSaving}
+                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
+              >
+                Không ghép nữa
+              </button>
+              <button
+                type="button"
+                onClick={confirmMerge}
+                disabled={mergeSaving || !mergeTargetId || mergeReason.trim().length < 10}
+                className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40"
+              >
+                {mergeSaving ? "Đang ghép..." : "Xác nhận ghép"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

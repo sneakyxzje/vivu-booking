@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Model;
     'pickup_location',
     'is_featured',
     'status',
+    'type',
     'cancellation_policy_id',
 ])]
 class Tour extends Model

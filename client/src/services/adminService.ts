@@ -183,6 +183,33 @@ export interface ChangeRequestDetail {
   blocked_reason: string | null;
 }
 
+/** Một chuyến có thể ghép vào, kèm tác động đã tính sẵn. */
+export interface MergeCandidate {
+  schedule_id: number;
+  start_date: string;
+  booked_people: number;
+  max_people: number;
+  can_merge: boolean;
+  blocked_reason: string | null;
+  /** Số đơn đã thanh toán sẽ được chuyển sang. */
+  transferring: number;
+  transferring_guests: number;
+  /** Số đơn chưa thanh toán sẽ bị hủy và mời đặt lại. */
+  cancelling: number;
+  remaining_seats: number;
+}
+
+export interface MergeCandidatesResponse {
+  schedule: {
+    id: number;
+    start_date: string;
+    booked_people: number;
+    tour_title: string | null;
+    tour_type: string | null;
+  };
+  candidates: MergeCandidate[];
+}
+
 /** Một chuyến có thể chuyển đơn sang, kèm chênh lệch đã tính sẵn. */
 export interface TransferOption {
   schedule_id: number;
@@ -350,6 +377,25 @@ const adminService = {
       review_note: reviewNote,
     });
     return response.data?.message ?? "Đã từ chối yêu cầu.";
+  },
+
+  /**
+   * L03 - Các chuyến có thể ghép chuyến này vào.
+   *
+   * Máy chủ tính sẵn số đơn sẽ chuyển và số đơn sẽ bị hủy cho từng lựa chọn, để điều hành thấy
+   * hậu quả trước khi chọn chứ không phải chọn rồi mới biết.
+   */
+  getMergeCandidates: async (scheduleId: number): Promise<MergeCandidatesResponse | null> => {
+    const response = await api.get(`/admin/schedules/${scheduleId}/merge-candidates`);
+    return extractObject<MergeCandidatesResponse>(response);
+  },
+
+  mergeSchedule: async (scheduleId: number, toScheduleId: number, reason: string) => {
+    const response = await api.post(`/admin/schedules/${scheduleId}/merge`, {
+      to_schedule_id: toScheduleId,
+      reason,
+    });
+    return response.data?.message ?? "Đã ghép chuyến.";
   },
 
   /**

@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminChangeRequestController;
 use App\Http\Controllers\Api\Admin\AdminPassengerController;
+use App\Http\Controllers\Api\Admin\AdminScheduleMergeController;
 use App\Http\Controllers\Api\Admin\AdminTransferController;
 use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
 use App\Http\Controllers\Api\Admin\AdminAttendanceController;
@@ -195,6 +196,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/bookings/{id}/passengers', [AdminPassengerController::class, 'index']);
         Route::put('/bookings/{id}/passengers', [AdminPassengerController::class, 'update']);
         Route::get('/schedules/{id}/incomplete-passengers', [AdminPassengerController::class, 'incomplete']);
+
+        // L03 - Ghép hai chuyến của cùng một tour.
+        Route::get('/schedules/{id}/merge-candidates', [AdminScheduleMergeController::class, 'candidates']);
+        Route::post('/schedules/{id}/merge', [AdminScheduleMergeController::class, 'store']);
 
         // E04 - Dòng thời gian thay đổi của một đơn.
         Route::get('/bookings/{id}/history', [AdminBookingController::class, 'history']);

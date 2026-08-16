@@ -61,7 +61,7 @@ class BusinessScenarioSeederTest extends TestCase
     {
         $schedules = TourSchedule::query()->where('tour_id', $this->tour->id)->get();
 
-        $this->assertCount(9, $schedules);
+        $this->assertCount(11, $schedules);
 
         $trangThai = $schedules
             ->map(fn (TourSchedule $s) => $s->getRawOriginal('status'))
@@ -319,7 +319,7 @@ class BusinessScenarioSeederTest extends TestCase
         );
 
         $this->assertSame(
-            9,
+            11,
             TourSchedule::query()
                 ->whereIn('tour_id', Tour::query()->where('slug', 'tour-thu-nghiem-nghiep-vu')->pluck('id'))
                 ->count(),
