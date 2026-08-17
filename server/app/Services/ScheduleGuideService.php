@@ -61,13 +61,10 @@ class ScheduleGuideService
             [$start, $end] = $this->periodOf($schedule);
 
             foreach ($ids as $guideId) {
-                $vuong = $this->conflictFor($guideId, $start, $end, $schedule->getKey());
+                $chanVi = $this->lyDoChan($huongDanVien[$guideId], $start, $end, $schedule->getKey());
 
-                if ($vuong) {
-                    throw new BusinessRuleException($this->moTaTrungLich(
-                        $huongDanVien[$guideId]->name,
-                        $vuong,
-                    ));
+                if ($chanVi) {
+                    throw new BusinessRuleException($chanVi);
                 }
             }
 
@@ -139,6 +136,49 @@ class ScheduleGuideService
     }
 
     /**
+     * Vì sao không phân công được người này cho chuyến, hoặc null nếu được.
+     *
+     * **Một hàm cho cả hai phía.** `sync()` ném ngoại lệ với đúng câu này, còn màn hình chọn người
+     * hiện đúng câu này bên cạnh cái tên. Lỗi lặp lại nhiều lần trong dự án luôn cùng một khuôn:
+     * luật có ở đường ghi mà thiếu ở đường đọc, nên người dùng bấm xong mới biết không được. Gộp
+     * vào một chỗ thì hai phía không lệch nhau được nữa.
+     *
+     * Hai luật, và chỉ hai:
+     *
+     *   1. **Trùng lịch** - luật vật lý, một người không đứng ở hai đoàn cùng lúc.
+     *   2. **Thẻ hành nghề hết hạn giữa chuyến** - luật pháp lý. Luật Du lịch 2017 yêu cầu hướng
+     *      dẫn viên hành nghề phải có thẻ còn hiệu lực; cho đi là đẩy công ty vào chỗ sai luật.
+     *
+     * Chuyên môn, tuyến quen, sức dẫn, tải công việc đều **không** ở đây. Chúng chỉ xếp thứ tự ở
+     * `GuideSuitabilityService` - xem lý do đầy đủ trong lớp đó.
+     *
+     * Chưa khai thẻ thì không chặn: không biết không phải là biết rằng sai, và chặn theo dữ liệu
+     * trống nghĩa là hôm bật tính năng lên thì không phân công được cho ai nữa.
+     */
+    public function lyDoChan(User $guide, Carbon $start, Carbon $end, ?int $boQuaChuyen = null): ?string
+    {
+        $vuong = $this->conflictFor($guide->getKey(), $start, $end, $boQuaChuyen);
+
+        if ($vuong) {
+            return $this->moTaTrungLich($guide->name, $vuong);
+        }
+
+        $hoSo = $guide->guideProfile;
+
+        if ($hoSo && !$hoSo->theConHan($end)) {
+            return sprintf(
+                'Thẻ hành nghề của %s hết hạn ngày %s, trong khi chuyến kéo dài tới %s. '
+                . 'Hướng dẫn viên phải có thẻ còn hiệu lực trong suốt chuyến.',
+                $guide->name,
+                $hoSo->card_expiry->format('d/m/Y'),
+                $end->format('d/m/Y'),
+            );
+        }
+
+        return null;
+    }
+
+    /**
      * Chuyến đang chồng lịch của hướng dẫn viên này, hoặc null nếu rảnh.
      *
      * So sánh theo ngày chứ không theo giờ: đoàn về lúc 22h thì hôm đó người dẫn coi như đã bận
@@ -168,7 +208,8 @@ class ScheduleGuideService
             return collect();
         }
 
-        $nguoi = User::query()->whereIn('id', $guideIds)->get()->keyBy('id');
+        // Nạp sẵn hồ sơ vì lyDoChan() ngay sau đó cần đọc hạn thẻ của từng người.
+        $nguoi = User::query()->whereIn('id', $guideIds)->with('guideProfile')->get()->keyBy('id');
 
         foreach ($guideIds as $id) {
             $guide = $nguoi->get($id);
