@@ -470,13 +470,23 @@ class BusinessScenarioSeeder extends Seeder
     {
         $diemDon = $this->checkpointDauTien();
 
-        // Người sửa điểm danh phải là người thật sự dẫn chuyến đó, không phải hướng dẫn viên đầu
-        // danh sách: chuyến đang chạy có thể do người khác dẫn vì người đầu vướng lịch.
-        $nguoiDanS6 = $this->schedules['S6']->guides()->first();
-
-        if (!$diemDon || !$nguoiDanS6) {
+        if (!$diemDon) {
             return;
         }
+
+        /*
+         * Người ghi điểm danh: ưu tiên người thật sự dẫn S6, nếu chuyến đó chưa ai dẫn thì lấy
+         * tạm người đầu danh sách.
+         *
+         * Cố ý KHÔNG bỏ chạy khi S6 chưa có hướng dẫn viên. Trước đây có, và hậu quả là toàn bộ
+         * dữ liệu điểm danh biến mất trong im lặng khi đội hướng dẫn viên mỏng - các chuyến kịch
+         * bản chồng ngày nhau nên một người không phủ hết được. Dữ liệu mẫu thiếu mà không báo
+         * gì còn tệ hơn dữ liệu mẫu sai: người thử tay sẽ đi tìm lỗi trong mã ứng dụng.
+         *
+         * checked_by chỉ ghi lại ai bấm nút, không phải luật nghiệp vụ, nên lấy tạm là chấp nhận
+         * được; mất cả bộ dữ liệu điểm danh thì không.
+         */
+        $nguoiGhi = $this->schedules['S6']->guides()->first() ?? $this->guide;
 
         // --- Chuyến đang chạy: ghi một phần, cố ý để dở --------------------------------
         $donDangChay = $this->donCuaChuyen('S6');
@@ -499,7 +509,7 @@ class BusinessScenarioSeeder extends Seeder
                     'old_status' => PassengerCheckinStatus::Present->value,
                     'new_status' => PassengerCheckinStatus::Absent->value,
                     'note' => 'Ghi nhầm lúc đầu là có mặt, kiểm lại thì khách không lên xe.',
-                    'changed_by' => $nguoiDanS6->id,
+                    'changed_by' => $nguoiGhi?->id,
                     'changed_at' => now()->subHours(20),
                 ]);
             }

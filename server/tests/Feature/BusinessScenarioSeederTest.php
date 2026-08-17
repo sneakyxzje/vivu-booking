@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\BookingStatus;
 use App\Enums\ScheduleStatus;
 use App\Models\Booking;
+use App\Models\PassengerCheckin;
 use App\Models\Tour;
 use App\Models\TourSchedule;
 use App\Services\BookingFinalizationService;
@@ -167,6 +168,27 @@ class BusinessScenarioSeederTest extends TestCase
         $this->assertTrue(
             $lifecycle->effectiveStatus($this->chuyen(7))->blocksCancellation(),
             'S7 phải đã kết thúc.',
+        );
+    }
+
+    /**
+     * Dữ liệu điểm danh phải thật sự được dựng, không phải im lặng bỏ qua.
+     *
+     * Bài này sinh ra từ một lỗi thật: seeder từng bỏ chạy khi chuyến S6 chưa có hướng dẫn viên
+     * nào, và khi đội hướng dẫn viên mỏng thì toàn bộ dữ liệu điểm danh biến mất mà không báo gì.
+     * Các bài dưới vẫn đỏ, nhưng đỏ ở chỗ "chốt đơn ra sai số" nên người đọc đi tìm lỗi trong
+     * lệnh chốt đơn thay vì trong seeder. Bài này đỏ đúng chỗ.
+     */
+    public function test_seeder_dung_du_lieu_diem_danh_chu_khong_bo_qua_im_lang(): void
+    {
+        $soBanGhi = PassengerCheckin::query()
+            ->whereIn('tour_schedule_id', [$this->chuyen(6)->id, $this->chuyen(7)->id])
+            ->count();
+
+        $this->assertGreaterThan(
+            0,
+            $soBanGhi,
+            'Seeder phải dựng điểm danh cho chuyến đang chạy và chuyến đã kết thúc.',
         );
     }
 
