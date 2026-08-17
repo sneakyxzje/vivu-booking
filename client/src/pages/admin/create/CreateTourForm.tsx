@@ -16,6 +16,7 @@ import type {
 import tourService from "@/services/tourService";
 import adminService from "@/services/adminService";
 import type { Guide } from "@/types";
+import { toDateTimeLocalValue } from "@/utils/format";
 import type { CheckpointItem } from "@/components/admin/CheckpointManager";
 
 const emptyForm: TourFormState = {
@@ -64,15 +65,6 @@ const fieldClass =
   "block w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm outline-none transition focus:border-primary-500 focus:ring-4 focus:ring-primary-100";
 
 const labelClass = "block text-sm font-semibold text-gray-800 mb-2";
-
-const toDateTimeLocalValue = (value?: string | null): string => {
-  if (!value) return "";
-
-  const normalized = value.trim().replace(" ", "T");
-  return normalized.length >= 16
-    ? normalized.slice(0, 16)
-    : `${normalized.slice(0, 10)}T00:00`;
-};
 
 const parseRoutePoints = (value?: string | null): string[] => {
   const points = (value ?? "")

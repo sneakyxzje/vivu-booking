@@ -11,12 +11,13 @@ import {
 } from "lucide-react";
 import adminService from "@/services/adminService";
 import type {
+  DeadlineImpactResponse,
   IncompletePassengersResponse,
   MergeCandidatesResponse,
 } from "@/services/adminService";
 import type { Tour, Guide, ExtendedSchedule } from "@/types";
 import { Toast } from "@/components/admin/CustomAlert";
-import { formatDateTime, getEndDate } from "@/utils/format";
+import { formatDateTime, getEndDate, toDateTimeLocalValue } from "@/utils/format";
 import { statusLabel, statusClasses } from "@/utils/schedule";
 import Pagination from "@/components/common/Pagination";
 
@@ -50,6 +51,15 @@ export default function ScheduleManagement() {
   const [mergeReason, setMergeReason] = useState("");
   const [mergeSaving, setMergeSaving] = useState(false);
   const [mergeError, setMergeError] = useState("");
+
+  // Dời hạn chốt danh sách. Xem docs/nghiep-vu/16-sua-han-chot.md.
+  const [deadlineScheduleId, setDeadlineScheduleId] = useState<number | null>(null);
+  const [deadlineValue, setDeadlineValue] = useState("");
+  const [deadlineReason, setDeadlineReason] = useState("");
+  const [deadlineImpact, setDeadlineImpact] = useState<DeadlineImpactResponse | null>(null);
+  const [deadlineLoading, setDeadlineLoading] = useState(false);
+  const [deadlineSaving, setDeadlineSaving] = useState(false);
+  const [deadlineError, setDeadlineError] = useState("");
 
   const [toast, setToast] = useState({
     message: "",
@@ -258,6 +268,79 @@ export default function ScheduleManagement() {
       setMergeError(response?.message || "Không ghép được chuyến.");
     } finally {
       setMergeSaving(false);
+    }
+  };
+
+  const openDeadlineDialog = (schedule: ExtendedSchedule) => {
+    setDeadlineScheduleId(schedule.id);
+    setDeadlineValue(toDateTimeLocalValue(schedule.booking_deadline));
+    setDeadlineReason("");
+    setDeadlineImpact(null);
+    setDeadlineError("");
+  };
+
+  const closeDeadlineDialog = () => {
+    setDeadlineScheduleId(null);
+    setDeadlineValue("");
+    setDeadlineReason("");
+    setDeadlineImpact(null);
+    setDeadlineError("");
+  };
+
+  /*
+   * Tác động do máy chủ tính, lấy lại mỗi khi người dùng đổi ngày.
+   *
+   * Chờ 400ms rồi mới gọi: ô datetime-local bắn sự kiện theo từng ký tự, gọi ngay thì gõ một
+   * chữ số là một lượt gọi mạng. Tính ở trình duyệt cho nhanh thì sớm muộn con số hiện ra sẽ
+   * lệch với luật máy chủ thực sự áp.
+   */
+  useEffect(() => {
+    if (deadlineScheduleId === null) return;
+
+    const scheduleId = deadlineScheduleId;
+    const value = deadlineValue;
+    let daHuy = false;
+
+    const hen = setTimeout(async () => {
+      setDeadlineLoading(true);
+
+      try {
+        const data = await adminService.getDeadlineImpact(scheduleId, value || null);
+        if (!daHuy) setDeadlineImpact(data);
+      } catch {
+        if (!daHuy) setDeadlineImpact(null);
+      } finally {
+        if (!daHuy) setDeadlineLoading(false);
+      }
+    }, 400);
+
+    return () => {
+      daHuy = true;
+      clearTimeout(hen);
+    };
+  }, [deadlineScheduleId, deadlineValue]);
+
+  const confirmDeadline = async () => {
+    if (deadlineScheduleId === null) return;
+
+    setDeadlineSaving(true);
+    setDeadlineError("");
+
+    try {
+      const message = await adminService.updateScheduleDeadline(
+        deadlineScheduleId,
+        deadlineValue || null,
+        deadlineReason.trim(),
+      );
+
+      closeDeadlineDialog();
+      setToast({ message, type: "success", isOpen: true });
+      loadData();
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      setDeadlineError(response?.message || "Không đổi được hạn chốt.");
+    } finally {
+      setDeadlineSaving(false);
     }
   };
 
@@ -529,6 +612,18 @@ export default function ScheduleManagement() {
                               </button>
                             )}
 
+                            {/* Dời hạn chốt danh sách. Chuyến đã chạy hoặc đã xong thì mốc này
+                                không còn nghĩa gì nên không cho sửa. */}
+                            {(status === "open" || status === "closed" || status === "confirmed") && (
+                              <button
+                                type="button"
+                                onClick={() => openDeadlineDialog(schedule)}
+                                className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 duration-150 cursor-pointer"
+                              >
+                                Sửa hạn chốt
+                              </button>
+                            )}
+
                             {/* L03 - Ghép chuyến. Chỉ có nghĩa khi chuyến chưa khởi hành và
                                 đang ít khách, nên để cạnh nút chốt chuyến. */}
                             {(status === "open" || status === "closed" || status === "confirmed") && (
@@ -605,6 +700,107 @@ export default function ScheduleManagement() {
       ) : (
         <div className="p-10 text-center rounded-2xl border border-gray-100 bg-white text-sm text-gray-500">
           Không tìm thấy chuyến đi nào khớp với bộ lọc.
+        </div>
+      )}
+
+      {/* Dời hạn chốt danh sách, có xem trước tác động */}
+      {deadlineScheduleId !== null && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
+          <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
+            <div>
+              <h4 className="text-base font-bold text-gray-900">
+                Hạn chốt danh sách — chuyến #{deadlineScheduleId}
+              </h4>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Đây là mốc gửi danh sách khách cho khách sạn và nhà xe. Dời mốc này là dời cùng
+                lúc quyền bán chỗ, sửa tên hành khách, chuyển chuyến và ghép chuyến.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Hạn chốt mới</label>
+              <input
+                type="datetime-local"
+                value={deadlineValue}
+                onChange={(e) => setDeadlineValue(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
+              />
+              <p className="text-[11px] text-gray-400 mt-1">
+                Để trống thì chuyến dùng mốc mặc định của hệ thống.
+              </p>
+            </div>
+
+            {deadlineLoading && <p className="text-sm text-gray-500">Đang tính tác động...</p>}
+
+            {deadlineImpact && !deadlineImpact.impact.can_change && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                {deadlineImpact.impact.blocked_reason}
+              </div>
+            )}
+
+            {deadlineImpact && deadlineImpact.impact.can_change && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-amber-800">
+                  {deadlineImpact.impact.direction === "unchanged"
+                    ? "Chưa có thay đổi nào"
+                    : "Lưu xong sẽ có hiệu lực ngay"}
+                </p>
+
+                <ul className="space-y-1.5">
+                  {deadlineImpact.impact.warnings.map((dong) => (
+                    <li key={dong} className="text-xs text-amber-900 flex gap-2">
+                      <span className="text-amber-500 shrink-0">•</span>
+                      <span>{dong}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Lý do dời hạn</label>
+              <textarea
+                rows={2}
+                value={deadlineReason}
+                onChange={(e) => setDeadlineReason(e.target.value)}
+                placeholder="VD: Khách sạn cho thêm 2 phòng, chốt lại ngày 19/08..."
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
+              />
+              <p className="text-[11px] text-gray-400 mt-1">
+                Không bắt buộc, nhưng có thì nhật ký về sau đọc mới hiểu được vì sao mốc bị dời.
+              </p>
+            </div>
+
+            {deadlineError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                {deadlineError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeDeadlineDialog}
+                disabled={deadlineSaving}
+                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
+              >
+                Quay lại
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeadline}
+                disabled={
+                  deadlineSaving ||
+                  deadlineLoading ||
+                  !deadlineImpact?.impact.can_change ||
+                  deadlineImpact?.impact.direction === "unchanged"
+                }
+                className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40"
+              >
+                {deadlineSaving ? "Đang lưu..." : "Đồng ý, lưu hạn chốt mới"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

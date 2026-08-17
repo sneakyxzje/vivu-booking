@@ -1,0 +1,361 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\ScheduleAuditAction;
+use App\Enums\ScheduleStatus;
+use App\Enums\TourType;
+use App\Models\Booking;
+use App\Models\ScheduleAuditLog;
+use App\Models\Tour;
+use App\Models\TourSchedule;
+use App\Models\User;
+use App\Services\ScheduleDeadlineService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+/**
+ * Dời hạn chốt danh sách của một chuyến khởi hành.
+ *
+ * Hạn chốt là cái vạch chia trước và sau việc gửi danh sách cho nhà cung cấp. Dịch cái vạch ấy
+ * đổi cùng lúc năm thứ, nên phải để lại vết và phải nói trước cho người bấm biết.
+ *
+ * Điều quan trọng nhất bộ test này giữ: kéo vạch KHÔNG tính lại các đơn đã xử lý.
+ *
+ * Xem docs/nghiep-vu/16-sua-han-chot.md.
+ */
+class ScheduleDeadlineTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $dieuHanh;
+    private Tour $tour;
+    private TourSchedule $chuyen;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->dieuHanh = User::create([
+            'name' => 'Dieu Hanh Test',
+            'email' => 'dieu-hanh-' . Str::random(6) . '@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'admin',
+            'status' => 'active',
+        ]);
+
+        $this->tour = Tour::factory()->create([
+            'status' => 'active',
+            'type' => TourType::Shared->value,
+            'number_of_days' => 2,
+            'adult_price' => 2_000_000,
+        ]);
+
+        // Khởi hành sau 20 ngày, hạn chốt sau 17 ngày.
+        $this->chuyen = $this->taoChuyen();
+    }
+
+    private function taoChuyen(array $ghiDe = []): TourSchedule
+    {
+        $start = now()->addDays(20);
+
+        return TourSchedule::create(array_merge([
+            'tour_id' => $this->tour->id,
+            'status' => ScheduleStatus::Open->value,
+            'start_date' => $start,
+            'end_date' => $start->copy()->addDay(),
+            'booking_deadline' => $start->copy()->subDays(3),
+            'max_people' => 20,
+            'min_people' => 10,
+            'booked_people' => 0,
+        ], $ghiDe));
+    }
+
+    private function taoDon(TourSchedule $schedule, string $status = 'confirmed', int $khach = 2): Booking
+    {
+        $schedule->increment('booked_people', $khach);
+        $schedule->refresh();
+
+        return Booking::create([
+            'public_token' => (string) Str::uuid(),
+            'tour_id' => $schedule->tour_id,
+            'tour_schedule_id' => $schedule->id,
+            'customer_name' => 'Khach ' . Str::random(4),
+            'customer_email' => 'khach-' . Str::random(5) . '@example.com',
+            'departure_date' => $schedule->start_date,
+            'guests' => $khach,
+            'adult_count' => $khach,
+            'child_count' => 0,
+            'infant_count' => 0,
+            'total_amount' => $khach * 2_000_000,
+            'status' => $status,
+            'paid_at' => $status === 'confirmed' ? now()->subDay() : null,
+            'confirmed_at' => $status === 'confirmed' ? now()->subDay() : null,
+            'expires_at' => $status === 'pending' ? now()->addDay() : null,
+        ]);
+    }
+
+    private function service(): ScheduleDeadlineService
+    {
+        return app(ScheduleDeadlineService::class);
+    }
+
+    // --- Nhật ký ------------------------------------------------------------------------
+
+    public function test_doi_han_chot_thi_ghi_lai_ngay_cu_va_ngay_moi(): void
+    {
+        $cu = $this->chuyen->booking_deadline;
+        $moi = $cu->copy()->addDays(2);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => $moi->toDateTimeString(),
+            'reason' => 'Khach san cho them 2 phong.',
+        ])->assertOk();
+
+        $log = ScheduleAuditLog::query()
+            ->where('tour_schedule_id', $this->chuyen->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($log, 'Đổi hạn chốt phải để lại vết.');
+        $this->assertSame(ScheduleAuditAction::DeadlineChanged, $log->action);
+        $this->assertSame($this->dieuHanh->id, $log->actor_id);
+        $this->assertSame('admin', $log->actor_role);
+        $this->assertSame('Khach san cho them 2 phong.', $log->reason);
+
+        $this->assertTrue(
+            Carbon::parse($log->old_values['booking_deadline'])->equalTo($cu),
+            'Nhật ký phải giữ đúng ngày trước khi sửa.',
+        );
+        $this->assertTrue(
+            Carbon::parse($log->new_values['booking_deadline'])->equalTo($moi),
+        );
+
+        $this->assertTrue($this->chuyen->fresh()->booking_deadline->equalTo($moi));
+    }
+
+    public function test_luu_lai_dung_ngay_cu_thi_khong_ghi_nhat_ky_rong(): void
+    {
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => $this->chuyen->booking_deadline->toDateTimeString(),
+        ])->assertOk();
+
+        $this->assertSame(
+            0,
+            ScheduleAuditLog::query()->where('tour_schedule_id', $this->chuyen->id)->count(),
+            'Không đổi gì thì không được sinh dòng nhật ký nào.',
+        );
+    }
+
+    /**
+     * Hạn chốt có hai đường ghi: form sửa tour và endpoint sửa nhanh.
+     *
+     * Luật nằm ở một đường mà thiếu ở đường kia chính là khuôn của mấy lỗi gần đây, nên bài này
+     * giữ đường còn lại.
+     */
+    public function test_sua_tu_form_sua_tour_cung_duoc_ghi_nhat_ky(): void
+    {
+        $moi = $this->chuyen->booking_deadline->copy()->subDays(2);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/tours/' . $this->tour->id, [
+            'title' => $this->tour->title,
+            'adult_price' => 2_000_000,
+            'child_price' => 1_000_000,
+            'infant_price' => 0,
+            'number_of_days' => 2,
+            'number_of_nights' => 1,
+            'start_location' => 'Ha Noi',
+            'schedules' => [[
+                'id' => $this->chuyen->id,
+                'start_date' => $this->chuyen->start_date->toDateTimeString(),
+                'max_people' => 20,
+                'booking_deadline' => $moi->toDateTimeString(),
+                'booking_deadline_reason' => 'Nha xe doi chot som.',
+            ]],
+        ])->assertOk();
+
+        $log = ScheduleAuditLog::query()
+            ->where('tour_schedule_id', $this->chuyen->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($log, 'Sửa hạn chốt từ form tour cũng phải để lại vết.');
+        $this->assertSame('Nha xe doi chot som.', $log->reason);
+        $this->assertTrue($this->chuyen->fresh()->booking_deadline->equalTo($moi));
+    }
+
+    // --- Luật chặn ----------------------------------------------------------------------
+
+    public function test_chuyen_dang_chay_thi_khong_sua_duoc_han_chot(): void
+    {
+        $dangChay = $this->taoChuyen([
+            'status' => ScheduleStatus::InProgress->value,
+            'start_date' => now()->subDay(),
+            'end_date' => now()->addDay(),
+            'booking_deadline' => now()->subDays(4),
+        ]);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $dangChay->id . '/deadline', [
+            'booking_deadline' => now()->addDay()->toDateTimeString(),
+        ])->assertStatus(422);
+
+        $this->assertTrue(
+            $dangChay->fresh()->booking_deadline->equalTo($dangChay->booking_deadline),
+        );
+    }
+
+    public function test_han_chot_khong_duoc_roi_vao_sau_ngay_khoi_hanh(): void
+    {
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => $this->chuyen->start_date->copy()->addHour()->toDateTimeString(),
+        ])->assertStatus(422);
+    }
+
+    // --- Điều quan trọng nhất: quá khứ không bị tính lại ---------------------------------
+
+    /**
+     * Chị Lan hủy khi đã qua hạn chốt nên mất chỗ. Sau đó điều hành xin thêm được suất và dời
+     * hạn chốt về sau ngày chị hủy.
+     *
+     * Kết quả của chị Lan phải giữ nguyên, vì lúc chị hủy thì phòng đã chốt thật. Kết quả ấy được
+     * ghi cứng vào đơn chứ không phải phép tính chạy lại mỗi lần mở màn hình - đây là bài giữ
+     * đúng điều đó.
+     */
+    public function test_doi_han_chot_khong_tinh_lai_don_da_huy(): void
+    {
+        $chuyen = $this->taoChuyen([
+            'start_date' => now()->addDays(2),
+            'end_date' => now()->addDays(3),
+            'booking_deadline' => now()->subDay(),
+            'status' => ScheduleStatus::Closed->value,
+        ]);
+
+        $don = $this->taoDon($chuyen);
+        $soChoTruoc = (int) $chuyen->fresh()->booked_people;
+
+        // Hủy sau hạn chốt: chỗ không về kho.
+        app(\App\Services\BookingHoldService::class)->releaseHold($don, $chuyen->fresh());
+        $don->forceFill(['status' => 'cancelled'])->save();
+
+        $this->assertFalse((bool) $don->fresh()->seats_released);
+        $this->assertSame($soChoTruoc, (int) $chuyen->fresh()->booked_people);
+
+        // Dời hạn chốt về sau thời điểm chị Lan hủy.
+        $this->service()->change($chuyen->fresh(), now()->addDay(), 'Xin them duoc suat.', $this->dieuHanh);
+
+        $this->assertFalse(
+            (bool) $don->fresh()->seats_released,
+            'Đơn đã hủy phải giữ nguyên kết quả cũ, không được tính lại theo hạn chốt mới.',
+        );
+        $this->assertSame(
+            $soChoTruoc,
+            (int) $chuyen->fresh()->booked_people,
+            'Chỗ đã chết không tự sống lại khi dời hạn chốt.',
+        );
+    }
+
+    // --- Xem trước tác động --------------------------------------------------------------
+
+    public function test_xem_truoc_nhac_chuyen_khong_tu_mo_ban_lai(): void
+    {
+        $chuyen = $this->taoChuyen([
+            'start_date' => now()->addDays(2),
+            'end_date' => now()->addDays(3),
+            'booking_deadline' => now()->subDay(),
+            'status' => ScheduleStatus::Closed->value,
+        ]);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $response = $this->getJson(
+            '/api/admin/schedules/' . $chuyen->id . '/deadline-impact'
+            . '?booking_deadline=' . urlencode(now()->addDay()->toDateTimeString())
+        )->assertOk();
+
+        $impact = $response->json('data.impact');
+
+        $this->assertSame('later', $impact['direction']);
+        $this->assertTrue($impact['currently_past']);
+        $this->assertFalse($impact['will_be_past']);
+        $this->assertTrue($impact['needs_manual_reopen']);
+        $this->assertTrue($impact['can_change']);
+
+        $this->assertNotEmpty(array_filter(
+            $impact['warnings'],
+            fn (string $dong) => str_contains($dong, 'Mở bán'),
+        ), 'Phải nhắc rằng chuyến không tự mở bán lại.');
+    }
+
+    public function test_xem_truoc_dem_dung_so_ghe_chet(): void
+    {
+        $chuyen = $this->taoChuyen([
+            'start_date' => now()->addDays(2),
+            'end_date' => now()->addDays(3),
+            'booking_deadline' => now()->subDay(),
+            'status' => ScheduleStatus::Closed->value,
+        ]);
+
+        $don = $this->taoDon($chuyen, khach: 3);
+        $don->forceFill(['status' => 'cancelled', 'seats_released' => false])->save();
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $impact = $this->getJson(
+            '/api/admin/schedules/' . $chuyen->id . '/deadline-impact'
+            . '?booking_deadline=' . urlencode(now()->addDay()->toDateTimeString())
+        )->assertOk()->json('data.impact');
+
+        $this->assertSame(1, $impact['held_seat_bookings']);
+        $this->assertSame(3, $impact['held_seats']);
+
+        $this->assertNotEmpty(array_filter(
+            $impact['warnings'],
+            fn (string $dong) => str_contains($dong, 'không tự trả về kho'),
+        ));
+    }
+
+    public function test_xem_truoc_khi_rut_han_chot_ve_qua_khu(): void
+    {
+        $this->taoDon($this->chuyen, khach: 4);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $impact = $this->getJson(
+            '/api/admin/schedules/' . $this->chuyen->id . '/deadline-impact'
+            . '?booking_deadline=' . urlencode(now()->subHour()->toDateTimeString())
+        )->assertOk()->json('data.impact');
+
+        $this->assertSame('earlier', $impact['direction']);
+        $this->assertTrue($impact['will_be_past']);
+        $this->assertSame(1, $impact['manifest_bookings']);
+
+        $this->assertNotEmpty(array_filter(
+            $impact['warnings'],
+            fn (string $dong) => str_contains($dong, 'có hiệu lực ngay'),
+        ));
+
+        // Hai câu trấn an luôn phải có mặt, vì đây là hai điều người bấm hay lo nhất.
+        $this->assertNotEmpty(array_filter(
+            $impact['warnings'],
+            fn (string $dong) => str_contains($dong, 'không tính lại'),
+        ));
+        $this->assertNotEmpty(array_filter(
+            $impact['warnings'],
+            fn (string $dong) => str_contains($dong, 'Số tiền hoàn của mọi đơn không đổi'),
+        ));
+    }
+}

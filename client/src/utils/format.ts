@@ -36,6 +36,20 @@ export const formatDateTime = (d?: string | null) => {
   return `${formatDate(d)} ${time}`;
 };
 
+/**
+ * Đưa giá trị ngày giờ từ máy chủ về đúng dạng ô <input type="datetime-local">.
+ *
+ * Ô này chỉ nhận "YYYY-MM-DDTHH:mm", không nhận giây và không nhận dấu cách.
+ */
+export const toDateTimeLocalValue = (value?: string | null): string => {
+  if (!value) return "";
+
+  const normalized = value.trim().replace(" ", "T");
+  return normalized.length >= 16
+    ? normalized.slice(0, 16)
+    : `${normalized.slice(0, 10)}T00:00`;
+};
+
 export const getEndDate = (startDate: string, numberOfDays: number) => {
   const date = parseDate(startDate);
   date.setDate(date.getDate() + Math.max(0, numberOfDays - 1));

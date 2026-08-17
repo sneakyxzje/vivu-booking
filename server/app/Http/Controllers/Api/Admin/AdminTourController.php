@@ -12,6 +12,7 @@ use App\Models\TourSchedule;
 use App\Models\User;
 use App\Enums\ScheduleStatus;
 use App\Services\CloudinaryService;
+use App\Services\ScheduleDeadlineService;
 use App\Services\ScheduleLifecycleService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -26,6 +27,7 @@ class AdminTourController extends Controller
     public function __construct(
         protected CloudinaryService $cloudinaryService,
         protected ScheduleLifecycleService $scheduleLifecycle,
+        protected ScheduleDeadlineService $scheduleDeadline,
     ) {
     }
 
@@ -318,6 +320,8 @@ class AdminTourController extends Controller
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
             'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
             'schedules.*.booking_deadline' => ['nullable', 'date'],
+            // Lý do dời hạn chốt, không bắt buộc. Có thì được ghi vào nhật ký chuyến.
+            'schedules.*.booking_deadline_reason' => ['nullable', 'string', 'max:500'],
             'schedules.*.status' => ['nullable', 'string', 'in:open,closed'],
             'schedules.*.guide_id' => ['nullable', 'exists:users,id'],
         ]);
@@ -419,7 +423,31 @@ class AdminTourController extends Controller
                             : ($item['status'] ?? 'open');
                     }
 
+                    /*
+                     * Hạn chốt tách khỏi payload và đi qua service riêng.
+                     *
+                     * Dời hạn chốt không phải sửa một con số: nó đổi cùng lúc quyền bán chỗ, sửa
+                     * tên hành khách, chuyển chuyến, ghép chuyến, và việc chỗ có về kho khi khách
+                     * hủy hay không. Việc đó phải để lại vết. Ghi thẳng vào payload thì giá trị cũ
+                     * mất trước khi kịp ghi nhật ký, nên phải bỏ ra khỏi đây.
+                     */
+                    $hanChotMoi = $payload['booking_deadline'];
+                    unset($payload['booking_deadline']);
+
                     $schedule->update($payload);
+
+                    // Chuyến đã khóa vận hành thì bỏ qua, không ghi và cũng không báo lỗi: guard
+                    // ở trên đã chặn trường hợp người dùng cố ý gửi hạn chốt mới, phần còn lại
+                    // chỉ là giá trị mặc định mà form gửi kèm.
+                    if (! $schedule->isOperationallyLocked()) {
+                        $this->scheduleDeadline->change(
+                            $schedule,
+                            $hanChotMoi,
+                            $item['booking_deadline_reason'] ?? null,
+                            $request->user(),
+                        );
+                    }
+
                     $keptScheduleIds[] = $schedule->id;
                     continue;
                 }

@@ -210,6 +210,48 @@ export interface MergeCandidatesResponse {
   candidates: MergeCandidate[];
 }
 
+/**
+ * Tác động của việc dời hạn chốt danh sách, máy chủ tính sẵn.
+ *
+ * Hạn chốt là cái vạch chia trước và sau khi gửi danh sách cho nhà cung cấp. Kéo cái vạch ấy đổi
+ * cùng lúc quyền bán chỗ, sửa tên hành khách, chuyển chuyến, ghép chuyến, và việc chỗ có quay về
+ * kho khi khách hủy hay không - nên phải nói ra trước khi lưu.
+ */
+export interface DeadlineImpact {
+  current_deadline: string | null;
+  new_deadline: string | null;
+  /** Mốc thực sự có hiệu lực: hạn chốt riêng của chuyến, hoặc mốc mặc định của hệ thống. */
+  effective_current_deadline: string | null;
+  effective_new_deadline: string | null;
+  direction: "earlier" | "later" | "unchanged" | "unknown";
+  currently_past: boolean;
+  will_be_past: boolean;
+  /** Số đơn đã vào danh sách đoàn, tức nhóm mất quyền sửa tên và chuyển chuyến. */
+  manifest_bookings: number;
+  manifest_guests: number;
+  pending_bookings: number;
+  /** Ghế chết: đơn đã hủy nhưng chỗ chưa trả về kho. Dời hạn chốt không làm nó sống lại. */
+  held_seat_bookings: number;
+  held_seats: number;
+  /** Chuyến đang đóng bán và sẽ không tự mở lại sau khi gia hạn. */
+  needs_manual_reopen: boolean;
+  can_change: boolean;
+  blocked_reason: string | null;
+  warnings: string[];
+}
+
+export interface DeadlineImpactResponse {
+  schedule: {
+    id: number;
+    tour_title: string | null;
+    start_date: string;
+    status: string;
+    booked_people: number;
+    max_people: number;
+  };
+  impact: DeadlineImpact;
+}
+
 /** Một chuyến có thể chuyển đơn sang, kèm chênh lệch đã tính sẵn. */
 export interface TransferOption {
   schedule_id: number;
@@ -396,6 +438,34 @@ const adminService = {
       reason,
     });
     return response.data?.message ?? "Đã ghép chuyến.";
+  },
+
+  /**
+   * Tác động của hạn chốt mới, lấy trước khi lưu.
+   *
+   * Tính ở máy chủ chứ không ở trình duyệt: cùng một phép tính mà làm hai nơi thì sớm muộn con
+   * số hiện cho điều hành sẽ lệch với luật máy chủ thực sự áp.
+   */
+  getDeadlineImpact: async (
+    scheduleId: number,
+    deadline: string | null,
+  ): Promise<DeadlineImpactResponse | null> => {
+    const response = await api.get(`/admin/schedules/${scheduleId}/deadline-impact`, {
+      params: deadline ? { booking_deadline: deadline } : {},
+    });
+    return extractObject<DeadlineImpactResponse>(response);
+  },
+
+  updateScheduleDeadline: async (
+    scheduleId: number,
+    deadline: string | null,
+    reason: string,
+  ) => {
+    const response = await api.patch(`/admin/schedules/${scheduleId}/deadline`, {
+      booking_deadline: deadline,
+      reason: reason || null,
+    });
+    return response.data?.message ?? "Đã đổi hạn chốt danh sách.";
   },
 
   /**
