@@ -35,7 +35,8 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 | 17 | Hướng dẫn viên phù hợp cho từng tour | **Một phần** | Chỉ trả lời được "ai đang rảnh" (`ScheduleGuideService`). **Chưa có hồ sơ năng lực**: ngôn ngữ, tuyến quen, chuyên môn |
 | 18 | Hợp đồng, danh sách khách hàng | **Một phần** | Danh sách đoàn chia theo nhóm đã có. **Hợp đồng chưa có gì** |
 
-**Tổng kết: 13 điểm đã có mã chạy, 3 điểm còn một mảng thiếu, 2 điểm chưa làm.**
+**Tổng kết: 13 điểm đã có mã chạy, 4 điểm còn một mảng thiếu (11, 12, 17, 18), 1 điểm chưa
+làm (14).**
 
 ### Vì sao không cho sửa số khách (điểm 2)
 
@@ -60,9 +61,9 @@ cùng một mốc cho cả hai là khóa ngược.
 Nguyên nhân gốc ở mục 2 đã được xử lý: chuyến khởi hành nay có vòng đời đầy đủ, và mười một điểm
 đóng được đều nhờ nền đó.
 
-Hai điểm chưa làm (14 booking theo đoàn, 18 phần hợp đồng) đều thuộc Mốc 3 và đều là những mảng
-lớn có thể tách thành đồ án riêng. Đây là lựa chọn có cân nhắc, lý do ở
-[00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md).
+Điểm chưa làm (14 booking theo đoàn) và hai mảng còn thiếu lớn nhất (12 đặt cọc, 18 hợp đồng) đều
+thuộc Mốc 3, và đều là những mảng đủ lớn để tách thành đồ án riêng. Đây là lựa chọn có cân nhắc,
+lý do ở [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md).
 
 ### Ba chỗ nên nói thẳng nếu bị hỏi sâu
 
