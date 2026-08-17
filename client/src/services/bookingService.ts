@@ -119,9 +119,40 @@ export interface BookingPassengerRow extends PassengerInput {
   booking_id: number;
 }
 
+/**
+ * Đặt theo đoàn — gửi YÊU CẦU chứ không phải đặt chỗ.
+ *
+ * Khác hẳn form khách lẻ: không thấy giá ngay, không giữ chỗ mười phút, không trả tiền qua cổng.
+ * Điều hành sẽ gọi lại báo giá, thương lượng xong mới chốt thành đơn. Mã tra cứu trả về là chìa
+ * khóa theo dõi cả quá trình.
+ */
+export interface GroupBookingPayload {
+  tour_id: number;
+  tour_schedule_id: number;
+  contact_name: string;
+  contact_email: string;
+  contact_phone: string;
+  estimated_guests: number;
+  company_name?: string;
+  tax_code?: string;
+  invoice_address?: string;
+  note?: string;
+}
+
 const bookingService = {
   create: (payload: CreateBookingPayload) =>
     api.post<CreateBookingResponse>("/bookings", payload),
+
+  createGroupRequest: (payload: GroupBookingPayload) =>
+    api.post<{ success: boolean; message: string; data: { public_token: string } }>(
+      "/group-bookings",
+      payload,
+    ),
+
+  getGroupRequest: (publicToken: string) => api.get(`/group-bookings/${publicToken}`),
+
+  withdrawGroupRequest: (publicToken: string) =>
+    api.put(`/group-bookings/${publicToken}/withdraw`),
 
   getById: (publicToken: string) =>
     api.get<{ success: boolean; data: Booking }>(`/bookings/${publicToken}`),

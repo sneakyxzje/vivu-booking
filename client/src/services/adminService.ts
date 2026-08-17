@@ -1,6 +1,6 @@
 import api from "./api";
 import { extractArray, extractObject } from "@/utils/apiHelpers";
-import type { Booking, Guide, GuideDecline, GuideProfilePayload, GuideSuitability, Tour, TourSchedule, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
+import type { Booking, BookingLedger, GroupBookingRequestRow, Guide, GuideDecline, GuideProfilePayload, GuideSuitability, Tour, TourSchedule, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
 import { buildTourPayload } from "@/services/guideService";
 
 export interface PaginatedResponse<T> {
@@ -1080,6 +1080,58 @@ const adminService = {
   updateGuideProfile: async (guideId: number, payload: GuideProfilePayload) => {
     const response = await api.put(`/admin/guides/${guideId}/profile`, payload);
     return response.data?.message ?? "Đã lưu hồ sơ năng lực.";
+  },
+
+  // --- BOOKING THEO ĐOÀN (điểm 14) ---
+
+  getGroupBookings: async (page = 1, status?: string): Promise<PaginatedResponse<GroupBookingRequestRow> | null> => {
+    const query = status ? `&status=${status}` : "";
+    const response = await api.get(`/admin/group-bookings?page=${page}${query}`);
+    return extractObject<PaginatedResponse<GroupBookingRequestRow>>(response);
+  },
+
+  /** Báo giá hoặc báo giá lại. Giá là quyết định của điều hành, hệ thống chỉ ghi. */
+  quoteGroupBooking: async (
+    id: number,
+    payload: { price_per_person: number; free_slots: number; expires_at: string; note?: string },
+  ) => {
+    const response = await api.put(`/admin/group-bookings/${id}/quote`, payload);
+    return response.data?.message ?? "Đã lưu báo giá.";
+  },
+
+  /** Chốt: bước duy nhất chiếm chỗ thật. Số khách là con số hai bên vừa thống nhất. */
+  confirmGroupBooking: async (id: number, finalGuests: number) => {
+    const response = await api.put(`/admin/group-bookings/${id}/confirm`, {
+      final_guests: finalGuests,
+    });
+    return response.data?.message ?? "Đã chốt đoàn.";
+  },
+
+  rejectGroupBooking: async (id: number, reason: string) => {
+    const response = await api.put(`/admin/group-bookings/${id}/reject`, { reason });
+    return response.data?.message ?? "Đã từ chối yêu cầu.";
+  },
+
+  getBookingLedger: async (bookingId: number): Promise<BookingLedger | null> => {
+    const response = await api.get(`/admin/bookings/${bookingId}/payments`);
+    return extractObject<BookingLedger>(response);
+  },
+
+  recordBookingPayment: async (
+    bookingId: number,
+    payload: { kind: string; amount: number; method?: string; reference?: string; note?: string },
+  ) => {
+    const response = await api.post(`/admin/bookings/${bookingId}/payments`, payload);
+    return response.data?.message ?? "Đã ghi vào sổ giao dịch.";
+  },
+
+  /** Đoàn giảm số khách — đơn lẻ bị máy chủ từ chối, muốn đổi số người thì hủy đặt lại. */
+  reduceBookingGuests: async (bookingId: number, newGuests: number, reason?: string) => {
+    const response = await api.put(`/admin/bookings/${bookingId}/reduce-guests`, {
+      new_guests: newGuests,
+      reason,
+    });
+    return response.data?.message ?? "Đã giảm số khách.";
   },
 
   // --- EXTRA SERVICES (Dịch vụ phát sinh theo tour) ---

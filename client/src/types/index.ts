@@ -32,3 +32,12 @@ export type { Booking } from "./booking";
 
 export type { DiscountCode, DiscountCodePayload, DiscountCodeType } from "./discount";
 
+export type {
+  GroupRequestStatus,
+  GroupQuote,
+  GroupBookingRequestRow,
+  GroupBookingPublicView,
+  PaymentEntry,
+  BookingLedger,
+} from "./groupBooking";
+
