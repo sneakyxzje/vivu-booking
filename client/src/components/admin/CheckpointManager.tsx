@@ -113,9 +113,13 @@ export const CheckpointManager: React.FC<Props> = ({
         <div>
           <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">
             Danh sách điểm dừng / Điểm tham quan chi tiết
+            <span className="ml-1.5 normal-case font-medium text-gray-400 tracking-normal">
+              (không bắt buộc)
+            </span>
           </h4>
           <p className="text-xs text-gray-500 mt-0.5">
-            Cấu hình thứ tự điểm dừng, giờ dự kiến và yêu cầu ảnh check-in cho HDV.
+            Cấu hình thứ tự điểm dừng, giờ dự kiến và yêu cầu ảnh check-in cho HDV. Bỏ trống thì
+            hướng dẫn viên điểm danh một lần cho cả chặng.
           </p>
         </div>
         <button
@@ -132,7 +136,9 @@ export const CheckpointManager: React.FC<Props> = ({
 
       {checkpoints.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
-          <p className="text-xs text-gray-500">Chưa có điểm dừng nào được tạo cho chặng này.</p>
+          <p className="text-xs text-gray-500">
+            Chưa có điểm dừng nào cho chặng này, và để nguyên như vậy cũng được.
+          </p>
           <button
             type="button"
             onClick={handleAdd}

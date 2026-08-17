@@ -115,7 +115,10 @@ export const TourFormItinerarySection: React.FC<Props> = ({
           </div>
           <div className="mt-3">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <label className={`${labelClass} mb-0`}>Các chặng đi qua</label>
+              <label className={`${labelClass} mb-0`}>
+                Các chặng đi qua
+                <span className="ml-1.5 text-xs font-medium text-gray-400">(không bắt buộc)</span>
+              </label>
               <button
                 type="button"
                 onClick={() => onRoutePointAdd(index)}
@@ -125,6 +128,13 @@ export const TourFormItinerarySection: React.FC<Props> = ({
               </button>
             </div>
             <div className="space-y-2">
+              {item.route_points.length === 0 && (
+                <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 px-4 py-3 text-xs text-gray-500">
+                  Chưa khai chặng nào, và để nguyên như vậy cũng được. Tour đi thẳng thì không có
+                  chặng trung gian để ghi.
+                </p>
+              )}
+
               {item.route_points.map((point, pointIndex) => (
                 <div key={pointIndex} className="flex items-center gap-2">
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
@@ -138,16 +148,16 @@ export const TourFormItinerarySection: React.FC<Props> = ({
                     placeholder={`VD: ${["Hải Dương", "Uông Bí", "Bãi Cháy"][pointIndex] ?? "Điểm dừng tiếp theo"}`}
                     className={fieldClass}
                   />
-                  {item.route_points.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => onRoutePointRemove(index, pointIndex)}
-                      className="shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-red-500 hover:bg-red-50 hover:text-red-600"
-                      aria-label={`Xóa chặng ${pointIndex + 1}`}
-                    >
-                      Xóa
-                    </button>
-                  )}
+                  {/* Xóa được cả hàng cuối cùng. Trước đây nút này ẩn khi chỉ còn một hàng, nên
+                      một trường vốn không bắt buộc lại trông như không bỏ đi được. */}
+                  <button
+                    type="button"
+                    onClick={() => onRoutePointRemove(index, pointIndex)}
+                    className="shrink-0 rounded-lg px-2 py-2 text-xs font-semibold text-red-500 hover:bg-red-50 hover:text-red-600"
+                    aria-label={`Xóa chặng ${pointIndex + 1}`}
+                  >
+                    Xóa
+                  </button>
                 </div>
               ))}
             </div>
@@ -164,7 +174,10 @@ export const TourFormItinerarySection: React.FC<Props> = ({
             />
           </div>
           <div className="mt-3">
-            <label className={labelClass}>Điểm nghỉ chân</label>
+            <label className={labelClass}>
+              Điểm nghỉ chân
+              <span className="ml-1.5 text-xs font-medium text-gray-400">(không bắt buộc)</span>
+            </label>
             <textarea
               rows={2}
               value={item.rest_stops}
