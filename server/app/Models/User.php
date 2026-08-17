@@ -32,6 +32,24 @@ class User extends Authenticatable
         )->withTimestamps();
     }
 
+    /** Hồ sơ năng lực, chỉ hướng dẫn viên mới có. Chưa khai thì quan hệ này rỗng. */
+    public function guideProfile()
+    {
+        return $this->hasOne(GuideProfile::class);
+    }
+
+    /**
+     * Loại hình tour người này chuyên.
+     *
+     * Dùng lại đúng bảng `categories` của tour để so khớp được bằng phép giao tập hợp, thay vì
+     * một danh sách chữ tự do không bao giờ khớp chính tả với loại hình của tour.
+     */
+    public function guideCategories()
+    {
+        return $this->belongsToMany(Category::class, 'guide_categories', 'user_id', 'category_id')
+            ->withTimestamps();
+    }
+
     protected function casts(): array
     {
         return [
