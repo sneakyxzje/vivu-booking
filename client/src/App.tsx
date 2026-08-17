@@ -45,6 +45,8 @@ import BookingSuccess from "@/pages/BookingSuccess";
 import { Profile } from "@/pages/Profile";
 import InfoPage from "@/pages/InfoPage";
 import { BookingLookup } from "@/pages/BookingLookup";
+import GroupBooking from "@/pages/GroupBooking";
+import GroupBookingManagement from "@/pages/admin/GroupBookingManagement";
 
 const router = createBrowserRouter([
   // 1. NHÓM ROUTES CHO USER (Sử dụng Layout chung của User có Header/Footer)
@@ -78,6 +80,10 @@ const router = createBrowserRouter([
       {
         path: "/booking-lookup",
         element: <BookingLookup />,
+      },
+      {
+        path: "/group-booking",
+        element: <GroupBooking />,
       },
       {
         path: "/about",
@@ -233,6 +239,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/bookings",
             element: <BookingManagement />,
+          },
+          {
+            path: "/admin/group-bookings",
+            element: <GroupBookingManagement />,
           },
           {
             path: "/admin/discount-codes",

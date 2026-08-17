@@ -18,6 +18,7 @@ export const Header: React.FC = () => {
   };
   const navLinks = [
     { to: "/tours", label: "Tour trọn gói" },
+    { to: "/group-booking", label: "Đặt theo đoàn" },
     { to: "/booking-lookup", label: "Tra cứu đơn" },
   ];
 
