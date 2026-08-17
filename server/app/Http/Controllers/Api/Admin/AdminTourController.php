@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Models\GuideAssignmentDecline;
 use App\Models\TourImage;
 use App\Models\Service;
 use App\Models\Tour;
@@ -712,6 +713,31 @@ class AdminTourController extends Controller
                 ? 'Đã bỏ phân công hướng dẫn viên'
                 : sprintf('Đã phân công %d hướng dẫn viên cho chuyến này.', $soNguoi),
         );
+    }
+
+    /**
+     * Những ai đã từ chối chuyến này và vì sao.
+     *
+     * Từ chối gỡ người ra khỏi danh sách, nên nhìn vào chuyến chỉ thấy "chưa phân công" mà không
+     * biết đã có người trả lời rồi. Đọc lúc điều hành mở hộp thoại xếp người: đúng lúc cần biết
+     * ai vừa nói không, để khỏi gán lại đúng người ấy.
+     */
+    public function scheduleGuideDeclines(int $id): JsonResponse
+    {
+        $ds = GuideAssignmentDecline::query()
+            ->where('tour_schedule_id', $id)
+            ->with('guide:id,name')
+            ->latest('declined_at')
+            ->get()
+            ->map(fn (GuideAssignmentDecline $tc) => [
+                'id' => $tc->id,
+                'guide_id' => $tc->guide_id,
+                'guide_name' => $tc->guide?->name,
+                'reason' => $tc->reason,
+                'declined_at' => $tc->declined_at?->toDateTimeString(),
+            ]);
+
+        return $this->success($ds, 'Lấy danh sách từ chối thành công');
     }
 
     /** @param array<string, mixed> $item */
