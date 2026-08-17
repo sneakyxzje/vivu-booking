@@ -6,34 +6,55 @@ tài liệu mô tả chi tiết và mức ưu tiên.
 Ký hiệu hiện trạng:
 
 - `Chưa có`: chưa có gì trong mã nguồn.
-- `Một phần`: có nền tảng nhưng chưa đủ nghiệp vụ.
-- `Đã có`: đáp ứng được yêu cầu.
+- `Một phần`: chạy được nhưng còn thiếu một mảng nghiệp vụ, ghi rõ thiếu gì.
+- `Đã có`: có mã chạy thật và có kiểm thử tự động giữ.
+
+**Cập nhật ngày 17/08/2026.** Bảng dưới đây phản ánh mã nguồn tại thời điểm đó, không phải kế
+hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu được ngay.
 
 ## 1. Bảng đối chiếu tổng hợp
 
-| STT | Hội đồng nêu | Hiện trạng | Phương án | Chi tiết tại | Mốc | Khối lượng |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | Hỗ trợ chuyển tour | Chưa có | Chuyển chuyến và chuyển tour, khóa hai chuyến, xử lý chênh giá | [02 §4](02-luong-dat-tour.md) | 2 | Lớn |
-| 2 | Cập nhật lại booking, thực tế và trên web | Chưa có | Sửa số khách có kiểm soát, tạo phụ thu hoặc hoàn, nhật ký thay đổi | [02 §3.2](02-luong-dat-tour.md) | 2 | Trung bình |
-| 3 | Cập nhật thông tin khách hàng | Một phần | Bổ sung trường hành khách, phân quyền sửa theo mốc thời gian | [02 §3.1](02-luong-dat-tour.md) | 1 | Nhỏ |
-| 4 | Validate điểm danh | Một phần | Chín quy tắc kiểm tra, chặn ghi sai chuyến, sai thời điểm, thiếu ảnh | [04 §5.3](04-luong-dieu-hanh.md) | 1 | Trung bình |
-| 5 | Điểm danh từng điểm đến từng ngày | Một phần | Thêm bảng điểm dừng, điểm danh tới từng hành khách | [04 §5.2](04-luong-dieu-hanh.md) | 1 | Trung bình |
-| 6 | Ghi chú khi khách vắng mặt | Chưa có | Năm trạng thái điểm danh, ghi chú bắt buộc, hệ quả theo lý do | [04 §5.4](04-luong-dieu-hanh.md) | 1 | Nhỏ |
-| 7 | Thời gian hủy tour phải trước bao lâu | Chưa có | Bảng phí hủy sáu mốc, mô hình hóa thành bảng dữ liệu | [03 §2](03-luong-huy-va-hoan-tien.md) | 1 | Trung bình |
-| 8 | Hủy sát giờ có cộng lại slot không | Chưa có | Có điều kiện theo hạn chốt danh sách, cột `seats_released`, mở lại thủ công | [03 §3](03-luong-huy-va-hoan-tien.md) | 1 | Nhỏ |
-| 9 | Tour đang chạy không được hủy | Chưa có | Chặn ở tầng dịch vụ cho cả bốn lối vào, thay bằng ghi nhận vắng mặt hoặc rời đoàn | [03 §4](03-luong-huy-va-hoan-tien.md) | 1 | Nhỏ |
-| 10 | Ai được hủy, ai xác nhận | Một phần | Ma trận phân quyền, luồng yêu cầu hủy cho đơn đã thanh toán | [03 §5](03-luong-huy-va-hoan-tien.md) | 1 | Trung bình |
-| 11 | Thay hướng dẫn viên giữa chừng | Chưa có | Bảng phân công theo giai đoạn, bàn giao, chuyển quyền điểm danh | [04 §4.4](04-luong-dieu-hanh.md) | 2 | Trung bình |
-| 12 | Chính sách hoàn tiền hoặc đặt cọc | Chưa có | Đặt cọc theo phần trăm, sổ giao dịch đơn hàng, hoàn tiền có đối soát | [02 §2.2](02-luong-dat-tour.md), [03 §6](03-luong-huy-va-hoan-tien.md) | 3 | Lớn |
-| 13 | Chi phí phát sinh khi tour đã chạy | Chưa có | Bảng sự cố, bảng phụ thu, nguyên tắc phân bổ chi phí bất khả kháng | [04 §6](04-luong-dieu-hanh.md) | 3 | Lớn |
-| 14 | Booking theo đoàn | Chưa có | Loại đơn đoàn, báo giá, bậc giá theo số lượng, nhập danh sách từ tệp | [05 §1](05-doan-hop-dong-ho-so.md) | 3 | Lớn |
-| 15 | Xóa tour khi đã có người thanh toán | Một phần | Không xóa cứng, hủy chuyến ba bước bắt buộc có phương án cho từng đơn | [04 §3](04-luong-dieu-hanh.md) | 2 | Trung bình |
-| 16 | Ghép tour | Chưa có | Ghép chuyến cùng tour, phân biệt với mô hình tour ghép và tour riêng | [04 §2](04-luong-dieu-hanh.md) | 2 | Trung bình |
-| 17 | Hướng dẫn viên phù hợp cho từng tour | Chưa có | Hồ sơ năng lực, bộ tiêu chí gợi ý, kiểm tra trùng lịch | [04 §4.1-4.3](04-luong-dieu-hanh.md) | 2 | Trung bình |
-| 18 | Hợp đồng, danh sách khách hàng | Chưa có | Hợp đồng PDF, danh sách đoàn, danh sách phòng, hồ sơ bàn giao | [05 §2-3](05-doan-hop-dong-ho-so.md) | 3 | Lớn |
+| STT | Hội đồng nêu | Hiện trạng | Luật nằm ở đâu |
+| --- | --- | --- | --- |
+| 1 | Hỗ trợ chuyển tour | **Đã có** | `BookingTransferService` — cùng tour và khác tour, khóa hai chuyến theo id tăng dần, lần hai thu phí, chặn sau hạn chốt |
+| 2 | Cập nhật lại booking | **Một phần** | Sửa hành khách, xác nhận, hủy, mở lại, chuyển chuyến đều có. **Thiếu sửa số khách** (thêm bớt người kèm chênh tiền) |
+| 3 | Cập nhật thông tin khách hàng | **Đã có** | `PassengerPolicyService` — quyền sửa theo thời điểm: trước hạn chốt khách tự sửa, sau đó chỉ điều hành, khởi hành rồi thì khóa |
+| 4 | Validate điểm danh | **Đã có** | `AttendanceService` — chín quy tắc. Quy tắc 8 (điểm dừng bắt buộc ảnh) đã viết nhưng chưa có nút gọi |
+| 5 | Điểm danh từng điểm đến từng ngày | **Đã có** | `passenger_checkins` theo từng hành khách, từng điểm dừng |
+| 6 | Ghi chú khi khách vắng mặt | **Đã có** | Bắt buộc ghi chú tối thiểu 10 ký tự khi trạng thái khác có mặt |
+| 7 | Thời gian hủy tour phải trước bao lâu | **Đã có** | `CancellationPolicy` + `CancellationPolicyService` — bậc thang lưu thành dữ liệu, admin sửa được, đơn chép chính sách lúc đặt nên không hồi tố |
+| 8 | Hủy sát giờ có cộng lại slot không | **Đã có** | `BookingHoldService::shouldReleaseSeats` — ghế chết. Câu trả lời là **không**, và có nút mở lại thủ công |
+| 9 | Tour đang chạy không được hủy | **Đã có** | `BookingPolicyService::assertCancellable` ở tầng dịch vụ, áp cho cả bốn lối vào |
+| 10 | Ai được hủy, ai xác nhận | **Đã có** | `BookingChangeRequestService` — khách xin, điều hành duyệt; kèm nhật ký ghi ai làm gì |
+| 11 | Thay hướng dẫn viên giữa chừng | **Một phần** | Đổi được, kể cả khi chuyến đang chạy. **Thiếu biên bản bàn giao**: ai giao cho ai, lúc nào, tình trạng đoàn ra sao |
+| 12 | Chính sách hoàn tiền hoặc đặt cọc | **Một phần** | Hoàn tiền xong. **Đặt cọc chưa có** — `paidAmount()` vẫn giả định trả một lần |
+| 13 | Chi phí phát sinh khi tour đã chạy | Chưa có | [04 §6](04-luong-dieu-hanh.md) |
+| 14 | Booking theo đoàn | Chưa có | [05 §1](05-doan-hop-dong-ho-so.md) |
+| 15 | Xóa tour khi đã có người thanh toán | **Đã có** | `ScheduleCancellationService` — ba bước bắt buộc, mỗi đơn đã trả tiền phải có phương án, hoàn 100% hoặc chuyển miễn phí |
+| 16 | Ghép tour | **Đã có** | `ScheduleMergeService` — cùng tour, lệch không quá 2 ngày, cả hai chuyến phải còn trước hạn chốt |
+| 17 | Hướng dẫn viên phù hợp cho từng tour | **Một phần** | Chỉ trả lời được "ai đang rảnh" (`ScheduleGuideService`). **Chưa có hồ sơ năng lực**: ngôn ngữ, tuyến quen, chuyên môn |
+| 18 | Hợp đồng, danh sách khách hàng | **Một phần** | Danh sách đoàn chia theo nhóm đã có. **Hợp đồng chưa có gì** |
 
-Tổng kết: 13 điểm chưa có, 5 điểm mới ở mức nền tảng. Không có điểm nào đã hoàn chỉnh.
-Điều này bình thường, vì toàn bộ danh sách thuộc tầng điều hành mà đồ án chưa chạm tới.
+**Tổng kết: 11 điểm đã có mã chạy, 4 điểm còn một mảng thiếu, 3 điểm chưa làm.**
+
+Nguyên nhân gốc ở mục 2 đã được xử lý: chuyến khởi hành nay có vòng đời đầy đủ, và mười một điểm
+đóng được đều nhờ nền đó.
+
+Ba điểm chưa làm (13, 14, 18 phần hợp đồng) đều thuộc Mốc 3 và đều là những mảng lớn có thể tách
+thành đồ án riêng. Đây là lựa chọn có cân nhắc, lý do ở [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md).
+
+### Ba chỗ nên nói thẳng nếu bị hỏi sâu
+
+**Điểm 11.** Đổi hướng dẫn viên giữa chừng làm được, nhưng hệ thống không ghi lại việc bàn giao.
+Người mới không nhận được tình trạng đoàn tính tới thời điểm đó, và nhật ký chuyến chưa ghi việc
+đổi người.
+
+**Điểm 17.** Hệ thống trả lời được *"ai đang rảnh"*, không trả lời được *"ai phù hợp"*. Không có
+dữ liệu ngôn ngữ, tuyến chuyên, chứng chỉ. Chỉ có đúng một luật là không trùng lịch.
+
+**Điểm 4.** Quy tắc "điểm dừng yêu cầu ảnh thì phải có ảnh mới chốt được" đã viết trong
+`AttendanceService::assertCheckpointCompletable` nhưng chưa có thao tác nào gọi tới, vì chưa có
+chức năng chốt điểm dừng. Luật có, đường dẫn tới luật thì chưa.
 
 ## 2. Nguyên nhân gốc
 
@@ -55,10 +76,24 @@ các điểm còn lại chỉ là xây tiếp lên trên, không phải sửa l�
 Khi trình bày, nên nói đúng như vậy: nhận diện được nguyên nhân chung thay vì liệt kê
 mười tám việc rời rạc cho thấy đã hiểu bài toán.
 
+**Phần này đã làm xong.** Bốn thứ thiếu ở bảng trên nay đều có, và mười một điểm đóng được đều
+dựa lên chúng. Dự đoán "làm xong nền thì phần còn lại chỉ là xây tiếp" đã đúng trên thực tế: không
+có nhóm nào phải quay lại sửa lược đồ dữ liệu của chuyến.
+
+Một hệ quả ngoài dự tính, đáng nói vì nó cho thấy nền đúng: `booking_deadline` ban đầu chỉ định
+dùng cho việc ngừng bán, nhưng cuối cùng điều khiển **năm** quy tắc thuộc năm nhóm khác nhau — bán
+chỗ, trả chỗ, sửa tên khách, chuyển chuyến, ghép chuyến. Chi tiết ở
+[16 - Dời hạn chốt danh sách](16-sua-han-chot.md).
+
 ## 3. Câu trả lời ngắn cho từng câu hỏi
 
 Phần này để dùng trực tiếp khi bảo vệ. Mỗi câu trả lời gói trong vài câu, có lý do,
 không lan man.
+
+**Đọc kèm bảng ở mục 1.** Các câu dưới đây viết từ lúc còn là thiết kế, nên đọc như mô tả nghiệp
+vụ mong muốn. Với 11 điểm đã đánh dấu *Đã có*, mô tả này khớp với mã đang chạy. Với 4 điểm *Một
+phần*, phần thiếu đã ghi rõ ở bảng — đừng trình bày như đã có. Ba điểm chưa làm thì nói thẳng là
+thiết kế, chưa cài đặt.
 
 **1. Hỗ trợ chuyển tour.**
 Hệ thống phân biệt ba tình huống: đổi ngày trong cùng tour, đổi sang tour khác, và chuyển do
@@ -199,8 +234,24 @@ sâu hơn mức thường thấy ở đồ án.
 | Nhật ký giao dịch thanh toán phục vụ đối soát | Đã triển khai |
 | Xử lý múi giờ Việt Nam trong khi ứng dụng chạy UTC | Đã triển khai |
 | Tra cứu đơn cho khách vãng lai bằng mã ngẫu nhiên thay vì số thứ tự | Đã triển khai |
-| Bốn mươi mốt kiểm thử tự động, chạy trong quy trình tích hợp liên tục | Đã triển khai |
+| **401 kiểm thử tự động**, chạy trong quy trình tích hợp liên tục | Đã triển khai |
+| Khóa hai chuyến theo id tăng dần khi thao tác chạm hai chuyến, để tránh khóa chết | Chuyển chuyến và ghép chuyến |
+| Nhật ký thay đổi cho cả đơn hàng lẫn chuyến, gộp thành một dòng thời gian tra cứu được | `/admin/audit-logs`, lọc riêng được các lần chạm tiền |
+| Xem trước hậu quả trước khi bấm ở mọi thao tác nặng | Hủy đơn, hủy chuyến, ghép chuyến, chuyển chuyến, dời hạn chốt |
 
-Cách trình bày hiệu quả: thừa nhận thẳng phần thiếu, chỉ ra nguyên nhân chung là chưa mô hình hóa
-vòng đời chuyến khởi hành, trình bày lộ trình ba mốc, rồi nêu những phần đã xử lý sâu như khóa dòng
-và giữ chỗ nhiều lớp. Hội đồng đánh giá cao việc hiểu vì sao thiếu hơn là việc liệt kê đủ tính năng.
+## 5. Cách trình bày
+
+Thừa nhận thẳng ba điểm chưa làm và bốn phần còn thiếu, chỉ ra nguyên nhân chung là chưa mô hình
+hóa vòng đời chuyến khởi hành, nói rõ nền đó nay đã dựng xong và mười một điểm đóng được là nhờ nó.
+
+Hai điều nên nói mà thường bị bỏ qua:
+
+**Cùng một mốc điều khiển năm luật.** `booking_deadline` không phải năm chỗ kiểm tra riêng lẻ mà
+là một sự thật nghiệp vụ — ngày gửi danh sách cho nhà cung cấp — được năm nhóm cùng đọc. Đó là
+khác biệt giữa hiểu bài toán và ghép tính năng.
+
+**Luật nằm ở tầng dịch vụ, không phải ở giao diện.** Mỗi nghiệp vụ chạm tiền hoặc chạm chỗ đều có
+đúng một đường ghi. Vài lỗi trong quá trình làm đều cùng một khuôn: luật có ở một đường ghi mà
+thiếu ở đường kia. Mỗi lần phát hiện đều khóa lại bằng một bài kiểm thử giữ cả hai đường.
+
+Hội đồng đánh giá cao việc hiểu vì sao thiếu hơn là việc liệt kê đủ tính năng.
