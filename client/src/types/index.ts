@@ -24,6 +24,9 @@ export type {
   GuideBooking,
   BookingStatus,
   Guide,
+  GuideProfile,
+  GuideProfilePayload,
+  GuideSuitability,
 } from "./guide";
 export type { Booking } from "./booking";
 

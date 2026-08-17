@@ -25,6 +25,26 @@ export interface GuideBooking {
   created_at: string;
 }
 
+/**
+ * Hồ sơ năng lực — trả lời "ai phù hợp", khác với "ai đang rảnh".
+ *
+ * Mọi trường đều để trống được. Riêng `card_expiry` là thứ duy nhất trong đây **chặn** được phân
+ * công, và chỉ khi có giá trị: chưa khai không phải là khai sai.
+ */
+export interface GuideProfile {
+  card_number: string | null;
+  card_expiry: string | null;
+  languages: string[] | null;
+  regions: string[] | null;
+  max_group_size: number | null;
+  note: string | null;
+}
+
+export interface GuideProfilePayload extends GuideProfile {
+  /** Loại hình tour người này chuyên, tham chiếu danh mục thật của tour. */
+  category_ids: number[];
+}
+
 export interface Guide {
   id: number;
   name: string;
@@ -35,6 +55,28 @@ export interface Guide {
   status: "active" | "inactive" | "blocked";
   assigned_tours_count: number;
   created_at: string;
+  guide_profile?: GuideProfile | null;
+  guide_categories?: { id: number; name: string }[];
+}
+
+/**
+ * Một hướng dẫn viên đã được chấm cho một chuyến cụ thể.
+ *
+ * `blocked_reason` là câu **máy chủ sẽ từ chối bằng đúng câu đó** nếu vẫn cố lưu — không phải một
+ * lời khuyên. Còn `warnings` thì ngược lại: nói ra rồi để điều hành quyết.
+ */
+export interface GuideSuitability {
+  id: number;
+  name: string;
+  phone: string | null;
+  assigned: boolean;
+  blocked_reason: string | null;
+  score: number;
+  matches: string[];
+  warnings: string[];
+  workload: number;
+  languages: string[];
+  card_expiry: string | null;
 }
 
 /*
