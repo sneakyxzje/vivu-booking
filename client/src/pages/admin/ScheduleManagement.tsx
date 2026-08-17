@@ -19,7 +19,7 @@ import type {
   ScheduleManifestResponse,
   MergeCandidatesResponse,
 } from "@/services/adminService";
-import type { Tour, Guide, ExtendedSchedule, GuideDecline } from "@/types";
+import type { Tour, Guide, ExtendedSchedule, GuideDecline, GuideSuitability } from "@/types";
 import { Toast } from "@/components/admin/CustomAlert";
 import { formatDateTime, formatPrice, getEndDate, toDateTimeLocalValue } from "@/utils/format";
 import { statusLabel, statusClasses } from "@/utils/schedule";
@@ -40,6 +40,8 @@ export default function ScheduleManagement() {
   const [pendingGuideIds, setPendingGuideIds] = useState<number[]>([]);
   // Ai đã từ chối chuyến đang mở hộp thoại, kèm lý do.
   const [declines, setDeclines] = useState<GuideDecline[]>([]);
+  // Cả đội ngũ đã chấm cho chuyến đang mở: ai hợp, ai bị chặn, và vì sao.
+  const [suitability, setSuitability] = useState<GuideSuitability[]>([]);
 
   // Bàn giao giữa chừng. Tách khỏi phân công vì bắt buộc kèm lý do và tình trạng đoàn.
   const [handoverScheduleId, setHandoverScheduleId] = useState<number | null>(null);
@@ -235,17 +237,26 @@ export default function ScheduleManagement() {
     setGuideDialogScheduleId(schedule.id);
     setPendingGuideIds((schedule.guides ?? []).map((guide) => guide.id));
     setDeclines([]);
+    setSuitability([]);
 
     /*
-     * Đọc luôn danh sách đã từ chối.
+     * Hai thứ đọc kèm, đều đúng lúc người ta đang chọn:
      *
-     * Từ chối gỡ người ra khỏi chuyến, nên nhìn bảng chỉ thấy thiếu người chứ không thấy đã có
-     * ai trả lời. Đúng lúc đang chọn người thay là lúc cần biết ai vừa nói không.
+     *   - Ai đã từ chối chuyến này. Từ chối gỡ người ra, nên nhìn bảng chỉ thấy thiếu người chứ
+     *     không thấy đã có ai trả lời.
+     *   - Chấm mức phù hợp. Đây là chỗ thay danh sách tên phẳng bằng danh sách biết ai hợp, ai
+     *     bận, ai thẻ hết hạn.
      */
     try {
-      setDeclines(await adminService.getScheduleGuideDeclines(schedule.id));
+      const [daTuChoi, chamDiem] = await Promise.all([
+        adminService.getScheduleGuideDeclines(schedule.id),
+        adminService.getScheduleGuideSuitability(schedule.id),
+      ]);
+
+      setDeclines(daTuChoi);
+      setSuitability(chamDiem);
     } catch (err) {
-      console.error("Lỗi tải danh sách từ chối:", err);
+      console.error("Lỗi tải dữ liệu chọn hướng dẫn viên:", err);
     }
   };
 
@@ -1143,33 +1154,98 @@ export default function ScheduleManagement() {
                 Chọn được nhiều người. Đoàn đông thì cần thêm người dẫn, bao nhiêu là đủ do bạn
                 quyết — hệ thống không tính hộ theo số khách.
               </p>
+              <Link
+                to="/admin/guides"
+                className="mt-1 inline-block text-[11px] font-semibold text-primary-600 hover:underline"
+              >
+                Sửa hồ sơ năng lực hướng dẫn viên →
+              </Link>
             </div>
 
-            <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2">
-              {guides.length === 0 && (
-                <p className="px-1 py-2 text-xs text-gray-500">Chưa có hướng dẫn viên nào.</p>
+            {/*
+              Danh sách đã chấm, không còn là danh sách tên phẳng.
+
+              Ba mức, và khác nhau thật chứ không chỉ khác màu:
+                - Bị chặn: ô chọn khóa lại, kèm đúng câu máy chủ sẽ từ chối. Vẫn hiện, vì giấu đi
+                  thì người ta đi tìm mãi một cái tên đáng lẽ phải có.
+                - Cảnh báo: nói ra rồi thôi, vẫn bấm được. Quá sức dẫn hay đang gánh nhiều chuyến
+                  là chuyện điều hành cân, không phải chuyện hệ thống cấm.
+                - Điểm hợp: hiện thành chữ ("Chuyên Biển đảo", "Quen tuyến Hạ Long") chứ không
+                  phải một con số — xếp hạng mà không nói vì sao thì hoặc bị tin mù, hoặc bị bỏ qua.
+            */}
+            <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2">
+              {suitability.length === 0 && (
+                <p className="px-1 py-2 text-xs text-gray-500">Đang tải danh sách...</p>
               )}
 
-              {guides.map((guide) => (
-                <label
-                  key={guide.id}
-                  className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1.5 text-sm hover:bg-gray-50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={pendingGuideIds.includes(guide.id)}
-                    onChange={() =>
-                      setPendingGuideIds((truoc) =>
-                        truoc.includes(guide.id)
-                          ? truoc.filter((id) => id !== guide.id)
-                          : [...truoc, guide.id],
-                      )
-                    }
-                    className="h-4 w-4 rounded border-gray-300 text-primary-600"
-                  />
-                  <span className="text-gray-800">{guide.name}</span>
-                </label>
-              ))}
+              {suitability.map((ung) => {
+                const biChan = ung.blocked_reason !== null;
+                const daChon = pendingGuideIds.includes(ung.id);
+
+                return (
+                  <label
+                    key={ung.id}
+                    className={`flex gap-2 rounded px-1.5 py-1.5 text-sm ${
+                      biChan
+                        ? "cursor-not-allowed bg-gray-50 opacity-70"
+                        : "cursor-pointer hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={daChon}
+                      disabled={biChan}
+                      onChange={() =>
+                        setPendingGuideIds((truoc) =>
+                          truoc.includes(ung.id)
+                            ? truoc.filter((id) => id !== ung.id)
+                            : [...truoc, ung.id],
+                        )
+                      }
+                      className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-primary-600"
+                    />
+
+                    <span className="min-w-0 flex-1 space-y-0.5">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-medium text-gray-800">{ung.name}</span>
+
+                        {ung.matches.map((hop) => (
+                          <span
+                            key={hop}
+                            className="rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700"
+                          >
+                            {hop}
+                          </span>
+                        ))}
+
+                        {ung.workload > 0 && (
+                          <span className="text-[11px] text-gray-400">
+                            {ung.workload} chuyến quanh ngày này
+                          </span>
+                        )}
+                      </span>
+
+                      {biChan && (
+                        <span className="block text-[11px] font-medium text-rose-700">
+                          {ung.blocked_reason}
+                        </span>
+                      )}
+
+                      {ung.warnings.map((canBiet) => (
+                        <span key={canBiet} className="block text-[11px] text-amber-700">
+                          {canBiet}
+                        </span>
+                      ))}
+
+                      {ung.languages.length > 0 && (
+                        <span className="block text-[11px] text-gray-400">
+                          {ung.languages.join(", ")}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
 
             {/*
@@ -1194,8 +1270,9 @@ export default function ScheduleManagement() {
             )}
 
             <p className="text-[11px] text-gray-400">
-              Người đang bận một chuyến khác trùng ngày sẽ bị máy chủ từ chối, và khi đó cả lần
-              phân công này không được lưu.
+              Xếp theo mức hợp với tour: chuyên đúng loại hình và quen tuyến lên trước, đang gánh
+              nhiều chuyến thì lùi xuống. Chỉ hai thứ thật sự chặn — trùng lịch và thẻ hành nghề
+              hết hạn giữa chuyến. Phần còn lại chỉ là gợi ý, bạn vẫn quyết.
             </p>
 
             <div className="flex justify-end gap-2">
