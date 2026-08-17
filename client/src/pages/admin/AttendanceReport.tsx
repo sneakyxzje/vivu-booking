@@ -332,10 +332,16 @@ export default function AttendanceReport() {
                           {formatDateTime(sch.start_date)}
                         </td>
                         <td className="py-4 px-4 whitespace-nowrap text-sm">
-                          {sch.guide ? (
-                            <div>
-                              <span className="font-bold text-gray-900">{sch.guide.name}</span>
-                              <p className="text-xs text-gray-400">{sch.guide.phone || "Không có SĐT"}</p>
+                          {sch.guides.length > 0 ? (
+                            <div className="space-y-1">
+                              {sch.guides.map((guide) => (
+                                <div key={guide.id}>
+                                  <span className="font-bold text-gray-900">{guide.name}</span>
+                                  <p className="text-xs text-gray-400">
+                                    {guide.phone || "Không có SĐT"}
+                                  </p>
+                                </div>
+                              ))}
                             </div>
                           ) : (
                             <span className="text-rose-600 font-semibold italic">Chưa phân công</span>

@@ -28,6 +28,7 @@ thiếu so với tầng **bán tour** đã có.
 | [14 - Nhóm A, B, C, D](14-nhom-a-va-d.md) | Bốn nhóm đã xong: vòng đời chuyến, chặn hủy khi đã lăn bánh, chính sách phí hủy, quy tắc trả chỗ. Kèm câu trả lời sẵn cho hội đồng |
 | [15 - Verify nhóm A đến H](15-verify-a-den-h.md) | Đối chiếu với mã gốc: mỗi nhóm đã thêm gì, luật nằm ở dòng nào, lệnh nào chứng minh, thử tay thế nào |
 | [16 - Dời hạn chốt danh sách](16-sua-han-chot.md) | Quản trị viên đổi hạn chốt được không, kéo mốc sang trái sang phải thì gì xảy ra, vì sao quá khứ không bị tính lại, và những phương án đã cân nhắc rồi bỏ |
+| [17 - Nhiều hướng dẫn viên](17-nhieu-huong-dan-vien.md) | Một chuyến nhiều người dẫn, vì sao không đặt ngưỡng khách trên mỗi người, vì sao bỏ hẳn cột cũ. Kèm danh sách đoàn chia theo nhóm và ba trường lịch trình không bắt buộc |
 
 ## Tóm tắt hiện trạng
 

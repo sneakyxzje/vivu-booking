@@ -50,13 +50,14 @@ class AdminAttendanceReportTest extends TestCase
 
         $this->schedule = TourSchedule::create([
             'tour_id'      => $this->tour->id,
-            'guide_id'     => $guide->id,
             'status'       => ScheduleStatus::Completed->value,
             'start_date'   => now()->subDays(3),
             'end_date'     => now()->subDay(),
             'max_people'   => 20,
             'booked_people' => 2,
         ]);
+
+        $this->schedule->guides()->sync([$guide->id]);
 
         $this->itinerary = $this->tour->itineraries()->create([
             'day_number' => 1,
@@ -87,7 +88,7 @@ class AdminAttendanceReportTest extends TestCase
                 'success',
                 'message',
                 'data' => [
-                    'schedule' => ['id', 'start_date', 'end_date', 'status', 'tour', 'guide'],
+                    'schedule' => ['id', 'start_date', 'end_date', 'status', 'tour', 'guides'],
                     'summary'  => [
                         'total_passengers', 'fully_present', 'had_absent',
                         'presence_rate', 'late_entry_count', 'missing_photo_checkpoints',
@@ -358,7 +359,7 @@ class AdminAttendanceReportTest extends TestCase
             'tour_schedule_id'        => $this->schedule->id,
             'tour_itinerary_id'       => $this->itinerary->id,
             'itinerary_checkpoint_id' => $this->checkpoint->id,
-            'guide_id'                => $this->schedule->guide_id,
+            'guide_id'                => $this->schedule->guides->first()?->id,
             'image_path'              => 'https://example.com/anh.jpg',
             'captured_at'             => now(),
         ]);

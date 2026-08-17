@@ -81,7 +81,7 @@ export interface AttendanceScheduleRow {
   tour_id: number | null;
   tour_title: string;
   number_of_days: number;
-  guide: { id: number; name: string; phone?: string | null } | null;
+  guides: { id: number; name: string; phone?: string | null }[];
   present_count: number;
   absent_count: number;
   total_checkins: number;
@@ -126,21 +126,50 @@ export interface AttendanceReportData {
   absence_logs: AttendanceAbsenceLog[];
 }
 
-/** Một đơn còn khai thiếu thông tin hành khách. */
-export interface IncompleteBookingRow {
+/** Một hành khách đã khai trong nhóm. */
+export interface ManifestPassenger {
+  id: number;
+  name: string;
+  type: "adult" | "child" | "infant";
+  gender: string | null;
+  date_of_birth: string | null;
+  identity_number: string | null;
+  id_type: string | null;
+  nationality: string | null;
+  phone: string | null;
+  /** Ăn chay, dị ứng, cần hỗ trợ di chuyển: thứ nhà cung cấp phải biết trước. */
+  special_request: string | null;
+  /** Người hướng dẫn viên gọi khi cần liên lạc với nhóm này. */
+  is_contact: boolean;
+  note: string | null;
+}
+
+/**
+ * Một nhóm trong đoàn.
+ *
+ * Nhóm chính là một đơn đặt: thường có một người đứng ra đăng ký cho cả nhà hoặc cả phòng ban,
+ * nên customer_name là người đặt, còn passengers mới là người đi.
+ */
+export interface ManifestGroup {
   booking_id: number;
   customer_name: string;
   customer_phone: string | null;
+  customer_email: string | null;
+  status: string;
   guests: number;
   declared: number;
   missing: number;
   warnings: string[];
+  passengers: ManifestPassenger[];
 }
 
-export interface IncompletePassengersResponse {
-  bookings: IncompleteBookingRow[];
+export interface ScheduleManifestResponse {
+  groups: ManifestGroup[];
+  total_groups: number;
+  total_guests: number;
+  total_declared: number;
   total_missing: number;
-  /** Danh sách đoàn chỉ xuất được khi mọi đơn đã khai đủ người. */
+  /** Danh sách đoàn chỉ gửi nhà cung cấp được khi mọi nhóm đã khai đủ người. */
   can_export_manifest: boolean;
 }
 
@@ -434,11 +463,11 @@ const adminService = {
    *
    * Điều hành cần biết trước khi gửi danh sách đoàn cho nhà cung cấp, thay vì mở từng đơn đếm.
    */
-  getIncompletePassengers: async (
+  getScheduleManifest: async (
     scheduleId: number,
-  ): Promise<IncompletePassengersResponse | null> => {
-    const response = await api.get(`/admin/schedules/${scheduleId}/incomplete-passengers`);
-    return extractObject<IncompletePassengersResponse>(response);
+  ): Promise<ScheduleManifestResponse | null> => {
+    const response = await api.get(`/admin/schedules/${scheduleId}/manifest`);
+    return extractObject<ScheduleManifestResponse>(response);
   },
 
   // --- YÊU CẦU THAY ĐỔI CỦA KHÁCH ---
@@ -688,10 +717,15 @@ const adminService = {
     return response.data?.data ?? null;
   },
 
-  // --- ASSIGN GUIDE TO SCHEDULE ---
-  assignGuideToSchedule: async (scheduleId: number, guideId: number | null) => {
+  /**
+   * Đặt lại danh sách hướng dẫn viên của một chuyến.
+   *
+   * Nhận cả danh sách vì đoàn đông thì cần nhiều người dẫn. Mảng rỗng nghĩa là bỏ hết phân công.
+   * Máy chủ được ăn cả ngã về không: một người vướng lịch thì cả lần phân công bị từ chối.
+   */
+  assignGuidesToSchedule: async (scheduleId: number, guideIds: number[]) => {
     const response = await api.put(`/admin/tour-schedules/${scheduleId}/assign-guide`, {
-      guide_id: guideId,
+      guide_ids: guideIds,
     });
     return response.data?.success !== false;
   },

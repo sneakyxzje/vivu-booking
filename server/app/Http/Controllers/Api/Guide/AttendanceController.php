@@ -398,9 +398,10 @@ public function uploadPhoto(
         Request $request,
         int $scheduleId
     ): ?TourSchedule {
+        // Chuyến có thể được phân công nhiều hướng dẫn viên; ai trong số đó cũng vào được.
         return TourSchedule::query()
             ->with('tour:id,title,number_of_days')
-            ->where('guide_id', $request->user()->id)
+            ->whereHas('guides', fn ($query) => $query->whereKey($request->user()->id))
             ->find($scheduleId);
     }
 

@@ -18,7 +18,6 @@ class TourScheduleFactory extends Factory
 
         return [
             'tour_id' => Tour::factory(),
-            'guide_id' => null,
             'start_date' => $startDate,
             'end_date' => $startDate->copy()->addDays(2),
             'max_people' => 20,

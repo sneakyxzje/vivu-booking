@@ -42,7 +42,7 @@ const emptyForm: TourFormState = {
       title: "",
       start_point: "",
       end_point: "",
-      route_points: [""],
+      route_points: [],
       rest_stops: "",
       content: "",
     } as ItineraryFormItem,
@@ -54,7 +54,7 @@ const emptyForm: TourFormState = {
       min_people: "5",
       booking_deadline: "",
       status: "open",
-      guide_id: "",
+      guide_ids: [],
     } as ScheduleFormItem,
   ],
   category_ids: [] as number[],
@@ -66,14 +66,17 @@ const fieldClass =
 
 const labelClass = "block text-sm font-semibold text-gray-800 mb-2";
 
-const parseRoutePoints = (value?: string | null): string[] => {
-  const points = (value ?? "")
+/**
+ * Chuỗi chặng lưu trong cơ sở dữ liệu về lại thành danh sách ô nhập.
+ *
+ * Trả mảng rỗng khi tour không khai chặng nào. Trước đây trả về một hàng rỗng, làm tour đi thẳng
+ * mở ra lúc nào cũng thấy một ô trống chờ điền.
+ */
+const parseRoutePoints = (value?: string | null): string[] =>
+  (value ?? "")
     .split(/[,\n]/)
     .map((point) => point.trim())
     .filter(Boolean);
-
-  return points.length ? points : [""];
-};
 
 const formatPreviewPrice = (value: string) => {
   const amount = Number(value);
@@ -226,7 +229,7 @@ export const CreateTourForm: React.FC = () => {
               min_people: String(item.min_people ?? 5),
               booking_deadline: toDateTimeLocalValue(item.booking_deadline),
               status: String(item.status ?? "open"),
-              guide_id: String(item.guide_id ?? ""),
+              guide_ids: (item.guides ?? []).map((guide) => String(guide.id)),
             })) ?? emptyForm.schedules,
           category_ids: tour.categories?.map((c) => c.id) ?? [],
           service_ids: tour.services?.map((s) => s.id) ?? [],
@@ -346,8 +349,10 @@ export const CreateTourForm: React.FC = () => {
       itineraries: prev.itineraries.map((item, i) => {
         if (i !== itineraryIndex) return item;
 
-        const remaining = item.route_points.filter((_, p) => p !== pointIndex);
-        return { ...item, route_points: remaining.length ? remaining : [""] };
+        // Xóa hết là hợp lệ: tour đi thẳng thì không có chặng trung gian nào để ghi. Trước đây
+        // chỗ này tự dựng lại một hàng rỗng, khiến một trường không bắt buộc trông như bỏ đi
+        // không được.
+        return { ...item, route_points: item.route_points.filter((_, p) => p !== pointIndex) };
       }),
     }));
   };
@@ -382,7 +387,7 @@ export const CreateTourForm: React.FC = () => {
             title: "",
             start_point: "",
             end_point: "",
-            route_points: [""],
+            route_points: [],
             rest_stops: "",
             content: "",
           },
@@ -403,7 +408,7 @@ export const CreateTourForm: React.FC = () => {
 
   const updateSchedule = (
     index: number,
-    field: "start_date" | "max_people" | "guide_id" | "min_people" | "booking_deadline" | "status",
+    field: "start_date" | "max_people" | "min_people" | "booking_deadline" | "status",
     value: string,
   ) => {
     setForm((prev) => {
@@ -433,6 +438,16 @@ export const CreateTourForm: React.FC = () => {
     });
   };
 
+  /** Danh sách nên tách khỏi updateSchedule, vốn nhận một giá trị đơn. */
+  const updateScheduleGuides = (index: number, guideIds: string[]) => {
+    setForm((prev) => ({
+      ...prev,
+      schedules: prev.schedules.map((item, i) =>
+        i === index ? { ...item, guide_ids: guideIds } : item,
+      ),
+    }));
+  };
+
   const addSchedule = () => {
     setForm((prev) => ({
       ...prev,
@@ -444,7 +459,7 @@ export const CreateTourForm: React.FC = () => {
           min_people: "5",
           booking_deadline: "",
           status: "open",
-          guide_id: "",
+          guide_ids: [],
         } as ScheduleFormItem,
       ],
     }));
@@ -638,6 +653,7 @@ export const CreateTourForm: React.FC = () => {
               onAdd={addSchedule}
               onRemove={removeSchedule}
               onChange={updateSchedule}
+              onGuidesChange={updateScheduleGuides}
             />
 
             <TourFormTaxonomySection

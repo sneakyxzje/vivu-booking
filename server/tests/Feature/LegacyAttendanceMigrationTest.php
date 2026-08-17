@@ -50,13 +50,14 @@ class LegacyAttendanceMigrationTest extends TestCase
 
         $this->schedule = TourSchedule::create([
             'tour_id' => $this->tour->id,
-            'guide_id' => $this->guide->id,
             'status' => ScheduleStatus::Completed->value,
             'start_date' => now()->subDays(10),
             'end_date' => now()->subDays(9),
             'max_people' => 20,
             'booked_people' => 4,
         ]);
+
+        $this->schedule->guides()->sync([$this->guide->id]);
 
         $this->itinerary = $this->tour->itineraries()->create([
             'day_number' => 1,

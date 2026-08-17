@@ -12,7 +12,7 @@ import {
 import adminService from "@/services/adminService";
 import type {
   DeadlineImpactResponse,
-  IncompletePassengersResponse,
+  ScheduleManifestResponse,
   MergeCandidatesResponse,
 } from "@/services/adminService";
 import type { Tour, Guide, ExtendedSchedule } from "@/types";
@@ -31,7 +31,9 @@ export default function ScheduleManagement() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   // State phân công Hướng dẫn viên
   const [assigningScheduleId, setAssigningScheduleId] = useState<number | null>(null);
-  const [pendingGuideIds, setPendingGuideIds] = useState<Record<number, string>>({});
+  // Phân công nhiều hướng dẫn viên cho một chuyến, sửa trong hộp thoại riêng.
+  const [guideDialogScheduleId, setGuideDialogScheduleId] = useState<number | null>(null);
+  const [pendingGuideIds, setPendingGuideIds] = useState<number[]>([]);
 
   // State Hủy chuyến
   const [cancellingScheduleId, setCancellingScheduleId] = useState<number | null>(null);
@@ -40,8 +42,10 @@ export default function ScheduleManagement() {
 
   // G05 - Kiểm tra danh sách đoàn trước khi gửi nhà cung cấp
   const [manifestScheduleId, setManifestScheduleId] = useState<number | null>(null);
-  const [manifest, setManifest] = useState<IncompletePassengersResponse | null>(null);
+  const [manifest, setManifest] = useState<ScheduleManifestResponse | null>(null);
   const [manifestLoading, setManifestLoading] = useState(false);
+  // Nhóm đang mở xem chi tiết. Mở sẵn tất cả thì đoàn đông thành một bức tường chữ.
+  const [openGroupIds, setOpenGroupIds] = useState<number[]>([]);
 
   // L03 - Ghép chuyến
   const [mergeScheduleId, setMergeScheduleId] = useState<number | null>(null);
@@ -129,32 +133,41 @@ export default function ScheduleManagement() {
     return filteredSchedules.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredSchedules, currentPage, itemsPerPage]);
 
-  // Phân công hướng dẫn viên cho chuyến khởi hành
-  const assignGuide = async (scheduleId: number, guideId: number | null) => {
-    setAssigningScheduleId(scheduleId);
-    try {
-      await adminService.assignGuideToSchedule(scheduleId, guideId);
-      const guide = guides.find((item) => item.id === guideId) ?? null;
+  const openGuideDialog = (schedule: ExtendedSchedule) => {
+    setGuideDialogScheduleId(schedule.id);
+    setPendingGuideIds((schedule.guides ?? []).map((guide) => guide.id));
+  };
 
-      setPendingGuideIds((current) => ({
-        ...current,
-        [scheduleId]: guideId === null ? "" : String(guideId),
-      }));
+  /**
+   * Đặt lại cả danh sách một lần.
+   *
+   * Máy chủ được ăn cả ngã về không: một người vướng lịch thì cả lần phân công bị từ chối, nên
+   * không có trạng thái nửa vời để xử lý ở đây.
+   */
+  const assignGuides = async (scheduleId: number, guideIds: number[]) => {
+    setAssigningScheduleId(scheduleId);
+
+    try {
+      await adminService.assignGuidesToSchedule(scheduleId, guideIds);
+
+      const daChon = guides.filter((item) => guideIds.includes(item.id));
 
       setTours((currentTours) =>
         currentTours.map((t) => ({
           ...t,
           schedules: t.schedules?.map((item) =>
-            item.id === scheduleId ? { ...item, guide_id: guideId, guide } : item
+            item.id === scheduleId ? { ...item, guides: daChon } : item
           ),
         }))
       );
 
+      setGuideDialogScheduleId(null);
+
       setToast({
         message:
-          guideId === null
+          guideIds.length === 0
             ? "Đã bỏ phân công hướng dẫn viên."
-            : "Phân công hướng dẫn viên thành công.",
+            : `Đã phân công ${guideIds.length} hướng dẫn viên.`,
         type: "success",
         isOpen: true,
       });
@@ -211,15 +224,24 @@ export default function ScheduleManagement() {
   const openManifestCheck = async (scheduleId: number) => {
     setManifestScheduleId(scheduleId);
     setManifest(null);
+    setOpenGroupIds([]);
     setManifestLoading(true);
 
     try {
-      setManifest(await adminService.getIncompletePassengers(scheduleId));
+      setManifest(await adminService.getScheduleManifest(scheduleId));
     } catch (err) {
-      console.error("Lỗi kiểm tra danh sách đoàn:", err);
+      console.error("Lỗi lấy danh sách đoàn:", err);
     } finally {
       setManifestLoading(false);
     }
+  };
+
+  const toggleGroup = (bookingId: number) => {
+    setOpenGroupIds((truoc) =>
+      truoc.includes(bookingId)
+        ? truoc.filter((id) => id !== bookingId)
+        : [...truoc, bookingId],
+    );
   };
 
   const openMergeDialog = async (scheduleId: number) => {
@@ -508,50 +530,35 @@ export default function ScheduleManagement() {
                         </div>
                       </td>
 
-                      {/* Hướng dẫn viên */}
+                      {/*
+                        Hướng dẫn viên — nhiều người cho một chuyến.
+
+                        Hiện dạng thẻ rồi mở hộp thoại để sửa, vì ô chọn một dòng không chứa nổi
+                        danh sách. Bao nhiêu người là đủ thì điều hành quyết, hệ thống không
+                        cảnh báo theo số khách.
+                      */}
                       <td className="py-4 px-5">
-                        <div className="flex items-center gap-1.5 min-w-44">
-                          <select
-                            id={"schedule-guide-" + schedule.id}
-                            value={
-                              pendingGuideIds[schedule.id] ??
-                              String(schedule.guide_id ?? "")
-                            }
-                            disabled={assigningScheduleId === schedule.id || status === "cancelled" || status === "completed"}
-                            onChange={(event) =>
-                              setPendingGuideIds((current) => ({
-                                ...current,
-                                [schedule.id]: event.target.value,
-                              }))
-                            }
-                            className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-800 outline-none focus:border-primary-500 disabled:cursor-not-allowed disabled:bg-gray-50"
-                          >
-                            <option value="">Chưa phân công</option>
-                            {guides.map((guide) => (
-                              <option key={guide.id} value={guide.id}>
+                        <div className="flex flex-wrap items-center gap-1 min-w-44">
+                          {(schedule.guides ?? []).length === 0 ? (
+                            <span className="text-xs text-gray-400">Chưa phân công</span>
+                          ) : (
+                            (schedule.guides ?? []).map((guide) => (
+                              <span
+                                key={guide.id}
+                                className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-700"
+                              >
                                 {guide.name}
-                              </option>
-                            ))}
-                          </select>
+                              </span>
+                            ))
+                          )}
+
                           <button
                             type="button"
-                            disabled={
-                              assigningScheduleId === schedule.id ||
-                              status === "cancelled" ||
-                              status === "completed" ||
-                              (pendingGuideIds[schedule.id] ??
-                                String(schedule.guide_id ?? "")) ===
-                              String(schedule.guide_id ?? "")
-                            }
-                            onClick={() => {
-                              const value =
-                                pendingGuideIds[schedule.id] ??
-                                String(schedule.guide_id ?? "");
-                              assignGuide(schedule.id, value ? Number(value) : null);
-                            }}
-                            className="rounded-lg bg-primary-600 px-2 py-1 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-gray-150 disabled:text-gray-400 transition-colors shrink-0"
+                            disabled={status === "cancelled" || status === "completed"}
+                            onClick={() => openGuideDialog(schedule)}
+                            className="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 disabled:cursor-not-allowed disabled:text-gray-300 transition-colors"
                           >
-                            {assigningScheduleId === schedule.id ? "..." : "Lưu"}
+                            Sửa
                           </button>
                         </div>
                       </td>
@@ -578,9 +585,10 @@ export default function ScheduleManagement() {
                         <div className="flex flex-col gap-2 items-end">
                           <div className="flex flex-wrap gap-1 justify-end">
                             {/*
-                              G05 - Danh sách đoàn chỉ gửi được cho nhà cung cấp khi mọi đơn đã
-                              khai đủ người. Kiểm ngay trên hàng chuyến, vì đây là lúc điều hành
-                              chuẩn bị gửi chứ không phải lúc mở từng đơn.
+                              G05 - Danh sách đoàn, chia theo từng nhóm. Trả lời hai câu ở cùng
+                              một chỗ: gửi cho nhà cung cấp được chưa, và nhóm này gồm những ai.
+                              Đặt ngay trên hàng chuyến vì cả hai câu đều hỏi lúc đang nhìn chuyến,
+                              không phải lúc đang mở một đơn.
                             */}
                             {status !== "cancelled" && (
                               <button
@@ -700,6 +708,74 @@ export default function ScheduleManagement() {
       ) : (
         <div className="p-10 text-center rounded-2xl border border-gray-100 bg-white text-sm text-gray-500">
           Không tìm thấy chuyến đi nào khớp với bộ lọc.
+        </div>
+      )}
+
+      {/* Phân công hướng dẫn viên — nhiều người cho một chuyến */}
+      {guideDialogScheduleId !== null && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
+            <div>
+              <h4 className="text-base font-bold text-gray-900">
+                Hướng dẫn viên — chuyến #{guideDialogScheduleId}
+              </h4>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Chọn được nhiều người. Đoàn đông thì cần thêm người dẫn, bao nhiêu là đủ do bạn
+                quyết — hệ thống không tính hộ theo số khách.
+              </p>
+            </div>
+
+            <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2">
+              {guides.length === 0 && (
+                <p className="px-1 py-2 text-xs text-gray-500">Chưa có hướng dẫn viên nào.</p>
+              )}
+
+              {guides.map((guide) => (
+                <label
+                  key={guide.id}
+                  className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1.5 text-sm hover:bg-gray-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={pendingGuideIds.includes(guide.id)}
+                    onChange={() =>
+                      setPendingGuideIds((truoc) =>
+                        truoc.includes(guide.id)
+                          ? truoc.filter((id) => id !== guide.id)
+                          : [...truoc, guide.id],
+                      )
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-primary-600"
+                  />
+                  <span className="text-gray-800">{guide.name}</span>
+                </label>
+              ))}
+            </div>
+
+            <p className="text-[11px] text-gray-400">
+              Người đang bận một chuyến khác trùng ngày sẽ bị máy chủ từ chối, và khi đó cả lần
+              phân công này không được lưu.
+            </p>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setGuideDialogScheduleId(null)}
+                disabled={assigningScheduleId === guideDialogScheduleId}
+                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
+              >
+                Quay lại
+              </button>
+              <button
+                type="button"
+                onClick={() => assignGuides(guideDialogScheduleId, pendingGuideIds)}
+                disabled={assigningScheduleId === guideDialogScheduleId}
+                className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40"
+              >
+                {assigningScheduleId === guideDialogScheduleId ? "Đang lưu..." : "Lưu phân công"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -921,51 +997,132 @@ export default function ScheduleManagement() {
                 Danh sách đoàn — chuyến #{manifestScheduleId}
               </h4>
               <p className="text-xs text-gray-500 mt-0.5">
-                Chỉ gửi được cho khách sạn và nhà xe khi mọi đơn đã khai đủ hành khách.
+                Mỗi đơn là một nhóm, thường do một người đứng ra đăng ký cho cả nhà hoặc cả phòng
+                ban. Bấm vào nhóm để xem nhóm đó gồm những ai.
               </p>
             </div>
 
-            {manifestLoading && <p className="text-sm text-gray-500">Đang kiểm tra...</p>}
+            {manifestLoading && <p className="text-sm text-gray-500">Đang tải danh sách...</p>}
 
             {manifest && (
               <>
                 {manifest.can_export_manifest ? (
                   <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
-                    Mọi đơn đã khai đủ hành khách. Xuất được danh sách đoàn.
+                    {manifest.total_groups} nhóm, {manifest.total_guests} khách, đã khai đủ. Gửi
+                    được cho khách sạn và nhà xe.
                   </div>
                 ) : (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
-                    Còn thiếu {manifest.total_missing} hành khách chưa khai. Chưa xuất được danh sách đoàn.
+                    {manifest.total_groups} nhóm, đã khai {manifest.total_declared} trên{" "}
+                    {manifest.total_guests} khách. Chưa gửi được danh sách đoàn.
                   </div>
                 )}
 
-                {manifest.bookings.length > 0 && (
-                  <div className="space-y-2">
-                    {manifest.bookings.map((row) => (
-                      <div
-                        key={row.booking_id}
-                        className="rounded-lg border border-gray-200 p-3 text-xs space-y-1"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-gray-900">
-                            BK-{row.booking_id} · {row.customer_name}
-                          </span>
-                          <span className="font-mono text-gray-500">
-                            {row.declared}/{row.guests} người
-                          </span>
-                        </div>
-                        {row.customer_phone && (
-                          <p className="text-gray-500">📞 {row.customer_phone}</p>
-                        )}
-                        {row.warnings.map((warning) => (
-                          <p key={warning} className="text-amber-800">
-                            {warning}
-                          </p>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
+                {manifest.groups.length === 0 && (
+                  <p className="text-sm text-gray-500">Chuyến này chưa có đơn nào.</p>
                 )}
+
+                <div className="space-y-2">
+                  {manifest.groups.map((nhom) => {
+                    const dangMo = openGroupIds.includes(nhom.booking_id);
+                    const nguoiLienHe = nhom.passengers.find((khach) => khach.is_contact);
+
+                    return (
+                      <div
+                        key={nhom.booking_id}
+                        className="rounded-lg border border-gray-200 overflow-hidden"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(nhom.booking_id)}
+                          className="w-full text-left p-3 text-xs hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-gray-900">
+                              BK-{nhom.booking_id} · {nhom.customer_name}
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <span
+                                className={`font-mono ${
+                                  nhom.missing > 0 ? "text-amber-700 font-bold" : "text-gray-500"
+                                }`}
+                              >
+                                {nhom.declared}/{nhom.guests} người
+                              </span>
+                              <span className="text-gray-400">{dangMo ? "▾" : "▸"}</span>
+                            </span>
+                          </div>
+
+                          <p className="mt-0.5 flex flex-wrap gap-x-3 text-gray-500">
+                            {nhom.customer_phone && <span>{nhom.customer_phone}</span>}
+                            {nguoiLienHe && <span>Liên hệ đoàn: {nguoiLienHe.name}</span>}
+                          </p>
+
+                          {nhom.warnings.map((warning) => (
+                            <p key={warning} className="mt-0.5 text-amber-800">
+                              {warning}
+                            </p>
+                          ))}
+                        </button>
+
+                        {dangMo && (
+                          <div className="border-t border-gray-100 bg-gray-50/60 p-3">
+                            {nhom.passengers.length === 0 ? (
+                              <p className="text-xs text-gray-500">
+                                Nhóm này chưa khai tên người nào.
+                              </p>
+                            ) : (
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="text-left text-gray-500">
+                                    <th className="pb-1 font-semibold">Họ tên</th>
+                                    <th className="pb-1 font-semibold">Loại</th>
+                                    <th className="pb-1 font-semibold">Ngày sinh</th>
+                                    <th className="pb-1 font-semibold">Giấy tờ</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="align-top">
+                                  {nhom.passengers.map((khach) => (
+                                    <tr key={khach.id} className="border-t border-gray-200">
+                                      <td className="py-1.5 pr-2 font-semibold text-gray-900">
+                                        {khach.name}
+                                        {khach.is_contact && (
+                                          <span className="ml-1.5 rounded bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-700">
+                                            Liên hệ
+                                          </span>
+                                        )}
+                                        {khach.special_request && (
+                                          <span className="block font-normal text-amber-700">
+                                            {khach.special_request}
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-1.5 pr-2 text-gray-600">
+                                        {khach.type === "adult"
+                                          ? "Người lớn"
+                                          : khach.type === "child"
+                                            ? "Trẻ em"
+                                            : "Em bé"}
+                                      </td>
+                                      <td className="py-1.5 pr-2 text-gray-600">
+                                        {khach.date_of_birth
+                                          ? formatDateTime(khach.date_of_birth)
+                                          : "—"}
+                                      </td>
+                                      <td className="py-1.5 font-mono text-gray-600">
+                                        {khach.identity_number ?? "—"}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </>
             )}
 

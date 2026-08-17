@@ -26,8 +26,9 @@ class BookingController extends Controller
         $guideId = $request->user()->id;
 
         $bookings = Booking::query()
-            ->with(['tour:id,title', 'schedule:id,start_date,guide_id'])
-            ->whereHas('schedule', fn ($query) => $query->where('guide_id', $guideId))
+            ->with(['tour:id,title', 'schedule:id,start_date'])
+            ->whereHas('schedule', fn ($query) => $query
+                ->whereHas('guides', fn ($q) => $q->whereKey($guideId)))
             ->latest()
             ->get()
             ->map(fn (Booking $booking) => [
@@ -65,7 +66,8 @@ class BookingController extends Controller
     public function confirm(Request $request, int $id): JsonResponse
     {
         $booking = Booking::query()
-            ->whereHas('schedule', fn ($query) => $query->where('guide_id', $request->user()->id))
+            ->whereHas('schedule', fn ($query) => $query
+                ->whereHas('guides', fn ($q) => $q->whereKey($request->user()->id)))
             ->find($id);
 
         if (! $booking) {

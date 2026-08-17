@@ -226,7 +226,6 @@ class BusinessScenarioSeeder extends Seeder
 
             $payload = [
                 'tour_id' => $this->tour->id,
-                'guide_id' => $this->guide?->id,
                 'start_date' => $start,
                 'end_date' => $end,
                 'booking_deadline' => $start->copy()->subDays(
@@ -249,6 +248,11 @@ class BusinessScenarioSeeder extends Seeder
             }
 
             $this->schedules[$item['ma']] = TourSchedule::query()->create($payload);
+
+            // Phân công đi qua bảng nối, vì một chuyến có thể có nhiều hướng dẫn viên.
+            if ($this->guide) {
+                $this->schedules[$item['ma']]->guides()->sync([$this->guide->id]);
+            }
         }
     }
 

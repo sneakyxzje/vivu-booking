@@ -49,10 +49,17 @@ export interface TourItinerary {
   content: string;
 }
 
+export interface Assignee {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string | null;
+  status?: string;
+}
+
 export interface TourSchedule {
   id: number;
   tour_id: number;
-  guide_id?: number | null;
   start_date: string;
   max_people: number;
   booked_people: number;
@@ -63,13 +70,13 @@ export interface TourSchedule {
   min_people?: number;
   booking_deadline?: string;
   cancelled_reason?: string | null;
-  guide?: {
-    id: number;
-    name: string;
-    email: string;
-    phone?: string | null;
-    status?: string;
-  } | null;
+  /**
+   * Các hướng dẫn viên phụ trách chuyến.
+   *
+   * Nhiều người chứ không một: đoàn đông thì điểm danh ở nhiều điểm dừng cùng lúc, khách tách
+   * nhóm khi tham quan. Bao nhiêu người là đủ thì điều hành quyết, hệ thống không suy ra hộ.
+   */
+  guides?: Assignee[];
 }
 
 export interface ExtendedSchedule extends TourSchedule {

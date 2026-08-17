@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * @property int $id
  * @property int $tour_id
- * @property int|null $guide_id
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, User> $guides
  * @property \Illuminate\Support\Carbon $start_date
  * @property \Illuminate\Support\Carbon|null $end_date
  * @property int $max_people
@@ -39,7 +40,6 @@ class TourSchedule extends Model
     use HasFactory;
     protected $fillable = [
         'tour_id',
-        'guide_id',
         'start_date',
         'end_date',
         'max_people',
@@ -93,9 +93,24 @@ class TourSchedule extends Model
         return $this->belongsTo(Tour::class);
     }
 
-    public function guide(): BelongsTo
+    /**
+     * Các hướng dẫn viên phụ trách chuyến này.
+     *
+     * Nhiều người chứ không một: đoàn đông thì điểm danh ở nhiều điểm dừng cùng lúc, khách tách
+     * nhóm khi tham quan, có khi thêm cả xe thứ hai. Bao nhiêu người là đủ thì điều hành quyết,
+     * hệ thống không suy ra hộ từ số khách.
+     */
+    public function guides(): BelongsToMany
     {
-        return $this->belongsTo(User::class, 'guide_id');
+        return $this->belongsToMany(User::class, 'tour_schedule_guides', 'tour_schedule_id', 'guide_id')
+            ->withTimestamps()
+            ->orderBy('tour_schedule_guides.id');
+    }
+
+    /** Người này có phụ trách chuyến không. Dùng để chặn hướng dẫn viên thao tác lên chuyến của người khác. */
+    public function hasGuide(int $guideId): bool
+    {
+        return $this->guides()->whereKey($guideId)->exists();
     }
 
     /** Người đã ra lệnh hủy chuyến (admin/operator). */

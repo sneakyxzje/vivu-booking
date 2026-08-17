@@ -287,9 +287,10 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
           Hướng dẫn viên đồng hành
         </h2>
         {(() => {
+          // Chuyến có thể có nhiều hướng dẫn viên; trang giới thiệu tour chỉ cần một gương mặt.
           const guide =
-            selectedSchedule?.guide ??
-            tour.schedules?.find((schedule) => schedule.guide)?.guide;
+            selectedSchedule?.guides?.[0] ??
+            tour.schedules?.find((schedule) => (schedule.guides ?? []).length > 0)?.guides?.[0];
 
           if (!guide) {
             return (

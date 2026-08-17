@@ -15,7 +15,7 @@ class GuideController extends Controller
     public function dashboardData(Request $request): JsonResponse
     {
         $guideId = $request->user()->id;
-        $schedules = TourSchedule::where('guide_id', $guideId);
+        $schedules = TourSchedule::whereHas('guides', fn ($query) => $query->whereKey($guideId));
         $scheduleIds = (clone $schedules)->pluck('id');
         $bookings = Booking::whereIn('tour_schedule_id', $scheduleIds);
 

@@ -201,7 +201,8 @@ Route::middleware('auth:sanctum')->group(function () {
         // G03, G05 - Danh sách hành khách. Điều hành sửa được cả sau hạn chốt.
         Route::get('/bookings/{id}/passengers', [AdminPassengerController::class, 'index']);
         Route::put('/bookings/{id}/passengers', [AdminPassengerController::class, 'update']);
-        Route::get('/schedules/{id}/incomplete-passengers', [AdminPassengerController::class, 'incomplete']);
+        // Danh sách đoàn chia theo nhóm: mỗi đơn là một nhóm do người đại diện đăng ký.
+        Route::get('/schedules/{id}/manifest', [AdminPassengerController::class, 'manifest']);
 
         // L03 - Ghép hai chuyến của cùng một tour.
         Route::get('/schedules/{id}/merge-candidates', [AdminScheduleMergeController::class, 'candidates']);

@@ -26,7 +26,8 @@ export interface ScheduleFormItem {
   min_people: string;
   booking_deadline: string;
   status: string;
-  guide_id: string;
+  /** Nhiều hướng dẫn viên cho một chuyến. Giữ dạng chuỗi cho khớp value của ô chọn. */
+  guide_ids: string[];
 }
 
 export interface TourFormState {

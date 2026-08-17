@@ -65,41 +65,66 @@ class AdminPassengerController extends Controller
     }
 
     /**
-     * G05 - Các đơn của một chuyến còn khai thiếu hành khách.
+     * G05 - Danh sách đoàn của một chuyến, chia theo từng nhóm.
      *
-     * Điều hành cần danh sách này trước khi gửi danh sách đoàn cho nhà cung cấp, chứ không phải
-     * mở từng đơn ra đếm.
+     * Một đơn là một nhóm: thường có một người đứng ra đăng ký cho cả nhà hoặc cả phòng ban, rồi
+     * mới khai tên từng người. Nên câu hỏi của điều hành có hai tầng - đoàn này gồm những nhóm
+     * nào, và nhóm đó cụ thể là ai - mà cả hai đều phải trả lời được ở cùng một chỗ.
+     *
+     * Trả về mọi nhóm chứ không riêng nhóm khai thiếu. Lọc sẵn ở máy chủ thì màn hình chỉ xem
+     * được đúng nhóm có vấn đề, còn muốn tra một khách cụ thể lại phải mở từng đơn ra đếm - đúng
+     * việc mà màn hình này sinh ra để khỏi phải làm.
      */
-    public function incomplete(int $scheduleId): JsonResponse
+    public function manifest(int $scheduleId): JsonResponse
     {
         $bookings = Booking::query()
             ->where('tour_schedule_id', $scheduleId)
             ->whereNotIn('status', ['cancelled', 'transferred'])
-            ->with('passengers:id,booking_id,name,identity_number,is_contact')
-            ->get(['id', 'customer_name', 'customer_phone', 'guests', 'status']);
+            ->with('passengers')
+            ->orderBy('id')
+            ->get(['id', 'customer_name', 'customer_phone', 'customer_email', 'guests', 'status']);
 
-        $thieu = $bookings
-            ->map(function (Booking $booking) {
-                $canhBao = $this->passengerPolicy->manifestWarnings($booking);
+        $nhom = $bookings->map(function (Booking $booking) {
+            return [
+                'booking_id' => $booking->id,
+                // Người đứng ra đặt cho cả nhóm, không nhất thiết là người đi.
+                'customer_name' => $booking->customer_name,
+                'customer_phone' => $booking->customer_phone,
+                'customer_email' => $booking->customer_email,
+                'status' => $booking->status,
+                'guests' => (int) $booking->guests,
+                'declared' => $booking->passengers->count(),
+                'missing' => $this->passengerPolicy->missingCount($booking),
+                'warnings' => $this->passengerPolicy->manifestWarnings($booking),
+                'passengers' => $booking->passengers->map(fn ($khach) => [
+                    'id' => $khach->id,
+                    'name' => $khach->name,
+                    'type' => $khach->type,
+                    'gender' => $khach->gender,
+                    'date_of_birth' => $khach->date_of_birth?->toDateString(),
+                    'identity_number' => $khach->identity_number,
+                    'id_type' => $khach->id_type,
+                    'nationality' => $khach->nationality,
+                    'phone' => $khach->phone,
+                    // Ăn chay, dị ứng, cần hỗ trợ di chuyển: thứ nhà cung cấp phải biết trước.
+                    'special_request' => $khach->special_request,
+                    'is_contact' => (bool) $khach->is_contact,
+                    'note' => $khach->note,
+                ])->values(),
+            ];
+        })->values();
 
-                return [
-                    'booking_id' => $booking->id,
-                    'customer_name' => $booking->customer_name,
-                    'customer_phone' => $booking->customer_phone,
-                    'guests' => (int) $booking->guests,
-                    'declared' => $booking->passengers->count(),
-                    'missing' => $this->passengerPolicy->missingCount($booking),
-                    'warnings' => $canhBao,
-                ];
-            })
-            ->filter(fn (array $row) => $row['warnings'] !== [])
-            ->values();
+        $conThieu = $nhom->sum('missing');
 
         return $this->success([
-            'bookings' => $thieu,
-            'total_missing' => $thieu->sum('missing'),
-            // Danh sách đoàn chỉ xuất được khi mọi đơn đã khai đủ người.
-            'can_export_manifest' => $thieu->sum('missing') === 0,
-        ], 'Lấy danh sách đơn khai thiếu thành công');
+            'groups' => $nhom,
+            'total_groups' => $nhom->count(),
+            'total_guests' => $nhom->sum('guests'),
+            'total_declared' => $nhom->sum('declared'),
+            'total_missing' => $conThieu,
+            // Danh sách đoàn chỉ gửi nhà cung cấp được khi mọi nhóm đã khai đủ người.
+            'can_export_manifest' => $conThieu === 0
+                && $nhom->every(fn (array $row) => $row['warnings'] === []),
+        ], 'Lấy danh sách đoàn thành công');
     }
 }

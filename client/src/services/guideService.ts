@@ -116,7 +116,7 @@ export const buildTourPayload = (form: unknown) => {
           min_people?: string;
           booking_deadline?: string;
           status?: string;
-          guide_id?: string;
+          guide_ids?: string[];
         }[]
       | undefined) ??
     []
@@ -133,9 +133,10 @@ export const buildTourPayload = (form: unknown) => {
     if (item.status) {
       data.append(`schedules[${index}][status]`, item.status);
     }
-    if (item.guide_id) {
-      data.append(`schedules[${index}][guide_id]`, item.guide_id);
-    }
+    // Một chuyến có thể có nhiều hướng dẫn viên, nên gửi cả mảng.
+    (item.guide_ids ?? []).forEach((guideId) => {
+      data.append(`schedules[${index}][guide_ids][]`, guideId);
+    });
   });
 
   return data;

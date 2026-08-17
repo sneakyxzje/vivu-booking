@@ -254,18 +254,21 @@ class SampleTourSeeder extends Seeder
                     $startDate = Carbon::parse($item['start_date']);
                     $numberOfDays = max(1, (int) $tourData['number_of_days']);
 
-                    $tour->schedules()->create([
+                    $schedule = $tour->schedules()->create([
                         'start_date' => $startDate,
                         'end_date' => $startDate->copy()->addDays($numberOfDays - 1)->endOfDay(),
                         'booking_deadline' => $startDate->copy()->subDays(
                             (int) config('booking.booking_deadline_days', 3)
                         ),
-                        'guide_id' => $guide?->id,
                         'max_people' => $item['max_people'],
                         'min_people' => $item['min_people'] ?? (int) ceil($item['max_people'] * 0.4),
                         'booked_people' => 0,
                         'status' => ScheduleStatus::Open->value,
                     ]);
+
+                    if ($guide) {
+                        $schedule->guides()->sync([$guide->id]);
+                    }
                 }
 
                 $tour->images()->delete();

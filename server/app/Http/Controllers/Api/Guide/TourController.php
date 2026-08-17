@@ -13,12 +13,14 @@ class TourController extends Controller
     public function index(Request $request): JsonResponse
     {
         $guideId = $request->user()->id;
+        // Một chuyến có thể có nhiều hướng dẫn viên, nên lọc qua bảng nối.
         $assignedSchedules = fn ($query) => $query
-            ->where('guide_id', $guideId)
-            ->with('guide:id,name,email,phone,status');
+            ->whereHas('guides', fn ($q) => $q->whereKey($guideId))
+            ->with('guides:id,name,email,phone,status');
 
         $tours = Tour::query()
-            ->whereHas('schedules', fn ($query) => $query->where('guide_id', $guideId))
+            ->whereHas('schedules', fn ($query) => $query
+                ->whereHas('guides', fn ($q) => $q->whereKey($guideId)))
             ->with([
                 'categories',
                 'services',
@@ -41,15 +43,16 @@ class TourController extends Controller
         $guideId = $request->user()->id;
 
         $tour = Tour::query()
-            ->whereHas('schedules', fn ($query) => $query->where('guide_id', $guideId))
+            ->whereHas('schedules', fn ($query) => $query
+                ->whereHas('guides', fn ($q) => $q->whereKey($guideId)))
             ->with([
                 'categories',
                 'services',
                 'images',
                 'itineraries',
                 'schedules' => fn ($query) => $query
-                    ->where('guide_id', $guideId)
-                    ->with('guide:id,name,email,phone,status'),
+                    ->whereHas('guides', fn ($q) => $q->whereKey($guideId))
+                    ->with('guides:id,name,email,phone,status'),
             ])
             ->find($id);
 

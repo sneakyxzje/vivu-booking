@@ -37,9 +37,11 @@ interface Props {
   onRemove: (index: number) => void;
   onChange: (
     index: number,
-    field: "start_date" | "max_people" | "guide_id" | "min_people" | "booking_deadline" | "status",
+    field: "start_date" | "max_people" | "min_people" | "booking_deadline" | "status",
     value: string,
   ) => void;
+  /** Tách khỏi onChange vì đây là danh sách, không phải một giá trị. */
+  onGuidesChange: (index: number, guideIds: string[]) => void;
 }
 
 export const TourFormScheduleSection: React.FC<Props> = ({
@@ -51,6 +53,7 @@ export const TourFormScheduleSection: React.FC<Props> = ({
   onAdd,
   onRemove,
   onChange,
+  onGuidesChange,
 }) => {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(5);
@@ -83,7 +86,7 @@ export const TourFormScheduleSection: React.FC<Props> = ({
       if (!currentPeriod) return true;
 
       return !items.some((item, otherIndex) => {
-        if (otherIndex === index || item.guide_id !== String(guide.id)) {
+        if (otherIndex === index || !item.guide_ids.includes(String(guide.id))) {
           return false;
         }
 
@@ -119,10 +122,16 @@ export const TourFormScheduleSection: React.FC<Props> = ({
         {paginatedItems.map((item, localIndex) => {
           const index = startIndex + localIndex;
           const selectableGuides = getSelectableGuides(index);
-          const selectedGuideStillAvailable =
-            !item.guide_id ||
-            selectableGuides.some(
-              (guide) => String(guide.id) === item.guide_id,
+          const daChonNhungHetRanh = item.guide_ids.filter(
+            (id) => !selectableGuides.some((guide) => String(guide.id) === id),
+          );
+
+          const toggleGuide = (guideId: string) =>
+            onGuidesChange(
+              index,
+              item.guide_ids.includes(guideId)
+                ? item.guide_ids.filter((id) => id !== guideId)
+                : [...item.guide_ids, guideId],
             );
 
           return (
@@ -268,49 +277,75 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                       </p>
                     </div>
 
-                    {/* Hướng dẫn viên */}
+                    {/*
+                      Hướng dẫn viên — chọn được nhiều người.
+
+                      Đoàn đông thì một người không kham nổi. Bao nhiêu người là đủ thì điều hành
+                      quyết, hệ thống không suy ra hộ từ số khách.
+                    */}
                     <div>
                       <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                        Hướng dẫn viên điều hành
-                      </label>
-                      <select
-                        value={item.guide_id}
-                        disabled={!item.start_date || availabilityLoading}
-                        onChange={(event) =>
-                          onChange(index, "guide_id", event.target.value)
-                        }
-                        className={fieldClass + " disabled:cursor-not-allowed disabled:bg-gray-50"}
-                      >
-                        <option value="">
-                          {!item.start_date
-                            ? "Chọn ngày khởi hành trước"
-                            : availabilityLoading
-                              ? "Đang tìm HDV rảnh..."
-                              : "Chưa phân công"}
-                        </option>
-                        {!selectedGuideStillAvailable && item.guide_id && (
-                          <option value={item.guide_id} disabled>
-                            HDV đã chọn không còn rảnh
-                          </option>
+                        Hướng dẫn viên
+                        {item.guide_ids.length > 0 && (
+                          <span className="ml-1.5 font-medium text-primary-600">
+                            (đã chọn {item.guide_ids.length})
+                          </span>
                         )}
-                        {selectableGuides.map((guide) => (
-                          <option key={guide.id} value={guide.id}>
-                            {guide.name}
-                          </option>
-                        ))}
-                      </select>
-                      {item.start_date &&
-                        !availabilityLoading &&
-                        selectableGuides.length === 0 ? (
-                        <div className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-100">
-                          <AlertTriangle className="h-3 w-3 shrink-0" />
-                          <span>Không có hướng dẫn viên rảnh trong khoảng này.</span>
-                        </div>
-                      ) : (
-                        <p className="mt-1 text-[10px] text-gray-400">
-                          Chỉ hiển thị hướng dẫn viên đang trống lịch.
+                      </label>
+
+                      {!item.start_date ? (
+                        <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 px-3 py-2 text-[11px] text-gray-500">
+                          Chọn ngày khởi hành trước để biết ai đang trống lịch.
                         </p>
+                      ) : availabilityLoading ? (
+                        <p className="text-[11px] text-gray-500">Đang tìm hướng dẫn viên rảnh...</p>
+                      ) : (
+                        <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2">
+                          {selectableGuides.length === 0 && daChonNhungHetRanh.length === 0 && (
+                            <div className="flex items-center gap-1 px-1 py-1 text-[10px] text-amber-700">
+                              <AlertTriangle className="h-3 w-3 shrink-0" />
+                              <span>Không có hướng dẫn viên rảnh trong khoảng này.</span>
+                            </div>
+                          )}
+
+                          {selectableGuides.map((guide) => (
+                            <label
+                              key={guide.id}
+                              className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-xs hover:bg-gray-50"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={item.guide_ids.includes(String(guide.id))}
+                                onChange={() => toggleGuide(String(guide.id))}
+                                className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600"
+                              />
+                              <span className="text-gray-800">{guide.name}</span>
+                            </label>
+                          ))}
+
+                          {/* Người đã chọn trước đó nhưng nay vướng lịch: vẫn hiện để bỏ chọn được. */}
+                          {daChonNhungHetRanh.map((id) => (
+                            <label
+                              key={id}
+                              className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-xs hover:bg-gray-50"
+                            >
+                              <input
+                                type="checkbox"
+                                checked
+                                onChange={() => toggleGuide(id)}
+                                className="h-3.5 w-3.5 rounded border-gray-300 text-amber-600"
+                              />
+                              <span className="text-amber-700">
+                                Người đã chọn nay vướng lịch khác
+                              </span>
+                            </label>
+                          ))}
+                        </div>
                       )}
+
+                      <p className="mt-1 text-[10px] text-gray-400">
+                        Chỉ hiện người đang trống lịch. Đoàn đông thì chọn thêm người.
+                      </p>
                     </div>
                   </div>
                 </div>

@@ -239,7 +239,9 @@ export default function TourList() {
                     </tr>
                   ) : (
                     paginatedTours.map((tour) => {
-                      const assignedCount = tour.schedules?.filter((schedule) => schedule.guide_id).length ?? 0;
+                      const assignedCount =
+                        tour.schedules?.filter((schedule) => (schedule.guides ?? []).length > 0)
+                          .length ?? 0;
                       const scheduleCount = tour.schedules?.length ?? 0;
                       return (
                         <tr

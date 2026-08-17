@@ -48,7 +48,8 @@ class AttendanceService
         $now ??= now();
 
         // 1. Chỉ hướng dẫn viên đang phụ trách chuyến này mới ghi được.
-        if ((int) $schedule->guide_id !== (int) $guide->getKey()) {
+        // Một chuyến có thể có nhiều hướng dẫn viên; ai trong số đó cũng điểm danh được.
+        if (!$schedule->hasGuide((int) $guide->getKey())) {
             throw new BusinessRuleException(
                 'Bạn không phụ trách chuyến đi này nên không điểm danh được.',
                 403,

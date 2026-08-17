@@ -93,13 +93,14 @@ class BookingFinalizationTest extends TestCase
 
         $this->schedule = TourSchedule::create([
             'tour_id' => $this->tour->id,
-            'guide_id' => $this->guide->id,
             'start_date' => now()->subDays(3),
             'end_date' => now()->subDay(),
             'max_people' => 10,
             'booked_people' => 2,
             'status' => ScheduleStatus::Completed->value,
         ]);
+
+        $this->schedule->guides()->sync([$this->guide->id]);
     }
 
     /**

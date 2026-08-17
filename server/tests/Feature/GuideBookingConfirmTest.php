@@ -53,7 +53,6 @@ class GuideBookingConfirmTest extends TestCase
 
         $this->schedule = TourSchedule::create([
             'tour_id' => $tour->id,
-            'guide_id' => $this->guide->id,
             'status' => ScheduleStatus::Confirmed->value,
             'start_date' => now()->addHours(6),
             'end_date' => now()->addDays(2),
@@ -62,6 +61,8 @@ class GuideBookingConfirmTest extends TestCase
             'min_people' => 2,
             'booked_people' => 2,
         ]);
+
+        $this->schedule->guides()->sync([$this->guide->id]);
     }
 
     private function taoDon(string $status = 'pending', ?TourSchedule $schedule = null): Booking
@@ -169,7 +170,6 @@ class GuideBookingConfirmTest extends TestCase
 
         $chuyenKhac = TourSchedule::create([
             'tour_id' => $this->schedule->tour_id,
-            'guide_id' => $this->taoUser('guide')->id,
             'status' => ScheduleStatus::Open->value,
             'start_date' => now()->addDays(10),
             'end_date' => now()->addDays(12),
@@ -177,6 +177,8 @@ class GuideBookingConfirmTest extends TestCase
             'min_people' => 2,
             'booked_people' => 2,
         ]);
+
+        $chuyenKhac->guides()->sync([$this->taoUser('guide')->id]);
         $donNguoiKhac = $this->taoDon('pending', $chuyenKhac);
 
         Sanctum::actingAs($this->guide);

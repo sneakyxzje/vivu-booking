@@ -21,9 +21,15 @@ class User extends Authenticatable
         return $this->hasMany(Tour::class, 'admin_id');
     }
 
+    /** Các chuyến người này được phân công dẫn. Một chuyến có thể có nhiều hướng dẫn viên. */
     public function assignedSchedules()
     {
-        return $this->hasMany(TourSchedule::class, 'guide_id');
+        return $this->belongsToMany(
+            TourSchedule::class,
+            'tour_schedule_guides',
+            'guide_id',
+            'tour_schedule_id',
+        )->withTimestamps();
     }
 
     protected function casts(): array

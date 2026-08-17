@@ -21,7 +21,8 @@ export default function AdminTourDetail() {
   const [assigningScheduleId, setAssigningScheduleId] = useState<number | null>(
     null,
   );
-  const [pendingGuideIds, setPendingGuideIds] = useState<Record<number, string>>({});
+  // Mỗi chuyến giữ danh sách hướng dẫn viên đang chọn nhưng chưa lưu.
+  const [pendingGuideIds, setPendingGuideIds] = useState<Record<number, number[]>>({});
   const [toast, setToast] = useState({
     message: "",
     type: "success" as "success" | "error" | "info",
@@ -58,37 +59,32 @@ export default function AdminTourDetail() {
     load();
   }, [id]);
 
-  const assignGuide = async (
+  const assignGuides = async (
     schedule: TourSchedule,
-    guideId: number | null,
+    guideIds: number[],
   ) => {
     setAssigningScheduleId(schedule.id);
 
     try {
-      await adminService.assignGuideToSchedule(schedule.id, guideId);
-      const guide = guides.find((item) => item.id === guideId) ?? null;
+      await adminService.assignGuidesToSchedule(schedule.id, guideIds);
+      const daChon = guides.filter((item) => guideIds.includes(item.id));
 
-      setPendingGuideIds((current) => ({
-        ...current,
-        [schedule.id]: guideId === null ? "" : String(guideId),
-      }));
+      setPendingGuideIds((current) => ({ ...current, [schedule.id]: guideIds }));
       setTour((current) =>
         current
           ? {
               ...current,
               schedules: current.schedules?.map((item) =>
-                item.id === schedule.id
-                  ? { ...item, guide_id: guideId, guide }
-                  : item,
+                item.id === schedule.id ? { ...item, guides: daChon } : item,
               ),
             }
           : current,
       );
       setToast({
         message:
-          guideId === null
+          guideIds.length === 0
             ? "Đã bỏ phân công hướng dẫn viên."
-            : "Phân công hướng dẫn viên thành công.",
+            : `Đã phân công ${guideIds.length} hướng dẫn viên.`,
         type: "success",
         isOpen: true,
       });
@@ -358,54 +354,76 @@ export default function AdminTourDetail() {
                         </div>
                       </div>
 
-                      {/* Guide Assign Section */}
-                      <div className="pt-2 flex flex-col gap-2 sm:flex-row sm:items-center max-w-lg">
-                        <div className="shrink-0 text-xs font-semibold text-gray-500 flex items-center gap-1">
-                          <UserRound className="h-3.5 w-3.5" /> Hướng dẫn viên:
-                        </div>
-                        <select
-                          id={"schedule-guide-" + schedule.id}
-                          value={
-                            pendingGuideIds[schedule.id] ??
-                            String(schedule.guide_id ?? "")
-                          }
-                          disabled={assigningScheduleId === schedule.id || status === "cancelled" || status === "completed"}
-                          onChange={(event) =>
-                            setPendingGuideIds((current) => ({
-                              ...current,
-                              [schedule.id]: event.target.value,
-                            }))
-                          }
-                          className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-800 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 disabled:cursor-not-allowed disabled:bg-gray-50"
-                        >
-                          <option value="">Chưa phân công</option>
-                          {guides.map((guide) => (
-                            <option key={guide.id} value={guide.id}>
-                              {guide.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          disabled={
-                            assigningScheduleId === schedule.id ||
-                            status === "cancelled" ||
-                            status === "completed" ||
-                            (pendingGuideIds[schedule.id] ??
-                              String(schedule.guide_id ?? "")) ===
-                              String(schedule.guide_id ?? "")
-                          }
-                          onClick={() => {
-                            const value =
-                              pendingGuideIds[schedule.id] ??
-                              String(schedule.guide_id ?? "");
-                            assignGuide(schedule, value ? Number(value) : null);
-                          }}
-                          className="shrink-0 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 transition-colors"
-                        >
-                          {assigningScheduleId === schedule.id ? "Đang lưu..." : "Lưu HDV"}
-                        </button>
-                      </div>
+                      {/*
+                        Phân công hướng dẫn viên — chọn được nhiều người.
+
+                        Đoàn đông thì một người không kham nổi. Bao nhiêu người là đủ do điều hành
+                        quyết, hệ thống không tính hộ theo số khách. Luật duy nhất còn lại là một
+                        người không đứng ở hai đoàn cùng lúc, và máy chủ kiểm việc đó.
+                      */}
+                      {(() => {
+                        const daLuu = (schedule.guides ?? []).map((guide) => guide.id);
+                        const dangChon = pendingGuideIds[schedule.id] ?? daLuu;
+                        const khoa =
+                          assigningScheduleId === schedule.id ||
+                          status === "cancelled" ||
+                          status === "completed";
+
+                        const coThayDoi =
+                          dangChon.length !== daLuu.length ||
+                          dangChon.some((id) => !daLuu.includes(id));
+
+                        return (
+                          <div className="pt-2 space-y-2 max-w-lg">
+                            <div className="text-xs font-semibold text-gray-500 flex items-center gap-1">
+                              <UserRound className="h-3.5 w-3.5" /> Hướng dẫn viên
+                              {dangChon.length > 0 && (
+                                <span className="text-primary-600">({dangChon.length})</span>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                              {guides.length === 0 && (
+                                <span className="text-xs text-gray-400">
+                                  Chưa có hướng dẫn viên nào.
+                                </span>
+                              )}
+
+                              {guides.map((guide) => (
+                                <label
+                                  key={guide.id}
+                                  className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-800"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    disabled={khoa}
+                                    checked={dangChon.includes(guide.id)}
+                                    onChange={() =>
+                                      setPendingGuideIds((current) => ({
+                                        ...current,
+                                        [schedule.id]: dangChon.includes(guide.id)
+                                          ? dangChon.filter((id) => id !== guide.id)
+                                          : [...dangChon, guide.id],
+                                      }))
+                                    }
+                                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 disabled:cursor-not-allowed"
+                                  />
+                                  {guide.name}
+                                </label>
+                              ))}
+                            </div>
+
+                            <button
+                              type="button"
+                              disabled={khoa || !coThayDoi}
+                              onClick={() => assignGuides(schedule, dangChon)}
+                              className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 transition-colors"
+                            >
+                              {assigningScheduleId === schedule.id ? "Đang lưu..." : "Lưu HDV"}
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* State controller menu */}

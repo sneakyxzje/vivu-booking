@@ -24,7 +24,7 @@ class AdminAttendanceController extends Controller
     public function show(int $scheduleId): JsonResponse
     {
         $schedule = TourSchedule::query()
-            ->with(['tour:id,title,number_of_days', 'guide:id,name,phone'])
+            ->with(['tour:id,title,number_of_days', 'guides:id,name,phone'])
             ->find($scheduleId);
 
         if (!$schedule) {
@@ -96,7 +96,7 @@ class AdminAttendanceController extends Controller
                 'start_date'   => $schedule->start_date,
                 'max_people'   => (int) $schedule->max_people,
                 'booked_people' => (int) $schedule->booked_people,
-                'guide'        => $schedule->guide,
+                'guides'       => $schedule->guides,
             ],
             'tour' => [
                 'id'             => $schedule->tour->id,
@@ -123,7 +123,7 @@ class AdminAttendanceController extends Controller
     public function report(Request $request): JsonResponse
     {
         $query = TourSchedule::query()
-            ->with(['tour:id,title,number_of_days', 'guide:id,name,phone']);
+            ->with(['tour:id,title,number_of_days', 'guides:id,name,phone']);
 
         if ($request->filled('from_date')) {
             $query->whereDate('start_date', '>=', $request->input('from_date'));
@@ -141,7 +141,7 @@ class AdminAttendanceController extends Controller
             $search = '%' . $request->input('search') . '%';
             $query->where(function ($q) use ($search) {
                 $q->whereHas('tour', fn ($t) => $t->where('title', 'like', $search))
-                  ->orWhereHas('guide', fn ($g) => $g->where('name', 'like', $search));
+                  ->orWhereHas('guides', fn ($g) => $g->where('name', 'like', $search));
             });
         }
 
@@ -181,11 +181,11 @@ class AdminAttendanceController extends Controller
                 'tour_id'         => $schedule->tour->id ?? null,
                 'tour_title'      => $schedule->tour->title ?? 'N/A',
                 'number_of_days'  => (int) ($schedule->tour->number_of_days ?? 1),
-                'guide'           => $schedule->guide ? [
-                    'id'    => $schedule->guide->id,
-                    'name'  => $schedule->guide->name,
-                    'phone' => $schedule->guide->phone,
-                ] : null,
+                'guides'          => $schedule->guides->map(fn ($guide) => [
+                    'id'    => $guide->id,
+                    'name'  => $guide->name,
+                    'phone' => $guide->phone,
+                ])->values(),
                 'present_count'   => $present,
                 'absent_count'    => $absent,
                 'total_checkins'  => $total,
@@ -284,7 +284,7 @@ class AdminAttendanceController extends Controller
     public function scheduleReport(int $id): JsonResponse
     {
         $schedule = TourSchedule::query()
-            ->with(['tour:id,title,number_of_days', 'guide:id,name,phone'])
+            ->with(['tour:id,title,number_of_days', 'guides:id,name,phone'])
             ->find($id);
 
         if (!$schedule) {
@@ -461,11 +461,11 @@ class AdminAttendanceController extends Controller
                     'id'    => $schedule->tour->id,
                     'title' => $schedule->tour->title,
                 ],
-                'guide'        => $schedule->guide ? [
-                    'id'    => $schedule->guide->id,
-                    'name'  => $schedule->guide->name,
-                    'phone' => $schedule->guide->phone,
-                ] : null,
+                'guides'       => $schedule->guides->map(fn ($guide) => [
+                    'id'    => $guide->id,
+                    'name'  => $guide->name,
+                    'phone' => $guide->phone,
+                ])->values(),
             ],
             'summary'           => $summary,
             'by_checkpoint'     => $byCheckpoint,

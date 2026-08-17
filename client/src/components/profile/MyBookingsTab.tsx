@@ -629,29 +629,41 @@ export const MyBookingsTab: React.FC = () => {
               </div>
             </div>
 
-            {/* GUIDE INFO CARD */}
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200/70 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-base border-2 border-primary-200">
-                  {selectedBooking.schedule?.guide?.name?.charAt(0)?.toUpperCase() ?? "?"}
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Hướng dẫn viên</span>
-                  <h5 className="font-bold text-gray-900 text-sm">
-                    {selectedBooking.schedule?.guide?.name ?? "Đang sắp xếp hướng dẫn viên"}
-                  </h5>
-                  <p className="text-xs text-primary-600 font-semibold">
-                    {selectedBooking.schedule?.guide?.phone ?? "Thông tin liên hệ sẽ gửi trước ngày đi"}
-                  </p>
-                </div>
-              </div>
-              {selectedBooking.schedule?.guide?.phone && (
-                <a
-                  href={`tel:${selectedBooking.schedule.guide.phone}`}
-                  className="px-3.5 py-2 bg-primary-600 text-white rounded-xl text-xs font-semibold hover:bg-primary-700 transition-colors flex items-center gap-1.5 shadow-xs"
-                >
-                  <Phone className="w-3.5 h-3.5" /> Gọi HDV
-                </a>
+            {/* HƯỚNG DẪN VIÊN — đoàn đông có thể có nhiều người, liệt kê hết để khách gọi ai cũng được */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200/70 space-y-3">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                Hướng dẫn viên
+              </span>
+
+              {(selectedBooking.schedule?.guides ?? []).length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  Đang sắp xếp hướng dẫn viên. Thông tin liên hệ sẽ gửi trước ngày đi.
+                </p>
+              ) : (
+                (selectedBooking.schedule?.guides ?? []).map((guide) => (
+                  <div key={guide.id} className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-base border-2 border-primary-200">
+                        {guide.name?.charAt(0)?.toUpperCase() ?? "?"}
+                      </div>
+                      <div>
+                        <h5 className="font-bold text-gray-900 text-sm">{guide.name}</h5>
+                        <p className="text-xs text-primary-600 font-semibold">
+                          {guide.phone ?? "Thông tin liên hệ sẽ gửi trước ngày đi"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {guide.phone && (
+                      <a
+                        href={`tel:${guide.phone}`}
+                        className="px-3.5 py-2 bg-primary-600 text-white rounded-xl text-xs font-semibold hover:bg-primary-700 transition-colors flex items-center gap-1.5 shadow-xs shrink-0"
+                      >
+                        <Phone className="w-3.5 h-3.5" /> Gọi HDV
+                      </a>
+                    )}
+                  </div>
+                ))
               )}
             </div>
 

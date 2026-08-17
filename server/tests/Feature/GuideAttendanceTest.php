@@ -92,13 +92,14 @@ class GuideAttendanceTest extends TestCase
 
         $this->schedule = TourSchedule::create([
             'tour_id' => $tour->id,
-            'guide_id' => $this->guide->id,
             'start_date' => now()->subHours(2),
             'end_date' => now()->addDay(),
             'max_people' => 10,
             'booked_people' => 2,
             'status' => ScheduleStatus::InProgress->value,
         ]);
+
+        $this->schedule->guides()->sync([$this->guide->id]);
 
         $this->booking = Booking::create([
             'public_token' => (string) Str::uuid(),

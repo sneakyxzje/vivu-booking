@@ -309,7 +309,14 @@ class PassengerPolicyTest extends TestCase
         $this->assertStringContainsString('2 trên 4', $canhBao[0]);
     }
 
-    public function test_dieu_hanh_liet_ke_duoc_cac_don_khai_thieu_cua_mot_chuyen(): void
+    /**
+     * Danh sách đoàn trả về mọi nhóm, kèm nhóm nào còn khai thiếu.
+     *
+     * Trước đây máy chủ lọc sẵn chỉ còn nhóm khai thiếu. Như vậy trả lời được câu "gửi danh sách
+     * đi được chưa" nhưng không trả lời được câu "nhóm này gồm những ai", mà cả hai đều là việc
+     * của cùng một màn hình.
+     */
+    public function test_danh_sach_doan_tra_ve_moi_nhom_va_chi_ro_nhom_khai_thieu(): void
     {
         $donDu = $this->taoDon(2);
         $donThieu = $this->taoDon(4);
@@ -333,13 +340,23 @@ class PassengerPolicyTest extends TestCase
 
         Sanctum::actingAs($this->dieuHanh);
 
-        $response = $this->getJson("/api/admin/schedules/{$this->schedule->id}/incomplete-passengers")
+        $response = $this->getJson("/api/admin/schedules/{$this->schedule->id}/manifest")
             ->assertOk()
             ->assertJsonPath('data.can_export_manifest', false);
 
-        $ids = array_column($response->json('data.bookings'), 'booking_id');
+        $nhom = collect($response->json('data.groups'))->keyBy('booking_id');
 
-        $this->assertContains($donThieu->id, $ids);
+        // Cả hai nhóm đều có mặt, kể cả nhóm đã khai đủ.
+        $this->assertTrue($nhom->has($donDu->id));
+        $this->assertTrue($nhom->has($donThieu->id));
+
+        $this->assertSame(0, $nhom[$donDu->id]['missing']);
+        $this->assertSame(3, $nhom[$donThieu->id]['missing']);
+
+        // Và mở ra thấy được nhóm đó gồm ai.
+        $this->assertSame(2, count($nhom[$donDu->id]['passengers']));
+        $this->assertSame('Khach ' . $donDu->id, $nhom[$donDu->id]['passengers'][0]['name']);
+        $this->assertTrue($nhom[$donDu->id]['passengers'][0]['is_contact']);
     }
 
     /** Chưa chọn người liên hệ thì hướng dẫn viên không biết gọi ai. */

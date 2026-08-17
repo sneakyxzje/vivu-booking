@@ -46,11 +46,12 @@ type Booking = {
     id: number;
   public_token?: string;
     start_date: string;
-    guide?: {
+    /** Đoàn đông có thể có nhiều hướng dẫn viên. */
+    guides?: {
       id: number;
       name: string;
       phone?: string | null;
-    } | null;
+    }[];
   };
 };
 
@@ -353,10 +354,17 @@ export default function BookingSuccess() {
                     )}
                     <p>
                       <span className="text-gray-500">Hướng dẫn viên:</span>{" "}
-                      <strong className="text-gray-900">
-                        {booking.schedule?.guide?.name ?? "Đang sắp xếp"}
-                      </strong>
-                      {booking.schedule?.guide?.phone ? ` — ${booking.schedule.guide.phone}` : ""}
+                      {(booking.schedule?.guides ?? []).length === 0 ? (
+                        <strong className="text-gray-900">Đang sắp xếp</strong>
+                      ) : (
+                        (booking.schedule?.guides ?? []).map((guide, i) => (
+                          <span key={guide.id}>
+                            {i > 0 && ", "}
+                            <strong className="text-gray-900">{guide.name}</strong>
+                            {guide.phone ? ` — ${guide.phone}` : ""}
+                          </span>
+                        ))
+                      )}
                     </p>
                   </div>
                   <p className="text-xs text-blue-700">

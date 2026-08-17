@@ -11,8 +11,10 @@ use App\Models\TourItinerary;
 use App\Models\TourSchedule;
 use App\Models\User;
 use App\Enums\ScheduleStatus;
+use App\Exceptions\BusinessRuleException;
 use App\Services\CloudinaryService;
 use App\Services\ScheduleDeadlineService;
+use App\Services\ScheduleGuideService;
 use App\Services\ScheduleLifecycleService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -28,6 +30,7 @@ class AdminTourController extends Controller
         protected CloudinaryService $cloudinaryService,
         protected ScheduleLifecycleService $scheduleLifecycle,
         protected ScheduleDeadlineService $scheduleDeadline,
+        protected ScheduleGuideService $scheduleGuides,
     ) {
     }
 
@@ -36,7 +39,7 @@ class AdminTourController extends Controller
     {
         $tours = Tour::with([
             'admin:id,name,email',
-            'schedules.guide:id,name,email,phone,status',
+            'schedules.guides:id,name,email,phone,status',
             'categories',
             'services',
             'images',
@@ -57,7 +60,7 @@ class AdminTourController extends Controller
             'services',
             'images',
             'itineraries.checkpoints',
-            'schedules.guide:id,name,email,phone,status',
+            'schedules.guides:id,name,email,phone,status',
         ])->find($id);
 
         if (! $tour) {
@@ -143,7 +146,9 @@ class AdminTourController extends Controller
             'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
             'schedules.*.booking_deadline' => ['nullable', 'date'],
             'schedules.*.status' => ['nullable', 'string', 'in:open,closed'],
-            'schedules.*.guide_id' => ['nullable', 'exists:users,id'],
+            // Nhiều hướng dẫn viên cho một chuyến. Bao nhiêu người là đủ thì điều hành quyết.
+            'schedules.*.guide_ids' => ['nullable', 'array'],
+            'schedules.*.guide_ids.*' => ['integer', 'exists:users,id'],
         ]);
 
         $numberOfDay = (int) $validated['number_of_days'];
@@ -235,16 +240,19 @@ class AdminTourController extends Controller
                     ? Carbon::parse($item['booking_deadline'])
                     : $startDate->copy()->subDays(3);
 
-                $tour->schedules()->create([
+                $created = $tour->schedules()->create([
                     'start_date'       => $startDate,
                     'end_date'         => $endDate,
-                    'guide_id'         => $item['guide_id'] ?? null,
                     'max_people'       => $item['max_people'],
                     'min_people'       => $item['min_people'] ?? 1,
                     'booking_deadline' => $bookingDeadline,
                     'booked_people'    => 0,
                     'status'           => $item['status'] ?? 'open',
                 ]);
+
+                // Phân công đi qua bảng nối. Chồng lịch đã được kiểm ở validateScheduleGuideAssignments
+                // trước khi vào giao dịch này, nên ở đây chỉ ghi.
+                $created->guides()->sync($this->guideIdsOf($item));
             }
 
             if ($request->hasFile('images')) {
@@ -323,7 +331,8 @@ class AdminTourController extends Controller
             // Lý do dời hạn chốt, không bắt buộc. Có thì được ghi vào nhật ký chuyến.
             'schedules.*.booking_deadline_reason' => ['nullable', 'string', 'max:500'],
             'schedules.*.status' => ['nullable', 'string', 'in:open,closed'],
-            'schedules.*.guide_id' => ['nullable', 'exists:users,id'],
+            'schedules.*.guide_ids' => ['nullable', 'array'],
+            'schedules.*.guide_ids.*' => ['integer', 'exists:users,id'],
         ]);
 
         $numberOfDay = (int) $validated['number_of_days'];
@@ -403,7 +412,6 @@ class AdminTourController extends Controller
                 $payload = [
                     'start_date'       => $startDate,
                     'end_date'         => $endDate,
-                    'guide_id'         => $item['guide_id'] ?? null,
                     'max_people'       => $item['max_people'],
                     'min_people'       => $item['min_people'] ?? ($schedule?->min_people ?? 1),
                     'booking_deadline' => $bookingDeadline,
@@ -448,6 +456,8 @@ class AdminTourController extends Controller
                         );
                     }
 
+                    $schedule->guides()->sync($this->guideIdsOf($item));
+
                     $keptScheduleIds[] = $schedule->id;
                     continue;
                 }
@@ -457,6 +467,9 @@ class AdminTourController extends Controller
                     'booked_people' => 0,
                     'status'        => $item['status'] ?? 'open',
                 ]);
+
+                $created->guides()->sync($this->guideIdsOf($item));
+
                 $keptScheduleIds[] = $created->id;
             }
 
@@ -479,7 +492,7 @@ class AdminTourController extends Controller
                 }
             }
 
-            return $tour->fresh(['categories', 'services', 'images', 'itineraries', 'schedules.guide:id,name,email,phone,status']);
+            return $tour->fresh(['categories', 'services', 'images', 'itineraries', 'schedules.guides:id,name,email,phone,status']);
         });
 
         return $this->success([
@@ -661,10 +674,17 @@ class AdminTourController extends Controller
         ], 'Đã chuyển trạng thái chuyến sang ' . $toStatus->label());
     }
 
+    /**
+     * Đặt lại danh sách hướng dẫn viên của một chuyến.
+     *
+     * Nhận cả danh sách chứ không một người: đoàn đông thì cần nhiều người dẫn. Gửi mảng rỗng
+     * nghĩa là bỏ hết phân công.
+     */
     public function assignScheduleGuide(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
-            'guide_id' => ['nullable', 'exists:users,id'],
+            'guide_ids' => ['present', 'array'],
+            'guide_ids.*' => ['integer', 'exists:users,id'],
         ]);
 
         $schedule = TourSchedule::with('tour')->find($id);
@@ -673,147 +693,84 @@ class AdminTourController extends Controller
             return $this->error('Không tìm thấy lịch khởi hành', 404);
         }
 
-        $guideId = $validated['guide_id'] ?? null;
-
-        if ($guideId !== null) {
-            $guide = User::find($guideId);
-
-            if ($guide->role !== 'guide' || $guide->status !== 'active') {
-                return $this->error('Hướng dẫn viên không hợp lệ hoặc đang ngừng hoạt động', 422);
-            }
-
-            $start = Carbon::parse($schedule->start_date)->startOfDay();
-            $end = $start->copy()->addDays(max(0, (int) $schedule->tour->number_of_days - 1));
-
-            $conflict = DB::transaction(function () use ($schedule, $guideId, $start, $end) {
-                User::whereKey($guideId)->lockForUpdate()->first();
-
-                $conflict = TourSchedule::query()
-                    ->with('tour:id,title,number_of_days')
-                    ->where('guide_id', $guideId)
-                    ->whereKeyNot($schedule->id)
-                    ->lockForUpdate()
-                    ->get()
-                    ->first(function (TourSchedule $assigned) use ($start, $end) {
-                        $assignedStart = Carbon::parse($assigned->start_date)->startOfDay();
-                        $assignedEnd = $assignedStart->copy()
-                            ->addDays(max(0, (int) $assigned->tour->number_of_days - 1));
-
-                        return $start->lte($assignedEnd) && $end->gte($assignedStart);
-                    });
-
-                if (! $conflict) {
-                    $schedule->update(['guide_id' => $guideId]);
-                }
-
-                return $conflict;
-            });
-
-            if ($conflict) {
-                $conflictStart = Carbon::parse($conflict->start_date);
-                $conflictEnd = $conflictStart->copy()
-                    ->addDays(max(0, (int) $conflict->tour->number_of_days - 1));
-
-                return $this->error(
-                    sprintf(
-                        'Hướng dẫn viên đã có chuyến "%s" từ %s đến %s',
-                        $conflict->tour->title,
-                        $conflictStart->format('d/m/Y'),
-                        $conflictEnd->format('d/m/Y')
-                    ),
-                    422
-                );
-            }
-        }
-
-        if ($guideId === null) {
-            $schedule->update(['guide_id' => null]);
-        }
+        $daSua = $this->scheduleGuides->sync($schedule, $validated['guide_ids']);
+        $soNguoi = $daSua->guides->count();
 
         return $this->success(
-            $schedule->fresh(['guide:id,name,email,phone,status', 'tour:id,title,number_of_days']),
-            $guideId === null ? 'Đã bỏ phân công hướng dẫn viên' : 'Phân công hướng dẫn viên thành công'
+            $daSua->load('tour:id,title,number_of_days'),
+            $soNguoi === 0
+                ? 'Đã bỏ phân công hướng dẫn viên'
+                : sprintf('Đã phân công %d hướng dẫn viên cho chuyến này.', $soNguoi),
         );
     }
 
+    /** @param array<string, mixed> $item */
+    private function guideIdsOf(array $item): array
+    {
+        return collect($item['guide_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Kiểm chồng lịch cho cả loạt chuyến của một tour đang lưu.
+     *
+     * Phải xét hai phía: lịch đã có trong cơ sở dữ liệu, và các chuyến khác trong chính lần lưu
+     * này - vì chúng chưa tồn tại nên truy vấn không thấy được nhau.
+     */
     private function validateScheduleGuideAssignments(array $schedules, int $numberOfDays): void
     {
-        $selectedGuideIds = collect($schedules)->pluck('guide_id')->filter()->unique()->values();
+        $tatCaGuideIds = collect($schedules)
+            ->flatMap(fn (array $item) => $this->guideIdsOf($item))
+            ->unique()
+            ->values();
 
-        if ($selectedGuideIds->isEmpty()) {
+        if ($tatCaGuideIds->isEmpty()) {
             return;
         }
 
-        $guides = User::query()
-            ->whereIn('id', $selectedGuideIds)
-            ->lockForUpdate()
-            ->get()
-            ->keyBy('id');
+        try {
+            $guides = $this->scheduleGuides->assertValidGuides($tatCaGuideIds->all());
+        } catch (BusinessRuleException $e) {
+            throw ValidationException::withMessages(['schedules' => $e->getMessage()]);
+        }
 
-        $existingSchedules = TourSchedule::query()
-            ->with('tour:id,title,number_of_days')
-            ->whereIn('guide_id', $selectedGuideIds)
-            ->lockForUpdate()
-            ->get()
-            ->groupBy('guide_id');
-
-        $draftPeriods = [];
+        $khoangNhap = [];
 
         foreach ($schedules as $index => $schedule) {
-            $guideId = isset($schedule['guide_id']) ? (int) $schedule['guide_id'] : null;
-
-            if (! $guideId) {
-                continue;
-            }
-
-            $guide = $guides->get($guideId);
-
-            if (! $guide || $guide->role !== 'guide' || $guide->status !== 'active') {
-                throw ValidationException::withMessages([
-                    'schedules.' . $index . '.guide_id' => 'Hướng dẫn viên không hợp lệ hoặc đang ngừng hoạt động.',
-                ]);
-            }
-
             $start = Carbon::parse($schedule['start_date'])->startOfDay();
             $end = $start->copy()->addDays($numberOfDays - 1);
 
-            $conflict = ($existingSchedules->get($guideId) ?? collect())
-                ->first(fn (TourSchedule $assigned) => $this->scheduleOverlaps($start, $end, $assigned));
+            foreach ($this->guideIdsOf($schedule) as $guideId) {
+                $boQua = isset($schedule['id']) ? (int) $schedule['id'] : null;
+                $vuong = $this->scheduleGuides->conflictFor($guideId, $start, $end, $boQua);
 
-            if ($conflict) {
-                $conflictStart = Carbon::parse($conflict->start_date);
-                $conflictEnd = $conflictStart->copy()
-                    ->addDays(max(0, (int) $conflict->tour->number_of_days - 1));
-
-                throw ValidationException::withMessages([
-                    'schedules.' . $index . '.guide_id' => sprintf(
-                        'Hướng dẫn viên đã có chuyến "%s" từ %s đến %s.',
-                        $conflict->tour->title,
-                        $conflictStart->format('d/m/Y'),
-                        $conflictEnd->format('d/m/Y')
-                    ),
-                ]);
-            }
-
-            foreach ($draftPeriods[$guideId] ?? [] as $draft) {
-                if ($start->lte($draft['end']) && $end->gte($draft['start'])) {
+                if ($vuong) {
                     throw ValidationException::withMessages([
-                        'schedules.' . $index . '.guide_id' => 'Hướng dẫn viên bị trùng với một lịch khởi hành khác trong tour đang tạo.',
+                        'schedules.' . $index . '.guide_ids' => $this->scheduleGuides->moTaTrungLich(
+                            $guides[$guideId]->name,
+                            $vuong,
+                        ),
                     ]);
                 }
+
+                foreach ($khoangNhap[$guideId] ?? [] as $daNhap) {
+                    if (ScheduleGuideService::overlaps($start, $end, $daNhap['start'], $daNhap['end'])) {
+                        throw ValidationException::withMessages([
+                            'schedules.' . $index . '.guide_ids' => sprintf(
+                                '%s bị trùng với một lịch khởi hành khác trong tour đang lưu.',
+                                $guides[$guideId]->name,
+                            ),
+                        ]);
+                    }
+                }
+
+                $khoangNhap[$guideId][] = ['start' => $start, 'end' => $end];
             }
-
-            $draftPeriods[$guideId][] = ['start' => $start, 'end' => $end];
         }
-    }
-
-    private function scheduleOverlaps(Carbon $start, Carbon $end, TourSchedule $schedule): bool
-    {
-        $assignedStart = Carbon::parse($schedule->start_date)->startOfDay();
-        $assignedEnd = $assignedStart->copy()
-            ->addDays(max(0, (int) $schedule->tour->number_of_days - 1));
-
-        return $start->lte($assignedEnd) && $end->gte($assignedStart);
     }
 
     private function buildUniqueSlug(string $title, int $ignoreId): string
