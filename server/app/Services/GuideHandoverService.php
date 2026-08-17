@@ -67,7 +67,6 @@ class GuideHandoverService
             }
 
             $this->assertChuyenConBanGiaoDuoc($khoa);
-            $this->assertDoanKhongBiBoRoi($khoa);
 
             if ($fromGuideId === $toGuideId) {
                 throw new BusinessRuleException('Người nhận và người giao không thể là một.');
@@ -87,14 +86,23 @@ class GuideHandoverService
 
             $nguoi = $this->guideService->assertValidGuides([$toGuideId]);
 
-            // Cùng luật với phân công thường: một người không đứng ở hai đoàn cùng lúc.
-            [$start, $end] = $this->guideService->periodOf($khoa);
-            $vuong = $this->guideService->conflictFor($toGuideId, $start, $end, $khoa->getKey());
+            $nhoDoanKhac = $this->assertDoanKhongBiBoRoi($khoa, $toGuideId, $nguoi[$toGuideId]->name);
 
-            if ($vuong) {
-                throw new BusinessRuleException(
-                    $this->guideService->moTaTrungLich($nguoi[$toGuideId]->name, $vuong),
-                );
+            /*
+             * Trùng lịch: chặn như mọi nơi khác, TRỪ đúng trường hợp nhờ đoàn khác trông hộ.
+             *
+             * Ở trường hợp đó người nhận đang giữ hai đoàn cùng lúc, tức phá chính luật này. Cho
+             * phép là quyết định có cân nhắc, lý do ở assertDoanKhongBiBoRoi bên dưới.
+             */
+            if (!$nhoDoanKhac) {
+                [$start, $end] = $this->guideService->periodOf($khoa);
+                $vuong = $this->guideService->conflictFor($toGuideId, $start, $end, $khoa->getKey());
+
+                if ($vuong) {
+                    throw new BusinessRuleException(
+                        $this->guideService->moTaTrungLich($nguoi[$toGuideId]->name, $vuong),
+                    );
+                }
             }
 
             $banGiaoLuc = $luc ?? GioVietNam::bayGio();
@@ -115,6 +123,7 @@ class GuideHandoverService
                 'handed_over_at' => $banGiaoLuc,
                 'reason' => trim($reason),
                 'handover_note' => trim($note),
+                'is_emergency_cover' => $nhoDoanKhac,
                 'created_by' => $actor?->getKey(),
             ]);
 
@@ -153,21 +162,48 @@ class GuideHandoverService
      * Và nó chỉ áp lúc thực hiện, không áp lúc hướng dẫn viên gửi yêu cầu - người đang ốm vẫn
      * phải xin được, chặn từ đầu là bịt miệng người đang cần giúp.
      */
-    private function assertDoanKhongBiBoRoi(TourSchedule $schedule): void
-    {
+    private function assertDoanKhongBiBoRoi(
+        TourSchedule $schedule,
+        int $toGuideId,
+        string $tenNguoiNhan,
+    ): bool {
         if ($this->lifecycle->effectiveStatus($schedule) !== ScheduleStatus::InProgress) {
-            return;
+            return false;
         }
 
-        $soNguoiDang = $schedule->guides()->count();
+        // Còn người khác ở lại với đoàn: bàn giao bình thường, không cần nhờ ai.
+        if ($schedule->guides()->count() >= 2) {
+            return false;
+        }
 
-        if ($soNguoiDang < 2) {
-            throw new BusinessRuleException(
-                'Đoàn đang trên đường và chuyến này chỉ có một hướng dẫn viên. Gỡ người đó ra thì '
-                . 'đoàn không có ai cho tới khi người mới tới nơi. Hãy phân công thêm một người '
-                . 'cho chuyến trước, rồi mới bàn giao.',
+        /*
+         * Chuyến chỉ có một người và người đó sắp rời đi. Lối thoát duy nhất là nhờ hướng dẫn
+         * viên đang dẫn một đoàn khác cùng lúc: họ đã ở ngoài đường, gần đoàn, tới được ngay.
+         * Người ở nhà thì cách đoàn nhiều giờ, mà đó lại là quãng đoàn không có ai.
+         */
+        if ($this->dangDanDoanKhacTrenDuong($toGuideId, (int) $schedule->getKey())) {
+            return true;
+        }
+
+        throw new BusinessRuleException(sprintf(
+            'Đoàn đang trên đường và chuyến này chỉ có một hướng dẫn viên. Gỡ người đó ra thì đoàn '
+            . 'không có ai cho tới khi người mới tới nơi. Hai cách: phân công thêm một người cho '
+            . 'chuyến trước rồi bàn giao, hoặc nhờ một hướng dẫn viên đang dẫn đoàn khác cùng lúc '
+            . 'trông hộ — %s hiện không dẫn đoàn nào đang trên đường.',
+            $tenNguoiNhan,
+        ));
+    }
+
+    /** Người này có đang dẫn một đoàn khác cũng đang trên đường không. */
+    private function dangDanDoanKhacTrenDuong(int $guideId, int $boQuaChuyen): bool
+    {
+        return TourSchedule::query()
+            ->whereHas('guides', fn ($query) => $query->whereKey($guideId))
+            ->whereKeyNot($boQuaChuyen)
+            ->get()
+            ->contains(
+                fn (TourSchedule $khac) => $this->lifecycle->effectiveStatus($khac) === ScheduleStatus::InProgress,
             );
-        }
     }
 
     /**

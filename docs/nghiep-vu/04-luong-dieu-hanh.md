@@ -254,6 +254,21 @@ chỉ có một hướng dẫn viên trong suốt hành trình, không mô tả 
 > chỉ áp lúc thực hiện, **không áp lúc hướng dẫn viên gửi yêu cầu** — người đang ốm vẫn phải xin
 > được, chặn từ đầu là bịt miệng người đang cần giúp.
 >
+> **Lối thoát thứ hai: nhờ đoàn khác trông hộ.** Chuyến chỉ có một người mà người đó ốm giữa
+> chừng thì không kịp chờ phân công thêm. Khi ấy cho bàn giao cho **hướng dẫn viên đang dẫn một
+> đoàn khác cũng trên đường** — họ đã ở ngoài, tới nơi được ngay, còn người ở nhà cách đoàn nhiều
+> giờ, mà đó đúng là quãng đoàn không có ai.
+>
+> Đổi lại người nhận giữ **hai đoàn cùng lúc**, tức phá chính luật trùng lịch hệ thống chặn ở mọi
+> chỗ khác. Cho phép ở đây là quyết định có cân nhắc: một người trông hai đoàn thì tệ, nhưng vẫn
+> hơn một đoàn không có ai. Vì là chữa cháy chứ không phải cách vận hành bình thường nên phải
+> đánh dấu — cột `is_emergency_cover` trên `guide_handovers`. Không đánh dấu thì trong dữ liệu nó
+> trông y hệt một lần phân công bình thường, và không ai biết còn việc dở phải xử lý tiếp.
+>
+> Màn phân công lọc sẵn: đoàn đang trên đường mà chỉ còn một người thì danh sách chọn **chỉ hiện
+> những ai đang dẫn đoàn khác**, kèm nhãn để điều hành biết mình đang nhờ chứ không phải điều
+> người rảnh.
+>
 > Một điểm đáng nói khi trình bày: chờ duyệt nghe như chậm nhưng an toàn hơn — người xin **vẫn
 > giữ quyền phụ trách cho tới lúc duyệt**, nên không có khoảnh khắc nào đoàn không có ai chịu
 > trách nhiệm trên hệ thống. Tự bàn giao ngay mới tạo ra khoảng trống đó.

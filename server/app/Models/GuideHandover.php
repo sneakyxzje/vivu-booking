@@ -15,12 +15,16 @@ class GuideHandover extends Model
         'handed_over_at',
         'reason',
         'handover_note',
+        'is_emergency_cover',
         'created_by',
     ];
 
     protected function casts(): array
     {
-        return ['handed_over_at' => 'datetime'];
+        return [
+            'handed_over_at' => 'datetime',
+            'is_emergency_cover' => 'boolean',
+        ];
     }
 
     public function schedule(): BelongsTo

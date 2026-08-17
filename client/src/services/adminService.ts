@@ -249,6 +249,8 @@ export interface GuideHandoverRow {
   reason: string;
   /** Tình trạng đoàn tại thời điểm bàn giao. Phần có giá trị nhất của biên bản. */
   handover_note: string;
+  /** Nhờ hướng dẫn viên của đoàn khác trông hộ: người nhận đang giữ hai đoàn, còn việc dở. */
+  is_emergency_cover: boolean;
   created_by_name: string | null;
   created_at: string | null;
   /** Ghi vào máy muộn hơn lúc bàn giao thật, vì bàn giao xảy ra trên đường. */
@@ -277,7 +279,20 @@ export interface HandoverPanelResponse {
     status: string;
   };
   current_guides: { id: number; name: string; phone?: string | null }[];
-  available_guides: { id: number; name: string; phone?: string | null }[];
+  /**
+   * Đoàn đang trên đường mà chỉ còn một người phụ trách.
+   *
+   * Khi đó chỉ nhờ được hướng dẫn viên đang dẫn đoàn khác: người ở nhà cách đoàn nhiều giờ, mà
+   * đó đúng là quãng đoàn không có ai.
+   */
+  needs_emergency_cover: boolean;
+  available_guides: {
+    id: number;
+    name: string;
+    phone?: string | null;
+    /** Đang dẫn một đoàn khác cũng trên đường, tức nhờ trông hộ được. */
+    leading_other_group: boolean;
+  }[];
   handovers: GuideHandoverRow[];
 }
 

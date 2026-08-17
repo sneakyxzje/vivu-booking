@@ -186,7 +186,11 @@ export default function ScheduleManagement() {
     try {
       const data = await adminService.getHandoverPanel(yc.tour_schedule_id);
       setHandoverPanel(data);
-      setReviewGuideId(data?.available_guides[0]?.id ?? 0);
+      // Chọn sẵn người đầu tiên nhờ được: đoàn chỉ còn một người thì chỉ nhờ được đoàn khác.
+      const nhoDuoc = (data?.available_guides ?? []).filter(
+        (g) => !data?.needs_emergency_cover || g.leading_other_group,
+      );
+      setReviewGuideId(nhoDuoc[0]?.id ?? 0);
     } catch (err) {
       console.error("Lỗi lấy danh sách người thay:", err);
     }
@@ -241,15 +245,19 @@ export default function ScheduleManagement() {
   };
 
   /**
-   * Đoàn đang trên đường mà chỉ có một hướng dẫn viên thì chưa bàn giao được.
+   * Đoàn đang trên đường mà chỉ còn một người phụ trách.
    *
-   * Gỡ người dẫn duy nhất ra khỏi đoàn đang giữa đường nghĩa là đoàn không có ai cho tới khi
-   * người mới di chuyển tới nơi. Máy chủ cũng chặn, nhưng nói trước ở đây thì điều hành biết
-   * việc cần làm là bổ sung người, chứ không phải bấm lại lần nữa.
+   * Khi đó chỉ nhờ được hướng dẫn viên đang dẫn đoàn khác — họ đã ở ngoài đường, tới được ngay.
+   * Người ở nhà cách đoàn nhiều giờ, mà đó đúng là quãng đoàn không có ai.
    */
-  const doanSeBiBoRoi =
-    handoverPanel?.schedule.status === "in_progress" &&
-    handoverPanel.current_guides.length < 2;
+  const canNhoTrongHo = handoverPanel?.needs_emergency_cover === true;
+
+  /** Chỉ những người nhờ được. Lúc bình thường thì là tất cả. */
+  const nguoiThayChonDuoc = (handoverPanel?.available_guides ?? []).filter(
+    (g) => !canNhoTrongHo || g.leading_other_group,
+  );
+
+  const khongCoAiNhoDuoc = canNhoTrongHo && nguoiThayChonDuoc.length === 0;
 
   const openHandoverDialog = async (scheduleId: number) => {
     setHandoverScheduleId(scheduleId);
@@ -592,6 +600,43 @@ export default function ScheduleManagement() {
         </div>
       </div>
 
+      {/*
+        Yêu cầu bàn giao đang chờ — đặt ngay dưới tiêu đề, trên cả bộ lọc.
+
+        Hướng dẫn viên gửi lên đúng lúc họ không dẫn tiếp được, mà đoàn thì đang trên đường. Nằm
+        dưới bảng chuyến thì phải cuộn hết trang mới thấy, và thứ này không chờ được.
+      */}
+      {reviewingRequest === null && handoverRequests.length > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-2 shadow-sm">
+          <p className="flex items-center gap-2 text-sm font-bold text-amber-900">
+            <AlertTriangle className="h-4 w-4" />
+            {handoverRequests.length} yêu cầu bàn giao đang chờ bạn cử người thay
+          </p>
+
+          {handoverRequests.map((yc) => (
+            <button
+              key={yc.id}
+              type="button"
+              onClick={() => openRequestReview(yc)}
+              className="w-full rounded-lg border border-amber-200 bg-white p-3 text-left text-xs hover:bg-amber-50/60 transition-colors"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold text-gray-900">{yc.requester_name}</span>
+                <span className="text-gray-500">
+                  {yc.tour_title} · chuyến #{yc.tour_schedule_id}
+                </span>
+                {yc.requester_phone && (
+                  <span className="text-gray-500">{yc.requester_phone}</span>
+                )}
+                <span className="ml-auto text-gray-400">{formatDateTime(yc.created_at)}</span>
+              </div>
+              <p className="mt-1 font-semibold text-amber-900">{yc.reason}</p>
+              <p className="mt-0.5 text-gray-600">{yc.group_state}</p>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* FILTER & SEARCH */}
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
         <div className="relative w-full sm:max-w-xs">
@@ -929,41 +974,6 @@ export default function ScheduleManagement() {
         </div>
       )}
 
-      {/*
-        Yêu cầu bàn giao đang chờ.
-        Đặt ngay đầu trang: hướng dẫn viên gửi lên khi họ không dẫn tiếp được, mà đoàn thì đang
-        trên đường. Nằm lẫn trong bảng chuyến thì không ai thấy kịp.
-      */}
-      {reviewingRequest === null && handoverRequests.length > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
-          <p className="text-sm font-bold text-amber-900">
-            {handoverRequests.length} yêu cầu bàn giao đang chờ bạn cử người thay
-          </p>
-
-          {handoverRequests.map((yc) => (
-            <button
-              key={yc.id}
-              type="button"
-              onClick={() => openRequestReview(yc)}
-              className="w-full rounded-lg border border-amber-200 bg-white p-3 text-left text-xs hover:bg-amber-50/60 transition-colors"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-bold text-gray-900">{yc.requester_name}</span>
-                <span className="text-gray-500">
-                  {yc.tour_title} · chuyến #{yc.tour_schedule_id}
-                </span>
-                {yc.requester_phone && (
-                  <span className="text-gray-500">{yc.requester_phone}</span>
-                )}
-                <span className="ml-auto text-gray-400">{formatDateTime(yc.created_at)}</span>
-              </div>
-              <p className="mt-1 font-semibold text-amber-900">{yc.reason}</p>
-              <p className="mt-0.5 text-gray-600">{yc.group_state}</p>
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* Duyệt một yêu cầu: chọn người thay, hoặc từ chối kèm lý do */}
       {reviewingRequest && (
         <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
@@ -990,13 +1000,33 @@ export default function ScheduleManagement() {
               </div>
             </div>
 
-            {doanSeBiBoRoi && (
-              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                <p className="font-semibold">Chưa duyệt được yêu cầu này.</p>
+            {canNhoTrongHo && (
+              <div
+                className={`rounded-lg border px-4 py-3 text-sm ${
+                  khongCoAiNhoDuoc
+                    ? "border-rose-200 bg-rose-50 text-rose-800"
+                    : "border-amber-200 bg-amber-50 text-amber-900"
+                }`}
+              >
+                <p className="font-semibold">
+                  {khongCoAiNhoDuoc
+                    ? "Chưa duyệt được yêu cầu này."
+                    : "Chuyến chỉ có một người — chính người đang xin."}
+                </p>
                 <p className="text-xs mt-0.5">
-                  Đoàn đang trên đường và chuyến chỉ có một hướng dẫn viên — chính người đang xin.
-                  Phân công thêm một người cho chuyến trước, rồi quay lại duyệt. Từ chối cũng được,
-                  nhưng nhớ ghi lý do để họ biết đường xoay xở.
+                  {khongCoAiNhoDuoc ? (
+                    <>
+                      Không có hướng dẫn viên nào đang dẫn đoàn khác cùng lúc để nhờ. Phân công
+                      thêm một người cho chuyến trước, rồi quay lại duyệt. Từ chối cũng được, nhưng
+                      nhớ ghi lý do để họ biết đường xoay xở.
+                    </>
+                  ) : (
+                    <>
+                      Chỉ nhờ được người <strong>đang dẫn đoàn khác</strong>, vì họ đã ở ngoài
+                      đường và tới được ngay. Người đó tạm giữ hai đoàn cho tới khi bạn thu xếp
+                      được người khác.
+                    </>
+                  )}
                 </p>
               </div>
             )}
@@ -1008,10 +1038,12 @@ export default function ScheduleManagement() {
 
               {!handoverPanel ? (
                 <p className="text-xs text-gray-500">Đang tìm người rảnh...</p>
-              ) : handoverPanel.available_guides.length === 0 ? (
+              ) : nguoiThayChonDuoc.length === 0 ? (
                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  Không còn hướng dẫn viên nào khác đang hoạt động. Từ chối kèm lý do để người xin
-                  biết đường xoay xở.
+                  {canNhoTrongHo
+                    ? "Không có hướng dẫn viên nào đang dẫn đoàn khác để nhờ."
+                    : "Không còn hướng dẫn viên nào khác đang hoạt động."}{" "}
+                  Từ chối kèm lý do để người xin biết đường xoay xở.
                 </p>
               ) : (
                 <select
@@ -1019,9 +1051,10 @@ export default function ScheduleManagement() {
                   onChange={(e) => setReviewGuideId(Number(e.target.value))}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
                 >
-                  {handoverPanel.available_guides.map((g) => (
+                  {nguoiThayChonDuoc.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.name}
+                      {g.leading_other_group ? " — đang dẫn đoàn khác" : ""}
                     </option>
                   ))}
                 </select>
@@ -1067,7 +1100,7 @@ export default function ScheduleManagement() {
               <button
                 type="button"
                 onClick={duyetYeuCau}
-                disabled={reviewSaving || doanSeBiBoRoi || !reviewGuideId}
+                disabled={reviewSaving || khongCoAiNhoDuoc || !reviewGuideId}
                 className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40"
               >
                 {reviewSaving ? "Đang xử lý..." : "Duyệt và bàn giao"}
@@ -1093,22 +1126,44 @@ export default function ScheduleManagement() {
 
             {!handoverPanel && <p className="text-sm text-gray-500">Đang tải...</p>}
 
-            {doanSeBiBoRoi && (
-              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-                <p className="font-semibold">Chưa bàn giao được.</p>
+            {canNhoTrongHo && (
+              <div
+                className={`rounded-lg border px-4 py-3 text-sm ${
+                  khongCoAiNhoDuoc
+                    ? "border-rose-200 bg-rose-50 text-rose-800"
+                    : "border-amber-200 bg-amber-50 text-amber-900"
+                }`}
+              >
+                <p className="font-semibold">
+                  {khongCoAiNhoDuoc
+                    ? "Chưa bàn giao được."
+                    : "Đoàn chỉ còn một người — chỉ nhờ được đoàn khác."}
+                </p>
                 <p className="text-xs mt-0.5">
-                  Đoàn đang trên đường và chuyến này chỉ có một hướng dẫn viên. Gỡ người đó ra thì
-                  đoàn không có ai cho tới khi người mới tới nơi. Hãy bấm <strong>Sửa</strong> ở cột
-                  hướng dẫn viên để phân công thêm một người, rồi quay lại đây.
+                  {khongCoAiNhoDuoc ? (
+                    <>
+                      Đoàn đang trên đường và không có hướng dẫn viên nào khác đang dẫn đoàn cùng
+                      lúc để nhờ. Hãy bấm <strong>Sửa</strong> ở cột hướng dẫn viên phân công thêm
+                      một người cho chuyến, rồi quay lại đây.
+                    </>
+                  ) : (
+                    <>
+                      Gỡ người dẫn duy nhất ra thì đoàn không có ai cho tới khi người mới tới nơi.
+                      Nên chỉ chọn được người <strong>đang dẫn một đoàn khác</strong> — họ đã ở
+                      ngoài đường. Người đó sẽ tạm giữ hai đoàn, hệ thống đánh dấu để bạn xử lý tiếp.
+                    </>
+                  )}
                 </p>
               </div>
             )}
 
             {handoverPanel && (
               <>
-                {handoverPanel.available_guides.length === 0 ? (
+                {nguoiThayChonDuoc.length === 0 ? (
                   <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    Không còn hướng dẫn viên nào khác đang hoạt động để nhận đoàn.
+                    {canNhoTrongHo
+                      ? "Không có hướng dẫn viên nào đang dẫn đoàn khác để nhờ."
+                      : "Không còn hướng dẫn viên nào khác đang hoạt động để nhận đoàn."}
                   </p>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -1138,9 +1193,10 @@ export default function ScheduleManagement() {
                         }
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
                       >
-                        {handoverPanel.available_guides.map((g) => (
+                        {nguoiThayChonDuoc.map((g) => (
                           <option key={g.id} value={g.id}>
                             {g.name}
+                            {g.leading_other_group ? " — đang dẫn đoàn khác" : ""}
                           </option>
                         ))}
                       </select>
@@ -1188,6 +1244,11 @@ export default function ScheduleManagement() {
                       <div key={bg.id} className="rounded-lg border border-gray-200 p-2.5 text-xs">
                         <p className="font-semibold text-gray-900">
                           {bg.from_guide?.name} → {bg.to_guide?.name}
+                          {bg.is_emergency_cover && (
+                            <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                              Nhờ trông hộ
+                            </span>
+                          )}
                           <span className="ml-2 font-normal text-gray-500">
                             {formatDateTime(bg.handed_over_at)}
                           </span>
@@ -1221,7 +1282,7 @@ export default function ScheduleManagement() {
                 onClick={confirmHandover}
                 disabled={
                   handoverSaving ||
-                  doanSeBiBoRoi ||
+                  khongCoAiNhoDuoc ||
                   !handoverForm.from_guide_id ||
                   !handoverForm.to_guide_id ||
                   handoverForm.reason.trim().length < 10 ||

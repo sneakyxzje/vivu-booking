@@ -7,7 +7,9 @@ use App\Models\GuideHandover;
 use App\Models\GuideHandoverRequest;
 use App\Models\TourSchedule;
 use App\Models\User;
+use App\Enums\ScheduleStatus;
 use App\Services\GuideHandoverService;
+use App\Services\ScheduleLifecycleService;
 use App\Support\GioVietNam;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +26,18 @@ class AdminGuideHandoverController extends Controller
 {
     public function __construct(
         private GuideHandoverService $handoverService,
+        private ScheduleLifecycleService $lifecycle,
     ) {
+    }
+
+    /** Người này có đang dẫn một đoàn khác cũng đang trên đường không. */
+    private function dangDanDoanKhac(int $guideId, int $boQuaChuyen): bool
+    {
+        return TourSchedule::query()
+            ->whereHas('guides', fn ($query) => $query->whereKey($guideId))
+            ->whereKeyNot($boQuaChuyen)
+            ->get()
+            ->contains(fn (TourSchedule $khac) => $this->lifecycle->effectiveStatus($khac) === ScheduleStatus::InProgress);
     }
 
     /** Ai đang phụ trách, ai thay được, và lịch sử đã bàn giao. */
@@ -53,14 +66,29 @@ class AdminGuideHandoverController extends Controller
                 'phone' => $g->phone,
             ])->values(),
 
-            // Người thay: đang hoạt động và chưa phụ trách chính chuyến này. Trùng lịch thì để
-            // máy chủ từ chối lúc bấm, vì đó là phép so theo khoảng ngày chứ không lọc sẵn được.
+            // Đoàn đang trên đường mà chỉ còn một người thì chỉ nhờ được người đang dẫn đoàn khác.
+            'needs_emergency_cover' => $this->lifecycle->effectiveStatus($schedule) === ScheduleStatus::InProgress
+                && count($dangPhuTrach) < 2,
+
+            /*
+             * Người thay: đang hoạt động và chưa phụ trách chính chuyến này.
+             *
+             * Kèm cờ leading_other_group để điều hành biết ai đang ở ngoài đường mà nhờ. Trùng
+             * lịch thì vẫn để máy chủ từ chối lúc bấm, vì đó là phép so theo khoảng ngày.
+             */
             'available_guides' => User::query()
                 ->where('role', 'guide')
                 ->where('status', 'active')
                 ->whereNotIn('id', $dangPhuTrach)
                 ->orderBy('name')
-                ->get(['id', 'name', 'phone']),
+                ->get(['id', 'name', 'phone'])
+                ->map(fn (User $g) => [
+                    'id' => $g->id,
+                    'name' => $g->name,
+                    'phone' => $g->phone,
+                    'leading_other_group' => $this->dangDanDoanKhac($g->id, $schedule->id),
+                ])
+                ->values(),
 
             'handovers' => $this->handoverService->lichSu($schedule)->map(
                 fn (GuideHandover $bg) => $this->dong($bg),
@@ -198,6 +226,8 @@ class AdminGuideHandoverController extends Controller
             'handed_over_at' => $bg->handed_over_at?->toDateTimeString(),
             'reason' => $bg->reason,
             'handover_note' => $bg->handover_note,
+            // Nhờ người của đoàn khác trông hộ: người nhận đang giữ hai đoàn, còn việc dở.
+            'is_emergency_cover' => (bool) $bg->is_emergency_cover,
             'created_by_name' => $bg->creator?->name,
             'created_at' => $bg->created_at?->toDateTimeString(),
             // Ghi vào máy muộn hơn lúc bàn giao thật: bàn giao xảy ra trên đường.
