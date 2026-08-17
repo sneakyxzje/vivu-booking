@@ -195,6 +195,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/tours/{id}', [AdminTourController::class, 'update']);
         Route::get('/available-guides', [AdminTourController::class, 'availableGuides']);
         Route::put('/tour-schedules/{id}/assign-guide', [AdminTourController::class, 'assignScheduleGuide']);
+        // Ai đã từ chối chuyến này. Đọc lúc xếp người, để khỏi gán lại đúng người vừa nói không.
+        Route::get('/tour-schedules/{id}/guide-declines', [AdminTourController::class, 'scheduleGuideDeclines']);
         Route::get('/tour-schedules/{id}/attendance', [AdminAttendanceController::class, 'show']);
         Route::get('/attendance-reports', [AdminAttendanceController::class, 'report']);
 
