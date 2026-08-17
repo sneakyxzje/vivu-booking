@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ScheduleStatus;
 use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourSchedule;
@@ -16,8 +17,12 @@ class BookingHoldExpiryTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function taoTourVaLich(int $maxPeople, int $bookedPeople): TourSchedule
-    {
+    private function taoTourVaLich(
+        int $maxPeople,
+        int $bookedPeople,
+        int $khoiHanhSauNgay = 7,
+        ?\DateTimeInterface $hanChot = null,
+    ): TourSchedule {
         $admin = User::create([
             'name' => 'Admin Test',
             'email' => 'admin-' . Str::random(6) . '@example.com',
@@ -41,7 +46,8 @@ class BookingHoldExpiryTest extends TestCase
 
         return TourSchedule::create([
             'tour_id' => $tour->id,
-            'start_date' => now()->addDays(7),
+            'start_date' => now()->addDays($khoiHanhSauNgay),
+            'booking_deadline' => $hanChot,
             'max_people' => $maxPeople,
             'booked_people' => $bookedPeople,
             'status' => $bookedPeople >= $maxPeople ? 'closed' : 'open',
@@ -152,6 +158,54 @@ class BookingHoldExpiryTest extends TestCase
         $this->assertSame(\App\Enums\ScheduleStatus::Open, $schedule->status);
         // tours.status là cột riêng, vẫn dùng active/inactive/full, không đổi theo vòng đời chuyến.
         $this->assertSame('active', $schedule->tour->fresh()->status);
+    }
+
+    /**
+     * Hai vế của cùng một tình huống, cố ý tách rời nhau.
+     *
+     * Đơn chưa thanh toán chưa bao giờ nằm trong danh sách gửi nhà cung cấp, nên chỗ của nó
+     * phải về kho dù hết hạn giữ chỗ lúc nào. Nhưng chỗ về kho không có nghĩa là bán tiếp được:
+     * qua hạn chốt rồi thì khách vào vẫn bị từ chối, mà chuyến lại hiện "đang mở bán" và tác vụ
+     * đóng bán chạy sau đó đóng về ngay - trạng thái nhấp nháy, điều hành không tin được màn hình.
+     */
+    public function test_qua_han_chot_thi_van_nha_cho_nhung_khong_mo_ban_lai(): void
+    {
+        $schedule = $this->taoTourVaLich(
+            maxPeople: 5,
+            bookedPeople: 5,
+            khoiHanhSauNgay: 2,
+            hanChot: now()->subDay(),
+        );
+
+        $this->taoDonGiuCho($schedule, guests: 5, expiresAt: now()->subMinute());
+
+        $this->artisan('bookings:release-expired')->assertSuccessful();
+
+        $schedule->refresh();
+
+        $this->assertSame(0, (int) $schedule->booked_people, 'Khách chưa trả đồng nào thì chỗ phải về kho.');
+        $this->assertSame(ScheduleStatus::Closed, $schedule->status, 'Qua hạn chốt thì không mở bán lại.');
+        $this->assertFalse($schedule->isBookable());
+    }
+
+    public function test_con_trong_han_chot_thi_nha_cho_xong_mo_ban_lai(): void
+    {
+        $schedule = $this->taoTourVaLich(
+            maxPeople: 5,
+            bookedPeople: 5,
+            khoiHanhSauNgay: 10,
+            hanChot: now()->addDays(5),
+        );
+
+        $this->taoDonGiuCho($schedule, guests: 5, expiresAt: now()->subMinute());
+
+        $this->artisan('bookings:release-expired')->assertSuccessful();
+
+        $schedule->refresh();
+
+        $this->assertSame(0, (int) $schedule->booked_people);
+        $this->assertSame(ScheduleStatus::Open, $schedule->status);
+        $this->assertTrue($schedule->isBookable());
     }
 }
 

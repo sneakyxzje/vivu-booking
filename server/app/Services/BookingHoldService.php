@@ -246,8 +246,13 @@ class BookingHoldService
         $schedule->decrement('booked_people', min($booking->guests, (int) $schedule->booked_people));
         $schedule->refresh();
 
+        // Còn chỗ trống không phải lý do đủ để bán tiếp. Đơn chưa thanh toán luôn được trả chỗ,
+        // kể cả khi hết hạn giữ chỗ sau hạn chốt danh sách - và khi đó mở bán lại là sai: khách
+        // vào vẫn không đặt được, còn tác vụ đóng bán chạy sau lại đóng về ngay, làm trạng thái
+        // chuyến nhấp nháy. Điều kiện này đã có ở releaseHeldSeats, thiếu ở đây.
         if ($schedule->status === ScheduleStatus::Closed
-            && $schedule->booked_people < $schedule->max_people) {
+            && $schedule->booked_people < $schedule->max_people
+            && $this->conTrongHanChot($schedule)) {
             $this->lifecycle->transitionTo(
                 $schedule,
                 ScheduleStatus::Open,
