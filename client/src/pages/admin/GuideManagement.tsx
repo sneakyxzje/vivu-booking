@@ -4,6 +4,7 @@ import adminService from "@/services/adminService";
 import { Toast, ConfirmModal } from "@/components/admin/CustomAlert";
 import { TableActions } from "@/components/admin/TableActions";
 import { Modal } from "@/components/admin/Modal";
+import { GuideProfileModal } from "@/components/admin/GuideProfileModal";
 
 export default function GuideManagement() {
   const [guides, setGuides] = useState<Guide[]>([]);
@@ -18,6 +19,9 @@ export default function GuideManagement() {
 
   // State chứa thông tin guide đang thêm/sửa
   const [currentGuide, setCurrentGuide] = useState<Partial<Guide> & { password?: string } | null>(null);
+
+  // Hồ sơ năng lực đi biểu mẫu riêng: sửa nghề nghiệp khác với sửa tài khoản đăng nhập.
+  const [profileGuide, setProfileGuide] = useState<Guide | null>(null);
 
   // --- CUSTOM ALERT STATES ---
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info"; isOpen: boolean }>({
@@ -342,6 +346,7 @@ export default function GuideManagement() {
                   <th className="py-3.5 px-6 w-16 text-center">ID</th>
                   <th className="py-3.5 px-6">Thông tin Hướng dẫn viên</th>
                   <th className="py-3.5 px-6">Điện thoại / Địa chỉ</th>
+                  <th className="py-3.5 px-6">Hồ sơ năng lực</th>
                   <th className="py-3.5 text-center px-6">Số Tour phụ trách</th>
                   <th className="py-3.5 px-6">Ngày tạo tài khoản</th>
                   <th className="py-3.5 text-center px-6">Trạng thái</th>
@@ -351,7 +356,7 @@ export default function GuideManagement() {
               <tbody className="divide-y divide-gray-100 text-sm">
                 {filteredGuides.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-12 text-center text-gray-400">
+                    <td colSpan={8} className="p-12 text-center text-gray-400">
                       Không tìm thấy Hướng dẫn viên nào phù hợp.
                     </td>
                   </tr>
@@ -382,6 +387,57 @@ export default function GuideManagement() {
                           <p className="font-medium text-gray-800 font-mono text-xs">{guide.phone ?? "Chưa cập nhật"}</p>
                           <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{guide.address ?? "Không có địa chỉ"}</p>
                         </div>
+                      </td>
+
+                      {/*
+                        Hồ sơ năng lực.
+
+                        Hạn thẻ để trước vì đó là thứ duy nhất chặn được phân công: hết hạn thì
+                        người này không nhận được chuyến nào kéo dài quá mốc đó, và điều hành cần
+                        thấy ngay ở danh sách chứ không phải mở từng người ra mới biết.
+                      */}
+                      <td className="py-3.5 px-6">
+                        {guide.guide_profile ? (
+                          <div className="space-y-1">
+                            <p
+                              className={`text-xs font-semibold ${
+                                guide.guide_profile.card_expiry &&
+                                guide.guide_profile.card_expiry < new Date().toISOString().slice(0, 10)
+                                  ? "text-rose-700"
+                                  : "text-gray-700"
+                              }`}
+                            >
+                              {guide.guide_profile.card_expiry
+                                ? `Thẻ đến ${guide.guide_profile.card_expiry.split("-").reverse().join("/")}`
+                                : "Chưa khai thẻ"}
+                            </p>
+
+                            <div className="flex flex-wrap gap-1">
+                              {(guide.guide_categories ?? []).map((loai) => (
+                                <span
+                                  key={loai.id}
+                                  className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
+                                >
+                                  {loai.name}
+                                </span>
+                              ))}
+                            </div>
+
+                            {(guide.guide_profile.regions ?? []).length > 0 && (
+                              <p className="text-[11px] text-gray-400 line-clamp-1">
+                                {(guide.guide_profile.regions ?? []).join(", ")}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setProfileGuide(guide)}
+                            className="text-xs font-semibold text-amber-700 hover:underline cursor-pointer"
+                          >
+                            Chưa có hồ sơ — bổ sung
+                          </button>
+                        )}
                       </td>
 
                       {/* Số Tour phụ trách */}
@@ -418,6 +474,15 @@ export default function GuideManagement() {
                               icon: (
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              ),
+                            },
+                            {
+                              label: "Hồ sơ năng lực",
+                              onClick: () => setProfileGuide(guide),
+                              icon: (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
                               ),
                             },
@@ -663,6 +728,16 @@ export default function GuideManagement() {
           </div>
         )}
       </Modal>
+
+      <GuideProfileModal
+        guide={profileGuide}
+        onClose={() => setProfileGuide(null)}
+        onSaved={(message) => {
+          showToast(message, "success");
+          fetchGuides();
+        }}
+        onError={(message) => showToast(message, "error")}
+      />
 
       {/* --- CUSTOM ALERTS RENDER --- */}
       <Toast
