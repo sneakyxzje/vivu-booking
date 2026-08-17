@@ -288,6 +288,26 @@ class GuideSuitabilityTest extends TestCase
         $this->assertSame([$this->bienDao->id], $guide->fresh()->guideCategories->pluck('id')->all());
     }
 
+    /**
+     * Hạn thẻ trả về phải là một **ngày trần**, không phải mốc ISO quy về UTC.
+     *
+     * Cast `date` trơn cho ra "2028-12-30T17:00:00.000000Z" cho ngày 31/12 giờ Việt Nam: lùi mất
+     * một ngày, và quan trọng hơn là `<input type="date">` coi chuỗi đó như rỗng. Mở hồ sơ ra thấy
+     * ô hạn thẻ trắng, bấm lưu là xóa mất hạn thẻ - tức mất luôn luật chặn duy nhất của điểm này,
+     * mà không có gì báo.
+     */
+    public function test_han_the_tra_ve_dang_ngay_tran(): void
+    {
+        $guide = $this->taoGuide();
+        $this->hoSo($guide, ['card_expiry' => '2028-12-31']);
+
+        Sanctum::actingAs($this->taoAdmin());
+
+        $ds = $this->getJson('/api/admin/guides/' . $guide->id)->assertOk()->json('data');
+
+        $this->assertSame('2028-12-31', $ds['guide_profile']['card_expiry']);
+    }
+
     private function taoAdmin(): User
     {
         return User::create([

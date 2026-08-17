@@ -5,6 +5,7 @@ import { Toast, ConfirmModal } from "@/components/admin/CustomAlert";
 import { TableActions } from "@/components/admin/TableActions";
 import { Modal } from "@/components/admin/Modal";
 import { GuideProfileModal } from "@/components/admin/GuideProfileModal";
+import { formatDate } from "@/utils/format";
 
 export default function GuideManagement() {
   const [guides, setGuides] = useState<Guide[]>([]);
@@ -408,7 +409,7 @@ export default function GuideManagement() {
                               }`}
                             >
                               {guide.guide_profile.card_expiry
-                                ? `Thẻ đến ${guide.guide_profile.card_expiry.split("-").reverse().join("/")}`
+                                ? `Thẻ đến ${formatDate(guide.guide_profile.card_expiry)}`
                                 : "Chưa khai thẻ"}
                             </p>
 

@@ -26,7 +26,21 @@ class GuideProfile extends Model
     protected function casts(): array
     {
         return [
-            'card_expiry' => 'date',
+            /*
+             * `date:Y-m-d` chứ không phải `date` trơn.
+             *
+             * Cast `date` để Laravel serialize Carbon thành ISO-8601 kèm hậu tố Z, tức quy về UTC:
+             * thẻ hết hạn 31/12/2028 giờ Việt Nam trả về "2028-12-30T17:00:00.000000Z" — vừa lùi
+             * mất một ngày, vừa không còn là một ngày nữa.
+             *
+             * Hậu quả nặng nhất không nằm ở chỗ hiển thị: ô `<input type="date">` chỉ nhận đúng
+             * "YYYY-MM-DD", chuỗi kia bị coi là rỗng. Mở hồ sơ ra thấy ô hạn thẻ trắng, bấm lưu là
+             * xóa mất hạn thẻ mà không ai biết — mất hạn thẻ nghĩa là mất luôn luật chặn duy nhất.
+             *
+             * Cùng lý do với `TourSchedule::serializeDate()`: cột thời gian nghiệp vụ ở dự án này
+             * lưu giờ Việt Nam dạng mộc và trả về đúng như đã lưu.
+             */
+            'card_expiry' => 'date:Y-m-d',
             'languages' => 'array',
             'regions' => 'array',
         ];
