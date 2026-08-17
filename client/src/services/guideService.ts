@@ -163,6 +163,28 @@ export interface GuideIncident {
   photos: { id: number; image_path: string; caption: string | null }[];
 }
 
+/** Một chuyến được phân công cho hướng dẫn viên này. */
+export interface GuideAssignment {
+  schedule_id: number;
+  tour_title: string | null;
+  start_date: string;
+  end_date: string | null;
+  number_of_days: number;
+  status: string;
+  status_label: string;
+  /**
+   * Đã xác nhận nhận chuyến chưa.
+   *
+   * Chưa xác nhận **vẫn là đã được phân công** — điều hành đang trông vào bạn. Xác nhận chỉ là
+   * bằng chứng bạn đã biết; từ chối mới là thứ thay đổi danh sách.
+   */
+  accepted_at: string | null;
+  /** Ai cùng dẫn chuyến này. */
+  co_guides: string[];
+  /** Chuyến đã lên đường thì rút lui là bàn giao, không phải từ chối. */
+  can_decline: boolean;
+}
+
 /** Biên bản bàn giao, nhìn từ phía hướng dẫn viên. */
 export interface GuideHandoverNote {
   id: number;
@@ -337,6 +359,24 @@ const guideService = {
   getMyHandovers: async (): Promise<GuideHandoverNote[]> => {
     const response = await api.get("/guide/handovers");
     return extractArray<GuideHandoverNote>(response);
+  },
+
+  // --- Chuyến được phân công ---
+
+  getMyAssignments: async (): Promise<GuideAssignment[]> => {
+    const response = await api.get("/guide/assignments");
+    return extractArray<GuideAssignment>(response);
+  },
+
+  acceptAssignment: async (scheduleId: number) => {
+    const response = await api.put(`/guide/assignments/${scheduleId}/accept`);
+    return response.data?.message ?? "Đã xác nhận nhận chuyến.";
+  },
+
+  /** Từ chối phải kèm lý do: điều hành cần biết để xếp người khác. */
+  declineAssignment: async (scheduleId: number, reason: string) => {
+    const response = await api.put(`/guide/assignments/${scheduleId}/decline`, { reason });
+    return response.data?.message ?? "Đã từ chối chuyến này.";
   },
 
   acknowledgeHandover: async (id: number) => {
