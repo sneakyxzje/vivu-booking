@@ -33,13 +33,13 @@ export default function ScheduleManagement() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  // State phÃ¢n cÃ´ng HÆ°á»›ng dáº«n viÃªn
+  // State phân công Hướng dẫn viên
   const [assigningScheduleId, setAssigningScheduleId] = useState<number | null>(null);
-  // PhÃ¢n cÃ´ng nhiá»u hÆ°á»›ng dáº«n viÃªn cho má»™t chuyáº¿n, sá»­a trong há»™p thoáº¡i riÃªng.
+  // Phân công nhiều hướng dẫn viên cho một chuyến, sửa trong hộp thoại riêng.
   const [guideDialogScheduleId, setGuideDialogScheduleId] = useState<number | null>(null);
   const [pendingGuideIds, setPendingGuideIds] = useState<number[]>([]);
 
-  // BÃ n giao giá»¯a chá»«ng. TÃ¡ch khá»i phÃ¢n cÃ´ng vÃ¬ báº¯t buá»™c kÃ¨m lÃ½ do vÃ  tÃ¬nh tráº¡ng Ä‘oÃ n.
+  // Bàn giao giữa chừng. Tách khỏi phân công vì bắt buộc kèm lý do và tình trạng đoàn.
   const [handoverScheduleId, setHandoverScheduleId] = useState<number | null>(null);
   const [handoverPanel, setHandoverPanel] = useState<HandoverPanelResponse | null>(null);
   const [handoverForm, setHandoverForm] = useState({
@@ -52,16 +52,16 @@ export default function ScheduleManagement() {
   const [handoverError, setHandoverError] = useState("");
 
   /*
-   * YÃªu cáº§u bÃ n giao Ä‘ang chá» â€” á»Ÿ Ä‘Ã¢y chá»‰ Ä‘á»ƒ bÃ¡o, khÃ´ng xá»­ lÃ½.
+   * Yêu cầu bàn giao đang chờ — ở đây chỉ để báo, không xử lý.
    *
-   * Viá»‡c duyá»‡t náº±m trá»n á»Ÿ /admin/handovers. TrÆ°á»›c Ä‘Ã³ nÃ³ cÃ³ má»™t báº£n sao ngay trong trang nÃ y, tá»©c
-   * hai chá»— dá»±ng cÃ¹ng má»™t há»™p thoáº¡i chá»n ngÆ°á»i thay; sá»­a luáº­t á»Ÿ má»™t chá»— mÃ  quÃªn chá»— kia lÃ  chuyá»‡n
-   * sá»›m muá»™n.
+   * Việc duyệt nằm trọn ở /admin/handovers. Trước đó nó có một bản sao ngay trong trang này, tức
+   * hai chỗ dựng cùng một hộp thoại chọn người thay; sửa luật ở một chỗ mà quên chỗ kia là chuyện
+   * sớm muộn.
    */
   const [handoverRequests, setHandoverRequests] = useState<PendingHandoverRequest[]>([]);
 
-  // State Há»§y chuyáº¿n
-  // K - Há»§y chuyáº¿n. Má»—i Ä‘Æ¡n Ä‘Ã£ thanh toÃ¡n pháº£i cÃ³ má»™t phÆ°Æ¡ng Ã¡n trÆ°á»›c khi há»§y Ä‘Æ°á»£c.
+  // State Hủy chuyến
+  // K - Hủy chuyến. Mỗi đơn đã thanh toán phải có một phương án trước khi hủy được.
   const [cancellingScheduleId, setCancellingScheduleId] = useState<number | null>(null);
   const [cancelReasonInput, setCancelReasonInput] = useState("");
   const [cancelPreview, setCancelPreview] = useState<ScheduleCancelPreviewResponse | null>(null);
@@ -70,14 +70,14 @@ export default function ScheduleManagement() {
   const [cancelSaving, setCancelSaving] = useState(false);
   const [cancelError, setCancelError] = useState("");
 
-  // G05 - Kiá»ƒm tra danh sÃ¡ch Ä‘oÃ n trÆ°á»›c khi gá»­i nhÃ  cung cáº¥p
+  // G05 - Kiểm tra danh sách đoàn trước khi gửi nhà cung cấp
   const [manifestScheduleId, setManifestScheduleId] = useState<number | null>(null);
   const [manifest, setManifest] = useState<ScheduleManifestResponse | null>(null);
   const [manifestLoading, setManifestLoading] = useState(false);
-  // NhÃ³m Ä‘ang má»Ÿ xem chi tiáº¿t. Má»Ÿ sáºµn táº¥t cáº£ thÃ¬ Ä‘oÃ n Ä‘Ã´ng thÃ nh má»™t bá»©c tÆ°á»ng chá»¯.
+  // Nhóm đang mở xem chi tiết. Mở sẵn tất cả thì đoàn đông thành một bức tường chữ.
   const [openGroupIds, setOpenGroupIds] = useState<number[]>([]);
 
-  // L03 - GhÃ©p chuyáº¿n
+  // L03 - Ghép chuyến
   const [mergeScheduleId, setMergeScheduleId] = useState<number | null>(null);
   const [mergeData, setMergeData] = useState<MergeCandidatesResponse | null>(null);
   const [mergeLoading, setMergeLoading] = useState(false);
@@ -86,7 +86,7 @@ export default function ScheduleManagement() {
   const [mergeSaving, setMergeSaving] = useState(false);
   const [mergeError, setMergeError] = useState("");
 
-  // Dá»i háº¡n chá»‘t danh sÃ¡ch. Xem docs/nghiep-vu/16-sua-han-chot.md.
+  // Dời hạn chốt danh sách. Xem docs/nghiep-vu/16-sua-han-chot.md.
   const [deadlineScheduleId, setDeadlineScheduleId] = useState<number | null>(null);
   const [deadlineValue, setDeadlineValue] = useState("");
   const [deadlineReason, setDeadlineReason] = useState("");
@@ -113,7 +113,7 @@ export default function ScheduleManagement() {
     } catch (err) {
       console.error("Failed to load schedules data: ", err);
       setToast({
-        message: "KhÃ´ng thá»ƒ táº£i dá»¯ liá»‡u quáº£n lÃ½ chuyáº¿n.",
+        message: "Không thể tải dữ liệu quản lý chuyến.",
         type: "error",
         isOpen: true,
       });
@@ -130,7 +130,7 @@ export default function ScheduleManagement() {
     setCurrentPage(1);
   }, [searchQuery, statusFilter]);
 
-  // LÃ m pháº³ng danh sÃ¡ch chuyáº¿n Ä‘i tá»« danh sÃ¡ch Tour
+  // Làm phẳng danh sách chuyến đi từ danh sách Tour
   const allSchedules = useMemo<ExtendedSchedule[]>(() => {
     return tours.flatMap((tour) =>
       (tour.schedules || []).map((schedule) => ({
@@ -142,7 +142,7 @@ export default function ScheduleManagement() {
     );
   }, [tours]);
 
-  // Bá»™ lá»c tÃ¬m kiáº¿m
+  // Bộ lọc tìm kiếm
   const filteredSchedules = useMemo(() => {
     return allSchedules.filter((schedule) => {
       const matchesSearch =
@@ -167,7 +167,7 @@ export default function ScheduleManagement() {
     try {
       setHandoverRequests(await adminService.getPendingHandoverRequests());
     } catch (err) {
-      console.error("Lá»—i táº£i yÃªu cáº§u bÃ n giao:", err);
+      console.error("Lỗi tải yêu cầu bàn giao:", err);
     }
   }, []);
 
@@ -176,14 +176,14 @@ export default function ScheduleManagement() {
   }, [loadHandoverRequests]);
 
   /**
-   * ÄoÃ n Ä‘ang trÃªn Ä‘Æ°á»ng mÃ  chá»‰ cÃ²n má»™t ngÆ°á»i phá»¥ trÃ¡ch.
+   * Đoàn đang trên đường mà chỉ còn một người phụ trách.
    *
-   * Khi Ä‘Ã³ chá»‰ nhá» Ä‘Æ°á»£c hÆ°á»›ng dáº«n viÃªn Ä‘ang dáº«n Ä‘oÃ n khÃ¡c â€” há» Ä‘Ã£ á»Ÿ ngoÃ i Ä‘Æ°á»ng, tá»›i Ä‘Æ°á»£c ngay.
-   * NgÆ°á»i á»Ÿ nhÃ  cÃ¡ch Ä‘oÃ n nhiá»u giá», mÃ  Ä‘Ã³ Ä‘Ãºng lÃ  quÃ£ng Ä‘oÃ n khÃ´ng cÃ³ ai.
+   * Khi đó chỉ nhờ được hướng dẫn viên đang dẫn đoàn khác — họ đã ở ngoài đường, tới được ngay.
+   * Người ở nhà cách đoàn nhiều giờ, mà đó đúng là quãng đoàn không có ai.
    */
   const canNhoTrongHo = handoverPanel?.needs_emergency_cover === true;
 
-  /** Chá»‰ nhá»¯ng ngÆ°á»i nhá» Ä‘Æ°á»£c. LÃºc bÃ¬nh thÆ°á»ng thÃ¬ lÃ  táº¥t cáº£. */
+  /** Chỉ những người nhờ được. Lúc bình thường thì là tất cả. */
   const nguoiThayChonDuoc = (handoverPanel?.available_guides ?? []).filter(
     (g) => !canNhoTrongHo || g.leading_other_group,
   );
@@ -205,7 +205,7 @@ export default function ScheduleManagement() {
         to_guide_id: data?.available_guides[0]?.id ?? 0,
       }));
     } catch (err) {
-      console.error("Lá»—i láº¥y thÃ´ng tin bÃ n giao:", err);
+      console.error("Lỗi lấy thông tin bàn giao:", err);
     }
   };
 
@@ -223,7 +223,7 @@ export default function ScheduleManagement() {
       loadData();
     } catch (err) {
       const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
-      setHandoverError(response?.message || "KhÃ´ng bÃ n giao Ä‘Æ°á»£c.");
+      setHandoverError(response?.message || "Không bàn giao được.");
     } finally {
       setHandoverSaving(false);
     }
@@ -235,10 +235,10 @@ export default function ScheduleManagement() {
   };
 
   /**
-   * Äáº·t láº¡i cáº£ danh sÃ¡ch má»™t láº§n.
+   * Đặt lại cả danh sách một lần.
    *
-   * MÃ¡y chá»§ Ä‘Æ°á»£c Äƒn cáº£ ngÃ£ vá» khÃ´ng: má»™t ngÆ°á»i vÆ°á»›ng lá»‹ch thÃ¬ cáº£ láº§n phÃ¢n cÃ´ng bá»‹ tá»« chá»‘i, nÃªn
-   * khÃ´ng cÃ³ tráº¡ng thÃ¡i ná»­a vá»i Ä‘á»ƒ xá»­ lÃ½ á»Ÿ Ä‘Ã¢y.
+   * Máy chủ được ăn cả ngã về không: một người vướng lịch thì cả lần phân công bị từ chối, nên
+   * không có trạng thái nửa vời để xử lý ở đây.
    */
   const assignGuides = async (scheduleId: number, guideIds: number[]) => {
     setAssigningScheduleId(scheduleId);
@@ -262,15 +262,15 @@ export default function ScheduleManagement() {
       setToast({
         message:
           guideIds.length === 0
-            ? "ÄÃ£ bá» phÃ¢n cÃ´ng hÆ°á»›ng dáº«n viÃªn."
-            : `ÄÃ£ phÃ¢n cÃ´ng ${guideIds.length} hÆ°á»›ng dáº«n viÃªn.`,
+            ? "Đã bỏ phân công hướng dẫn viên."
+            : `Đã phân công ${guideIds.length} hướng dẫn viên.`,
         type: "success",
         isOpen: true,
       });
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { message?: string } } }).response?.data?.message ??
-        "KhÃ´ng thá»ƒ phÃ¢n cÃ´ng hÆ°á»›ng dáº«n viÃªn.";
+        "Không thể phân công hướng dẫn viên.";
       setToast({ message, type: "error", isOpen: true });
     } finally {
       setAssigningScheduleId(null);
@@ -299,14 +299,14 @@ export default function ScheduleManagement() {
       );
 
       setToast({
-        message: `ÄÃ£ cáº­p nháº­t tráº¡ng thÃ¡i chuyáº¿n khá»Ÿi hÃ nh thÃ nh "${statusLabel[updatedSchedule.status]}".`,
+        message: `Đã cập nhật trạng thái chuyến khởi hành thành "${statusLabel[updatedSchedule.status]}".`,
         type: "success",
         isOpen: true,
       });
     } catch (error: unknown) {
       const message =
         (error as { response?: { data?: { message?: string } } }).response?.data?.message ??
-        "KhÃ´ng thá»ƒ cáº­p nháº­t tráº¡ng thÃ¡i chuyáº¿n khá»Ÿi hÃ nh.";
+        "Không thể cập nhật trạng thái chuyến khởi hành.";
       setToast({ message, type: "error", isOpen: true });
     }
   };
@@ -323,8 +323,8 @@ export default function ScheduleManagement() {
       const data = await adminService.getScheduleCancelPreview(scheduleId);
       setCancelPreview(data);
 
-      // Máº·c Ä‘á»‹nh hoÃ n Ä‘á»§ cho má»i Ä‘Æ¡n: Ä‘Ã³ lÃ  phÆ°Æ¡ng Ã¡n luÃ´n há»£p lá»‡, cÃ²n chuyá»ƒn chuyáº¿n thÃ¬ phá»¥
-      // thuá»™c chuyáº¿n Ä‘Ã­ch cÃ³ chá»— hay khÃ´ng. Äiá»u hÃ nh Ä‘á»•i láº¡i tá»«ng Ä‘Æ¡n náº¿u muá»‘n.
+      // Mặc định hoàn đủ cho mọi đơn: đó là phương án luôn hợp lệ, còn chuyển chuyến thì phụ
+      // thuộc chuyến đích có chỗ hay không. Điều hành đổi lại từng đơn nếu muốn.
       setCancelPlans(
         Object.fromEntries(
           (data?.impact.paid_bookings ?? []).map((don) => [
@@ -334,7 +334,7 @@ export default function ScheduleManagement() {
         ),
       );
     } catch (err) {
-      console.error("Lá»—i láº¥y tÃ¡c Ä‘á»™ng há»§y chuyáº¿n:", err);
+      console.error("Lỗi lấy tác động hủy chuyến:", err);
     } finally {
       setCancelPreviewLoading(false);
     }
@@ -349,7 +349,7 @@ export default function ScheduleManagement() {
     try {
       setManifest(await adminService.getScheduleManifest(scheduleId));
     } catch (err) {
-      console.error("Lá»—i láº¥y danh sÃ¡ch Ä‘oÃ n:", err);
+      console.error("Lỗi lấy danh sách đoàn:", err);
     } finally {
       setManifestLoading(false);
     }
@@ -374,7 +374,7 @@ export default function ScheduleManagement() {
     try {
       setMergeData(await adminService.getMergeCandidates(scheduleId));
     } catch (err) {
-      console.error("Lá»—i táº£i danh sÃ¡ch chuyáº¿n cÃ³ thá»ƒ ghÃ©p:", err);
+      console.error("Lỗi tải danh sách chuyến có thể ghép:", err);
     } finally {
       setMergeLoading(false);
     }
@@ -406,7 +406,7 @@ export default function ScheduleManagement() {
       loadData();
     } catch (err) {
       const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
-      setMergeError(response?.message || "KhÃ´ng ghÃ©p Ä‘Æ°á»£c chuyáº¿n.");
+      setMergeError(response?.message || "Không ghép được chuyến.");
     } finally {
       setMergeSaving(false);
     }
@@ -429,11 +429,11 @@ export default function ScheduleManagement() {
   };
 
   /*
-   * TÃ¡c Ä‘á»™ng do mÃ¡y chá»§ tÃ­nh, láº¥y láº¡i má»—i khi ngÆ°á»i dÃ¹ng Ä‘á»•i ngÃ y.
+   * Tác động do máy chủ tính, lấy lại mỗi khi người dùng đổi ngày.
    *
-   * Chá» 400ms rá»“i má»›i gá»i: Ã´ datetime-local báº¯n sá»± kiá»‡n theo tá»«ng kÃ½ tá»±, gá»i ngay thÃ¬ gÃµ má»™t
-   * chá»¯ sá»‘ lÃ  má»™t lÆ°á»£t gá»i máº¡ng. TÃ­nh á»Ÿ trÃ¬nh duyá»‡t cho nhanh thÃ¬ sá»›m muá»™n con sá»‘ hiá»‡n ra sáº½
-   * lá»‡ch vá»›i luáº­t mÃ¡y chá»§ thá»±c sá»± Ã¡p.
+   * Chờ 400ms rồi mới gọi: ô datetime-local bắn sự kiện theo từng ký tự, gọi ngay thì gõ một
+   * chữ số là một lượt gọi mạng. Tính ở trình duyệt cho nhanh thì sớm muộn con số hiện ra sẽ
+   * lệch với luật máy chủ thực sự áp.
    */
   useEffect(() => {
     if (deadlineScheduleId === null) return;
@@ -479,7 +479,7 @@ export default function ScheduleManagement() {
       loadData();
     } catch (err) {
       const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
-      setDeadlineError(response?.message || "KhÃ´ng Ä‘á»•i Ä‘Æ°á»£c háº¡n chá»‘t.");
+      setDeadlineError(response?.message || "Không đổi được hạn chốt.");
     } finally {
       setDeadlineSaving(false);
     }
@@ -511,7 +511,7 @@ export default function ScheduleManagement() {
       loadData();
     } catch (err) {
       const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
-      setCancelError(response?.message || "KhÃ´ng há»§y Ä‘Æ°á»£c chuyáº¿n.");
+      setCancelError(response?.message || "Không hủy được chuyến.");
     } finally {
       setCancelSaving(false);
     }
@@ -523,19 +523,19 @@ export default function ScheduleManagement() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            Quáº£n lÃ½ Chuyáº¿n khá»Ÿi hÃ nh
+            Quản lý Chuyến khởi hành
           </h1>
           <p className="text-sm text-gray-500">
-            Quáº£n lÃ½ chi tiáº¿t vÃ²ng Ä‘á»i chuyáº¿n Ä‘i, theo dÃµi thá»i háº¡n Ä‘Äƒng kÃ½, chá»‘t chuyáº¿n cháº¡y vÃ  há»§y chuyáº¿n.
+            Quản lý chi tiết vòng đời chuyến đi, theo dõi thời hạn đăng ký, chốt chuyến chạy và hủy chuyến.
           </p>
         </div>
       </div>
 
       {/*
-        YÃªu cáº§u bÃ n giao Ä‘ang chá» â€” Ä‘áº·t ngay dÆ°á»›i tiÃªu Ä‘á», trÃªn cáº£ bá»™ lá»c.
+        Yêu cầu bàn giao đang chờ — đặt ngay dưới tiêu đề, trên cả bộ lọc.
 
-        HÆ°á»›ng dáº«n viÃªn gá»­i lÃªn Ä‘Ãºng lÃºc há» khÃ´ng dáº«n tiáº¿p Ä‘Æ°á»£c, mÃ  Ä‘oÃ n thÃ¬ Ä‘ang trÃªn Ä‘Æ°á»ng. Náº±m
-        dÆ°á»›i báº£ng chuyáº¿n thÃ¬ pháº£i cuá»™n háº¿t trang má»›i tháº¥y, vÃ  thá»© nÃ y khÃ´ng chá» Ä‘Æ°á»£c.
+        Hướng dẫn viên gửi lên đúng lúc họ không dẫn tiếp được, mà đoàn thì đang trên đường. Nằm
+        dưới bảng chuyến thì phải cuộn hết trang mới thấy, và thứ này không chờ được.
       */}
       {handoverRequests.length > 0 && (
         <Link
@@ -544,14 +544,14 @@ export default function ScheduleManagement() {
         >
           <AlertTriangle className="h-4 w-4 text-amber-700" />
           <span className="font-bold text-amber-900">
-            {handoverRequests.length} yÃªu cáº§u bÃ n giao Ä‘ang chá» báº¡n cá»­ ngÆ°á»i thay
+            {handoverRequests.length} yêu cầu bàn giao đang chờ bạn cử người thay
           </span>
           <span className="text-xs text-amber-800">
             {handoverRequests[0].requester_name}
-            {handoverRequests.length > 1 ? ` vÃ  ${handoverRequests.length - 1} ngÆ°á»i ná»¯a` : ""}
+            {handoverRequests.length > 1 ? ` và ${handoverRequests.length - 1} người nữa` : ""}
           </span>
           <span className="ml-auto text-xs font-semibold text-amber-900 underline">
-            Xá»­ lÃ½ ngay
+            Xử lý ngay
           </span>
         </Link>
       )}
@@ -562,7 +562,7 @@ export default function ScheduleManagement() {
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="TÃ¬m theo ID, tÃªn tour..."
+            placeholder="Tìm theo ID, tên tour..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-gray-200 bg-white placeholder-gray-400 outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-100"
@@ -576,19 +576,19 @@ export default function ScheduleManagement() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="flex-1 sm:flex-initial bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-primary-500"
           >
-            <option value="all">Táº¥t cáº£ tráº¡ng thÃ¡i</option>
-            <option value="open">Äang má»Ÿ bÃ¡n</option>
-            <option value="closed">ÄÃ£ Ä‘Ã³ng bÃ¡n</option>
-            <option value="confirmed">ÄÃ£ chá»‘t cháº¡y</option>
-            <option value="in_progress">Äang di chuyá»ƒn</option>
-            <option value="completed">ÄÃ£ hoÃ n thÃ nh</option>
-            <option value="cancelled">ÄÃ£ há»§y</option>
+            <option value="all">Tất cả trạng thái</option>
+            <option value="open">Đang mở bán</option>
+            <option value="closed">Đã đóng bán</option>
+            <option value="confirmed">Đã chốt chạy</option>
+            <option value="in_progress">Đang di chuyển</option>
+            <option value="completed">Đã hoàn thành</option>
+            <option value="cancelled">Đã hủy</option>
           </select>
 
           {(searchQuery !== "" || statusFilter !== "all") && (
             <button
               type="button"
-              title="Äáº·t láº¡i bá»™ lá»c"
+              title="Đặt lại bộ lọc"
               onClick={() => {
                 setSearchQuery("");
                 setStatusFilter("all");
@@ -616,14 +616,14 @@ export default function ScheduleManagement() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  <th className="py-4 px-5">MÃ£ chuyáº¿n</th>
-                  <th className="py-4 px-5">Tour du lá»‹ch</th>
-                  <th className="py-4 px-5">Thá»i gian khá»Ÿi hÃ nh</th>
-                  <th className="py-4 px-5">Háº¡n Ä‘áº·t (Deadline)</th>
-                  <th className="py-4 px-5">Sá»‘ khÃ¡ch (Min/Max)</th>
-                  <th className="py-4 px-5">HÆ°á»›ng dáº«n viÃªn</th>
-                  <th className="py-4 px-5">Tráº¡ng thÃ¡i</th>
-                  <th className="py-4 px-5 text-right">Váº­n hÃ nh & Thao tÃ¡c</th>
+                  <th className="py-4 px-5">Mã chuyến</th>
+                  <th className="py-4 px-5">Tour du lịch</th>
+                  <th className="py-4 px-5">Thời gian khởi hành</th>
+                  <th className="py-4 px-5">Hạn đặt (Deadline)</th>
+                  <th className="py-4 px-5">Số khách (Min/Max)</th>
+                  <th className="py-4 px-5">Hướng dẫn viên</th>
+                  <th className="py-4 px-5">Trạng thái</th>
+                  <th className="py-4 px-5 text-right">Vận hành & Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -635,12 +635,12 @@ export default function ScheduleManagement() {
 
                   return (
                     <tr key={schedule.id} className="hover:bg-slate-50/50 transition-colors text-sm text-gray-700">
-                      {/* MÃ£ chuyáº¿n */}
+                      {/* Mã chuyến */}
                       <td className="py-4 px-5 font-bold text-primary-700 font-mono">
                         #{schedule.id}
                       </td>
 
-                      {/* Tour du lá»‹ch */}
+                      {/* Tour du lịch */}
                       <td className="py-4 px-5 max-w-xs">
                         <Link
                           to={`/admin/tours/${schedule.tour_id}`}
@@ -650,7 +650,7 @@ export default function ScheduleManagement() {
                         </Link>
                       </td>
 
-                      {/* Thá»i gian */}
+                      {/* Thời gian */}
                       <td className="py-4 px-5 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
                           <CalendarDays className="h-3.5 w-3.5 text-gray-400" />
@@ -659,13 +659,13 @@ export default function ScheduleManagement() {
                               {formatDateTime(schedule.start_date)}
                             </p>
                             <p className="text-xs text-gray-400 mt-0.5">
-                              Äáº¿n: {getEndDate(schedule.start_date, schedule.number_of_days)}
+                              Đến: {getEndDate(schedule.start_date, schedule.number_of_days)}
                             </p>
                           </div>
                         </div>
                       </td>
 
-                      {/* Háº¡n chá»‘t Ä‘áº·t */}
+                      {/* Hạn chốt đặt */}
                       <td className="py-4 px-5 whitespace-nowrap">
                         {deadline ? (
                           <div className="flex items-center gap-1.5">
@@ -675,41 +675,41 @@ export default function ScheduleManagement() {
                                 {formatDateTime(deadline)}
                               </p>
                               {isOverdue && status === "open" && (
-                                <span className="inline-block text-[10px] bg-amber-50 text-amber-700 px-1 py-0.5 rounded font-bold uppercase tracking-wider mt-0.5">QuÃ¡ háº¡n</span>
+                                <span className="inline-block text-[10px] bg-amber-50 text-amber-700 px-1 py-0.5 rounded font-bold uppercase tracking-wider mt-0.5">Quá hạn</span>
                               )}
                             </div>
                           </div>
                         ) : (
-                          <span className="text-gray-400">KhÃ´ng giá»›i háº¡n</span>
+                          <span className="text-gray-400">Không giới hạn</span>
                         )}
                       </td>
 
-                      {/* Sá»‘ khÃ¡ch */}
+                      {/* Số khách */}
                       <td className="py-4 px-5 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
                           <Users className="h-3.5 w-3.5 text-gray-400" />
                           <div>
                             <p className="font-bold text-gray-900">
-                              {schedule.booked_people} / {schedule.max_people} khÃ¡ch
+                              {schedule.booked_people} / {schedule.max_people} khách
                             </p>
                             <p className="text-xs text-gray-400 mt-0.5">
-                              Tá»‘i thiá»ƒu: {minPeople} khÃ¡ch
+                              Tối thiểu: {minPeople} khách
                             </p>
                           </div>
                         </div>
                       </td>
 
                       {/*
-                        HÆ°á»›ng dáº«n viÃªn â€” nhiá»u ngÆ°á»i cho má»™t chuyáº¿n.
+                        Hướng dẫn viên — nhiều người cho một chuyến.
 
-                        Hiá»‡n dáº¡ng tháº» rá»“i má»Ÿ há»™p thoáº¡i Ä‘á»ƒ sá»­a, vÃ¬ Ã´ chá»n má»™t dÃ²ng khÃ´ng chá»©a ná»•i
-                        danh sÃ¡ch. Bao nhiÃªu ngÆ°á»i lÃ  Ä‘á»§ thÃ¬ Ä‘iá»u hÃ nh quyáº¿t, há»‡ thá»‘ng khÃ´ng
-                        cáº£nh bÃ¡o theo sá»‘ khÃ¡ch.
+                        Hiện dạng thẻ rồi mở hộp thoại để sửa, vì ô chọn một dòng không chứa nổi
+                        danh sách. Bao nhiêu người là đủ thì điều hành quyết, hệ thống không
+                        cảnh báo theo số khách.
                       */}
                       <td className="py-4 px-5">
                         <div className="flex flex-wrap items-center gap-1 min-w-44">
                           {(schedule.guides ?? []).length === 0 ? (
-                            <span className="text-xs text-gray-400">ChÆ°a phÃ¢n cÃ´ng</span>
+                            <span className="text-xs text-gray-400">Chưa phân công</span>
                           ) : (
                             (schedule.guides ?? []).map((guide) => (
                               <span
@@ -727,12 +727,12 @@ export default function ScheduleManagement() {
                             onClick={() => openGuideDialog(schedule)}
                             className="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 disabled:cursor-not-allowed disabled:text-gray-300 transition-colors"
                           >
-                            Sá»­a
+                            Sửa
                           </button>
                         </div>
                       </td>
 
-                      {/* Tráº¡ng thÃ¡i */}
+                      {/* Trạng thái */}
                       <td className="py-4 px-5 whitespace-nowrap">
                         <div className="flex flex-col gap-1 items-start">
                           <span
@@ -743,21 +743,21 @@ export default function ScheduleManagement() {
                           </span>
                           {status === "cancelled" && schedule.cancelled_reason && (
                             <span className="text-xs text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 font-medium max-w-40 truncate" title={schedule.cancelled_reason}>
-                              LÃ½ do: {schedule.cancelled_reason}
+                              Lý do: {schedule.cancelled_reason}
                             </span>
                           )}
                         </div>
                       </td>
 
-                      {/* Váº­n hÃ nh & Thao tÃ¡c */}
+                      {/* Vận hành & Thao tác */}
                       <td className="py-4 px-5 text-right whitespace-nowrap">
                         <div className="flex flex-col gap-2 items-end">
                           <div className="flex flex-wrap gap-1 justify-end">
                             {/*
-                              G05 - Danh sÃ¡ch Ä‘oÃ n, chia theo tá»«ng nhÃ³m. Tráº£ lá»i hai cÃ¢u á»Ÿ cÃ¹ng
-                              má»™t chá»—: gá»­i cho nhÃ  cung cáº¥p Ä‘Æ°á»£c chÆ°a, vÃ  nhÃ³m nÃ y gá»“m nhá»¯ng ai.
-                              Äáº·t ngay trÃªn hÃ ng chuyáº¿n vÃ¬ cáº£ hai cÃ¢u Ä‘á»u há»i lÃºc Ä‘ang nhÃ¬n chuyáº¿n,
-                              khÃ´ng pháº£i lÃºc Ä‘ang má»Ÿ má»™t Ä‘Æ¡n.
+                              G05 - Danh sách đoàn, chia theo từng nhóm. Trả lời hai câu ở cùng
+                              một chỗ: gửi cho nhà cung cấp được chưa, và nhóm này gồm những ai.
+                              Đặt ngay trên hàng chuyến vì cả hai câu đều hỏi lúc đang nhìn chuyến,
+                              không phải lúc đang mở một đơn.
                             */}
                             {status !== "cancelled" && (
                               <button
@@ -765,7 +765,7 @@ export default function ScheduleManagement() {
                                 onClick={() => openManifestCheck(schedule.id)}
                                 className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 duration-150 cursor-pointer"
                               >
-                                Danh sÃ¡ch Ä‘oÃ n
+                                Danh sách đoàn
                               </button>
                             )}
 
@@ -776,7 +776,7 @@ export default function ScheduleManagement() {
                                 onClick={() => handleUpdateStatus(schedule.id, "closed")}
                                 className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 duration-150 cursor-pointer"
                               >
-                                ÄÃ³ng bÃ¡n
+                                Đóng bán
                               </button>
                             )}
                             {status === "closed" && (
@@ -785,12 +785,12 @@ export default function ScheduleManagement() {
                                 onClick={() => handleUpdateStatus(schedule.id, "open")}
                                 className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-primary-655 hover:bg-primary-50 transition-all active:scale-95 duration-150 cursor-pointer"
                               >
-                                Má»Ÿ bÃ¡n láº¡i
+                                Mở bán lại
                               </button>
                             )}
 
-                            {/* BÃ n giao giá»¯a chá»«ng: chá»‰ cÃ³ nghÄ©a khi Ä‘oÃ n Ä‘Ã£ hoáº·c sáº¯p lÃªn Ä‘Æ°á»ng
-                                vÃ  Ä‘ang cÃ³ ngÆ°á»i phá»¥ trÃ¡ch Ä‘á»ƒ mÃ  giao. */}
+                            {/* Bàn giao giữa chừng: chỉ có nghĩa khi đoàn đã hoặc sắp lên đường
+                                và đang có người phụ trách để mà giao. */}
                             {(status === "confirmed" || status === "in_progress") &&
                               (schedule.guides ?? []).length > 0 && (
                                 <button
@@ -798,31 +798,31 @@ export default function ScheduleManagement() {
                                   onClick={() => openHandoverDialog(schedule.id)}
                                   className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-all active:scale-95 duration-150 cursor-pointer"
                                 >
-                                  BÃ n giao HDV
+                                  Bàn giao HDV
                                 </button>
                               )}
 
-                            {/* Dá»i háº¡n chá»‘t danh sÃ¡ch. Chuyáº¿n Ä‘Ã£ cháº¡y hoáº·c Ä‘Ã£ xong thÃ¬ má»‘c nÃ y
-                                khÃ´ng cÃ²n nghÄ©a gÃ¬ nÃªn khÃ´ng cho sá»­a. */}
+                            {/* Dời hạn chốt danh sách. Chuyến đã chạy hoặc đã xong thì mốc này
+                                không còn nghĩa gì nên không cho sửa. */}
                             {(status === "open" || status === "closed" || status === "confirmed") && (
                               <button
                                 type="button"
                                 onClick={() => openDeadlineDialog(schedule)}
                                 className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 duration-150 cursor-pointer"
                               >
-                                Sá»­a háº¡n chá»‘t
+                                Sửa hạn chốt
                               </button>
                             )}
 
-                            {/* L03 - GhÃ©p chuyáº¿n. Chá»‰ cÃ³ nghÄ©a khi chuyáº¿n chÆ°a khá»Ÿi hÃ nh vÃ 
-                                Ä‘ang Ã­t khÃ¡ch, nÃªn Ä‘á»ƒ cáº¡nh nÃºt chá»‘t chuyáº¿n. */}
+                            {/* L03 - Ghép chuyến. Chỉ có nghĩa khi chuyến chưa khởi hành và
+                                đang ít khách, nên để cạnh nút chốt chuyến. */}
                             {(status === "open" || status === "closed" || status === "confirmed") && (
                               <button
                                 type="button"
                                 onClick={() => openMergeDialog(schedule.id)}
                                 className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-all active:scale-95 duration-150 cursor-pointer"
                               >
-                                GhÃ©p chuyáº¿n
+                                Ghép chuyến
                               </button>
                             )}
 
@@ -833,7 +833,7 @@ export default function ScheduleManagement() {
                                 onClick={() => handleUpdateStatus(schedule.id, "confirmed")}
                                 className="rounded bg-primary-600 px-2 py-1 text-xs font-semibold text-white hover:bg-primary-700 shadow-sm transition-all active:scale-95 duration-150 cursor-pointer"
                               >
-                                Chá»‘t chuyáº¿n
+                                Chốt chuyến
                               </button>
                             )}
 
@@ -844,14 +844,14 @@ export default function ScheduleManagement() {
                                 onClick={() => openCancelDialog(schedule.id)}
                                 className="rounded border border-rose-150 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition-all active:scale-95 duration-150 cursor-pointer"
                               >
-                                Há»§y chuyáº¿n
+                                Hủy chuyến
                               </button>
                             )}
 
                             {/* Closed lifecycle states */}
                             {(status === "completed" || status === "cancelled") && (
                               <span className="text-xs text-gray-400 italic">
-                                ÄÃ£ káº¿t thÃºc vÃ²ng Ä‘á»i
+                                Đã kết thúc vòng đời
                               </span>
                             )}
                           </div>
@@ -860,7 +860,7 @@ export default function ScheduleManagement() {
                             to={`/admin/tour-schedules/${schedule.id}/attendance`}
                             className="text-xs font-semibold text-primary-600 hover:underline inline-flex items-center gap-0.5"
                           >
-                            Xem Ä‘iá»ƒm danh â†’
+                            Xem điểm danh →
                           </Link>
                         </div>
                       </td>
@@ -878,7 +878,7 @@ export default function ScheduleManagement() {
               lastPage={totalPages}
               total={totalItems}
               perPage={itemsPerPage}
-              itemLabel="chuyáº¿n Ä‘i"
+              itemLabel="chuyến đi"
               onPageChange={(p) => setCurrentPage(p)}
               onPerPageChange={(newPerPage) => {
                 setItemsPerPage(newPerPage);
@@ -889,26 +889,26 @@ export default function ScheduleManagement() {
         </div>
       ) : (
         <div className="p-10 text-center rounded-2xl border border-gray-100 bg-white text-sm text-gray-500">
-          KhÃ´ng tÃ¬m tháº¥y chuyáº¿n Ä‘i nÃ o khá»›p vá»›i bá»™ lá»c.
+          Không tìm thấy chuyến đi nào khớp với bộ lọc.
         </div>
       )}
 
 
-      {/* BÃ n giao hÆ°á»›ng dáº«n viÃªn giá»¯a chá»«ng */}
+      {/* Bàn giao hướng dẫn viên giữa chừng */}
       {handoverScheduleId !== null && (
         <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
           <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
             <div>
               <h4 className="text-base font-bold text-gray-900">
-                BÃ n giao hÆ°á»›ng dáº«n viÃªn â€” chuyáº¿n #{handoverScheduleId}
+                Bàn giao hướng dẫn viên — chuyến #{handoverScheduleId}
               </h4>
               <p className="text-xs text-gray-500 mt-0.5">
-                NgÆ°á»i cÅ© máº¥t quyá»n ghi ngay khi lÆ°u. Dá»¯ liá»‡u há» Ä‘Ã£ ghi giá»¯ nguyÃªn, chá»‰ chuyá»ƒn
-                quyá»n ghi tiáº¿p.
+                Người cũ mất quyền ghi ngay khi lưu. Dữ liệu họ đã ghi giữ nguyên, chỉ chuyển
+                quyền ghi tiếp.
               </p>
             </div>
 
-            {!handoverPanel && <p className="text-sm text-gray-500">Äang táº£i...</p>}
+            {!handoverPanel && <p className="text-sm text-gray-500">Đang tải...</p>}
 
             {canNhoTrongHo && (
               <div
@@ -920,21 +920,21 @@ export default function ScheduleManagement() {
               >
                 <p className="font-semibold">
                   {khongCoAiNhoDuoc
-                    ? "ChÆ°a bÃ n giao Ä‘Æ°á»£c."
-                    : "ÄoÃ n chá»‰ cÃ²n má»™t ngÆ°á»i â€” chá»‰ nhá» Ä‘Æ°á»£c Ä‘oÃ n khÃ¡c."}
+                    ? "Chưa bàn giao được."
+                    : "Đoàn chỉ còn một người — chỉ nhờ được đoàn khác."}
                 </p>
                 <p className="text-xs mt-0.5">
                   {khongCoAiNhoDuoc ? (
                     <>
-                      ÄoÃ n Ä‘ang trÃªn Ä‘Æ°á»ng vÃ  khÃ´ng cÃ³ hÆ°á»›ng dáº«n viÃªn nÃ o khÃ¡c Ä‘ang dáº«n Ä‘oÃ n cÃ¹ng
-                      lÃºc Ä‘á»ƒ nhá». HÃ£y báº¥m <strong>Sá»­a</strong> á»Ÿ cá»™t hÆ°á»›ng dáº«n viÃªn phÃ¢n cÃ´ng thÃªm
-                      má»™t ngÆ°á»i cho chuyáº¿n, rá»“i quay láº¡i Ä‘Ã¢y.
+                      Đoàn đang trên đường và không có hướng dẫn viên nào khác đang dẫn đoàn cùng
+                      lúc để nhờ. Hãy bấm <strong>Sửa</strong> ở cột hướng dẫn viên phân công thêm
+                      một người cho chuyến, rồi quay lại đây.
                     </>
                   ) : (
                     <>
-                      Gá»¡ ngÆ°á»i dáº«n duy nháº¥t ra thÃ¬ Ä‘oÃ n khÃ´ng cÃ³ ai cho tá»›i khi ngÆ°á»i má»›i tá»›i nÆ¡i.
-                      NÃªn chá»‰ chá»n Ä‘Æ°á»£c ngÆ°á»i <strong>Ä‘ang dáº«n má»™t Ä‘oÃ n khÃ¡c</strong> â€” há» Ä‘Ã£ á»Ÿ
-                      ngoÃ i Ä‘Æ°á»ng. NgÆ°á»i Ä‘Ã³ sáº½ táº¡m giá»¯ hai Ä‘oÃ n, há»‡ thá»‘ng Ä‘Ã¡nh dáº¥u Ä‘á»ƒ báº¡n xá»­ lÃ½ tiáº¿p.
+                      Gỡ người dẫn duy nhất ra thì đoàn không có ai cho tới khi người mới tới nơi.
+                      Nên chỉ chọn được người <strong>đang dẫn một đoàn khác</strong> — họ đã ở
+                      ngoài đường. Người đó sẽ tạm giữ hai đoàn, hệ thống đánh dấu để bạn xử lý tiếp.
                     </>
                   )}
                 </p>
@@ -946,13 +946,13 @@ export default function ScheduleManagement() {
                 {nguoiThayChonDuoc.length === 0 ? (
                   <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     {canNhoTrongHo
-                      ? "KhÃ´ng cÃ³ hÆ°á»›ng dáº«n viÃªn nÃ o Ä‘ang dáº«n Ä‘oÃ n khÃ¡c Ä‘á»ƒ nhá»."
-                      : "KhÃ´ng cÃ²n hÆ°á»›ng dáº«n viÃªn nÃ o khÃ¡c Ä‘ang hoáº¡t Ä‘á»™ng Ä‘á»ƒ nháº­n Ä‘oÃ n."}
+                      ? "Không có hướng dẫn viên nào đang dẫn đoàn khác để nhờ."
+                      : "Không còn hướng dẫn viên nào khác đang hoạt động để nhận đoàn."}
                   </p>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">NgÆ°á»i giao</label>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Người giao</label>
                       <select
                         value={handoverForm.from_guide_id}
                         onChange={(e) =>
@@ -969,7 +969,7 @@ export default function ScheduleManagement() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">NgÆ°á»i nháº­n</label>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Người nhận</label>
                       <select
                         value={handoverForm.to_guide_id}
                         onChange={(e) =>
@@ -980,7 +980,7 @@ export default function ScheduleManagement() {
                         {nguoiThayChonDuoc.map((g) => (
                           <option key={g.id} value={g.id}>
                             {g.name}
-                            {g.leading_other_group ? " â€” Ä‘ang dáº«n Ä‘oÃ n khÃ¡c" : ""}
+                            {g.leading_other_group ? " — đang dẫn đoàn khác" : ""}
                           </option>
                         ))}
                       </select>
@@ -990,19 +990,19 @@ export default function ScheduleManagement() {
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    LÃ½ do thay <span className="text-rose-500">*</span>
+                    Lý do thay <span className="text-rose-500">*</span>
                   </label>
                   <input
                     value={handoverForm.reason}
                     onChange={(e) => setHandoverForm((truoc) => ({ ...truoc, reason: e.target.value }))}
-                    placeholder="VD: HÆ°á»›ng dáº«n viÃªn cÅ© bá»‹ sá»‘t cao, pháº£i vá» sá»›m..."
+                    placeholder="VD: Hướng dẫn viên cũ bị sốt cao, phải về sớm..."
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    TÃ¬nh tráº¡ng Ä‘oÃ n <span className="text-rose-500">*</span>
+                    Tình trạng đoàn <span className="text-rose-500">*</span>
                   </label>
                   <textarea
                     rows={3}
@@ -1010,27 +1010,27 @@ export default function ScheduleManagement() {
                     onChange={(e) =>
                       setHandoverForm((truoc) => ({ ...truoc, handover_note: e.target.value }))
                     }
-                    placeholder="ÄoÃ n Ä‘ang á»Ÿ Ä‘Ã¢u, Ä‘Ã£ Ä‘iá»ƒm danh tá»›i cháº·ng nÃ o, khÃ¡ch nÃ o cáº§n Ä‘á»ƒ Ã½, viá»‡c gÃ¬ Ä‘ang dá»Ÿ..."
+                    placeholder="Đoàn đang ở đâu, đã điểm danh tới chặng nào, khách nào cần để ý, việc gì đang dở..."
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
                   />
                   <p className="mt-1 text-[11px] text-gray-400">
-                    Ãt nháº¥t 20 kÃ½ tá»±. NgÆ°á»i nháº­n chá»‰ cÃ³ Ä‘Ãºng Ä‘oáº¡n nÃ y Ä‘á»ƒ báº¯t nhá»‹p vá»›i Ä‘oÃ n.
+                    Ít nhất 20 ký tự. Người nhận chỉ có đúng đoạn này để bắt nhịp với đoàn.
                   </p>
                 </div>
 
-                {/* Lá»‹ch sá»­: chuyáº¿n Ä‘á»•i ngÆ°á»i nhiá»u láº§n thÃ¬ Ä‘Ã¢y lÃ  chá»— láº§n ra ai dáº«n lÃºc nÃ o */}
+                {/* Lịch sử: chuyến đổi người nhiều lần thì đây là chỗ lần ra ai dẫn lúc nào */}
                 {handoverPanel.handovers.length > 0 && (
                   <div className="space-y-1.5">
                     <p className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                      ÄÃ£ bÃ n giao trÆ°á»›c Ä‘Ã³
+                      Đã bàn giao trước đó
                     </p>
                     {handoverPanel.handovers.map((bg) => (
                       <div key={bg.id} className="rounded-lg border border-gray-200 p-2.5 text-xs">
                         <p className="font-semibold text-gray-900">
-                          {bg.from_guide?.name} â†’ {bg.to_guide?.name}
+                          {bg.from_guide?.name} → {bg.to_guide?.name}
                           {bg.is_emergency_cover && (
                             <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
-                              Nhá» trÃ´ng há»™
+                              Nhờ trông hộ
                             </span>
                           )}
                           <span className="ml-2 font-normal text-gray-500">
@@ -1059,7 +1059,7 @@ export default function ScheduleManagement() {
                 disabled={handoverSaving}
                 className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
               >
-                Quay láº¡i
+                Quay lại
               </button>
               <button
                 type="button"
@@ -1074,30 +1074,30 @@ export default function ScheduleManagement() {
                 }
                 className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40"
               >
-                {handoverSaving ? "Äang lÆ°u..." : "XÃ¡c nháº­n bÃ n giao"}
+                {handoverSaving ? "Đang lưu..." : "Xác nhận bàn giao"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* PhÃ¢n cÃ´ng hÆ°á»›ng dáº«n viÃªn â€” nhiá»u ngÆ°á»i cho má»™t chuyáº¿n */}
+      {/* Phân công hướng dẫn viên — nhiều người cho một chuyến */}
       {guideDialogScheduleId !== null && (
         <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
           <div className="bg-white w-full max-w-md rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
             <div>
               <h4 className="text-base font-bold text-gray-900">
-                HÆ°á»›ng dáº«n viÃªn â€” chuyáº¿n #{guideDialogScheduleId}
+                Hướng dẫn viên — chuyến #{guideDialogScheduleId}
               </h4>
               <p className="text-xs text-gray-500 mt-0.5">
-                Chá»n Ä‘Æ°á»£c nhiá»u ngÆ°á»i. ÄoÃ n Ä‘Ã´ng thÃ¬ cáº§n thÃªm ngÆ°á»i dáº«n, bao nhiÃªu lÃ  Ä‘á»§ do báº¡n
-                quyáº¿t â€” há»‡ thá»‘ng khÃ´ng tÃ­nh há»™ theo sá»‘ khÃ¡ch.
+                Chọn được nhiều người. Đoàn đông thì cần thêm người dẫn, bao nhiêu là đủ do bạn
+                quyết — hệ thống không tính hộ theo số khách.
               </p>
             </div>
 
             <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2">
               {guides.length === 0 && (
-                <p className="px-1 py-2 text-xs text-gray-500">ChÆ°a cÃ³ hÆ°á»›ng dáº«n viÃªn nÃ o.</p>
+                <p className="px-1 py-2 text-xs text-gray-500">Chưa có hướng dẫn viên nào.</p>
               )}
 
               {guides.map((guide) => (
@@ -1123,8 +1123,8 @@ export default function ScheduleManagement() {
             </div>
 
             <p className="text-[11px] text-gray-400">
-              NgÆ°á»i Ä‘ang báº­n má»™t chuyáº¿n khÃ¡c trÃ¹ng ngÃ y sáº½ bá»‹ mÃ¡y chá»§ tá»« chá»‘i, vÃ  khi Ä‘Ã³ cáº£ láº§n
-              phÃ¢n cÃ´ng nÃ y khÃ´ng Ä‘Æ°á»£c lÆ°u.
+              Người đang bận một chuyến khác trùng ngày sẽ bị máy chủ từ chối, và khi đó cả lần
+              phân công này không được lưu.
             </p>
 
             <div className="flex justify-end gap-2">
@@ -1134,7 +1134,7 @@ export default function ScheduleManagement() {
                 disabled={assigningScheduleId === guideDialogScheduleId}
                 className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
               >
-                Quay láº¡i
+                Quay lại
               </button>
               <button
                 type="button"
@@ -1142,29 +1142,29 @@ export default function ScheduleManagement() {
                 disabled={assigningScheduleId === guideDialogScheduleId}
                 className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40"
               >
-                {assigningScheduleId === guideDialogScheduleId ? "Äang lÆ°u..." : "LÆ°u phÃ¢n cÃ´ng"}
+                {assigningScheduleId === guideDialogScheduleId ? "Đang lưu..." : "Lưu phân công"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Dá»i háº¡n chá»‘t danh sÃ¡ch, cÃ³ xem trÆ°á»›c tÃ¡c Ä‘á»™ng */}
+      {/* Dời hạn chốt danh sách, có xem trước tác động */}
       {deadlineScheduleId !== null && (
         <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
           <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
             <div>
               <h4 className="text-base font-bold text-gray-900">
-                Háº¡n chá»‘t danh sÃ¡ch â€” chuyáº¿n #{deadlineScheduleId}
+                Hạn chốt danh sách — chuyến #{deadlineScheduleId}
               </h4>
               <p className="text-xs text-gray-500 mt-0.5">
-                ÄÃ¢y lÃ  má»‘c gá»­i danh sÃ¡ch khÃ¡ch cho khÃ¡ch sáº¡n vÃ  nhÃ  xe. Dá»i má»‘c nÃ y lÃ  dá»i cÃ¹ng
-                lÃºc quyá»n bÃ¡n chá»—, sá»­a tÃªn hÃ nh khÃ¡ch, chuyá»ƒn chuyáº¿n vÃ  ghÃ©p chuyáº¿n.
+                Đây là mốc gửi danh sách khách cho khách sạn và nhà xe. Dời mốc này là dời cùng
+                lúc quyền bán chỗ, sửa tên hành khách, chuyển chuyến và ghép chuyến.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Háº¡n chá»‘t má»›i</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Hạn chốt mới</label>
               <input
                 type="datetime-local"
                 value={deadlineValue}
@@ -1172,11 +1172,11 @@ export default function ScheduleManagement() {
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
               />
               <p className="text-[11px] text-gray-400 mt-1">
-                Äá»ƒ trá»‘ng thÃ¬ chuyáº¿n dÃ¹ng má»‘c máº·c Ä‘á»‹nh cá»§a há»‡ thá»‘ng.
+                Để trống thì chuyến dùng mốc mặc định của hệ thống.
               </p>
             </div>
 
-            {deadlineLoading && <p className="text-sm text-gray-500">Äang tÃ­nh tÃ¡c Ä‘á»™ng...</p>}
+            {deadlineLoading && <p className="text-sm text-gray-500">Đang tính tác động...</p>}
 
             {deadlineImpact && !deadlineImpact.impact.can_change && (
               <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
@@ -1188,14 +1188,14 @@ export default function ScheduleManagement() {
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-2">
                 <p className="text-xs font-bold uppercase tracking-wider text-amber-800">
                   {deadlineImpact.impact.direction === "unchanged"
-                    ? "ChÆ°a cÃ³ thay Ä‘á»•i nÃ o"
-                    : "LÆ°u xong sáº½ cÃ³ hiá»‡u lá»±c ngay"}
+                    ? "Chưa có thay đổi nào"
+                    : "Lưu xong sẽ có hiệu lực ngay"}
                 </p>
 
                 <ul className="space-y-1.5">
                   {deadlineImpact.impact.warnings.map((dong) => (
                     <li key={dong} className="text-xs text-amber-900 flex gap-2">
-                      <span className="text-amber-500 shrink-0">â€¢</span>
+                      <span className="text-amber-500 shrink-0">•</span>
                       <span>{dong}</span>
                     </li>
                   ))}
@@ -1204,16 +1204,16 @@ export default function ScheduleManagement() {
             )}
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">LÃ½ do dá»i háº¡n</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">Lý do dời hạn</label>
               <textarea
                 rows={2}
                 value={deadlineReason}
                 onChange={(e) => setDeadlineReason(e.target.value)}
-                placeholder="VD: KhÃ¡ch sáº¡n cho thÃªm 2 phÃ²ng, chá»‘t láº¡i ngÃ y 19/08..."
+                placeholder="VD: Khách sạn cho thêm 2 phòng, chốt lại ngày 19/08..."
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
               />
               <p className="text-[11px] text-gray-400 mt-1">
-                KhÃ´ng báº¯t buá»™c, nhÆ°ng cÃ³ thÃ¬ nháº­t kÃ½ vá» sau Ä‘á»c má»›i hiá»ƒu Ä‘Æ°á»£c vÃ¬ sao má»‘c bá»‹ dá»i.
+                Không bắt buộc, nhưng có thì nhật ký về sau đọc mới hiểu được vì sao mốc bị dời.
               </p>
             </div>
 
@@ -1230,7 +1230,7 @@ export default function ScheduleManagement() {
                 disabled={deadlineSaving}
                 className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
               >
-                Quay láº¡i
+                Quay lại
               </button>
               <button
                 type="button"
@@ -1243,41 +1243,41 @@ export default function ScheduleManagement() {
                 }
                 className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40"
               >
-                {deadlineSaving ? "Äang lÆ°u..." : "Äá»“ng Ã½, lÆ°u háº¡n chá»‘t má»›i"}
+                {deadlineSaving ? "Đang lưu..." : "Đồng ý, lưu hạn chốt mới"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* L03 - GhÃ©p chuyáº¿n */}
+      {/* L03 - Ghép chuyến */}
       {mergeScheduleId !== null && (
         <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
             <div>
               <h4 className="text-base font-bold text-gray-900">
-                GhÃ©p chuyáº¿n #{mergeScheduleId} vÃ o chuyáº¿n khÃ¡c
+                Ghép chuyến #{mergeScheduleId} vào chuyến khác
               </h4>
               <p className="text-xs text-gray-500 mt-0.5">
-                ToÃ n bá»™ Ä‘Æ¡n Ä‘Ã£ thanh toÃ¡n sáº½ chuyá»ƒn sang chuyáº¿n Ä‘Ã­ch, giÃ¡ giá»¯ nguyÃªn. Chuyáº¿n nÃ y
-                sau Ä‘Ã³ chuyá»ƒn thÃ nh Ä‘Ã£ há»§y.
+                Toàn bộ đơn đã thanh toán sẽ chuyển sang chuyến đích, giá giữ nguyên. Chuyến này
+                sau đó chuyển thành đã hủy.
               </p>
             </div>
 
-            {mergeLoading && <p className="text-sm text-gray-500">Äang tÃ¬m chuyáº¿n phÃ¹ há»£p...</p>}
+            {mergeLoading && <p className="text-sm text-gray-500">Đang tìm chuyến phù hợp...</p>}
 
             {mergeData && mergeData.candidates.length === 0 && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-1">
-                <p className="font-semibold">KhÃ´ng cÃ³ chuyáº¿n nÃ o ghÃ©p Ä‘Æ°á»£c.</p>
+                <p className="font-semibold">Không có chuyến nào ghép được.</p>
                 <p className="text-xs">
-                  Chuyáº¿n Ä‘Ã­ch pháº£i cÃ¹ng tour, cÃ²n Ä‘á»§ chá»—, lá»‡ch ngÃ y khÃ´ng quÃ¡ 2 ngÃ y, vÃ {" "}
-                  <strong>cáº£ hai chuyáº¿n Ä‘á»u cÃ²n trÆ°á»›c háº¡n chá»‘t danh sÃ¡ch</strong> â€” vÃ¬ má»¥c Ä‘Ã­ch cá»§a
-                  ghÃ©p lÃ  gá»­i má»™t danh sÃ¡ch Ä‘Ãºng cho nhÃ  cung cáº¥p, thay vÃ¬ gá»­i hai rá»“i Ä‘i vÃ¡.
+                  Chuyến đích phải cùng tour, còn đủ chỗ, lệch ngày không quá 2 ngày, và{" "}
+                  <strong>cả hai chuyến đều còn trước hạn chốt danh sách</strong> — vì mục đích của
+                  ghép là gửi một danh sách đúng cho nhà cung cấp, thay vì gửi hai rồi đi vá.
                 </p>
               </div>
             )}
 
-            {/* MÃ¡y chá»§ Ä‘Ã£ loáº¡i chuyáº¿n khÃ´ng ghÃ©p Ä‘Æ°á»£c vÃ  tÃ­nh sáºµn tÃ¡c Ä‘á»™ng, nÃªn Ä‘Ã¢y chá»‰ hiá»ƒn thá»‹. */}
+            {/* Máy chủ đã loại chuyến không ghép được và tính sẵn tác động, nên đây chỉ hiển thị. */}
             <div className="space-y-2">
               {mergeData?.candidates.map((item) => {
                 const dangChon = mergeTargetId === item.schedule_id;
@@ -1295,17 +1295,17 @@ export default function ScheduleManagement() {
                   >
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="text-sm font-bold text-gray-900">
-                        #{item.schedule_id} Â· {formatDateTime(item.start_date)}
+                        #{item.schedule_id} · {formatDateTime(item.start_date)}
                       </span>
                       <span className="text-[11px] text-gray-500">
-                        {item.booked_people}/{item.max_people} chá»—
+                        {item.booked_people}/{item.max_people} chỗ
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-gray-600">
-                      Chuyá»ƒn {item.transferring} Ä‘Æ¡n ({item.transferring_guests} khÃ¡ch)
+                      Chuyển {item.transferring} đơn ({item.transferring_guests} khách)
                       {item.cancelling > 0 && (
                         <span className="text-amber-800 font-semibold">
-                          {" "}Â· há»§y {item.cancelling} Ä‘Æ¡n chÆ°a thanh toÃ¡n
+                          {" "}· hủy {item.cancelling} đơn chưa thanh toán
                         </span>
                       )}
                     </p>
@@ -1316,17 +1316,17 @@ export default function ScheduleManagement() {
 
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">
-                LÃ½ do ghÃ©p <span className="text-rose-500">*</span>
+                Lý do ghép <span className="text-rose-500">*</span>
               </label>
               <textarea
                 rows={2}
                 value={mergeReason}
                 onChange={(e) => setMergeReason(e.target.value)}
-                placeholder="VD: Hai chuyáº¿n Ä‘á»u chÆ°a Ä‘á»§ khÃ¡ch tá»‘i thiá»ƒu nÃªn dá»“n vá» má»™t chuyáº¿n..."
+                placeholder="VD: Hai chuyến đều chưa đủ khách tối thiểu nên dồn về một chuyến..."
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
               />
               <p className="text-[11px] text-gray-400 mt-1">
-                KhÃ¡ch sáº½ Ä‘á»c Ä‘Æ°á»£c ná»™i dung nÃ y khi Ä‘Æ°á»£c thÃ´ng bÃ¡o Ä‘á»•i ngÃ y khá»Ÿi hÃ nh.
+                Khách sẽ đọc được nội dung này khi được thông báo đổi ngày khởi hành.
               </p>
             </div>
 
@@ -1343,7 +1343,7 @@ export default function ScheduleManagement() {
                 disabled={mergeSaving}
                 className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
               >
-                KhÃ´ng ghÃ©p ná»¯a
+                Không ghép nữa
               </button>
               <button
                 type="button"
@@ -1351,45 +1351,45 @@ export default function ScheduleManagement() {
                 disabled={mergeSaving || !mergeTargetId || mergeReason.trim().length < 10}
                 className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40"
               >
-                {mergeSaving ? "Äang ghÃ©p..." : "XÃ¡c nháº­n ghÃ©p"}
+                {mergeSaving ? "Đang ghép..." : "Xác nhận ghép"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* G05 - Kiá»ƒm tra danh sÃ¡ch Ä‘oÃ n trÆ°á»›c khi gá»­i nhÃ  cung cáº¥p */}
+      {/* G05 - Kiểm tra danh sách đoàn trước khi gửi nhà cung cấp */}
       {manifestScheduleId !== null && (
         <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
           <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
             <div>
               <h4 className="text-base font-bold text-gray-900">
-                Danh sÃ¡ch Ä‘oÃ n â€” chuyáº¿n #{manifestScheduleId}
+                Danh sách đoàn — chuyến #{manifestScheduleId}
               </h4>
               <p className="text-xs text-gray-500 mt-0.5">
-                Má»—i Ä‘Æ¡n lÃ  má»™t nhÃ³m, thÆ°á»ng do má»™t ngÆ°á»i Ä‘á»©ng ra Ä‘Äƒng kÃ½ cho cáº£ nhÃ  hoáº·c cáº£ phÃ²ng
-                ban. Báº¥m vÃ o nhÃ³m Ä‘á»ƒ xem nhÃ³m Ä‘Ã³ gá»“m nhá»¯ng ai.
+                Mỗi đơn là một nhóm, thường do một người đứng ra đăng ký cho cả nhà hoặc cả phòng
+                ban. Bấm vào nhóm để xem nhóm đó gồm những ai.
               </p>
             </div>
 
-            {manifestLoading && <p className="text-sm text-gray-500">Äang táº£i danh sÃ¡ch...</p>}
+            {manifestLoading && <p className="text-sm text-gray-500">Đang tải danh sách...</p>}
 
             {manifest && (
               <>
                 {manifest.can_export_manifest ? (
                   <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
-                    {manifest.total_groups} nhÃ³m, {manifest.total_guests} khÃ¡ch, Ä‘Ã£ khai Ä‘á»§. Gá»­i
-                    Ä‘Æ°á»£c cho khÃ¡ch sáº¡n vÃ  nhÃ  xe.
+                    {manifest.total_groups} nhóm, {manifest.total_guests} khách, đã khai đủ. Gửi
+                    được cho khách sạn và nhà xe.
                   </div>
                 ) : (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
-                    {manifest.total_groups} nhÃ³m, Ä‘Ã£ khai {manifest.total_declared} trÃªn{" "}
-                    {manifest.total_guests} khÃ¡ch. ChÆ°a gá»­i Ä‘Æ°á»£c danh sÃ¡ch Ä‘oÃ n.
+                    {manifest.total_groups} nhóm, đã khai {manifest.total_declared} trên{" "}
+                    {manifest.total_guests} khách. Chưa gửi được danh sách đoàn.
                   </div>
                 )}
 
                 {manifest.groups.length === 0 && (
-                  <p className="text-sm text-gray-500">Chuyáº¿n nÃ y chÆ°a cÃ³ Ä‘Æ¡n nÃ o.</p>
+                  <p className="text-sm text-gray-500">Chuyến này chưa có đơn nào.</p>
                 )}
 
                 <div className="space-y-2">
@@ -1409,7 +1409,7 @@ export default function ScheduleManagement() {
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-bold text-gray-900">
-                              BK-{nhom.booking_id} Â· {nhom.customer_name}
+                              BK-{nhom.booking_id} · {nhom.customer_name}
                             </span>
                             <span className="flex items-center gap-2">
                               <span
@@ -1417,15 +1417,15 @@ export default function ScheduleManagement() {
                                   nhom.missing > 0 ? "text-amber-700 font-bold" : "text-gray-500"
                                 }`}
                               >
-                                {nhom.declared}/{nhom.guests} ngÆ°á»i
+                                {nhom.declared}/{nhom.guests} người
                               </span>
-                              <span className="text-gray-400">{dangMo ? "â–¾" : "â–¸"}</span>
+                              <span className="text-gray-400">{dangMo ? "▾" : "▸"}</span>
                             </span>
                           </div>
 
                           <p className="mt-0.5 flex flex-wrap gap-x-3 text-gray-500">
                             {nhom.customer_phone && <span>{nhom.customer_phone}</span>}
-                            {nguoiLienHe && <span>LiÃªn há»‡ Ä‘oÃ n: {nguoiLienHe.name}</span>}
+                            {nguoiLienHe && <span>Liên hệ đoàn: {nguoiLienHe.name}</span>}
                           </p>
 
                           {nhom.warnings.map((warning) => (
@@ -1439,16 +1439,16 @@ export default function ScheduleManagement() {
                           <div className="border-t border-gray-100 bg-gray-50/60 p-3">
                             {nhom.passengers.length === 0 ? (
                               <p className="text-xs text-gray-500">
-                                NhÃ³m nÃ y chÆ°a khai tÃªn ngÆ°á»i nÃ o.
+                                Nhóm này chưa khai tên người nào.
                               </p>
                             ) : (
                               <table className="w-full text-xs">
                                 <thead>
                                   <tr className="text-left text-gray-500">
-                                    <th className="pb-1 font-semibold">Há» tÃªn</th>
-                                    <th className="pb-1 font-semibold">Loáº¡i</th>
-                                    <th className="pb-1 font-semibold">NgÃ y sinh</th>
-                                    <th className="pb-1 font-semibold">Giáº¥y tá»</th>
+                                    <th className="pb-1 font-semibold">Họ tên</th>
+                                    <th className="pb-1 font-semibold">Loại</th>
+                                    <th className="pb-1 font-semibold">Ngày sinh</th>
+                                    <th className="pb-1 font-semibold">Giấy tờ</th>
                                   </tr>
                                 </thead>
                                 <tbody className="align-top">
@@ -1458,7 +1458,7 @@ export default function ScheduleManagement() {
                                         {khach.name}
                                         {khach.is_contact && (
                                           <span className="ml-1.5 rounded bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-700">
-                                            LiÃªn há»‡
+                                            Liên hệ
                                           </span>
                                         )}
                                         {khach.special_request && (
@@ -1469,18 +1469,18 @@ export default function ScheduleManagement() {
                                       </td>
                                       <td className="py-1.5 pr-2 text-gray-600">
                                         {khach.type === "adult"
-                                          ? "NgÆ°á»i lá»›n"
+                                          ? "Người lớn"
                                           : khach.type === "child"
-                                            ? "Tráº» em"
-                                            : "Em bÃ©"}
+                                            ? "Trẻ em"
+                                            : "Em bé"}
                                       </td>
                                       <td className="py-1.5 pr-2 text-gray-600">
                                         {khach.date_of_birth
                                           ? formatDateTime(khach.date_of_birth)
-                                          : "â€”"}
+                                          : "—"}
                                       </td>
                                       <td className="py-1.5 font-mono text-gray-600">
-                                        {khach.identity_number ?? "â€”"}
+                                        {khach.identity_number ?? "—"}
                                       </td>
                                     </tr>
                                   ))}
@@ -1502,7 +1502,7 @@ export default function ScheduleManagement() {
                 onClick={() => setManifestScheduleId(null)}
                 className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
               >
-                ÄÃ³ng
+                Đóng
               </button>
             </div>
           </div>
@@ -1510,9 +1510,9 @@ export default function ScheduleManagement() {
       )}
 
       {/*
-        K - Há»§y chuyáº¿n, ba bÆ°á»›c báº¯t buá»™c: xem tÃ¡c Ä‘á»™ng, gÃ¡n phÆ°Æ¡ng Ã¡n cho tá»«ng Ä‘Æ¡n Ä‘Ã£ thanh toÃ¡n,
-        rá»“i má»›i xÃ¡c nháº­n. TrÆ°á»›c Ä‘Ã¢y chá»— nÃ y chá»‰ há»i lÃ½ do rá»“i Ä‘á»•i tráº¡ng thÃ¡i, cÃ²n Ä‘Æ¡n cá»§a khÃ¡ch
-        thÃ¬ khÃ´ng ai Ä‘á»¥ng tá»›i.
+        K - Hủy chuyến, ba bước bắt buộc: xem tác động, gán phương án cho từng đơn đã thanh toán,
+        rồi mới xác nhận. Trước đây chỗ này chỉ hỏi lý do rồi đổi trạng thái, còn đơn của khách
+        thì không ai đụng tới.
       */}
       {cancellingScheduleId !== null && (
         <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
@@ -1523,16 +1523,16 @@ export default function ScheduleManagement() {
               </div>
               <div>
                 <h4 className="text-base font-bold text-gray-900">
-                  Há»§y chuyáº¿n #{cancellingScheduleId}
+                  Hủy chuyến #{cancellingScheduleId}
                 </h4>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Lá»—i khÃ´ng thuá»™c vá» khÃ¡ch, nÃªn má»—i Ä‘Æ¡n Ä‘Ã£ thanh toÃ¡n pháº£i Ä‘Æ°á»£c hoÃ n Ä‘á»§ 100% hoáº·c
-                  chuyá»ƒn miá»…n phÃ­ sang chuyáº¿n khÃ¡c. KhÃ´ng Ã¡p báº£ng phÃ­ há»§y.
+                  Lỗi không thuộc về khách, nên mỗi đơn đã thanh toán phải được hoàn đủ 100% hoặc
+                  chuyển miễn phí sang chuyến khác. Không áp bảng phí hủy.
                 </p>
               </div>
             </div>
 
-            {cancelPreviewLoading && <p className="text-sm text-gray-500">Äang tÃ­nh tÃ¡c Ä‘á»™ng...</p>}
+            {cancelPreviewLoading && <p className="text-sm text-gray-500">Đang tính tác động...</p>}
 
             {cancelPreview && !cancelPreview.impact.can_cancel && (
               <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
@@ -1544,27 +1544,27 @@ export default function ScheduleManagement() {
               <>
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-1">
                   <p>
-                    <strong>{cancelPreview.impact.total_paid_bookings} Ä‘Æ¡n Ä‘Ã£ thanh toÃ¡n</strong>{" "}
-                    ({cancelPreview.impact.total_paid_guests} khÃ¡ch), tá»•ng Ä‘Ã£ thu{" "}
+                    <strong>{cancelPreview.impact.total_paid_bookings} đơn đã thanh toán</strong>{" "}
+                    ({cancelPreview.impact.total_paid_guests} khách), tổng đã thu{" "}
                     <strong>{formatPrice(cancelPreview.impact.total_refund_if_all_refunded)}</strong>.
                   </p>
                   {cancelPreview.impact.unpaid_bookings > 0 && (
                     <p className="text-xs">
-                      NgoÃ i ra {cancelPreview.impact.unpaid_bookings} Ä‘Æ¡n chÆ°a thanh toÃ¡n (
-                      {cancelPreview.impact.unpaid_guests} khÃ¡ch) sáº½ Ä‘Æ°á»£c há»§y tá»± Ä‘á»™ng, khÃ´ng cáº§n
-                      chá»n phÆ°Æ¡ng Ã¡n.
+                      Ngoài ra {cancelPreview.impact.unpaid_bookings} đơn chưa thanh toán (
+                      {cancelPreview.impact.unpaid_guests} khách) sẽ được hủy tự động, không cần
+                      chọn phương án.
                     </p>
                   )}
                 </div>
 
                 {cancelPreview.impact.paid_bookings.length === 0 ? (
                   <p className="text-sm text-gray-500">
-                    Chuyáº¿n nÃ y chÆ°a cÃ³ Ä‘Æ¡n nÃ o Ä‘Ã£ thanh toÃ¡n.
+                    Chuyến này chưa có đơn nào đã thanh toán.
                   </p>
                 ) : (
                   <div className="space-y-2">
                     <p className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                      PhÆ°Æ¡ng Ã¡n cho tá»«ng Ä‘Æ¡n
+                      Phương án cho từng đơn
                     </p>
 
                     {cancelPreview.impact.paid_bookings.map((don) => {
@@ -1577,10 +1577,10 @@ export default function ScheduleManagement() {
                         >
                           <div className="flex items-baseline justify-between gap-2 text-xs">
                             <span className="font-bold text-gray-900">
-                              BK-{don.booking_id} Â· {don.customer_name}
+                              BK-{don.booking_id} · {don.customer_name}
                             </span>
                             <span className="text-gray-500">
-                              {don.guests} khÃ¡ch Â· Ä‘Ã£ thu {formatPrice(don.paid_amount)}
+                              {don.guests} khách · đã thu {formatPrice(don.paid_amount)}
                             </span>
                           </div>
 
@@ -1600,7 +1600,7 @@ export default function ScheduleManagement() {
                                 }
                                 className="h-3.5 w-3.5 border-gray-300 text-primary-600"
                               />
-                              HoÃ n Ä‘á»§ {formatPrice(don.paid_amount)}
+                              Hoàn đủ {formatPrice(don.paid_amount)}
                             </label>
 
                             <label className="flex cursor-pointer items-center gap-1.5">
@@ -1621,7 +1621,7 @@ export default function ScheduleManagement() {
                                 }
                                 className="h-3.5 w-3.5 border-gray-300 text-primary-600 disabled:cursor-not-allowed"
                               />
-                              Chuyá»ƒn sang chuyáº¿n khÃ¡c
+                              Chuyển sang chuyến khác
                             </label>
 
                             {plan?.action === "transfer" && (
@@ -1640,8 +1640,8 @@ export default function ScheduleManagement() {
                               >
                                 {cancelPreview.impact.transfer_options.map((item) => (
                                   <option key={item.schedule_id} value={item.schedule_id}>
-                                    #{item.schedule_id} Â· {formatDateTime(item.start_date)} Â· cÃ²n{" "}
-                                    {item.remaining_seats} chá»—
+                                    #{item.schedule_id} · {formatDateTime(item.start_date)} · còn{" "}
+                                    {item.remaining_seats} chỗ
                                   </option>
                                 ))}
                               </select>
@@ -1650,7 +1650,7 @@ export default function ScheduleManagement() {
 
                           {cancelPreview.impact.transfer_options.length === 0 && (
                             <p className="text-[11px] text-gray-400">
-                              KhÃ´ng cÃ³ chuyáº¿n nÃ o nháº­n Ä‘Æ°á»£c khÃ¡ch, nÃªn chá»‰ cÃ²n cÃ¡ch hoÃ n tiá»n.
+                              Không có chuyến nào nhận được khách, nên chỉ còn cách hoàn tiền.
                             </p>
                           )}
                         </div>
@@ -1661,17 +1661,17 @@ export default function ScheduleManagement() {
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    LÃ½ do há»§y <span className="text-rose-500">*</span>
+                    Lý do hủy <span className="text-rose-500">*</span>
                   </label>
                   <textarea
                     rows={2}
                     value={cancelReasonInput}
                     onChange={(e) => setCancelReasonInput(e.target.value)}
-                    placeholder="VD: NhÃ  xe bÃ¡o há»ng xe, khÃ´ng thu xáº¿p Ä‘Æ°á»£c xe thay tháº¿..."
+                    placeholder="VD: Nhà xe báo hỏng xe, không thu xếp được xe thay thế..."
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
                   />
                   <p className="text-[11px] text-gray-400 mt-1">
-                    KhÃ¡ch sáº½ Ä‘á»c Ä‘Æ°á»£c ná»™i dung nÃ y. Ãt nháº¥t 10 kÃ½ tá»±.
+                    Khách sẽ đọc được nội dung này. Ít nhất 10 ký tự.
                   </p>
                 </div>
               </>
@@ -1690,7 +1690,7 @@ export default function ScheduleManagement() {
                 disabled={cancelSaving}
                 className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
               >
-                KhÃ´ng há»§y ná»¯a
+                Không hủy nữa
               </button>
               <button
                 type="button"
@@ -1703,7 +1703,7 @@ export default function ScheduleManagement() {
                 }
                 className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40"
               >
-                {cancelSaving ? "Äang há»§y..." : "XÃ¡c nháº­n há»§y chuyáº¿n"}
+                {cancelSaving ? "Đang hủy..." : "Xác nhận hủy chuyến"}
               </button>
             </div>
           </div>
