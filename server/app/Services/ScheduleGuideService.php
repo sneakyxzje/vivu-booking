@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Exceptions\BusinessRuleException;
+use App\Enums\ScheduleStatus;
+use App\Models\GuideAssignmentDecline;
 use App\Models\TourSchedule;
 use App\Models\User;
 use Carbon\Carbon;
@@ -26,6 +28,11 @@ use Illuminate\Support\Facades\DB;
  */
 class ScheduleGuideService
 {
+    public function __construct(
+        private readonly ScheduleLifecycleService $lifecycle,
+    ) {
+    }
+
     /**
      * Đặt lại danh sách hướng dẫn viên của một chuyến.
      *
@@ -64,9 +71,70 @@ class ScheduleGuideService
                 }
             }
 
-            $schedule->guides()->sync($ids->all());
+            /*
+             * Giữ lại mốc đã xác nhận của những người vẫn còn trong danh sách.
+             *
+             * sync() ghi lại toàn bộ hàng, nên nếu không chép accepted_at sang thì mỗi lần điều
+             * hành sửa danh sách - kể cả chỉ thêm một người khác - là mọi người đang có trong
+             * chuyến bị coi như chưa xác nhận lại từ đầu.
+             */
+            $daXacNhan = $schedule->guides()
+                ->get()
+                ->mapWithKeys(fn (User $g) => [$g->getKey() => $g->pivot->accepted_at]);
+
+            $schedule->guides()->sync(
+                $ids->mapWithKeys(fn (int $id) => [$id => ['accepted_at' => $daXacNhan[$id] ?? null]])->all(),
+            );
 
             return $schedule->fresh(['guides:id,name,email,phone,status']);
+        });
+    }
+
+    /** Hướng dẫn viên xác nhận sẽ dẫn chuyến này. */
+    public function acceptAssignment(TourSchedule $schedule, User $guide): void
+    {
+        if (!$schedule->hasGuide((int) $guide->getKey())) {
+            throw new BusinessRuleException('Bạn không được phân công chuyến này.');
+        }
+
+        $schedule->guides()->updateExistingPivot($guide->getKey(), ['accepted_at' => now()]);
+    }
+
+    /**
+     * Hướng dẫn viên từ chối chuyến được phân công, kèm lý do.
+     *
+     * Gỡ luôn khỏi danh sách phân công: chuyến chưa khởi hành nên không bỏ rơi ai, và để tên một
+     * người đã nói "tôi không đi" nằm trong danh sách chỉ khiến điều hành tưởng đã có người.
+     *
+     * Chuyến đã lên đường thì không từ chối được. Lúc đó rút lui là **bàn giao** chứ không phải
+     * từ chối: phải có người nhận trước khi người cũ rời, nếu không đoàn không còn ai. Luồng ấy
+     * đã có ở yêu cầu bàn giao.
+     */
+    public function declineAssignment(TourSchedule $schedule, User $guide, string $lyDo): void
+    {
+        if (!$schedule->hasGuide((int) $guide->getKey())) {
+            throw new BusinessRuleException('Bạn không được phân công chuyến này.');
+        }
+
+        $trangThai = $this->lifecycle->effectiveStatus($schedule);
+
+        if ($trangThai->isRunning() || $trangThai->isFinal()) {
+            throw new BusinessRuleException(sprintf(
+                'Chuyến đang ở trạng thái "%s" nên không từ chối được nữa. Nếu bạn không dẫn tiếp '
+                . 'được, hãy gửi yêu cầu bàn giao để điều hành cử người thay trước khi bạn rời đoàn.',
+                $trangThai->label(),
+            ));
+        }
+
+        DB::transaction(function () use ($schedule, $guide, $lyDo) {
+            GuideAssignmentDecline::query()->create([
+                'tour_schedule_id' => $schedule->getKey(),
+                'guide_id' => $guide->getKey(),
+                'reason' => trim($lyDo),
+                'declined_at' => now(),
+            ]);
+
+            $schedule->guides()->detach($guide->getKey());
         });
     }
 
