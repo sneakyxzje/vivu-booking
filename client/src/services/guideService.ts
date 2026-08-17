@@ -163,6 +163,22 @@ export interface GuideIncident {
   photos: { id: number; image_path: string; caption: string | null }[];
 }
 
+/** Biên bản bàn giao, nhìn từ phía hướng dẫn viên. */
+export interface GuideHandoverNote {
+  id: number;
+  tour_schedule_id: number;
+  tour_title: string | null;
+  start_date: string | null;
+  /** received: mình nhận đoàn. given: mình đã giao đoàn đi. */
+  direction: "received" | "given";
+  from_guide_name: string | null;
+  to_guide_name: string | null;
+  to_guide_phone: string | null;
+  handed_over_at: string | null;
+  reason: string;
+  handover_note: string;
+}
+
 export const INCIDENT_TYPES = [
   { value: "weather", label: "Thời tiết" },
   { value: "vehicle", label: "Phương tiện" },
@@ -286,6 +302,18 @@ const guideService = {
   // --- O: Sự cố dọc đường ---
   // Cố ý không có tham số tiền nào. Hướng dẫn viên báo cáo những gì nhìn thấy; điều hành quyết
   // ai trả bao nhiêu. Người đang đứng giữa đoàn khách mệt không nên là người quyết mức thu.
+
+  /**
+   * Biên bản bàn giao liên quan tới hướng dẫn viên này, cả hai chiều.
+   *
+   * Chiều nhận là thứ cần nhất: bắt nhịp với đoàn bằng đúng đoạn ghi chú tình trạng. Chiều giao
+   * giữ lại để người cũ còn đối chiếu được mình đã giao gì, lúc nào — họ mất quyền ghi nhưng
+   * không mất vết.
+   */
+  getMyHandovers: async (): Promise<GuideHandoverNote[]> => {
+    const response = await api.get("/guide/handovers");
+    return extractArray<GuideHandoverNote>(response);
+  },
 
   getMyIncidents: async (): Promise<GuideIncident[]> => {
     const response = await api.get("/guide/incidents");

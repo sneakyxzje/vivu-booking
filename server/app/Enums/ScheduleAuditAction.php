@@ -15,11 +15,15 @@ enum ScheduleAuditAction: string
     /** Hủy cả chuyến, kèm phương án cho từng đơn đã thanh toán. */
     case Cancelled = 'cancelled';
 
+    /** Đổi hướng dẫn viên giữa chừng, kèm biên bản bàn giao. */
+    case GuideHandover = 'guide_handover';
+
     public function label(): string
     {
         return match ($this) {
             self::DeadlineChanged => 'Đổi hạn chốt danh sách',
             self::Cancelled => 'Hủy chuyến',
+            self::GuideHandover => 'Bàn giao hướng dẫn viên',
         };
     }
 

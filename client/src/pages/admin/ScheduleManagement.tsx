@@ -13,6 +13,7 @@ import adminService from "@/services/adminService";
 import type {
   CancelPlan,
   DeadlineImpactResponse,
+  HandoverPanelResponse,
   ScheduleCancelPreviewResponse,
   ScheduleManifestResponse,
   MergeCandidatesResponse,
@@ -36,6 +37,18 @@ export default function ScheduleManagement() {
   // Phân công nhiều hướng dẫn viên cho một chuyến, sửa trong hộp thoại riêng.
   const [guideDialogScheduleId, setGuideDialogScheduleId] = useState<number | null>(null);
   const [pendingGuideIds, setPendingGuideIds] = useState<number[]>([]);
+
+  // Bàn giao giữa chừng. Tách khỏi phân công vì bắt buộc kèm lý do và tình trạng đoàn.
+  const [handoverScheduleId, setHandoverScheduleId] = useState<number | null>(null);
+  const [handoverPanel, setHandoverPanel] = useState<HandoverPanelResponse | null>(null);
+  const [handoverForm, setHandoverForm] = useState({
+    from_guide_id: 0,
+    to_guide_id: 0,
+    reason: "",
+    handover_note: "",
+  });
+  const [handoverSaving, setHandoverSaving] = useState(false);
+  const [handoverError, setHandoverError] = useState("");
 
   // State Hủy chuyến
   // K - Hủy chuyến. Mỗi đơn đã thanh toán phải có một phương án trước khi hủy được.
@@ -139,6 +152,45 @@ export default function ScheduleManagement() {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredSchedules.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredSchedules, currentPage, itemsPerPage]);
+
+  const openHandoverDialog = async (scheduleId: number) => {
+    setHandoverScheduleId(scheduleId);
+    setHandoverPanel(null);
+    setHandoverError("");
+    setHandoverForm({ from_guide_id: 0, to_guide_id: 0, reason: "", handover_note: "" });
+
+    try {
+      const data = await adminService.getHandoverPanel(scheduleId);
+      setHandoverPanel(data);
+      setHandoverForm((truoc) => ({
+        ...truoc,
+        from_guide_id: data?.current_guides[0]?.id ?? 0,
+        to_guide_id: data?.available_guides[0]?.id ?? 0,
+      }));
+    } catch (err) {
+      console.error("Lỗi lấy thông tin bàn giao:", err);
+    }
+  };
+
+  const confirmHandover = async () => {
+    if (!handoverScheduleId) return;
+
+    setHandoverSaving(true);
+    setHandoverError("");
+
+    try {
+      const message = await adminService.handoverGuide(handoverScheduleId, handoverForm);
+
+      setHandoverScheduleId(null);
+      setToast({ message, type: "success", isOpen: true });
+      loadData();
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      setHandoverError(response?.message || "Không bàn giao được.");
+    } finally {
+      setHandoverSaving(false);
+    }
+  };
 
   const openGuideDialog = (schedule: ExtendedSchedule) => {
     setGuideDialogScheduleId(schedule.id);
@@ -675,6 +727,19 @@ export default function ScheduleManagement() {
                               </button>
                             )}
 
+                            {/* Bàn giao giữa chừng: chỉ có nghĩa khi đoàn đã hoặc sắp lên đường
+                                và đang có người phụ trách để mà giao. */}
+                            {(status === "confirmed" || status === "in_progress") &&
+                              (schedule.guides ?? []).length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => openHandoverDialog(schedule.id)}
+                                  className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-all active:scale-95 duration-150 cursor-pointer"
+                                >
+                                  Bàn giao HDV
+                                </button>
+                              )}
+
                             {/* Dời hạn chốt danh sách. Chuyến đã chạy hoặc đã xong thì mốc này
                                 không còn nghĩa gì nên không cho sửa. */}
                             {(status === "open" || status === "closed" || status === "confirmed") && (
@@ -763,6 +828,153 @@ export default function ScheduleManagement() {
       ) : (
         <div className="p-10 text-center rounded-2xl border border-gray-100 bg-white text-sm text-gray-500">
           Không tìm thấy chuyến đi nào khớp với bộ lọc.
+        </div>
+      )}
+
+      {/* Bàn giao hướng dẫn viên giữa chừng */}
+      {handoverScheduleId !== null && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
+          <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
+            <div>
+              <h4 className="text-base font-bold text-gray-900">
+                Bàn giao hướng dẫn viên — chuyến #{handoverScheduleId}
+              </h4>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Người cũ mất quyền ghi ngay khi lưu. Dữ liệu họ đã ghi giữ nguyên, chỉ chuyển
+                quyền ghi tiếp.
+              </p>
+            </div>
+
+            {!handoverPanel && <p className="text-sm text-gray-500">Đang tải...</p>}
+
+            {handoverPanel && (
+              <>
+                {handoverPanel.available_guides.length === 0 ? (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Không còn hướng dẫn viên nào khác đang hoạt động để nhận đoàn.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Người giao</label>
+                      <select
+                        value={handoverForm.from_guide_id}
+                        onChange={(e) =>
+                          setHandoverForm((truoc) => ({ ...truoc, from_guide_id: Number(e.target.value) }))
+                        }
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
+                      >
+                        {handoverPanel.current_guides.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Người nhận</label>
+                      <select
+                        value={handoverForm.to_guide_id}
+                        onChange={(e) =>
+                          setHandoverForm((truoc) => ({ ...truoc, to_guide_id: Number(e.target.value) }))
+                        }
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
+                      >
+                        {handoverPanel.available_guides.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Lý do thay <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    value={handoverForm.reason}
+                    onChange={(e) => setHandoverForm((truoc) => ({ ...truoc, reason: e.target.value }))}
+                    placeholder="VD: Hướng dẫn viên cũ bị sốt cao, phải về sớm..."
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Tình trạng đoàn <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={handoverForm.handover_note}
+                    onChange={(e) =>
+                      setHandoverForm((truoc) => ({ ...truoc, handover_note: e.target.value }))
+                    }
+                    placeholder="Đoàn đang ở đâu, đã điểm danh tới chặng nào, khách nào cần để ý, việc gì đang dở..."
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
+                  />
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Ít nhất 20 ký tự. Người nhận chỉ có đúng đoạn này để bắt nhịp với đoàn.
+                  </p>
+                </div>
+
+                {/* Lịch sử: chuyến đổi người nhiều lần thì đây là chỗ lần ra ai dẫn lúc nào */}
+                {handoverPanel.handovers.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                      Đã bàn giao trước đó
+                    </p>
+                    {handoverPanel.handovers.map((bg) => (
+                      <div key={bg.id} className="rounded-lg border border-gray-200 p-2.5 text-xs">
+                        <p className="font-semibold text-gray-900">
+                          {bg.from_guide?.name} → {bg.to_guide?.name}
+                          <span className="ml-2 font-normal text-gray-500">
+                            {formatDateTime(bg.handed_over_at)}
+                          </span>
+                        </p>
+                        <p className="text-gray-600">{bg.reason}</p>
+                        <p className="mt-0.5 text-gray-500">{bg.handover_note}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {handoverError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                {handoverError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setHandoverScheduleId(null)}
+                disabled={handoverSaving}
+                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
+              >
+                Quay lại
+              </button>
+              <button
+                type="button"
+                onClick={confirmHandover}
+                disabled={
+                  handoverSaving ||
+                  !handoverForm.from_guide_id ||
+                  !handoverForm.to_guide_id ||
+                  handoverForm.reason.trim().length < 10 ||
+                  handoverForm.handover_note.trim().length < 20
+                }
+                className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40"
+              >
+                {handoverSaving ? "Đang lưu..." : "Xác nhận bàn giao"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

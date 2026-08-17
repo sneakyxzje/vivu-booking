@@ -36,6 +36,7 @@ use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminChangeRequestController;
 use App\Http\Controllers\Api\Admin\AdminPassengerController;
 use App\Http\Controllers\Api\Admin\AdminAuditLogController;
+use App\Http\Controllers\Api\Admin\AdminGuideHandoverController;
 use App\Http\Controllers\Api\Admin\AdminIncidentController;
 use App\Http\Controllers\Api\Guide\IncidentController as GuideIncidentController;
 use App\Http\Controllers\Api\Admin\AdminScheduleCancellationController;
@@ -140,6 +141,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/bookings', [GuideBookingController::class, 'index']);
         Route::put('/bookings/{id}/confirm', [GuideBookingController::class, 'confirm']);
 
+        // Biên bản bàn giao: người mới đọc tình trạng đoàn, người cũ xem lại mình đã giao gì.
+        Route::get('/handovers', [GuideIncidentController::class, 'handovers']);
+
         // O - Báo cáo sự cố tại hiện trường. Cố ý không có trường tiền nào ở đây.
         Route::get('/incidents', [GuideIncidentController::class, 'index']);
         Route::post('/schedules/{schedule}/incidents', [GuideIncidentController::class, 'store']);
@@ -187,6 +191,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // A10 — Đổi trạng thái chuyến thủ công (open ↔ closed, → confirmed, → cancelled).
         Route::patch('/schedules/{id}/status', [AdminTourController::class, 'updateScheduleStatus']);
+
+        // Đổi hướng dẫn viên giữa chừng. Tách khỏi phân công thường vì bắt buộc kèm biên bản.
+        Route::get('/schedules/{id}/handovers', [AdminGuideHandoverController::class, 'index']);
+        Route::post('/schedules/{id}/handover', [AdminGuideHandoverController::class, 'store']);
 
         // O - Sự cố dọc đường. Chỉ ở đây mới quyết được tiền; hướng dẫn viên chỉ báo cáo.
         Route::get('/incidents', [AdminIncidentController::class, 'index']);

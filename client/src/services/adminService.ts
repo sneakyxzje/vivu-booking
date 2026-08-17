@@ -239,6 +239,34 @@ export interface MergeCandidatesResponse {
   candidates: MergeCandidate[];
 }
 
+/** Biên bản bàn giao hướng dẫn viên giữa chừng chuyến. */
+export interface GuideHandoverRow {
+  id: number;
+  tour_schedule_id: number;
+  from_guide: { id: number; name: string; phone?: string | null } | null;
+  to_guide: { id: number; name: string; phone?: string | null } | null;
+  handed_over_at: string | null;
+  reason: string;
+  /** Tình trạng đoàn tại thời điểm bàn giao. Phần có giá trị nhất của biên bản. */
+  handover_note: string;
+  created_by_name: string | null;
+  created_at: string | null;
+  /** Ghi vào máy muộn hơn lúc bàn giao thật, vì bàn giao xảy ra trên đường. */
+  recorded_late: boolean;
+}
+
+export interface HandoverPanelResponse {
+  schedule: {
+    id: number;
+    tour_title: string | null;
+    start_date: string;
+    status: string;
+  };
+  current_guides: { id: number; name: string; phone?: string | null }[];
+  available_guides: { id: number; name: string; phone?: string | null }[];
+  handovers: GuideHandoverRow[];
+}
+
 /** Khoản tiền sinh ra từ một sự cố, gắn với một đơn cụ thể. */
 export interface IncidentSurcharge {
   id: number;
@@ -629,6 +657,30 @@ const adminService = {
       reason,
     });
     return response.data?.message ?? "Đã ghép chuyến.";
+  },
+
+  /**
+   * Bàn giao hướng dẫn viên giữa chừng.
+   *
+   * Tách khỏi phân công thường vì bắt buộc kèm lý do và tình trạng đoàn. Gộp chung thì sớm muộn
+   * sẽ có người đổi người dẫn bằng màn phân công và bỏ qua biên bản.
+   */
+  getHandoverPanel: async (scheduleId: number): Promise<HandoverPanelResponse | null> => {
+    const response = await api.get(`/admin/schedules/${scheduleId}/handovers`);
+    return extractObject<HandoverPanelResponse>(response);
+  },
+
+  handoverGuide: async (
+    scheduleId: number,
+    payload: {
+      from_guide_id: number;
+      to_guide_id: number;
+      reason: string;
+      handover_note: string;
+    },
+  ) => {
+    const response = await api.post(`/admin/schedules/${scheduleId}/handover`, payload);
+    return response.data?.message ?? "Đã bàn giao.";
   },
 
   // --- O: Sự cố dọc đường ---

@@ -26,7 +26,7 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 | 8 | Hủy sát giờ có cộng lại slot không | **Đã có** | `BookingHoldService::shouldReleaseSeats` — ghế chết. Câu trả lời là **không**, và có nút mở lại thủ công |
 | 9 | Tour đang chạy không được hủy | **Đã có** | `BookingPolicyService::assertCancellable` ở tầng dịch vụ, áp cho cả bốn lối vào |
 | 10 | Ai được hủy, ai xác nhận | **Đã có** | `BookingChangeRequestService` — khách xin, điều hành duyệt; kèm nhật ký ghi ai làm gì |
-| 11 | Thay hướng dẫn viên giữa chừng | **Một phần** | Đổi được, kể cả khi chuyến đang chạy. **Thiếu biên bản bàn giao**: ai giao cho ai, lúc nào, tình trạng đoàn ra sao |
+| 11 | Thay hướng dẫn viên giữa chừng | **Đã có** | `GuideHandoverService` — bắt buộc kèm lý do và tình trạng đoàn; người cũ mất quyền ghi ngay, dữ liệu đã ghi giữ nguyên; cả hai phía đọc lại được biên bản |
 | 12 | Chính sách hoàn tiền hoặc đặt cọc | **Một phần** | Hoàn tiền xong. **Đặt cọc chưa có** — `paidAmount()` vẫn giả định trả một lần |
 | 13 | Chi phí phát sinh khi tour đã chạy | **Đã có** | `IncidentService` — hướng dẫn viên báo cáo kèm ảnh và **không nhập được tiền**; điều hành quyết phương án và phân bổ cho từng đơn; khoản chưa duyệt chưa có hiệu lực |
 | 14 | Booking theo đoàn | Chưa có | [05 §1](05-doan-hop-dong-ho-so.md) |
@@ -35,8 +35,7 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 | 17 | Hướng dẫn viên phù hợp cho từng tour | **Một phần** | Chỉ trả lời được "ai đang rảnh" (`ScheduleGuideService`). **Chưa có hồ sơ năng lực**: ngôn ngữ, tuyến quen, chuyên môn |
 | 18 | Hợp đồng, danh sách khách hàng | **Một phần** | Danh sách đoàn chia theo nhóm đã có. **Hợp đồng chưa có gì** |
 
-**Tổng kết: 13 điểm đã có mã chạy, 4 điểm còn một mảng thiếu (11, 12, 17, 18), 1 điểm chưa
-làm (14).**
+**Tổng kết: 14 điểm đã có mã chạy, 3 điểm còn một mảng thiếu (12, 17, 18), 1 điểm chưa làm (14).**
 
 ### Vì sao không cho sửa số khách (điểm 2)
 
@@ -67,9 +66,11 @@ lý do ở [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md).
 
 ### Ba chỗ nên nói thẳng nếu bị hỏi sâu
 
-**Điểm 11.** Đổi hướng dẫn viên giữa chừng làm được, nhưng hệ thống không ghi lại việc bàn giao.
-Người mới không nhận được tình trạng đoàn tính tới thời điểm đó, và nhật ký chuyến chưa ghi việc
-đổi người.
+**Điểm 11.** Bàn giao có biên bản đầy đủ, nhưng **cách cài đặt khác thiết kế ở tài liệu 04 mục
+4.4**: không dùng bảng phân công có `effective_from` / `effective_to` mà tách làm hai bảng, một
+bảng "ai đang phụ trách" và một bảng "lịch sử bàn giao". Lý do đầy đủ ghi ngay trong migration
+`2026_08_17_000004`. Hệ quả cần biết: câu "lúc 14h ngày thứ hai ai đang dẫn" phải lần theo lịch
+sử bàn giao chứ không tra được bằng một truy vấn.
 
 **Điểm 17.** Hệ thống trả lời được *"ai đang rảnh"*, không trả lời được *"ai phù hợp"*. Không có
 dữ liệu ngôn ngữ, tuyến chuyên, chứng chỉ. Chỉ có đúng một luật là không trùng lịch.

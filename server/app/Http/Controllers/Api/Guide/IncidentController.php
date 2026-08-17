@@ -29,6 +29,44 @@ class IncidentController extends Controller
     ) {
     }
 
+    /**
+     * Biên bản bàn giao liên quan tới hướng dẫn viên này.
+     *
+     * Gồm cả hai chiều. Chiều nhận là thứ cần nhất: người mới bắt nhịp bằng đúng đoạn ghi chú
+     * tình trạng đoàn. Chiều giao giữ lại để người cũ còn xem được mình đã bàn giao những gì -
+     * họ mất quyền ghi khi rời danh sách phụ trách, nhưng vết bàn giao thì vẫn đọc được.
+     */
+    public function handovers(Request $request): JsonResponse
+    {
+        $guideId = $request->user()->id;
+
+        $ds = \App\Models\GuideHandover::query()
+            ->where(fn ($q) => $q->where('to_guide_id', $guideId)->orWhere('from_guide_id', $guideId))
+            ->with([
+                'schedule:id,start_date,tour_id',
+                'schedule.tour:id,title',
+                'fromGuide:id,name,phone',
+                'toGuide:id,name,phone',
+            ])
+            ->latest('handed_over_at')
+            ->get()
+            ->map(fn (\App\Models\GuideHandover $bg) => [
+                'id' => $bg->id,
+                'tour_schedule_id' => $bg->tour_schedule_id,
+                'tour_title' => $bg->schedule?->tour?->title,
+                'start_date' => $bg->schedule?->start_date,
+                'direction' => (int) $bg->to_guide_id === (int) $guideId ? 'received' : 'given',
+                'from_guide_name' => $bg->fromGuide?->name,
+                'to_guide_name' => $bg->toGuide?->name,
+                'to_guide_phone' => $bg->toGuide?->phone,
+                'handed_over_at' => $bg->handed_over_at?->toDateTimeString(),
+                'reason' => $bg->reason,
+                'handover_note' => $bg->handover_note,
+            ]);
+
+        return $this->success($ds, 'Lấy biên bản bàn giao thành công');
+    }
+
     /** Các sự cố của những chuyến hướng dẫn viên này phụ trách. */
     public function index(Request $request): JsonResponse
     {

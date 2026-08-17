@@ -34,6 +34,7 @@ import { GuideTours } from "@/pages/guide/GuideTours";
 import { GuideBookings } from "@/pages/guide/GuideBookings";
 import { GuideAttendance } from "@/pages/guide/GuideAttendance";
 import GuideIncidents from "@/pages/guide/GuideIncidents";
+import GuideHandovers from "@/pages/guide/GuideHandovers";
 import IncidentManagement from "@/pages/admin/IncidentManagement";
 import TourDetail from "@/components/TourDetail";
 import { CreateTourForm } from "@/pages/admin/create/CreateTourForm";
@@ -146,6 +147,10 @@ const router = createBrowserRouter([
           {
             path: "/guide/incidents",
             element: <GuideIncidents />,
+          },
+          {
+            path: "/guide/handovers",
+            element: <GuideHandovers />,
           },
         ],
       },

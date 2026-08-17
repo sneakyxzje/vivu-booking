@@ -217,6 +217,19 @@ lúc 5 giờ sáng hôm sau.
 Hội đồng nêu trực tiếp. Mô hình hiện tại chỉ có `tour_schedules.guide_id`, tức là một chuyến
 chỉ có một hướng dẫn viên trong suốt hành trình, không mô tả được việc thay người.
 
+> **Đã cài đặt, nhưng khác thiết kế dưới đây.** Bảng `schedule_guide_assignments` không tồn tại.
+> Thay vào đó có hai bảng, mỗi bảng một nghĩa: `tour_schedule_guides` là **ai đang phụ trách**
+> (không có thời gian), `guide_handovers` là **lịch sử bàn giao** (chỉ ghi thêm).
+>
+> Lý do: gộp cả hai vào một bảng có `effective_from` / `effective_to` khiến mọi truy vấn đọc phân
+> công — khoảng mười chỗ — đều phải kèm điều kiện thời gian, và quên một chỗ là hướng dẫn viên cũ
+> vẫn điểm danh được sau khi đã bàn giao. Đó đúng là khuôn lỗi đã gặp nhiều lần ở dự án này.
+>
+> Đánh đổi: câu "lúc 14h ngày thứ hai ai đang dẫn" phải lần theo lịch sử bàn giao thay vì một
+> truy vấn. Lý do đầy đủ ghi trong migration `2026_08_17_000004`.
+>
+> Phần dưới giữ nguyên làm thiết kế gốc để đối chiếu.
+
 Đề xuất bảng `schedule_guide_assignments`:
 
 | Cột | Ý nghĩa |
