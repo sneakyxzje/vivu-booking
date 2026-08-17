@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\GuideHandover;
+use App\Models\GuideHandoverRequest;
 use App\Models\TourSchedule;
 use App\Models\User;
 use App\Services\GuideHandoverService;
@@ -102,6 +103,88 @@ class AdminGuideHandoverController extends Controller
             'Đã bàn giao đoàn cho %s. Người cũ không ghi tiếp được từ lúc này.',
             $bienBan->toGuide?->name ?? 'hướng dẫn viên mới',
         ));
+    }
+
+    /** Các yêu cầu bàn giao hướng dẫn viên gửi lên, chờ điều hành chọn người thay. */
+    public function pendingRequests(): JsonResponse
+    {
+        $ds = GuideHandoverRequest::query()
+            ->dangCho()
+            ->with([
+                'schedule:id,start_date,tour_id',
+                'schedule.tour:id,title',
+                'requester:id,name,phone',
+            ])
+            ->oldest('created_at')
+            ->get()
+            ->map(fn (GuideHandoverRequest $yc) => [
+                'id' => $yc->id,
+                'tour_schedule_id' => $yc->tour_schedule_id,
+                'tour_title' => $yc->schedule?->tour?->title,
+                'start_date' => $yc->schedule?->start_date,
+                'requester_name' => $yc->requester?->name,
+                'requester_phone' => $yc->requester?->phone,
+                'reason' => $yc->reason,
+                // Chữ của người đang đứng cùng đoàn, không phải của người ngồi văn phòng.
+                'group_state' => $yc->group_state,
+                'created_at' => $yc->created_at?->toDateTimeString(),
+            ]);
+
+        return $this->success($ds, 'Lấy yêu cầu bàn giao đang chờ thành công');
+    }
+
+    public function approveRequest(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'to_guide_id' => ['required', 'integer'],
+            'review_note' => ['nullable', 'string', 'max:500'],
+        ], [
+            'to_guide_id.required' => 'Phải chọn người thay trước khi duyệt.',
+        ]);
+
+        $yeuCau = GuideHandoverRequest::query()->find($id);
+
+        if (!$yeuCau) {
+            return $this->error('Không tìm thấy yêu cầu bàn giao', 404);
+        }
+
+        $bienBan = $this->handoverService->approveRequest(
+            $yeuCau,
+            (int) $validated['to_guide_id'],
+            $validated['review_note'] ?? null,
+            $request->user(),
+        );
+
+        return $this->success($this->dong($bienBan), sprintf(
+            'Đã duyệt và bàn giao đoàn cho %s.',
+            $bienBan->toGuide?->name ?? 'hướng dẫn viên mới',
+        ));
+    }
+
+    public function rejectRequest(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate([
+            'review_note' => ['required', 'string', 'min:10', 'max:500'],
+        ], [
+            'review_note.required' => 'Từ chối thì phải ghi lý do, hướng dẫn viên sẽ đọc được.',
+        ]);
+
+        $yeuCau = GuideHandoverRequest::query()->find($id);
+
+        if (!$yeuCau) {
+            return $this->error('Không tìm thấy yêu cầu bàn giao', 404);
+        }
+
+        $daTuChoi = $this->handoverService->rejectRequest(
+            $yeuCau,
+            $validated['review_note'],
+            $request->user(),
+        );
+
+        return $this->success(
+            ['id' => $daTuChoi->id, 'status' => $daTuChoi->status->value],
+            'Đã từ chối. Hướng dẫn viên cũ vẫn giữ nguyên quyền phụ trách.',
+        );
     }
 
     /** @return array<string, mixed> */

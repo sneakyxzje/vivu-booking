@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   CalendarDays,
@@ -14,6 +14,7 @@ import type {
   CancelPlan,
   DeadlineImpactResponse,
   HandoverPanelResponse,
+  PendingHandoverRequest,
   ScheduleCancelPreviewResponse,
   ScheduleManifestResponse,
   MergeCandidatesResponse,
@@ -49,6 +50,14 @@ export default function ScheduleManagement() {
   });
   const [handoverSaving, setHandoverSaving] = useState(false);
   const [handoverError, setHandoverError] = useState("");
+
+  // Yêu cầu bàn giao hướng dẫn viên gửi lên. Điều hành chọn người thay rồi duyệt.
+  const [handoverRequests, setHandoverRequests] = useState<PendingHandoverRequest[]>([]);
+  const [reviewingRequest, setReviewingRequest] = useState<PendingHandoverRequest | null>(null);
+  const [reviewGuideId, setReviewGuideId] = useState(0);
+  const [reviewNote, setReviewNote] = useState("");
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
   // State Hủy chuyến
   // K - Hủy chuyến. Mỗi đơn đã thanh toán phải có một phương án trước khi hủy được.
@@ -152,6 +161,84 @@ export default function ScheduleManagement() {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredSchedules.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredSchedules, currentPage, itemsPerPage]);
+
+  const loadHandoverRequests = useCallback(async () => {
+    try {
+      setHandoverRequests(await adminService.getPendingHandoverRequests());
+    } catch (err) {
+      console.error("Lỗi tải yêu cầu bàn giao:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHandoverRequests();
+  }, [loadHandoverRequests]);
+
+  const openRequestReview = async (yc: PendingHandoverRequest) => {
+    setReviewingRequest(yc);
+    setReviewNote("");
+    setReviewError("");
+    setReviewGuideId(0);
+    setHandoverPanel(null);
+
+    // Dùng lại đúng bảng chọn người thay của màn bàn giao, để danh sách người rảnh chỉ tính ở
+    // một chỗ.
+    try {
+      const data = await adminService.getHandoverPanel(yc.tour_schedule_id);
+      setHandoverPanel(data);
+      setReviewGuideId(data?.available_guides[0]?.id ?? 0);
+    } catch (err) {
+      console.error("Lỗi lấy danh sách người thay:", err);
+    }
+  };
+
+  const duyetYeuCau = async () => {
+    if (!reviewingRequest || !reviewGuideId) return;
+
+    setReviewSaving(true);
+    setReviewError("");
+
+    try {
+      const message = await adminService.approveHandoverRequest(
+        reviewingRequest.id,
+        reviewGuideId,
+        reviewNote.trim() || undefined,
+      );
+
+      setReviewingRequest(null);
+      setToast({ message, type: "success", isOpen: true });
+      loadHandoverRequests();
+      loadData();
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      setReviewError(response?.message || "Không duyệt được.");
+    } finally {
+      setReviewSaving(false);
+    }
+  };
+
+  const tuChoiYeuCau = async () => {
+    if (!reviewingRequest || reviewNote.trim().length < 10) return;
+
+    setReviewSaving(true);
+    setReviewError("");
+
+    try {
+      const message = await adminService.rejectHandoverRequest(
+        reviewingRequest.id,
+        reviewNote.trim(),
+      );
+
+      setReviewingRequest(null);
+      setToast({ message, type: "success", isOpen: true });
+      loadHandoverRequests();
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      setReviewError(response?.message || "Không từ chối được.");
+    } finally {
+      setReviewSaving(false);
+    }
+  };
 
   const openHandoverDialog = async (scheduleId: number) => {
     setHandoverScheduleId(scheduleId);
@@ -828,6 +915,143 @@ export default function ScheduleManagement() {
       ) : (
         <div className="p-10 text-center rounded-2xl border border-gray-100 bg-white text-sm text-gray-500">
           Không tìm thấy chuyến đi nào khớp với bộ lọc.
+        </div>
+      )}
+
+      {/*
+        Yêu cầu bàn giao đang chờ.
+        Đặt ngay đầu trang: hướng dẫn viên gửi lên khi họ không dẫn tiếp được, mà đoàn thì đang
+        trên đường. Nằm lẫn trong bảng chuyến thì không ai thấy kịp.
+      */}
+      {reviewingRequest === null && handoverRequests.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
+          <p className="text-sm font-bold text-amber-900">
+            {handoverRequests.length} yêu cầu bàn giao đang chờ bạn cử người thay
+          </p>
+
+          {handoverRequests.map((yc) => (
+            <button
+              key={yc.id}
+              type="button"
+              onClick={() => openRequestReview(yc)}
+              className="w-full rounded-lg border border-amber-200 bg-white p-3 text-left text-xs hover:bg-amber-50/60 transition-colors"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-bold text-gray-900">{yc.requester_name}</span>
+                <span className="text-gray-500">
+                  {yc.tour_title} · chuyến #{yc.tour_schedule_id}
+                </span>
+                {yc.requester_phone && (
+                  <span className="text-gray-500">{yc.requester_phone}</span>
+                )}
+                <span className="ml-auto text-gray-400">{formatDateTime(yc.created_at)}</span>
+              </div>
+              <p className="mt-1 font-semibold text-amber-900">{yc.reason}</p>
+              <p className="mt-0.5 text-gray-600">{yc.group_state}</p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Duyệt một yêu cầu: chọn người thay, hoặc từ chối kèm lý do */}
+      {reviewingRequest && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
+          <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
+            <div>
+              <h4 className="text-base font-bold text-gray-900">
+                Yêu cầu bàn giao — chuyến #{reviewingRequest.tour_schedule_id}
+              </h4>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {reviewingRequest.requester_name} gửi lúc{" "}
+                {formatDateTime(reviewingRequest.created_at)}
+              </p>
+            </div>
+
+            <div className="rounded-lg bg-gray-50 p-3 space-y-1.5 text-sm">
+              <p>
+                <span className="font-semibold">Lý do:</span> {reviewingRequest.reason}
+              </p>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                  Tình trạng đoàn
+                </p>
+                <p className="text-gray-800">{reviewingRequest.group_state}</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Cử ai thay <span className="text-rose-500">*</span>
+              </label>
+
+              {!handoverPanel ? (
+                <p className="text-xs text-gray-500">Đang tìm người rảnh...</p>
+              ) : handoverPanel.available_guides.length === 0 ? (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  Không còn hướng dẫn viên nào khác đang hoạt động. Từ chối kèm lý do để người xin
+                  biết đường xoay xở.
+                </p>
+              ) : (
+                <select
+                  value={reviewGuideId}
+                  onChange={(e) => setReviewGuideId(Number(e.target.value))}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
+                >
+                  {handoverPanel.available_guides.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Ghi chú trả lời
+              </label>
+              <textarea
+                rows={2}
+                value={reviewNote}
+                onChange={(e) => setReviewNote(e.target.value)}
+                placeholder="Không bắt buộc khi duyệt. Bắt buộc khi từ chối, và người xin sẽ đọc được."
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
+              />
+            </div>
+
+            {reviewError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                {reviewError}
+              </div>
+            )}
+
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setReviewingRequest(null)}
+                disabled={reviewSaving}
+                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
+              >
+                Để sau
+              </button>
+              <button
+                type="button"
+                onClick={tuChoiYeuCau}
+                disabled={reviewSaving || reviewNote.trim().length < 10}
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-40"
+              >
+                Từ chối
+              </button>
+              <button
+                type="button"
+                onClick={duyetYeuCau}
+                disabled={reviewSaving || !reviewGuideId}
+                className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40"
+              >
+                {reviewSaving ? "Đang xử lý..." : "Duyệt và bàn giao"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

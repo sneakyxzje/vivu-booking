@@ -9,6 +9,7 @@ use App\Models\IncidentPhoto;
 use App\Models\ScheduleIncident;
 use App\Models\TourSchedule;
 use App\Services\CloudinaryService;
+use App\Services\GuideHandoverService;
 use App\Services\IncidentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,79 @@ class IncidentController extends Controller
         private IncidentService $incidentService,
         private CloudinaryService $cloudinaryService,
     ) {
+    }
+
+    /**
+     * Xin được bàn giao đoàn.
+     *
+     * Cố ý **không nhận người thay**: tìm ai đang rảnh cần nhìn toàn bộ lịch công ty, đó là việc
+     * của điều hành. Ở đây chỉ nói "tôi cần được thay" kèm hai thứ chỉ người đang dẫn mới biết.
+     */
+    public function requestHandover(Request $request, int $scheduleId): JsonResponse
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:10', 'max:255'],
+            'group_state' => ['required', 'string', 'min:20', 'max:2000'],
+        ], [
+            'reason.required' => 'Phải ghi lý do bạn cần được thay.',
+            'group_state.min' => 'Tình trạng đoàn cần ít nhất 20 ký tự: đoàn đang ở đâu, ai chưa '
+                . 'điểm danh, việc gì đang dở. Người nhận chỉ có đoạn này để bắt nhịp.',
+        ]);
+
+        $schedule = TourSchedule::query()->with('tour')->find($scheduleId);
+
+        if (!$schedule) {
+            return $this->error('Không tìm thấy chuyến khởi hành', 404);
+        }
+
+        $yeuCau = app(GuideHandoverService::class)->request(
+            $schedule,
+            $request->user(),
+            $validated['reason'],
+            $validated['group_state'],
+        );
+
+        return $this->success(
+            ['id' => $yeuCau->id, 'status' => $yeuCau->status->value],
+            'Đã gửi yêu cầu. Bạn vẫn phụ trách đoàn cho tới khi điều hành duyệt và cử người thay.',
+        );
+    }
+
+    /** Các yêu cầu bàn giao của chính hướng dẫn viên này. */
+    public function myHandoverRequests(Request $request): JsonResponse
+    {
+        $ds = \App\Models\GuideHandoverRequest::query()
+            ->where('requested_by', $request->user()->id)
+            ->with(['schedule:id,start_date,tour_id', 'schedule.tour:id,title'])
+            ->latest('id')
+            ->get()
+            ->map(fn (\App\Models\GuideHandoverRequest $yc) => [
+                'id' => $yc->id,
+                'tour_schedule_id' => $yc->tour_schedule_id,
+                'tour_title' => $yc->schedule?->tour?->title,
+                'start_date' => $yc->schedule?->start_date,
+                'status' => $yc->status->value,
+                'status_label' => $yc->status->label(),
+                'reason' => $yc->reason,
+                'group_state' => $yc->group_state,
+                'review_note' => $yc->review_note,
+                'created_at' => $yc->created_at?->toDateTimeString(),
+            ]);
+
+        return $this->success($ds, 'Lấy yêu cầu bàn giao của bạn thành công');
+    }
+
+    public function withdrawHandoverRequest(Request $request, int $id): JsonResponse
+    {
+        $yeuCau = \App\Models\GuideHandoverRequest::query()->find($id);
+
+        if (!$yeuCau) {
+            return $this->error('Không tìm thấy yêu cầu bàn giao', 404);
+        }
+
+        app(GuideHandoverService::class)->withdrawRequest($yeuCau, $request->user());
+
+        return $this->success(['id' => $yeuCau->id], 'Đã rút lại yêu cầu.');
     }
 
     /**

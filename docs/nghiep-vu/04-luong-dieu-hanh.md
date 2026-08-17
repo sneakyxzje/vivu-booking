@@ -228,6 +228,24 @@ chỉ có một hướng dẫn viên trong suốt hành trình, không mô tả 
 > Đánh đổi: câu "lúc 14h ngày thứ hai ai đang dẫn" phải lần theo lịch sử bàn giao thay vì một
 > truy vấn. Lý do đầy đủ ghi trong migration `2026_08_17_000004`.
 >
+> **Bổ sung ngoài thiết kế gốc: hướng dẫn viên tự xin bàn giao.**
+>
+> Thiết kế dưới đây chỉ có điều hành bàn giao, và như vậy chính điều hành viết "tình trạng đoàn"
+> — dù họ ngồi văn phòng và không chứng kiến gì. Thực tế họ phải gọi điện hỏi rồi gõ lại, tức
+> thông tin đi vòng qua một người không có mặt.
+>
+> Nên chia lại theo đúng ai biết cái gì: **hướng dẫn viên** viết lý do và tình trạng đoàn,
+> **điều hành** chọn người thay và duyệt. Yêu cầu của hướng dẫn viên cố ý không có ô chọn người
+> thay — tìm ai đang rảnh cần nhìn toàn bộ lịch công ty.
+>
+> Giữ cả hai lối vào, vì hướng dẫn viên ngất hoặc mất sóng thì không gửi được yêu cầu. Ràng buộc:
+> **duyệt yêu cầu không tự thực hiện bàn giao**, nó gọi đúng `GuideHandoverService::handover()`
+> như lối kia. Bài `test_duyet_di_qua_dung_duong_ban_giao_chung` giữ điều đó.
+>
+> Một điểm đáng nói khi trình bày: chờ duyệt nghe như chậm nhưng an toàn hơn — người xin **vẫn
+> giữ quyền phụ trách cho tới lúc duyệt**, nên không có khoảnh khắc nào đoàn không có ai chịu
+> trách nhiệm trên hệ thống. Tự bàn giao ngay mới tạo ra khoảng trống đó.
+>
 > Phần dưới giữ nguyên làm thiết kế gốc để đối chiếu.
 
 Đề xuất bảng `schedule_guide_assignments`:

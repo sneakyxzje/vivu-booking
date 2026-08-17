@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Enums\HandoverRequestStatus;
 use App\Enums\ScheduleAuditAction;
 use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Models\GuideHandover;
+use App\Models\GuideHandoverRequest;
 use App\Models\TourSchedule;
 use App\Models\User;
 use App\Support\GioVietNam;
@@ -146,6 +148,148 @@ class GuideHandoverService
             throw new BusinessRuleException(sprintf(
                 'Chuyến đang ở trạng thái "%s" nên không bàn giao được nữa.',
                 $trangThai->label(),
+            ));
+        }
+    }
+
+    /**
+     * Hướng dẫn viên xin được bàn giao đoàn.
+     *
+     * Không nhận người thay: tìm ai đang rảnh cần nhìn toàn bộ lịch công ty, đó là việc của điều
+     * hành. Hướng dẫn viên nói "tôi cần được thay" chứ không phải "giao cho anh B".
+     */
+    public function request(
+        TourSchedule $schedule,
+        User $guide,
+        string $reason,
+        string $groupState,
+    ): GuideHandoverRequest {
+        $this->assertChuyenConBanGiaoDuoc($schedule);
+
+        if (!$schedule->hasGuide((int) $guide->getKey())) {
+            throw new BusinessRuleException('Bạn không phụ trách chuyến này nên không xin bàn giao được.');
+        }
+
+        $daCo = GuideHandoverRequest::query()
+            ->where('tour_schedule_id', $schedule->getKey())
+            ->where('requested_by', $guide->getKey())
+            ->dangCho()
+            ->exists();
+
+        if ($daCo) {
+            throw new BusinessRuleException(
+                'Bạn đã có một yêu cầu bàn giao đang chờ duyệt cho chuyến này.',
+            );
+        }
+
+        return GuideHandoverRequest::query()->create([
+            'tour_schedule_id' => $schedule->getKey(),
+            'requested_by' => $guide->getKey(),
+            'status' => HandoverRequestStatus::Pending,
+            'reason' => trim($reason),
+            'group_state' => trim($groupState),
+        ]);
+    }
+
+    /**
+     * Điều hành duyệt: chọn người thay rồi thực hiện bàn giao.
+     *
+     * **Duyệt không tự thực hiện bàn giao.** Nó gọi đúng handover() ở trên, tức đi chung một
+     * đường với việc điều hành tự bàn giao. Hai đường ghi cho cùng một việc, mỗi đường một bộ
+     * luật, là khuôn của phần lớn lỗi ở dự án này - nên ở đây cố ý chỉ có một.
+     *
+     * Lý do và tình trạng đoàn lấy nguyên từ yêu cầu: đó là chữ của người đang đứng cùng đoàn,
+     * không phải của người ngồi văn phòng.
+     */
+    public function approveRequest(
+        GuideHandoverRequest $request,
+        int $toGuideId,
+        ?string $reviewNote,
+        User $actor,
+    ): GuideHandover {
+        return DB::transaction(function () use ($request, $toGuideId, $reviewNote, $actor) {
+            $khoa = GuideHandoverRequest::query()
+                ->whereKey($request->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            $this->assertConDangCho($khoa);
+
+            $schedule = TourSchedule::query()->with('tour')->find($khoa->tour_schedule_id);
+
+            if (!$schedule) {
+                throw new BusinessRuleException('Không tìm thấy chuyến khởi hành.', 404);
+            }
+
+            $bienBan = $this->handover(
+                $schedule,
+                (int) $khoa->requested_by,
+                $toGuideId,
+                $khoa->reason,
+                $khoa->group_state,
+                null,
+                $actor,
+            );
+
+            $khoa->forceFill([
+                'status' => HandoverRequestStatus::Approved,
+                'reviewed_by' => $actor->getKey(),
+                'reviewed_at' => now(),
+                'review_note' => $reviewNote ? trim($reviewNote) : null,
+                'guide_handover_id' => $bienBan->getKey(),
+            ])->save();
+
+            return $bienBan;
+        });
+    }
+
+    /**
+     * Từ chối yêu cầu.
+     *
+     * Người xin vẫn giữ nguyên quyền phụ trách - đó là điểm an toàn của việc phải chờ duyệt:
+     * không có khoảnh khắc nào đoàn không có ai chịu trách nhiệm.
+     */
+    public function rejectRequest(
+        GuideHandoverRequest $request,
+        string $reviewNote,
+        User $actor,
+    ): GuideHandoverRequest {
+        $this->assertConDangCho($request);
+
+        $request->forceFill([
+            'status' => HandoverRequestStatus::Rejected,
+            'reviewed_by' => $actor->getKey(),
+            'reviewed_at' => now(),
+            'review_note' => trim($reviewNote),
+        ])->save();
+
+        return $request->fresh();
+    }
+
+    /** Hướng dẫn viên rút lại, ví dụ đỡ sốt rồi vẫn dẫn tiếp được. */
+    public function withdrawRequest(GuideHandoverRequest $request, User $guide): GuideHandoverRequest
+    {
+        $this->assertConDangCho($request);
+
+        if ((int) $request->requested_by !== (int) $guide->getKey()) {
+            throw new BusinessRuleException('Chỉ người gửi mới rút lại được yêu cầu này.');
+        }
+
+        $request->forceFill(['status' => HandoverRequestStatus::Withdrawn])->save();
+
+        return $request->fresh();
+    }
+
+    private function assertConDangCho(?GuideHandoverRequest $request): void
+    {
+        if (!$request) {
+            throw new BusinessRuleException('Không tìm thấy yêu cầu bàn giao.', 404);
+        }
+
+        if ($request->status !== HandoverRequestStatus::Pending) {
+            throw new BusinessRuleException(sprintf(
+                'Yêu cầu này đang ở trạng thái "%s" nên không xử lý lại được.',
+                $request->status->label(),
             ));
         }
     }

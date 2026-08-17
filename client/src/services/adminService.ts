@@ -1,5 +1,5 @@
 import api from "./api";
-import { extractObject } from "@/utils/apiHelpers";
+import { extractArray, extractObject } from "@/utils/apiHelpers";
 import type { Booking, Guide, Tour, TourSchedule, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
 import { buildTourPayload } from "@/services/guideService";
 
@@ -253,6 +253,20 @@ export interface GuideHandoverRow {
   created_at: string | null;
   /** Ghi vào máy muộn hơn lúc bàn giao thật, vì bàn giao xảy ra trên đường. */
   recorded_late: boolean;
+}
+
+/** Yêu cầu bàn giao đang chờ điều hành xử lý. */
+export interface PendingHandoverRequest {
+  id: number;
+  tour_schedule_id: number;
+  tour_title: string | null;
+  start_date: string | null;
+  requester_name: string | null;
+  requester_phone: string | null;
+  reason: string;
+  /** Chữ của người đang đứng cùng đoàn, không phải của người ngồi văn phòng. */
+  group_state: string;
+  created_at: string | null;
 }
 
 export interface HandoverPanelResponse {
@@ -665,6 +679,28 @@ const adminService = {
    * Tách khỏi phân công thường vì bắt buộc kèm lý do và tình trạng đoàn. Gộp chung thì sớm muộn
    * sẽ có người đổi người dẫn bằng màn phân công và bỏ qua biên bản.
    */
+  /** Yêu cầu bàn giao hướng dẫn viên gửi lên, chờ điều hành chọn người thay. */
+  getPendingHandoverRequests: async (): Promise<PendingHandoverRequest[]> => {
+    const response = await api.get("/admin/handover-requests");
+    return extractArray<PendingHandoverRequest>(response);
+  },
+
+  /** Duyệt: chọn người thay rồi thực hiện. Máy chủ đi qua đúng đường bàn giao chung. */
+  approveHandoverRequest: async (id: number, toGuideId: number, reviewNote?: string) => {
+    const response = await api.put(`/admin/handover-requests/${id}/approve`, {
+      to_guide_id: toGuideId,
+      review_note: reviewNote || null,
+    });
+    return response.data?.message ?? "Đã duyệt và bàn giao.";
+  },
+
+  rejectHandoverRequest: async (id: number, reviewNote: string) => {
+    const response = await api.put(`/admin/handover-requests/${id}/reject`, {
+      review_note: reviewNote,
+    });
+    return response.data?.message ?? "Đã từ chối.";
+  },
+
   getHandoverPanel: async (scheduleId: number): Promise<HandoverPanelResponse | null> => {
     const response = await api.get(`/admin/schedules/${scheduleId}/handovers`);
     return extractObject<HandoverPanelResponse>(response);

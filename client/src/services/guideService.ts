@@ -179,6 +179,21 @@ export interface GuideHandoverNote {
   handover_note: string;
 }
 
+/** Yêu cầu bàn giao do chính hướng dẫn viên gửi. Không có người thay: đó là việc của điều hành. */
+export interface GuideHandoverRequestRow {
+  id: number;
+  tour_schedule_id: number;
+  tour_title: string | null;
+  start_date: string | null;
+  status: "pending" | "approved" | "rejected" | "withdrawn";
+  status_label: string;
+  reason: string;
+  group_state: string;
+  /** Lý do điều hành từ chối, nếu có. */
+  review_note: string | null;
+  created_at: string | null;
+}
+
 export const INCIDENT_TYPES = [
   { value: "weather", label: "Thời tiết" },
   { value: "vehicle", label: "Phương tiện" },
@@ -313,6 +328,30 @@ const guideService = {
   getMyHandovers: async (): Promise<GuideHandoverNote[]> => {
     const response = await api.get("/guide/handovers");
     return extractArray<GuideHandoverNote>(response);
+  },
+
+  getMyHandoverRequests: async (): Promise<GuideHandoverRequestRow[]> => {
+    const response = await api.get("/guide/handover-requests");
+    return extractArray<GuideHandoverRequestRow>(response);
+  },
+
+  /**
+   * Xin được bàn giao đoàn.
+   *
+   * Cố ý không nhận người thay: tìm ai đang rảnh cần nhìn toàn bộ lịch công ty. Ở đây chỉ nói
+   * "tôi cần được thay" kèm hai thứ chỉ người đang dẫn mới biết.
+   */
+  requestHandover: async (
+    scheduleId: number,
+    payload: { reason: string; group_state: string },
+  ) => {
+    const response = await api.post(`/guide/schedules/${scheduleId}/handover-request`, payload);
+    return response.data?.message ?? "Đã gửi yêu cầu.";
+  },
+
+  withdrawHandoverRequest: async (id: number) => {
+    const response = await api.put(`/guide/handover-requests/${id}/withdraw`);
+    return response.data?.message ?? "Đã rút lại yêu cầu.";
   },
 
   getMyIncidents: async (): Promise<GuideIncident[]> => {

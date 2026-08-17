@@ -144,6 +144,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // Biên bản bàn giao: người mới đọc tình trạng đoàn, người cũ xem lại mình đã giao gì.
         Route::get('/handovers', [GuideIncidentController::class, 'handovers']);
 
+        // Xin được bàn giao. Không chọn người thay: đó là việc xếp lịch của điều hành.
+        Route::get('/handover-requests', [GuideIncidentController::class, 'myHandoverRequests']);
+        Route::post('/schedules/{schedule}/handover-request', [GuideIncidentController::class, 'requestHandover']);
+        Route::put('/handover-requests/{id}/withdraw', [GuideIncidentController::class, 'withdrawHandoverRequest']);
+
         // O - Báo cáo sự cố tại hiện trường. Cố ý không có trường tiền nào ở đây.
         Route::get('/incidents', [GuideIncidentController::class, 'index']);
         Route::post('/schedules/{schedule}/incidents', [GuideIncidentController::class, 'store']);
@@ -195,6 +200,10 @@ Route::middleware('auth:sanctum')->group(function () {
         // Đổi hướng dẫn viên giữa chừng. Tách khỏi phân công thường vì bắt buộc kèm biên bản.
         Route::get('/schedules/{id}/handovers', [AdminGuideHandoverController::class, 'index']);
         Route::post('/schedules/{id}/handover', [AdminGuideHandoverController::class, 'store']);
+        // Duyệt yêu cầu của hướng dẫn viên. Duyệt đi qua đúng đường bàn giao ở trên, không tự làm.
+        Route::get('/handover-requests', [AdminGuideHandoverController::class, 'pendingRequests']);
+        Route::put('/handover-requests/{id}/approve', [AdminGuideHandoverController::class, 'approveRequest']);
+        Route::put('/handover-requests/{id}/reject', [AdminGuideHandoverController::class, 'rejectRequest']);
 
         // O - Sự cố dọc đường. Chỉ ở đây mới quyết được tiền; hướng dẫn viên chỉ báo cáo.
         Route::get('/incidents', [AdminIncidentController::class, 'index']);
