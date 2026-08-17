@@ -278,6 +278,18 @@ class AdminBookingController extends Controller
 
             $trangThaiCu = (string) $booking->status;
 
+            /*
+             * Chốt số tiền hoàn trước khi đổi trạng thái.
+             *
+             * Bậc hoàn tính theo số giờ còn lại tới giờ khởi hành, nên đọc muộn một ngày là ra
+             * một con số khác. Nhật ký phải giữ đúng con số tại thời điểm bấm hủy, nếu không thì
+             * ba tháng sau không ai đối chiếu được với khoản đã chi.
+             *
+             * Đường khách xin hủy đã ghi khoản này từ đầu; đường quản trị hủy thẳng thì không, và
+             * đó lại chính là đường chạm tiền mà không qua bước duyệt nào.
+             */
+            $duBao = $this->cancellationPolicy->quote($booking, $schedule);
+
             $booking->update([
                 'status' => 'cancelled',
                 'cancel_reason' => $validated['cancel_reason'],
@@ -294,9 +306,13 @@ class AdminBookingController extends Controller
                 $trangThaiCu,
                 'cancelled',
                 $validated['cancel_reason'],
-                // Chỗ có về kho hay thành ghế chết là hệ quả quan trọng nhất của lần hủy này,
-                // và người đọc nhật ký sau này không tự tính lại được vì hạn chốt đã trôi qua.
-                ['seats_released' => (bool) $booking->fresh()->seats_released],
+                [
+                    'refund_amount' => $duBao['refund_amount'],
+                    'refund_percent' => $duBao['refund_percent'],
+                    // Chỗ có về kho hay thành ghế chết là hệ quả quan trọng nhất của lần hủy này,
+                    // và người đọc nhật ký sau này không tự tính lại được vì hạn chốt đã trôi qua.
+                    'seats_released' => (bool) $booking->fresh()->seats_released,
+                ],
             );
 
             return $booking;
