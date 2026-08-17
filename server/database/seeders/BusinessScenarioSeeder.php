@@ -784,10 +784,11 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->line('   Đăng nhập bằng người KHÔNG thuộc chuyến -> không thấy chuyến đó.');
         $cmd->newLine();
 
-        $cmd->comment(' VÒNG 8 — bàn giao hướng dẫn viên.  Vào /admin/schedules');
-        $cmd->line('   Ngay dưới tiêu đề có dải vàng "1 yêu cầu bàn giao đang chờ" — đã seed sẵn.');
+        $cmd->comment(' VÒNG 8 — bàn giao hướng dẫn viên.  Vào /admin/handovers');
+        $cmd->line('   Menu trái có mục "Bàn giao HDV". Đã seed sẵn 1 yêu cầu đang chờ.');
         $cmd->line('     Bấm vào -> đọc tình trạng đoàn do HDV viết -> chọn người thay -> Duyệt');
         $cmd->line('     Duyệt xong: người cũ rời danh sách phụ trách, người mới vào, có biên bản');
+        $cmd->line('   (/admin/schedules cũng có dải vàng báo, nhưng chỉ dẫn sang đây)');
         $cmd->newLine();
         $cmd->line('   Thử luật KHÔNG BỎ RƠI ĐOÀN ở ' . $chuyen('S6') . ':');
         $cmd->line('     bấm "Sửa" cột HDV, bỏ bớt để chuyến chỉ còn 1 người, rồi bấm "Bàn giao HDV"');

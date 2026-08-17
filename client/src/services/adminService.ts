@@ -257,6 +257,15 @@ export interface GuideHandoverRow {
   recorded_late: boolean;
 }
 
+export interface HandoverHistoryResponse {
+  handovers: (GuideHandoverRow & {
+    tour_title: string | null;
+    start_date: string | null;
+  })[];
+  /** Số lần nhờ trông hộ: mỗi cái là một người đang giữ hai đoàn, tức việc còn dở. */
+  emergency_count: number;
+}
+
 /** Yêu cầu bàn giao đang chờ điều hành xử lý. */
 export interface PendingHandoverRequest {
   id: number;
@@ -694,6 +703,19 @@ const adminService = {
    * Tách khỏi phân công thường vì bắt buộc kèm lý do và tình trạng đoàn. Gộp chung thì sớm muộn
    * sẽ có người đổi người dẫn bằng màn phân công và bỏ qua biên bản.
    */
+  /**
+   * Lịch sử bàn giao toàn công ty.
+   *
+   * Câu hỏi của màn theo dõi chung: gần đây có bao nhiêu lần đổi người, và còn ai đang phải
+   * trông hai đoàn.
+   */
+  getHandoverHistory: async (emergencyOnly = false): Promise<HandoverHistoryResponse | null> => {
+    const response = await api.get("/admin/handovers", {
+      params: emergencyOnly ? { emergency_only: 1 } : {},
+    });
+    return extractObject<HandoverHistoryResponse>(response);
+  },
+
   /** Yêu cầu bàn giao hướng dẫn viên gửi lên, chờ điều hành chọn người thay. */
   getPendingHandoverRequests: async (): Promise<PendingHandoverRequest[]> => {
     const response = await api.get("/admin/handover-requests");

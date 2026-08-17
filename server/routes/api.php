@@ -201,6 +201,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/schedules/{id}/handovers', [AdminGuideHandoverController::class, 'index']);
         Route::post('/schedules/{id}/handover', [AdminGuideHandoverController::class, 'store']);
         // Duyệt yêu cầu của hướng dẫn viên. Duyệt đi qua đúng đường bàn giao ở trên, không tự làm.
+        Route::get('/handovers', [AdminGuideHandoverController::class, 'history']);
         Route::get('/handover-requests', [AdminGuideHandoverController::class, 'pendingRequests']);
         Route::put('/handover-requests/{id}/approve', [AdminGuideHandoverController::class, 'approveRequest']);
         Route::put('/handover-requests/{id}/reject', [AdminGuideHandoverController::class, 'rejectRequest']);

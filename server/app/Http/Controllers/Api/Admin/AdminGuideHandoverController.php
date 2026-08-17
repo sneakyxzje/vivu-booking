@@ -133,6 +133,45 @@ class AdminGuideHandoverController extends Controller
         ));
     }
 
+    /**
+     * Lịch sử bàn giao của toàn công ty, mới trước cũ sau.
+     *
+     * Khác `index()` ở chỗ không giới hạn theo một chuyến: dùng cho màn theo dõi chung, nơi câu
+     * hỏi là "gần đây có bao nhiêu lần đổi người, còn ai đang phải trông hai đoàn".
+     */
+    public function history(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'emergency_only' => ['nullable', 'boolean'],
+        ]);
+
+        $ds = GuideHandover::query()
+            ->with([
+                'schedule:id,start_date,tour_id',
+                'schedule.tour:id,title',
+                'fromGuide:id,name,phone',
+                'toGuide:id,name,phone',
+                'creator:id,name',
+            ])
+            ->when(
+                (bool) ($validated['emergency_only'] ?? false),
+                fn ($query) => $query->where('is_emergency_cover', true),
+            )
+            ->latest('handed_over_at')
+            ->limit(100)
+            ->get()
+            ->map(fn (GuideHandover $bg) => $this->dong($bg) + [
+                'tour_title' => $bg->schedule?->tour?->title,
+                'start_date' => $bg->schedule?->start_date,
+            ]);
+
+        return $this->success([
+            'handovers' => $ds,
+            // Người đang phải trông hai đoàn là việc dở, đếm riêng để không ai quên.
+            'emergency_count' => GuideHandover::query()->where('is_emergency_cover', true)->count(),
+        ], 'Lấy lịch sử bàn giao thành công');
+    }
+
     /** Các yêu cầu bàn giao hướng dẫn viên gửi lên, chờ điều hành chọn người thay. */
     public function pendingRequests(): JsonResponse
     {
