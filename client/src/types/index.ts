@@ -14,6 +14,8 @@ export type {
   TourItinerary,
   TourSchedule,
   ExtendedSchedule,
+  Assignee,
+  GuideDecline,
   Tour,
   TourFilterParams,
 } from "./tour";

@@ -55,6 +55,22 @@ export interface Assignee {
   email?: string;
   phone?: string | null;
   status?: string;
+  /**
+   * Dữ liệu bảng nối phân công.
+   *
+   * `accepted_at` null nghĩa là người này **vẫn đang được phân công** nhưng chưa trả lời — không
+   * phải chưa gán. Điều hành cần thấy khác biệt đó để còn nhắc.
+   */
+  pivot?: { accepted_at?: string | null };
+}
+
+/** Một lần hướng dẫn viên từ chối chuyến, kèm lý do. */
+export interface GuideDecline {
+  id: number;
+  guide_id: number;
+  guide_name: string | null;
+  reason: string;
+  declined_at: string | null;
 }
 
 export interface TourSchedule {
