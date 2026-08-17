@@ -1,6 +1,6 @@
 import api from "./api";
 import { extractArray, extractObject } from "@/utils/apiHelpers";
-import type { Booking, Guide, GuideDecline, Tour, TourSchedule, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
+import type { Booking, Guide, GuideDecline, GuideProfilePayload, GuideSuitability, Tour, TourSchedule, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
 import { buildTourPayload } from "@/services/guideService";
 
 export interface PaginatedResponse<T> {
@@ -1063,6 +1063,23 @@ const adminService = {
   getScheduleGuideDeclines: async (scheduleId: number): Promise<GuideDecline[]> => {
     const response = await api.get(`/admin/tour-schedules/${scheduleId}/guide-declines`);
     return extractArray<GuideDecline>(response);
+  },
+
+  /**
+   * Chấm cả đội ngũ cho một chuyến: ai phù hợp, ai bị chặn, và vì sao.
+   *
+   * Trả về **cả người bị chặn**. Lọc bỏ ở giao diện thì điều hành đi tìm mãi một cái tên đáng lẽ
+   * phải có mà không hiểu vì sao mất.
+   */
+  getScheduleGuideSuitability: async (scheduleId: number): Promise<GuideSuitability[]> => {
+    const response = await api.get(`/admin/tour-schedules/${scheduleId}/guide-suitability`);
+    return extractArray<GuideSuitability>(response);
+  },
+
+  /** Lưu hồ sơ năng lực. Ghi đè cả hồ sơ: ô để trống nghĩa là xóa, không phải giữ nguyên. */
+  updateGuideProfile: async (guideId: number, payload: GuideProfilePayload) => {
+    const response = await api.put(`/admin/guides/${guideId}/profile`, payload);
+    return response.data?.message ?? "Đã lưu hồ sơ năng lực.";
   },
 
   // --- EXTRA SERVICES (Dịch vụ phát sinh theo tour) ---
