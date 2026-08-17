@@ -1,6 +1,6 @@
 import api from "./api";
 import { extractArray, extractObject } from "@/utils/apiHelpers";
-import type { Booking, Guide, Tour, TourSchedule, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
+import type { Booking, Guide, GuideDecline, Tour, TourSchedule, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
 import { buildTourPayload } from "@/services/guideService";
 
 export interface PaginatedResponse<T> {
@@ -1052,6 +1052,17 @@ const adminService = {
       guide_ids: guideIds,
     });
     return response.data?.success !== false;
+  },
+
+  /**
+   * Ai đã từ chối chuyến này và vì sao.
+   *
+   * Từ chối gỡ người khỏi danh sách, nên nhìn chuyến chỉ thấy thiếu người chứ không biết đã có
+   * ai trả lời. Đọc lúc mở hộp thoại xếp người, để khỏi gán lại đúng người vừa nói không.
+   */
+  getScheduleGuideDeclines: async (scheduleId: number): Promise<GuideDecline[]> => {
+    const response = await api.get(`/admin/tour-schedules/${scheduleId}/guide-declines`);
+    return extractArray<GuideDecline>(response);
   },
 
   // --- EXTRA SERVICES (Dịch vụ phát sinh theo tour) ---
