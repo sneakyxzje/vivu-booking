@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Services\CloudinaryService;
+use App\Services\GuideSuitabilityService;
 use App\Services\ScheduleDeadlineService;
 use App\Services\ScheduleGuideService;
 use App\Services\ScheduleLifecycleService;
@@ -32,6 +33,7 @@ class AdminTourController extends Controller
         protected ScheduleLifecycleService $scheduleLifecycle,
         protected ScheduleDeadlineService $scheduleDeadline,
         protected ScheduleGuideService $scheduleGuides,
+        protected GuideSuitabilityService $guideSuitability,
     ) {
     }
 
@@ -83,13 +85,24 @@ class AdminTourController extends Controller
         $guides = User::query()
             ->where('role', 'guide')
             ->where('status', 'active')
-            ->with('assignedSchedules.tour:id,number_of_days')
+            ->with(['assignedSchedules.tour:id,number_of_days', 'guideProfile'])
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'phone', 'status'])
             ->filter(function (User $guide) use ($start, $end) {
-                return ! $guide->assignedSchedules->contains(
+                if ($guide->assignedSchedules->contains(
                     fn (TourSchedule $schedule) => $this->scheduleOverlaps($start, $end, $schedule)
-                );
+                )) {
+                    return false;
+                }
+
+                /*
+                 * Thẻ hành nghề phải còn hạn tới hết chuyến.
+                 *
+                 * Cùng luật với `ScheduleGuideService::lyDoChan()` bên đường ghi. Bỏ ở đây thì
+                 * màn tạo tour vẫn mời chọn một người mà lúc bấm lưu máy chủ mới từ chối - đúng
+                 * cái khuôn lỗi đã gặp nhiều lần: luật có một đường mà thiếu đường kia.
+                 */
+                return $guide->guideProfile?->theConHan($end) ?? true;
             })
             ->values()
             ->map(fn (User $guide) => $guide->only(['id', 'name', 'email', 'phone', 'status']));
@@ -712,6 +725,28 @@ class AdminTourController extends Controller
             $soNguoi === 0
                 ? 'Đã bỏ phân công hướng dẫn viên'
                 : sprintf('Đã phân công %d hướng dẫn viên cho chuyến này.', $soNguoi),
+        );
+    }
+
+    /**
+     * Chấm cả đội ngũ cho một chuyến: ai phù hợp, ai bị chặn, và vì sao.
+     *
+     * Trả về **cả người bị chặn**. Giấu đi thì điều hành tìm mãi một cái tên đáng lẽ phải có mà
+     * không hiểu vì sao mất; hiện ra kèm lý do thì họ biết phải sửa gì - gia hạn thẻ, hay bỏ người
+     * đó khỏi chuyến đang vướng.
+     */
+    public function scheduleGuideSuitability(int $id): JsonResponse
+    {
+        $schedule = TourSchedule::with(['tour:id,title,number_of_days,end_location', 'tour.categories:id,name', 'guides:id'])
+            ->find($id);
+
+        if (! $schedule) {
+            return $this->error('Không tìm thấy lịch khởi hành', 404);
+        }
+
+        return $this->success(
+            $this->guideSuitability->danhGia($schedule),
+            'Chấm mức phù hợp của hướng dẫn viên thành công',
         );
     }
 
