@@ -197,6 +197,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/tour-schedules/{id}/assign-guide', [AdminTourController::class, 'assignScheduleGuide']);
         // Ai đã từ chối chuyến này. Đọc lúc xếp người, để khỏi gán lại đúng người vừa nói không.
         Route::get('/tour-schedules/{id}/guide-declines', [AdminTourController::class, 'scheduleGuideDeclines']);
+        // 17 - Ai phù hợp dẫn chuyến này, không chỉ ai đang rảnh. Trả cả người bị chặn kèm lý do.
+        Route::get('/tour-schedules/{id}/guide-suitability', [AdminTourController::class, 'scheduleGuideSuitability']);
         Route::get('/tour-schedules/{id}/attendance', [AdminAttendanceController::class, 'show']);
         Route::get('/attendance-reports', [AdminAttendanceController::class, 'report']);
 
@@ -232,6 +234,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/schedules/{id}/deadline', [AdminScheduleDeadlineController::class, 'update']);
 
 
+        // 17 - Hồ sơ năng lực. Đường riêng vì sửa nghề nghiệp khác với sửa tài khoản đăng nhập.
+        Route::put('/guides/{id}/profile', [AdminGuideController::class, 'updateProfile']);
         Route::apiResource('guides', AdminGuideController::class);
 
         Route::get('/bookings', [AdminBookingController::class, 'index']);
