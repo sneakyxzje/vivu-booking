@@ -37,16 +37,13 @@ class SampleTourSeeder extends Seeder
             ->orderBy('id')
             ->get();
 
-        $categories = collect([
-            ['name' => 'Biển đảo', 'slug' => 'bien-dao'],
-            ['name' => 'Nghỉ dưỡng', 'slug' => 'nghi-duong'],
-            ['name' => 'Khám phá', 'slug' => 'kham-pha'],
-        ])->map(function (array $item) {
-            return Category::query()->firstOrCreate(
-                ['slug' => $item['slug']],
-                ['name' => $item['name'], 'is_active' => true]
-            );
-        });
+        // Danh mục nay dùng chung với hồ sơ năng lực hướng dẫn viên nên ở seeder riêng. Gọi lại
+        // ở đây để chạy lẻ `--class=SampleTourSeeder` vẫn đủ dữ liệu; seeder đó idempotent.
+        $this->call(CategorySeeder::class);
+
+        $categories = Category::query()
+            ->whereIn('slug', ['bien-dao', 'nghi-duong', 'kham-pha'])
+            ->get();
 
         $services = collect([
             ['name' => 'Xe đưa đón'],
