@@ -36,6 +36,7 @@ use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminChangeRequestController;
 use App\Http\Controllers\Api\Admin\AdminPassengerController;
 use App\Http\Controllers\Api\Admin\AdminAuditLogController;
+use App\Http\Controllers\Api\Admin\AdminScheduleCancellationController;
 use App\Http\Controllers\Api\Admin\AdminScheduleDeadlineController;
 use App\Http\Controllers\Api\Admin\AdminScheduleMergeController;
 use App\Http\Controllers\Api\Admin\AdminTransferController;
@@ -177,6 +178,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // A10 — Đổi trạng thái chuyến thủ công (open ↔ closed, → confirmed, → cancelled).
         Route::patch('/schedules/{id}/status', [AdminTourController::class, 'updateScheduleStatus']);
+
+        // K - Hủy cả chuyến. Đi đường riêng vì phải gán phương án cho từng đơn đã thanh toán.
+        Route::get('/schedules/{id}/cancel-preview', [AdminScheduleCancellationController::class, 'preview']);
+        Route::post('/schedules/{id}/cancel', [AdminScheduleCancellationController::class, 'store']);
 
         // Dời hạn chốt danh sách, kèm xem trước tác động trước khi lưu.
         Route::get('/schedules/{id}/deadline-impact', [AdminScheduleDeadlineController::class, 'preview']);

@@ -48,12 +48,13 @@ class BookingTransferService
         Booking $booking,
         TourSchedule $toSchedule,
         string $initiatedBy = 'customer',
+        bool $nguonBiHuy = false,
     ): array {
         $coThe = true;
         $lyDoChan = null;
 
         try {
-            $this->assertCanTransfer($booking, $booking->schedule, $toSchedule, $initiatedBy);
+            $this->assertCanTransfer($booking, $booking->schedule, $toSchedule, $initiatedBy, $nguonBiHuy);
         } catch (BusinessRuleException $e) {
             $coThe = false;
             $lyDoChan = $e->getMessage();
@@ -87,8 +88,9 @@ class BookingTransferService
         string $reason,
         ?User $actor = null,
         string $initiatedBy = 'customer',
+        bool $nguonBiHuy = false,
     ): BookingTransfer {
-        return DB::transaction(function () use ($booking, $toSchedule, $reason, $actor, $initiatedBy) {
+        return DB::transaction(function () use ($booking, $toSchedule, $reason, $actor, $initiatedBy, $nguonBiHuy) {
             $ids = collect([$booking->tour_schedule_id, $toSchedule->getKey()])
                 ->filter()
                 ->unique()
@@ -117,7 +119,7 @@ class BookingTransferService
 
             // Kiểm tra lại trên bản ghi đã khóa. Chuyến đích có thể vừa đầy chỗ, hoặc đơn vừa bị
             // hủy, trong khoảng giữa lúc xem trước và lúc bấm xác nhận.
-            $this->assertCanTransfer($locked, $chuyenGoc, $chuyenDich, $initiatedBy);
+            $this->assertCanTransfer($locked, $chuyenGoc, $chuyenDich, $initiatedBy, $nguonBiHuy);
 
             $tongCu = (float) $locked->total_amount;
             $tongMoi = $this->recalculateTotal($locked, $chuyenDich);
@@ -183,11 +185,15 @@ class BookingTransferService
     /**
      * Năm điều kiện theo tài liệu 02 mục 4.2.
      */
+    /**
+     * @param  bool  $nguonBiHuy  Chuyến nguồn đang bị hủy cả chuyến, xem chú thích ở luật hạn chốt.
+     */
     public function assertCanTransfer(
         Booking $booking,
         ?TourSchedule $fromSchedule,
         TourSchedule $toSchedule,
         string $initiatedBy = 'customer',
+        bool $nguonBiHuy = false,
     ): void {
         // 1. Đơn chưa thanh toán thì hủy rồi đặt lại đơn giản hơn nhiều, không cần luồng này.
         if (!in_array((string) $booking->status, BookingStatus::paidValues(), true)) {
@@ -204,7 +210,7 @@ class BookingTransferService
         if ($fromSchedule) {
             $trangThaiGoc = $this->lifecycle->effectiveStatus($fromSchedule);
 
-            if ($trangThaiGoc->isRunning() || $trangThaiGoc->isFinal()) {
+            if (!$nguonBiHuy && ($trangThaiGoc->isRunning() || $trangThaiGoc->isFinal())) {
                 throw new BusinessRuleException(sprintf(
                     'Chuyến hiện tại đang ở trạng thái "%s" nên không chuyển được nữa.',
                     $trangThaiGoc->label(),
@@ -226,10 +232,15 @@ class BookingTransferService
              *
              * Ghép chuyến đi đường riêng và không bị luật này chặn: ở đó chuyến nguồn bị hủy
              * hẳn, nên chỗ trống của nó không còn ý nghĩa tồn kho nữa.
+             *
+             * Hủy cả chuyến (nhóm K) rơi vào đúng trường hợp ấy, nên truyền $nguonBiHuy để bỏ
+             * qua. Chỗ ở chuyến nguồn không "bỏ trống" theo nghĩa lãng phí: cả chuyến không chạy,
+             * công ty hủy với nhà cung cấp chứ không giữ suất đó cho ai. Luật ở chuyến ĐÍCH thì
+             * vẫn nguyên - nhận thêm khách vào chuyến đã quá hạn chốt vẫn là vượt cam kết.
              */
             $hanChot = $fromSchedule->booking_deadline ?? $fromSchedule->defaultBookingDeadline();
 
-            if ($hanChot && now()->gte($hanChot)) {
+            if (!$nguonBiHuy && $hanChot && now()->gte($hanChot)) {
                 throw new BusinessRuleException(sprintf(
                     'Chuyến hiện tại đã qua hạn chốt danh sách ngày %s. Suất ở chuyến này đã cam kết '
                         . 'với nhà cung cấp nên không chuyển đi được; nếu khách không đi được, xử lý '

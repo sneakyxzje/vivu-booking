@@ -12,10 +12,14 @@ enum ScheduleAuditAction: string
     /** Dời hạn chốt danh sách khách gửi nhà cung cấp. */
     case DeadlineChanged = 'deadline_changed';
 
+    /** Hủy cả chuyến, kèm phương án cho từng đơn đã thanh toán. */
+    case Cancelled = 'cancelled';
+
     public function label(): string
     {
         return match ($this) {
             self::DeadlineChanged => 'Đổi hạn chốt danh sách',
+            self::Cancelled => 'Hủy chuyến',
         };
     }
 

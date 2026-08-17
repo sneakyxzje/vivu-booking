@@ -239,6 +239,52 @@ export interface MergeCandidatesResponse {
   candidates: MergeCandidate[];
 }
 
+/** Một đơn đã thanh toán của chuyến sắp hủy. Mỗi đơn phải có một phương án. */
+export interface CancelPaidBooking {
+  booking_id: number;
+  customer_name: string;
+  customer_email: string | null;
+  guests: number;
+  paid_amount: number;
+}
+
+export interface ScheduleCancelImpact {
+  can_cancel: boolean;
+  blocked_reason: string | null;
+  start_date: string | null;
+  hours_until_departure: number | null;
+  paid_bookings: CancelPaidBooking[];
+  /** Đơn chưa thanh toán: hệ thống tự hủy, không cần hỏi phương án. */
+  unpaid_bookings: number;
+  unpaid_guests: number;
+  total_paid_bookings: number;
+  total_paid_guests: number;
+  total_refund_if_all_refunded: number;
+  transfer_options: {
+    schedule_id: number;
+    start_date: string;
+    remaining_seats: number;
+  }[];
+}
+
+export interface ScheduleCancelPreviewResponse {
+  schedule: {
+    id: number;
+    tour_title: string | null;
+    start_date: string;
+    booked_people: number;
+    max_people: number;
+  };
+  impact: ScheduleCancelImpact;
+}
+
+/** Phương án cho một đơn khi hủy chuyến: hoàn đủ, hoặc chuyển sang chuyến khác. */
+export interface CancelPlan {
+  booking_id: number;
+  action: "refund" | "transfer";
+  to_schedule_id?: number | null;
+}
+
 /** Một dòng trong nhật ký hệ thống, gộp từ nhật ký đơn và nhật ký chuyến. */
 export interface AuditLogEntry {
   /** Khóa dựng sẵn để React phân biệt hai nguồn, ví dụ "booking-12" và "schedule-12". */
@@ -515,6 +561,26 @@ const adminService = {
       reason,
     });
     return response.data?.message ?? "Đã ghép chuyến.";
+  },
+
+  /**
+   * K - Tác động của việc hủy chuyến: ai đã trả tiền, bao nhiêu, chuyển sang đâu được.
+   *
+   * Phải xem trước rồi mới hủy được, vì mỗi đơn đã thanh toán cần một phương án cụ thể.
+   */
+  getScheduleCancelPreview: async (
+    scheduleId: number,
+  ): Promise<ScheduleCancelPreviewResponse | null> => {
+    const response = await api.get(`/admin/schedules/${scheduleId}/cancel-preview`);
+    return extractObject<ScheduleCancelPreviewResponse>(response);
+  },
+
+  cancelSchedule: async (scheduleId: number, reason: string, plans: CancelPlan[]) => {
+    const response = await api.post(`/admin/schedules/${scheduleId}/cancel`, {
+      reason,
+      plans,
+    });
+    return response.data?.message ?? "Đã hủy chuyến.";
   },
 
   /**

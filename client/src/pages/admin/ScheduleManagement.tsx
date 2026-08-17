@@ -11,13 +11,15 @@ import {
 } from "lucide-react";
 import adminService from "@/services/adminService";
 import type {
+  CancelPlan,
   DeadlineImpactResponse,
+  ScheduleCancelPreviewResponse,
   ScheduleManifestResponse,
   MergeCandidatesResponse,
 } from "@/services/adminService";
 import type { Tour, Guide, ExtendedSchedule } from "@/types";
 import { Toast } from "@/components/admin/CustomAlert";
-import { formatDateTime, getEndDate, toDateTimeLocalValue } from "@/utils/format";
+import { formatDateTime, formatPrice, getEndDate, toDateTimeLocalValue } from "@/utils/format";
 import { statusLabel, statusClasses } from "@/utils/schedule";
 import Pagination from "@/components/common/Pagination";
 
@@ -36,9 +38,14 @@ export default function ScheduleManagement() {
   const [pendingGuideIds, setPendingGuideIds] = useState<number[]>([]);
 
   // State Hủy chuyến
+  // K - Hủy chuyến. Mỗi đơn đã thanh toán phải có một phương án trước khi hủy được.
   const [cancellingScheduleId, setCancellingScheduleId] = useState<number | null>(null);
   const [cancelReasonInput, setCancelReasonInput] = useState("");
-  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancelPreview, setCancelPreview] = useState<ScheduleCancelPreviewResponse | null>(null);
+  const [cancelPreviewLoading, setCancelPreviewLoading] = useState(false);
+  const [cancelPlans, setCancelPlans] = useState<Record<number, CancelPlan>>({});
+  const [cancelSaving, setCancelSaving] = useState(false);
+  const [cancelError, setCancelError] = useState("");
 
   // G05 - Kiểm tra danh sách đoàn trước khi gửi nhà cung cấp
   const [manifestScheduleId, setManifestScheduleId] = useState<number | null>(null);
@@ -215,10 +222,33 @@ export default function ScheduleManagement() {
     }
   };
 
-  const openCancelDialog = (scheduleId: number) => {
+  const openCancelDialog = async (scheduleId: number) => {
     setCancellingScheduleId(scheduleId);
     setCancelReasonInput("");
-    setIsCancelModalOpen(true);
+    setCancelPreview(null);
+    setCancelPlans({});
+    setCancelError("");
+    setCancelPreviewLoading(true);
+
+    try {
+      const data = await adminService.getScheduleCancelPreview(scheduleId);
+      setCancelPreview(data);
+
+      // Mặc định hoàn đủ cho mọi đơn: đó là phương án luôn hợp lệ, còn chuyển chuyến thì phụ
+      // thuộc chuyến đích có chỗ hay không. Điều hành đổi lại từng đơn nếu muốn.
+      setCancelPlans(
+        Object.fromEntries(
+          (data?.impact.paid_bookings ?? []).map((don) => [
+            don.booking_id,
+            { booking_id: don.booking_id, action: "refund" as const },
+          ]),
+        ),
+      );
+    } catch (err) {
+      console.error("Lỗi lấy tác động hủy chuyến:", err);
+    } finally {
+      setCancelPreviewLoading(false);
+    }
   };
 
   const openManifestCheck = async (scheduleId: number) => {
@@ -366,11 +396,36 @@ export default function ScheduleManagement() {
     }
   };
 
-  const confirmCancelSchedule = () => {
-    if (!cancellingScheduleId) return;
-    handleUpdateStatus(cancellingScheduleId, "cancelled", cancelReasonInput || "Lý do bất khả kháng");
-    setIsCancelModalOpen(false);
+  const closeCancelDialog = () => {
     setCancellingScheduleId(null);
+    setCancelPreview(null);
+    setCancelPlans({});
+    setCancelReasonInput("");
+    setCancelError("");
+  };
+
+  const confirmCancelSchedule = async () => {
+    if (!cancellingScheduleId) return;
+
+    setCancelSaving(true);
+    setCancelError("");
+
+    try {
+      const message = await adminService.cancelSchedule(
+        cancellingScheduleId,
+        cancelReasonInput.trim(),
+        Object.values(cancelPlans),
+      );
+
+      closeCancelDialog();
+      setToast({ message, type: "success", isOpen: true });
+      loadData();
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      setCancelError(response?.message || "Không hủy được chuyến.");
+    } finally {
+      setCancelSaving(false);
+    }
   };
 
   return (
@@ -1139,39 +1194,201 @@ export default function ScheduleManagement() {
         </div>
       )}
 
-      {/* Modal Hủy Chuyến */}
-      {isCancelModalOpen && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in pointer-events-auto">
-          <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl border border-gray-100 p-6 flex flex-col items-center text-center animate-scale-up">
-            <div className="p-3.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 mb-4">
-              <AlertTriangle className="w-6 h-6" />
+      {/*
+        K - Hủy chuyến, ba bước bắt buộc: xem tác động, gán phương án cho từng đơn đã thanh toán,
+        rồi mới xác nhận. Trước đây chỗ này chỉ hỏi lý do rồi đổi trạng thái, còn đơn của khách
+        thì không ai đụng tới.
+      */}
+      {cancellingScheduleId !== null && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
+          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-gray-900">
+                  Hủy chuyến #{cancellingScheduleId}
+                </h4>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Lỗi không thuộc về khách, nên mỗi đơn đã thanh toán phải được hoàn đủ 100% hoặc
+                  chuyển miễn phí sang chuyến khác. Không áp bảng phí hủy.
+                </p>
+              </div>
             </div>
-            <h4 className="text-base font-bold text-gray-900 mb-1">Xác nhận hủy chuyến đi</h4>
-            <p className="text-xs text-gray-500 mb-4">
-              Vui lòng cung cấp lý do chi tiết hủy chuyến đi này. Chỗ ngồi sẽ được trả lại và không thể phục hồi.
-            </p>
-            <textarea
-              value={cancelReasonInput}
-              onChange={(e) => setCancelReasonInput(e.target.value)}
-              placeholder="Nhập lý do hủy (ví dụ: Không đủ khách tối thiểu, lý do thời tiết...)"
-              rows={3}
-              className="w-full rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-800 placeholder:text-gray-400 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 mb-4 resize-none"
-            />
-            <div className="flex w-full gap-2">
+
+            {cancelPreviewLoading && <p className="text-sm text-gray-500">Đang tính tác động...</p>}
+
+            {cancelPreview && !cancelPreview.impact.can_cancel && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                {cancelPreview.impact.blocked_reason}
+              </div>
+            )}
+
+            {cancelPreview && cancelPreview.impact.can_cancel && (
+              <>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-1">
+                  <p>
+                    <strong>{cancelPreview.impact.total_paid_bookings} đơn đã thanh toán</strong>{" "}
+                    ({cancelPreview.impact.total_paid_guests} khách), tổng đã thu{" "}
+                    <strong>{formatPrice(cancelPreview.impact.total_refund_if_all_refunded)}</strong>.
+                  </p>
+                  {cancelPreview.impact.unpaid_bookings > 0 && (
+                    <p className="text-xs">
+                      Ngoài ra {cancelPreview.impact.unpaid_bookings} đơn chưa thanh toán (
+                      {cancelPreview.impact.unpaid_guests} khách) sẽ được hủy tự động, không cần
+                      chọn phương án.
+                    </p>
+                  )}
+                </div>
+
+                {cancelPreview.impact.paid_bookings.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    Chuyến này chưa có đơn nào đã thanh toán.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                      Phương án cho từng đơn
+                    </p>
+
+                    {cancelPreview.impact.paid_bookings.map((don) => {
+                      const plan = cancelPlans[don.booking_id];
+
+                      return (
+                        <div
+                          key={don.booking_id}
+                          className="rounded-lg border border-gray-200 p-3 space-y-2"
+                        >
+                          <div className="flex items-baseline justify-between gap-2 text-xs">
+                            <span className="font-bold text-gray-900">
+                              BK-{don.booking_id} · {don.customer_name}
+                            </span>
+                            <span className="text-gray-500">
+                              {don.guests} khách · đã thu {formatPrice(don.paid_amount)}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-3 text-xs">
+                            <label className="flex cursor-pointer items-center gap-1.5">
+                              <input
+                                type="radio"
+                                checked={plan?.action === "refund"}
+                                onChange={() =>
+                                  setCancelPlans((truoc) => ({
+                                    ...truoc,
+                                    [don.booking_id]: {
+                                      booking_id: don.booking_id,
+                                      action: "refund",
+                                    },
+                                  }))
+                                }
+                                className="h-3.5 w-3.5 border-gray-300 text-primary-600"
+                              />
+                              Hoàn đủ {formatPrice(don.paid_amount)}
+                            </label>
+
+                            <label className="flex cursor-pointer items-center gap-1.5">
+                              <input
+                                type="radio"
+                                disabled={cancelPreview.impact.transfer_options.length === 0}
+                                checked={plan?.action === "transfer"}
+                                onChange={() =>
+                                  setCancelPlans((truoc) => ({
+                                    ...truoc,
+                                    [don.booking_id]: {
+                                      booking_id: don.booking_id,
+                                      action: "transfer",
+                                      to_schedule_id:
+                                        cancelPreview.impact.transfer_options[0]?.schedule_id ?? null,
+                                    },
+                                  }))
+                                }
+                                className="h-3.5 w-3.5 border-gray-300 text-primary-600 disabled:cursor-not-allowed"
+                              />
+                              Chuyển sang chuyến khác
+                            </label>
+
+                            {plan?.action === "transfer" && (
+                              <select
+                                value={String(plan.to_schedule_id ?? "")}
+                                onChange={(e) =>
+                                  setCancelPlans((truoc) => ({
+                                    ...truoc,
+                                    [don.booking_id]: {
+                                      ...truoc[don.booking_id],
+                                      to_schedule_id: Number(e.target.value),
+                                    },
+                                  }))
+                                }
+                                className="rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-primary-400"
+                              >
+                                {cancelPreview.impact.transfer_options.map((item) => (
+                                  <option key={item.schedule_id} value={item.schedule_id}>
+                                    #{item.schedule_id} · {formatDateTime(item.start_date)} · còn{" "}
+                                    {item.remaining_seats} chỗ
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+
+                          {cancelPreview.impact.transfer_options.length === 0 && (
+                            <p className="text-[11px] text-gray-400">
+                              Không có chuyến nào nhận được khách, nên chỉ còn cách hoàn tiền.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Lý do hủy <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={cancelReasonInput}
+                    onChange={(e) => setCancelReasonInput(e.target.value)}
+                    placeholder="VD: Nhà xe báo hỏng xe, không thu xếp được xe thay thế..."
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Khách sẽ đọc được nội dung này. Ít nhất 10 ký tự.
+                  </p>
+                </div>
+              </>
+            )}
+
+            {cancelError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                {cancelError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setIsCancelModalOpen(false)}
-                className="flex-1 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl transition-colors"
+                onClick={closeCancelDialog}
+                disabled={cancelSaving}
+                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
               >
-                Hủy bỏ
+                Không hủy nữa
               </button>
               <button
                 type="button"
                 onClick={confirmCancelSchedule}
-                disabled={!cancelReasonInput.trim()}
-                className="flex-1 py-2 text-xs font-semibold text-white rounded-xl shadow-md bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={
+                  cancelSaving ||
+                  cancelPreviewLoading ||
+                  !cancelPreview?.impact.can_cancel ||
+                  cancelReasonInput.trim().length < 10
+                }
+                className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40"
               >
-                Hủy chuyến
+                {cancelSaving ? "Đang hủy..." : "Xác nhận hủy chuyến"}
               </button>
             </div>
           </div>

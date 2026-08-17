@@ -162,8 +162,19 @@ class AdminScheduleManagementTest extends TestCase
         ]);
     }
 
-    /** TC06: Chuyển open → cancelled thiếu reason → 422. */
-    public function test_cancel_without_reason_returns_422(): void
+    /**
+     * TC06, TC07: endpoint đổi trạng thái chung KHÔNG hủy chuyến được nữa.
+     *
+     * Trước đây gửi status=cancelled kèm lý do là xong: chuyến đổi trạng thái, còn đơn của khách
+     * không ai đụng tới - không hoàn tiền, không báo ai, mà màn hình lại trông như đã xử lý xong.
+     *
+     * Hủy chuyến chạm tới tiền của từng khách nên phải qua màn riêng có bước gán phương án. Giữ
+     * hai đường hủy, một đường xử lý đơn và một đường không, là khuôn của phần lớn lỗi ở dự án
+     * này, nên đường cũ đóng hẳn. Bài này giữ cho nó đóng.
+     *
+     * Luồng hủy đúng nằm ở ScheduleCancellationTest.
+     */
+    public function test_endpoint_doi_trang_thai_khong_huy_chuyen_duoc_nua(): void
     {
         $schedule = TourSchedule::factory()->create([
             'tour_id' => $this->tour->id,
@@ -171,33 +182,16 @@ class AdminScheduleManagementTest extends TestCase
             'start_date' => now()->addDays(10),
         ]);
 
+        // Có lý do đầy đủ vẫn bị từ chối: vấn đề không nằm ở thiếu lý do.
         $this->patchJson("/api/admin/schedules/{$schedule->id}/status", [
             'status' => 'cancelled',
-        ], $this->authHeader())->assertStatus(422);
-    }
-
-    /** TC07: Chuyển open → cancelled có reason → thành công. */
-    public function test_cancel_with_reason_succeeds(): void
-    {
-        $schedule = TourSchedule::factory()->create([
-            'tour_id' => $this->tour->id,
-            'status'  => ScheduleStatus::Open->value,
-            'start_date' => now()->addDays(10),
-        ]);
-
-        $response = $this->patchJson("/api/admin/schedules/{$schedule->id}/status", [
-            'status' => 'cancelled',
             'reason' => 'Không đủ khách tối thiểu sau hạn chốt.',
-        ], $this->authHeader());
+        ], $this->authHeader())->assertStatus(422);
 
-        $response->assertOk()
-            ->assertJsonPath('data.status', 'cancelled');
+        $schedule->refresh();
 
-        $this->assertNotNull(TourSchedule::find($schedule->id)->cancelled_at);
-        $this->assertEquals(
-            'Không đủ khách tối thiểu sau hạn chốt.',
-            TourSchedule::find($schedule->id)->cancelled_reason
-        );
+        $this->assertSame(ScheduleStatus::Open, $schedule->status);
+        $this->assertNull($schedule->cancelled_at);
     }
 
     /** TC08: Đường chuyển không hợp lệ (confirmed → open) → 422. */

@@ -627,24 +627,34 @@ class AdminTourController extends Controller
 
     public function updateScheduleStatus(Request $request, int $id): JsonResponse
     {
+        /*
+         * Không còn hủy chuyến ở đây.
+         *
+         * Hủy chuyến không phải một lần đổi trạng thái: nó chạm tới tiền của từng khách và bắt
+         * buộc có bước gán phương án cho từng đơn đã thanh toán. Trước đây endpoint này nhận
+         * 'cancelled', ghi trạng thái rồi kết thúc - đơn của khách không ai đụng tới, mà màn hình
+         * lại trông như đã xử lý xong.
+         *
+         * Giữ hai đường hủy, một đường xử lý đơn và một đường không, chính là khuôn của phần lớn
+         * lỗi đã gặp ở dự án này. Nên đường này đóng hẳn.
+         *
+         * Xem AdminScheduleCancellationController và docs/nghiep-vu/04-luong-dieu-hanh.md mục 3.
+         */
         $allowedForAdmin = [
             ScheduleStatus::Open->value,
             ScheduleStatus::Closed->value,
             ScheduleStatus::Confirmed->value,
-            ScheduleStatus::Cancelled->value,
         ];
 
         $validated = $request->validate([
             'status' => ['required', 'string', 'in:' . implode(',', $allowedForAdmin)],
             'reason' => ['nullable', 'string', 'max:1000'],
+        ], [
+            'status.in' => 'Hủy chuyến phải đi qua màn hủy chuyến riêng, vì mỗi đơn đã thanh toán '
+                . 'cần một phương án cụ thể.',
         ]);
 
         $toStatus = ScheduleStatus::from($validated['status']);
-
-        // Lý do bắt buộc khi hủy chuyến.
-        if ($toStatus === ScheduleStatus::Cancelled && empty($validated['reason'])) {
-            return $this->error('Lý do hủy chuyến là bắt buộc.', 422);
-        }
 
         $schedule = TourSchedule::find($id);
 
