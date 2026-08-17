@@ -210,6 +210,54 @@ export interface MergeCandidatesResponse {
   candidates: MergeCandidate[];
 }
 
+/** Một dòng trong nhật ký hệ thống, gộp từ nhật ký đơn và nhật ký chuyến. */
+export interface AuditLogEntry {
+  /** Khóa dựng sẵn để React phân biệt hai nguồn, ví dụ "booking-12" và "schedule-12". */
+  id: string;
+  source: "booking" | "schedule";
+  subject_id: number;
+  /** Nhãn đúng như hiện trên các màn hình khác: "BK-19" hoặc "Chuyến #8". */
+  subject_label: string;
+  subject_note: string | null;
+  action: string;
+  action_label: string;
+  touches_money: boolean;
+  actor_name: string | null;
+  actor_role: string | null;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  reason: string | null;
+  ip_address: string | null;
+  created_at: string | null;
+}
+
+export interface AuditLogFilters {
+  scope?: "all" | "booking" | "schedule";
+  action?: string;
+  actor_id?: number;
+  booking_id?: number;
+  schedule_id?: number;
+  from?: string;
+  to?: string;
+  money_only?: boolean;
+  page?: number;
+  per_page?: number;
+}
+
+export interface AuditLogResponse {
+  data: AuditLogEntry[];
+  meta: {
+    current_page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+  };
+  filters: {
+    booking_actions: { value: string; label: string; touches_money: boolean }[];
+    schedule_actions: { value: string; label: string; touches_money: boolean }[];
+  };
+}
+
 /**
  * Tác động của việc dời hạn chốt danh sách, máy chủ tính sẵn.
  *
@@ -507,6 +555,24 @@ const adminService = {
   },
 
   /** E04 - Dòng thời gian thay đổi của một đơn: ai làm gì, lúc nào, vì sao. */
+  /**
+   * Nhật ký hệ thống: mọi can thiệp vào đơn và vào chuyến trên một dòng thời gian.
+   *
+   * Khác getBookingHistory ở chiều tra cứu. Hàm kia trả lời "đơn này đã trải qua những gì" và
+   * đòi biết trước cần xem đơn nào; hàm này trả lời "hôm qua ai đụng vào tiền".
+   */
+  getAuditLogs: async (filters: AuditLogFilters = {}): Promise<AuditLogResponse | null> => {
+    const params: Record<string, string | number> = {};
+
+    Object.entries(filters).forEach(([khoa, giaTri]) => {
+      if (giaTri === undefined || giaTri === "" || giaTri === false) return;
+      params[khoa] = typeof giaTri === "boolean" ? 1 : giaTri;
+    });
+
+    const response = await api.get("/admin/audit-logs", { params });
+    return extractObject<AuditLogResponse>(response);
+  },
+
   getBookingHistory: async (id: number): Promise<BookingAuditEntry[]> => {
     const response = await api.get(`/admin/bookings/${id}/history`);
     return response.data?.data ?? [];

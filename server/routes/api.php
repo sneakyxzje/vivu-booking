@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminChangeRequestController;
 use App\Http\Controllers\Api\Admin\AdminPassengerController;
+use App\Http\Controllers\Api\Admin\AdminAuditLogController;
 use App\Http\Controllers\Api\Admin\AdminScheduleDeadlineController;
 use App\Http\Controllers\Api\Admin\AdminScheduleMergeController;
 use App\Http\Controllers\Api\Admin\AdminTransferController;
@@ -208,6 +209,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // E04 - Dòng thời gian thay đổi của một đơn.
         Route::get('/bookings/{id}/history', [AdminBookingController::class, 'history']);
+
+        // Nhật ký hệ thống: gộp nhật ký đơn và nhật ký chuyến thành một dòng thời gian.
+        Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
 
         // I05 - Chuyển đơn sang chuyến khác.
         Route::get('/bookings/{id}/transfer-options', [AdminTransferController::class, 'options']);

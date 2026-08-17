@@ -142,6 +142,14 @@ ngày 18 vẫn mất chỗ", thì lúc khách hủy hạn chốt đang là ngày
 Đây **không phải luật, không chặn ai cả**. Nếu hội đồng hỏi "ai kiểm soát quản trị viên" thì câu
 trả lời là nhật ký, không phải trói tay họ.
 
+Đọc ở màn hình **Nhật ký hệ thống** (`/admin/audit-logs`), nơi gộp bảng này với
+`booking_audit_logs` thành một dòng thời gian. Gộp chứ không tách tab, vì một lần hủy đơn và một
+lần dời hạn chốt của chính chuyến đó là hai mảnh của cùng một câu chuyện.
+
+Nhật ký riêng của từng đơn vẫn giữ nguyên trong hộp chi tiết đơn — ở đó câu hỏi là *"đơn này đã
+trải qua những gì"*. Màn hình gộp phục vụ chiều ngược lại: *"hôm qua ai đụng vào tiền"*, có bộ lọc
+riêng dựa trên `BookingAuditAction::touchesMoney()`.
+
 ## 10. Hai đường ghi, một chỗ luật
 
 Hạn chốt ghi được từ hai nơi:
@@ -204,5 +212,6 @@ chứ không phải lúc thanh toán, nên kiểm lại ở bước thanh toán 
 | Bảng và model | `2026_08_17_000001_create_schedule_audit_logs_table.php`, `app/Models/ScheduleAuditLog.php` |
 | Endpoint xem trước và lưu | `app/Http/Controllers/Api/Admin/AdminScheduleDeadlineController.php` |
 | Đường ghi thứ hai | `AdminTourController::update()` |
-| Hộp thoại | `client/src/pages/admin/ScheduleManagement.tsx` |
-| Kiểm thử | `tests/Feature/ScheduleDeadlineTest.php` (9 bài), `tests/Feature/BookingHoldExpiryTest.php` (2 bài mới) |
+| Hộp thoại sửa hạn chốt | `client/src/pages/admin/ScheduleManagement.tsx` |
+| Đọc nhật ký gộp | `AdminAuditLogController.php`, `client/src/pages/admin/AuditLogManagement.tsx` |
+| Kiểm thử | `tests/Feature/ScheduleDeadlineTest.php` (9 bài), `tests/Feature/AdminAuditLogTest.php` (6 bài), `tests/Feature/BookingHoldExpiryTest.php` (2 bài mới) |

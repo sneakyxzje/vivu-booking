@@ -25,6 +25,7 @@ import CategoryManagement from "@/pages/admin/CategoryManagement";
 import ScheduleAttendance from "@/pages/admin/ScheduleAttendance";
 import AttendanceReport from "@/pages/admin/AttendanceReport";
 import ScheduleManagement from "@/pages/admin/ScheduleManagement";
+import AuditLogManagement from "@/pages/admin/AuditLogManagement";
 import HeldSeatsManagement from "@/pages/admin/HeldSeatsManagement";
 import ChangeRequestManagement from "@/pages/admin/ChangeRequestManagement";
 import CancellationPolicyManagement from "@/pages/admin/CancellationPolicyManagement";
@@ -187,6 +188,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/schedules",
             element: <ScheduleManagement />,
+          },
+          {
+            path: "/admin/audit-logs",
+            element: <AuditLogManagement />,
           },
           {
             path: "/admin/change-requests",
