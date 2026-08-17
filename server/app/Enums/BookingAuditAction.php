@@ -35,6 +35,12 @@ enum BookingAuditAction: string
     /** Chuyển đơn sang chuyến khác, cùng tour hoặc khác tour. */
     case Transferred = 'transferred';
 
+    /** Ghi một khoản thu hoặc hoàn vào sổ giao dịch của đơn (đơn đoàn trả nhiều đợt). */
+    case PaymentRecorded = 'payment_recorded';
+
+    /** Đoàn giảm số khách - chỉ đơn đoàn có, khách lẻ muốn đổi số người thì hủy đặt lại. */
+    case GuestsReduced = 'guests_reduced';
+
     public function label(): string
     {
         return match ($this) {
@@ -51,6 +57,8 @@ enum BookingAuditAction: string
             self::PassengersUpdated => 'Cập nhật danh sách hành khách',
             self::ContactUpdated => 'Sửa thông tin liên hệ',
             self::Transferred => 'Chuyển sang chuyến khác',
+            self::PaymentRecorded => 'Ghi sổ giao dịch',
+            self::GuestsReduced => 'Đoàn giảm số khách',
         };
     }
 
@@ -69,6 +77,9 @@ enum BookingAuditAction: string
             // Chuyển chuyến làm đổi tổng tiền của đơn: giá tour đích khác, và từ lần thứ hai
             // còn cộng thêm phí đổi lịch.
             self::Transferred,
+            self::PaymentRecorded,
+            // Giảm số khách tính lại tổng tiền của đơn đoàn.
+            self::GuestsReduced,
         ], true);
     }
 

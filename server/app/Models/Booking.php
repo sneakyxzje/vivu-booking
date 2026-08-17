@@ -38,6 +38,7 @@ use Illuminate\Database\Eloquent\Model;
     'cancellation_plan',
     'cancellation_policy_id',
     'vnpay_transaction_no',
+    'group_booking_request_id',
     'paid_at',
     'confirmed_at',
     'reopen_reason',
@@ -94,6 +95,29 @@ class Booking extends Model
     public function paymentLogs()
     {
         return $this->hasMany(PaymentLog::class);
+    }
+
+    /**
+     * Sổ giao dịch: từng khoản thu và hoàn, chỉ thêm dòng không ghi đè.
+     *
+     * Hiện chỉ đơn đoàn có dòng ở đây - đơn lẻ vẫn trả một lần qua cổng và đọc `paid_at`.
+     * `CancellationPolicyService::paidAmount()` tự chọn nguồn theo việc sổ có dòng hay không.
+     */
+    public function payments()
+    {
+        return $this->hasMany(BookingPayment::class);
+    }
+
+    /** Yêu cầu đoàn đã sinh ra đơn này, null với đơn lẻ. */
+    public function groupRequest()
+    {
+        return $this->belongsTo(GroupBookingRequest::class, 'group_booking_request_id');
+    }
+
+    /** Đơn này là đơn đoàn (sinh từ luồng yêu cầu - báo giá - chốt). */
+    public function isGroup(): bool
+    {
+        return $this->group_booking_request_id !== null;
     }
 
     public function passengers()
