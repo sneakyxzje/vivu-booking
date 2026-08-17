@@ -19,7 +19,7 @@ import type {
   ScheduleManifestResponse,
   MergeCandidatesResponse,
 } from "@/services/adminService";
-import type { Tour, Guide, ExtendedSchedule } from "@/types";
+import type { Tour, Guide, ExtendedSchedule, GuideDecline } from "@/types";
 import { Toast } from "@/components/admin/CustomAlert";
 import { formatDateTime, formatPrice, getEndDate, toDateTimeLocalValue } from "@/utils/format";
 import { statusLabel, statusClasses } from "@/utils/schedule";
@@ -38,6 +38,8 @@ export default function ScheduleManagement() {
   // Phân công nhiều hướng dẫn viên cho một chuyến, sửa trong hộp thoại riêng.
   const [guideDialogScheduleId, setGuideDialogScheduleId] = useState<number | null>(null);
   const [pendingGuideIds, setPendingGuideIds] = useState<number[]>([]);
+  // Ai đã từ chối chuyến đang mở hộp thoại, kèm lý do.
+  const [declines, setDeclines] = useState<GuideDecline[]>([]);
 
   // Bàn giao giữa chừng. Tách khỏi phân công vì bắt buộc kèm lý do và tình trạng đoàn.
   const [handoverScheduleId, setHandoverScheduleId] = useState<number | null>(null);
@@ -229,9 +231,22 @@ export default function ScheduleManagement() {
     }
   };
 
-  const openGuideDialog = (schedule: ExtendedSchedule) => {
+  const openGuideDialog = async (schedule: ExtendedSchedule) => {
     setGuideDialogScheduleId(schedule.id);
     setPendingGuideIds((schedule.guides ?? []).map((guide) => guide.id));
+    setDeclines([]);
+
+    /*
+     * Đọc luôn danh sách đã từ chối.
+     *
+     * Từ chối gỡ người ra khỏi chuyến, nên nhìn bảng chỉ thấy thiếu người chứ không thấy đã có
+     * ai trả lời. Đúng lúc đang chọn người thay là lúc cần biết ai vừa nói không.
+     */
+    try {
+      setDeclines(await adminService.getScheduleGuideDeclines(schedule.id));
+    } catch (err) {
+      console.error("Lỗi tải danh sách từ chối:", err);
+    }
   };
 
   /**
@@ -246,14 +261,30 @@ export default function ScheduleManagement() {
     try {
       await adminService.assignGuidesToSchedule(scheduleId, guideIds);
 
-      const daChon = guides.filter((item) => guideIds.includes(item.id));
-
       setTours((currentTours) =>
         currentTours.map((t) => ({
           ...t,
-          schedules: t.schedules?.map((item) =>
-            item.id === scheduleId ? { ...item, guides: daChon } : item
-          ),
+          schedules: t.schedules?.map((item) => {
+            if (item.id !== scheduleId) return item;
+
+            /*
+             * Chép lại mốc đã xác nhận của những người vẫn còn trong danh sách.
+             *
+             * Máy chủ giữ accepted_at qua mỗi lần sửa danh sách, nên nếu ở đây dựng lại thẻ từ
+             * danh sách hướng dẫn viên chung - vốn không có dữ liệu bảng nối - thì thêm một
+             * người là cả đoàn nhìn như chưa ai xác nhận, cho tới lần tải lại trang.
+             */
+            const truoc = new Map(
+              (item.guides ?? []).map((g) => [g.id, g.pivot?.accepted_at ?? null]),
+            );
+
+            return {
+              ...item,
+              guides: guides
+                .filter((g) => guideIds.includes(g.id))
+                .map((g) => ({ ...g, pivot: { accepted_at: truoc.get(g.id) ?? null } })),
+            };
+          }),
         }))
       );
 
@@ -712,10 +743,29 @@ export default function ScheduleManagement() {
                             <span className="text-xs text-gray-400">Chưa phân công</span>
                           ) : (
                             (schedule.guides ?? []).map((guide) => (
+                              /*
+                                Chưa xác nhận thì thẻ nhạt đi và có dấu chấm.
+
+                                Vẫn là đã phân công — người ta có tên trong đoàn — nhưng chưa ai
+                                trả lời là chưa chắc họ biết. Phân biệt được thì mới còn nhắc,
+                                chứ hai thứ nhìn giống nhau thì đến ngày đi mới biết.
+                              */
                               <span
                                 key={guide.id}
-                                className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-700"
+                                title={
+                                  guide.pivot?.accepted_at
+                                    ? `Đã xác nhận ${formatDateTime(guide.pivot.accepted_at)}`
+                                    : "Chưa xác nhận nhận chuyến"
+                                }
+                                className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold ${
+                                  guide.pivot?.accepted_at
+                                    ? "bg-gray-100 text-gray-700"
+                                    : "border border-dashed border-amber-300 bg-amber-50 text-amber-800"
+                                }`}
                               >
+                                {!guide.pivot?.accepted_at && (
+                                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                )}
                                 {guide.name}
                               </span>
                             ))
@@ -1121,6 +1171,27 @@ export default function ScheduleManagement() {
                 </label>
               ))}
             </div>
+
+            {/*
+              Ai đã từ chối chuyến này.
+
+              Không chặn gán lại — có khi người ta đổi lịch được, hoặc bạn đã gọi điện xong. Chỉ
+              là bạn nên biết trước khi tích lại đúng cái tên vừa nói không.
+            */}
+            {declines.length > 0 && (
+              <div className="rounded-lg border border-rose-100 bg-rose-50/60 p-3 space-y-2">
+                <p className="text-xs font-bold text-rose-800">
+                  Đã từ chối chuyến này ({declines.length})
+                </p>
+                {declines.map((tc) => (
+                  <div key={tc.id} className="text-xs text-rose-900">
+                    <span className="font-semibold">{tc.guide_name ?? "Không rõ"}</span>
+                    <span className="text-rose-700/70"> · {formatDateTime(tc.declined_at)}</span>
+                    <p className="text-rose-800/90">{tc.reason}</p>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <p className="text-[11px] text-gray-400">
               Người đang bận một chuyến khác trùng ngày sẽ bị máy chủ từ chối, và khi đó cả lần
