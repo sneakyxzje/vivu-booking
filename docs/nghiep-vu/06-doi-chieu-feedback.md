@@ -10,7 +10,7 @@ Ký hiệu hiện trạng:
 - `Đã có`: có mã chạy thật và có kiểm thử tự động giữ.
 
 **Cập nhật ngày 17/08/2026.** Bảng dưới đây phản ánh mã nguồn tại thời điểm đó, không phải kế
-hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu được ngay.
+hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu được ngay. Bộ kiểm thử: 471 bài, xanh.
 
 ## 1. Bảng đối chiếu tổng hợp
 
@@ -32,10 +32,42 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 | 14 | Booking theo đoàn | Chưa có | [05 §1](05-doan-hop-dong-ho-so.md) |
 | 15 | Xóa tour khi đã có người thanh toán | **Đã có** | `ScheduleCancellationService` — ba bước bắt buộc, mỗi đơn đã trả tiền phải có phương án, hoàn 100% hoặc chuyển miễn phí |
 | 16 | Ghép tour | **Đã có** | `ScheduleMergeService` — cùng tour, lệch không quá 2 ngày, cả hai chuyến phải còn trước hạn chốt |
-| 17 | Hướng dẫn viên phù hợp cho từng tour | **Một phần** | Chỉ trả lời được "ai đang rảnh" (`ScheduleGuideService`). **Chưa có hồ sơ năng lực**: ngôn ngữ, tuyến quen, chuyên môn |
+| 17 | Hướng dẫn viên phù hợp cho từng tour | **Đã có** | `GuideSuitabilityService` chấm và xếp hạng; `guide_profiles` + `guide_categories` giữ thẻ hành nghề, ngôn ngữ, tuyến quen, chuyên môn, sức dẫn. Chỉ hai thứ chặn: trùng lịch và thẻ hết hạn giữa chuyến — xem ghi chú dưới bảng |
 | 18 | Hợp đồng, danh sách khách hàng | **Một phần** | Danh sách đoàn chia theo nhóm đã có. **Hợp đồng chưa có gì** |
 
-**Tổng kết: 14 điểm đã có mã chạy, 3 điểm còn một mảng thiếu (12, 17, 18), 1 điểm chưa làm (14).**
+**Tổng kết: 15 điểm đã có mã chạy, 2 điểm còn một mảng thiếu (12, 18), 1 điểm chưa làm (14).**
+
+### Ranh giới của điểm 17: cái gì chặn, cái gì chỉ gợi ý
+
+Đây là chỗ dễ bị hỏi nhất, và câu trả lời phải nhất quán với nguyên tắc đã áp ở mọi nơi khác:
+**hệ thống hỗ trợ quyết định, không quyết thay.**
+
+Thiết kế ban đầu ở mục 3 dưới đây liệt kê bốn tiêu chí lọc bắt buộc, trong đó có *"đủ sức dẫn quy
+mô đoàn"*. Khi cài đặt đã **cố ý bỏ ba trong bốn**, chỉ giữ lại hai luật:
+
+| Luật | Vì sao chặn | Nằm ở đâu |
+| --- | --- | --- |
+| Trùng lịch | Luật vật lý — một người không đứng ở hai đoàn cùng lúc | `ScheduleGuideService::lyDoChan` |
+| Thẻ hành nghề hết hạn giữa chuyến | Luật pháp lý — Luật Du lịch 2017 yêu cầu hướng dẫn viên hành nghề phải có thẻ còn hiệu lực | cùng chỗ |
+
+Chuyên môn, tuyến quen, sức dẫn, tải công việc **chỉ xếp thứ tự và nói ra lý do**. Lý do: tỷ lệ
+người dẫn trên số khách khác nhau theo loại tour và cách từng công ty vận hành — chặn theo một con
+số cứng là áp giá trị do lập trình viên nghĩ ra lên mọi tour. Điều hành biết những thứ hệ thống
+không biết: người này vừa nhận lời đi tuyến đó, người kia đang muốn học tuyến mới, và họ có thể xếp
+thêm người thứ hai mà hệ thống chưa thấy.
+
+Ba điểm nữa nên nói thẳng nếu bị hỏi sâu:
+
+- **Chưa khai hồ sơ thì không bị chặn.** Không biết không phải là biết rằng sai. Chặn theo dữ liệu
+  trống nghĩa là hôm bật tính năng lên thì cả đội ngũ biến mất khỏi danh sách chọn.
+- **Ngôn ngữ hiện ra nhưng không chấm điểm.** Tour không có ô khai đoàn cần tiếng gì nên không có
+  vế cầu để so. Nói thẳng tốt hơn là bịa ra một tiêu chí trông có vẻ thông minh.
+- **Người bị chặn vẫn hiện trong danh sách**, kèm đúng câu máy chủ sẽ từ chối. Lọc bỏ thì điều hành
+  đi tìm mãi một cái tên đáng lẽ phải có mà không hiểu vì sao mất.
+
+Thiết kế ở mục 3 còn nêu *"khoảng nghỉ tối thiểu mười hai giờ giữa hai chuyến"*. Không cài riêng,
+vì luật chống trùng lịch hiện có so theo **ngày** chứ không theo giờ — đoàn về lúc 22h thì hôm đó
+người dẫn đã coi như bận cả ngày. Điều kiện ấy đã chặt hơn mười hai giờ, thêm nữa là thừa.
 
 ### Vì sao không cho sửa số khách (điểm 2)
 
@@ -60,9 +92,8 @@ cùng một mốc cho cả hai là khóa ngược.
 Nguyên nhân gốc ở mục 2 đã được xử lý: chuyến khởi hành nay có vòng đời đầy đủ, và mười một điểm
 đóng được đều nhờ nền đó.
 
-Điểm chưa làm (14 booking theo đoàn) và hai mảng còn thiếu lớn nhất (12 đặt cọc, 18 hợp đồng) đều
-thuộc Mốc 3, và đều là những mảng đủ lớn để tách thành đồ án riêng. Đây là lựa chọn có cân nhắc,
-lý do ở [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md).
+Điểm chưa làm (14 booking theo đoàn) và hai mảng còn thiếu (12 đặt cọc, 18 hợp đồng) đều thuộc
+Mốc 3. Lý do lùi và thứ tự phụ thuộc ghi ở [mục 6](#6-ba-việc-còn-lại-và-thứ-tự-bắt-buộc) dưới đây.
 
 ### Ba chỗ nên nói thẳng nếu bị hỏi sâu
 
@@ -71,9 +102,6 @@ lý do ở [00 - Phạm vi và giới hạn](00-pham-vi-va-gioi-han.md).
 bảng "ai đang phụ trách" và một bảng "lịch sử bàn giao". Lý do đầy đủ ghi ngay trong migration
 `2026_08_17_000004`. Hệ quả cần biết: câu "lúc 14h ngày thứ hai ai đang dẫn" phải lần theo lịch
 sử bàn giao chứ không tra được bằng một truy vấn.
-
-**Điểm 17.** Hệ thống trả lời được *"ai đang rảnh"*, không trả lời được *"ai phù hợp"*. Không có
-dữ liệu ngôn ngữ, tuyến chuyên, chứng chỉ. Chỉ có đúng một luật là không trùng lịch.
 
 **Điểm 4.** Quy tắc "điểm dừng yêu cầu ảnh thì phải có ảnh mới chốt được" đã viết trong
 `AttendanceService::assertCheckpointCompletable` nhưng chưa có thao tác nào gọi tới, vì chưa có
@@ -119,9 +147,10 @@ Phần này để dùng trực tiếp khi bảo vệ. Mỗi câu trả lời gó
 không lan man.
 
 **Đọc kèm bảng ở mục 1.** Các câu dưới đây viết từ lúc còn là thiết kế, nên đọc như mô tả nghiệp
-vụ mong muốn. Với 11 điểm đã đánh dấu *Đã có*, mô tả này khớp với mã đang chạy. Với 4 điểm *Một
-phần*, phần thiếu đã ghi rõ ở bảng — đừng trình bày như đã có. Ba điểm chưa làm thì nói thẳng là
-thiết kế, chưa cài đặt.
+vụ mong muốn — **không phải chỗ nào cũng khớp với mã đang chạy**. Với 15 điểm đánh dấu *Đã có*,
+đối chiếu bảng trước khi nói: điểm 11 và điểm 17 đều cài khác thiết kế ban đầu, và cả hai lần lệch
+đều có lý do ghi ngay dưới bảng. Với 2 điểm *Một phần*, phần thiếu đã ghi rõ — đừng trình bày như
+đã có. Điểm 14 thì nói thẳng là mới có thiết kế.
 
 **1. Hỗ trợ chuyển tour.**
 Hệ thống phân biệt ba tình huống: đổi ngày trong cùng tour, đổi sang tour khác, và chuyển do
@@ -263,17 +292,17 @@ sâu hơn mức thường thấy ở đồ án.
 | Giữ chỗ mười phút với bốn lớp nhả chỗ: lười, tác vụ nền, hạn cổng thanh toán, khôi phục khi tiền về muộn | Đã triển khai |
 | Kiểm tra chữ ký HMAC SHA512 của cổng thanh toán trước khi tin dữ liệu trả về | Đã triển khai |
 | Nhật ký giao dịch thanh toán phục vụ đối soát | Đã triển khai |
-| Xử lý múi giờ Việt Nam trong khi ứng dụng chạy UTC | Đã triển khai |
+| Toàn hệ thống chạy giờ Việt Nam (`Asia/Ho_Chi_Minh`), cột thời gian nghiệp vụ lưu giờ treo tường | Đã triển khai |
 | Tra cứu đơn cho khách vãng lai bằng mã ngẫu nhiên thay vì số thứ tự | Đã triển khai |
-| **401 kiểm thử tự động**, chạy trong quy trình tích hợp liên tục | Đã triển khai |
+| **471 kiểm thử tự động**, chạy trong quy trình tích hợp liên tục | Đã triển khai |
 | Khóa hai chuyến theo id tăng dần khi thao tác chạm hai chuyến, để tránh khóa chết | Chuyển chuyến và ghép chuyến |
 | Nhật ký thay đổi cho cả đơn hàng lẫn chuyến, gộp thành một dòng thời gian tra cứu được | `/admin/audit-logs`, lọc riêng được các lần chạm tiền |
 | Xem trước hậu quả trước khi bấm ở mọi thao tác nặng | Hủy đơn, hủy chuyến, ghép chuyến, chuyển chuyến, dời hạn chốt |
 
 ## 5. Cách trình bày
 
-Thừa nhận thẳng ba điểm chưa làm và bốn phần còn thiếu, chỉ ra nguyên nhân chung là chưa mô hình
-hóa vòng đời chuyến khởi hành, nói rõ nền đó nay đã dựng xong và mười một điểm đóng được là nhờ nó.
+Thừa nhận thẳng một điểm chưa làm và hai phần còn thiếu, chỉ ra nguyên nhân chung là chưa mô hình
+hóa vòng đời chuyến khởi hành, nói rõ nền đó nay đã dựng xong và mười lăm điểm đóng được là nhờ nó.
 
 Hai điều nên nói mà thường bị bỏ qua:
 
@@ -286,3 +315,25 @@ khác biệt giữa hiểu bài toán và ghép tính năng.
 thiếu ở đường kia. Mỗi lần phát hiện đều khóa lại bằng một bài kiểm thử giữ cả hai đường.
 
 Hội đồng đánh giá cao việc hiểu vì sao thiếu hơn là việc liệt kê đủ tính năng.
+
+## 6. Ba việc còn lại và thứ tự bắt buộc
+
+Ghi ở đây thay vì trỏ sang tài liệu 00, vì tài liệu 00 xếp cả ba vào **trong phạm vi** (mục 2, dòng
+"Đoàn và hồ sơ") — trỏ sang một chỗ không giải thích thì đúng loại vênh hội đồng bắt được.
+
+| Điểm | Còn thiếu gì | Phụ thuộc |
+| --- | --- | --- |
+| 12 Đặt cọc | `CancellationPolicyService::paidAmount()` hiện là `paid_at ? total_amount : 0` — cả hệ thống giả định trả một lần. Cần sổ giao dịch từng khoản | Không phụ thuộc ai |
+| 14 Booking đoàn | Toàn bộ: báo giá trước khi chốt, bậc giá theo số lượng, nộp danh sách khách bằng Excel, thông tin xuất hóa đơn, hủy một phần số khách | **Phụ thuộc 12** |
+| 18 Hợp đồng | Sinh PDF từ mẫu, đánh số theo năm, lưu bản ký | Làm cùng 14 |
+
+**Thứ tự bắt buộc là 12 trước 14.** Đoàn thanh toán nhiều đợt; dựng luồng đoàn trên một cột
+`paid_at` kiểu bật/tắt rồi sau đó mới thêm đặt cọc nghĩa là đập ra làm lại phần vừa dựng.
+
+Ba mảng này đều đủ lớn để tách thành đồ án riêng. Lùi chúng là lựa chọn có cân nhắc để đi sâu phần
+điều hành đoàn, không phải bỏ quên.
+
+Hai đầu thừa nhỏ hơn, nên nói nếu bị hỏi kỹ:
+
+- `AttendanceService::assertCheckpointCompletable` (quy tắc 8) chưa có thao tác nào gọi tới.
+- `IncidentType::thuongDoHangChiu()` đã viết nhưng chưa nối vào luồng quyết định phương án.

@@ -21,7 +21,7 @@ Ba đối tượng sử dụng: khách hàng, hướng dẫn viên, và bộ ph�
 | Hủy và hoàn | Chính sách hủy theo mốc thời gian, phân quyền hủy, hoàn tiền có đối soát | 03 |
 | Điều hành | Vòng đời chuyến, chốt chuyến, ghép chuyến, hủy chuyến, phân công hướng dẫn viên | 04 |
 | Dẫn đoàn | Điểm danh theo điểm dừng, ảnh check-in, báo cáo sự cố | 04 |
-| Đoàn và hồ sơ | Booking đoàn, báo giá, hợp đồng, danh sách đoàn, danh sách phòng | 05 |
+| Đoàn và hồ sơ | Danh sách đoàn chia theo nhóm đã có. **Booking đoàn, báo giá, hợp đồng chưa cài đặt** — xem [06 mục 6](06-doi-chieu-feedback.md) | 05 |
 | Cung ứng | Nhà cung cấp, allotment, giá vốn, lãi lỗ từng chuyến | 09 |
 | Tài chính | Sổ giao dịch đơn hàng, tạm ứng và quyết toán đoàn, ghi nhận doanh thu | 10 |
 
@@ -174,7 +174,7 @@ nêu trên. Không đọc số điều trước hội đồng khi chưa tra lạ
 | Trụ nghiệp vụ | Mức độ | Ghi chú |
 | --- | --- | --- |
 | Bán hàng | Cao | Đã xử lý sâu phần tương tranh và thanh toán |
-| Điều hành đoàn | Trung bình cao | Thiết kế đầy đủ, phần lớn chưa triển khai |
+| Điều hành đoàn | Cao | Vòng đời chuyến, ghép, hủy, phân công theo năng lực, bàn giao, điểm danh, sự cố đều đã chạy |
 | Cung ứng | Trung bình | Có mô hình, chưa triển khai |
 | Tài chính | Trung bình | Có mô hình, chưa triển khai |
 | Phân phối | Không có | Cố ý ngoài phạm vi |
