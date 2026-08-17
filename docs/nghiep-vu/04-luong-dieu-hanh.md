@@ -242,6 +242,18 @@ chỉ có một hướng dẫn viên trong suốt hành trình, không mô tả 
 > **duyệt yêu cầu không tự thực hiện bàn giao**, nó gọi đúng `GuideHandoverService::handover()`
 > như lối kia. Bài `test_duyet_di_qua_dung_duong_ban_giao_chung` giữ điều đó.
 >
+> **Luật không bỏ rơi đoàn.** Chuyến chưa khởi hành thì đổi ai cũng được, người mới còn thời gian
+> tới điểm tập kết. Chuyến **đang chạy** thì phải có **từ hai hướng dẫn viên trở lên** mới bàn
+> giao được, để sau khi một người rời đi vẫn còn người đang có mặt bên đoàn.
+>
+> Lý do: gỡ người dẫn duy nhất ra khỏi đoàn đang giữa đường nghĩa là đoàn không có ai suốt quãng
+> người mới di chuyển tới — có thể vài giờ, đúng lúc khách cần người nhất. Trên giấy tờ là "đã
+> bàn giao", ngoài thực địa là ba mươi khách đứng ở bến tàu không biết hỏi ai.
+>
+> Luật này không chặn vĩnh viễn mà ép đúng thứ tự: **bổ sung người trước, bàn giao sau**. Và nó
+> chỉ áp lúc thực hiện, **không áp lúc hướng dẫn viên gửi yêu cầu** — người đang ốm vẫn phải xin
+> được, chặn từ đầu là bịt miệng người đang cần giúp.
+>
 > Một điểm đáng nói khi trình bày: chờ duyệt nghe như chậm nhưng an toàn hơn — người xin **vẫn
 > giữ quyền phụ trách cho tới lúc duyệt**, nên không có khoảnh khắc nào đoàn không có ai chịu
 > trách nhiệm trên hệ thống. Tự bàn giao ngay mới tạo ra khoảng trống đó.

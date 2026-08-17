@@ -240,6 +240,17 @@ export default function ScheduleManagement() {
     }
   };
 
+  /**
+   * Đoàn đang trên đường mà chỉ có một hướng dẫn viên thì chưa bàn giao được.
+   *
+   * Gỡ người dẫn duy nhất ra khỏi đoàn đang giữa đường nghĩa là đoàn không có ai cho tới khi
+   * người mới di chuyển tới nơi. Máy chủ cũng chặn, nhưng nói trước ở đây thì điều hành biết
+   * việc cần làm là bổ sung người, chứ không phải bấm lại lần nữa.
+   */
+  const doanSeBiBoRoi =
+    handoverPanel?.schedule.status === "in_progress" &&
+    handoverPanel.current_guides.length < 2;
+
   const openHandoverDialog = async (scheduleId: number) => {
     setHandoverScheduleId(scheduleId);
     setHandoverPanel(null);
@@ -979,6 +990,17 @@ export default function ScheduleManagement() {
               </div>
             </div>
 
+            {doanSeBiBoRoi && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                <p className="font-semibold">Chưa duyệt được yêu cầu này.</p>
+                <p className="text-xs mt-0.5">
+                  Đoàn đang trên đường và chuyến chỉ có một hướng dẫn viên — chính người đang xin.
+                  Phân công thêm một người cho chuyến trước, rồi quay lại duyệt. Từ chối cũng được,
+                  nhưng nhớ ghi lý do để họ biết đường xoay xở.
+                </p>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">
                 Cử ai thay <span className="text-rose-500">*</span>
@@ -1045,7 +1067,7 @@ export default function ScheduleManagement() {
               <button
                 type="button"
                 onClick={duyetYeuCau}
-                disabled={reviewSaving || !reviewGuideId}
+                disabled={reviewSaving || doanSeBiBoRoi || !reviewGuideId}
                 className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40"
               >
                 {reviewSaving ? "Đang xử lý..." : "Duyệt và bàn giao"}
@@ -1070,6 +1092,17 @@ export default function ScheduleManagement() {
             </div>
 
             {!handoverPanel && <p className="text-sm text-gray-500">Đang tải...</p>}
+
+            {doanSeBiBoRoi && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                <p className="font-semibold">Chưa bàn giao được.</p>
+                <p className="text-xs mt-0.5">
+                  Đoàn đang trên đường và chuyến này chỉ có một hướng dẫn viên. Gỡ người đó ra thì
+                  đoàn không có ai cho tới khi người mới tới nơi. Hãy bấm <strong>Sửa</strong> ở cột
+                  hướng dẫn viên để phân công thêm một người, rồi quay lại đây.
+                </p>
+              </div>
+            )}
 
             {handoverPanel && (
               <>
@@ -1188,6 +1221,7 @@ export default function ScheduleManagement() {
                 onClick={confirmHandover}
                 disabled={
                   handoverSaving ||
+                  doanSeBiBoRoi ||
                   !handoverForm.from_guide_id ||
                   !handoverForm.to_guide_id ||
                   handoverForm.reason.trim().length < 10 ||

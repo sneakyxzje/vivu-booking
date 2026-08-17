@@ -67,6 +67,7 @@ class GuideHandoverService
             }
 
             $this->assertChuyenConBanGiaoDuoc($khoa);
+            $this->assertDoanKhongBiBoRoi($khoa);
 
             if ($fromGuideId === $toGuideId) {
                 throw new BusinessRuleException('Người nhận và người giao không thể là một.');
@@ -132,6 +133,41 @@ class GuideHandoverService
 
             return $bienBan->fresh(['fromGuide:id,name,phone', 'toGuide:id,name,phone']);
         });
+    }
+
+    /**
+     * Đoàn đang trên đường thì không được để trống người phụ trách.
+     *
+     * Chuyến chưa khởi hành thì đổi ai cũng được: người mới còn thời gian tới điểm tập kết, và
+     * đoàn chưa có gì để bỏ rơi.
+     *
+     * Chuyến **đang chạy** thì khác hẳn. Gỡ người dẫn duy nhất ra khỏi một đoàn đang giữa đường
+     * nghĩa là đoàn không có ai trong suốt quãng thời gian người mới di chuyển tới - có thể vài
+     * giờ, và đó là lúc khách cần người nhất. Trên giấy tờ thì "đã bàn giao", ngoài thực địa thì
+     * ba mươi khách đứng ở bến tàu không biết hỏi ai.
+     *
+     * Nên luật là: đang chạy thì chuyến phải có **từ hai hướng dẫn viên trở lên** mới bàn giao
+     * được, để sau khi một người rời đi vẫn còn người đang có mặt bên đoàn.
+     *
+     * Luật này **không chặn vĩnh viễn** mà chỉ ép đúng thứ tự: bổ sung người trước, bàn giao sau.
+     * Và nó chỉ áp lúc thực hiện, không áp lúc hướng dẫn viên gửi yêu cầu - người đang ốm vẫn
+     * phải xin được, chặn từ đầu là bịt miệng người đang cần giúp.
+     */
+    private function assertDoanKhongBiBoRoi(TourSchedule $schedule): void
+    {
+        if ($this->lifecycle->effectiveStatus($schedule) !== ScheduleStatus::InProgress) {
+            return;
+        }
+
+        $soNguoiDang = $schedule->guides()->count();
+
+        if ($soNguoiDang < 2) {
+            throw new BusinessRuleException(
+                'Đoàn đang trên đường và chuyến này chỉ có một hướng dẫn viên. Gỡ người đó ra thì '
+                . 'đoàn không có ai cho tới khi người mới tới nơi. Hãy phân công thêm một người '
+                . 'cho chuyến trước, rồi mới bàn giao.',
+            );
+        }
     }
 
     /**

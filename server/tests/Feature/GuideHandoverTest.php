@@ -29,6 +29,8 @@ class GuideHandoverTest extends TestCase
     private User $dieuHanh;
     private User $nguoiCu;
     private User $nguoiMoi;
+    /** Người thứ hai ở lại với đoàn. Đoàn đang đi thì phải có người này mới bàn giao được. */
+    private User $nguoiOLai;
     private Tour $tour;
     private TourSchedule $chuyen;
 
@@ -39,6 +41,7 @@ class GuideHandoverTest extends TestCase
         $this->dieuHanh = $this->taoNguoi('admin');
         $this->nguoiCu = $this->taoNguoi('guide');
         $this->nguoiMoi = $this->taoNguoi('guide');
+        $this->nguoiOLai = $this->taoNguoi('guide');
 
         $this->tour = Tour::factory()->create([
             'status' => 'active',
@@ -59,7 +62,8 @@ class GuideHandoverTest extends TestCase
             'booked_people' => 0,
         ]);
 
-        $this->chuyen->guides()->sync([$this->nguoiCu->id]);
+        // Hai người: đoàn đang trên đường nên phải còn người ở lại thì mới bàn giao được.
+        $this->chuyen->guides()->sync([$this->nguoiCu->id, $this->nguoiOLai->id]);
     }
 
     private function taoNguoi(string $role, string $status = 'active'): User
@@ -214,6 +218,73 @@ class GuideHandoverTest extends TestCase
             ->assertStatus(422);
 
         $this->assertTrue($this->chuyen->fresh()->hasGuide($this->nguoiCu->id));
+    }
+
+    // --- Không bỏ rơi đoàn giữa đường ------------------------------------------------------
+
+    /**
+     * Đoàn đang đi mà chỉ có một hướng dẫn viên thì không gỡ người đó ra được.
+     *
+     * Trên giấy tờ là "đã bàn giao", ngoài thực địa là ba mươi khách đứng ở bến tàu không biết
+     * hỏi ai, suốt quãng thời gian người mới di chuyển tới.
+     */
+    public function test_doan_dang_di_chi_co_mot_nguoi_thi_khong_ban_giao_duoc(): void
+    {
+        // Bỏ người thứ hai đi: giờ chuyến chỉ còn đúng một hướng dẫn viên.
+        $this->chuyen->guides()->detach($this->nguoiOLai->id);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/handover', $this->payload())
+            ->assertStatus(422);
+
+        $this->assertTrue(
+            $this->chuyen->fresh()->hasGuide($this->nguoiCu->id),
+            'Bị chặn thì người cũ giữ nguyên quyền, đoàn không lúc nào mất người.',
+        );
+    }
+
+    /** Có người thứ hai ở lại với đoàn thì bàn giao được, và người đó vẫn ở lại. */
+    public function test_doan_dang_di_co_hai_nguoi_thi_ban_giao_duoc(): void
+    {
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/handover', $this->payload())
+            ->assertOk();
+
+        $daTai = $this->chuyen->fresh();
+
+        $this->assertFalse($daTai->hasGuide($this->nguoiCu->id));
+        $this->assertTrue($daTai->hasGuide($this->nguoiOLai->id), 'Người ở lại vẫn bên đoàn.');
+        $this->assertTrue($daTai->hasGuide($this->nguoiMoi->id));
+    }
+
+    /**
+     * Chuyến chưa khởi hành thì một người cũng đổi được.
+     *
+     * Đoàn chưa đi nên chưa có gì để bỏ rơi, và người mới còn thời gian tới điểm tập kết.
+     */
+    public function test_chuyen_chua_khoi_hanh_thi_mot_nguoi_van_doi_duoc(): void
+    {
+        $chuaDi = TourSchedule::create([
+            'tour_id' => $this->tour->id,
+            'status' => ScheduleStatus::Confirmed->value,
+            'start_date' => now()->addDays(5),
+            'end_date' => now()->addDays(7),
+            'booking_deadline' => now()->addDays(2),
+            'max_people' => 20,
+            'min_people' => 4,
+            'booked_people' => 0,
+        ]);
+
+        $chuaDi->guides()->sync([$this->nguoiCu->id]);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/schedules/' . $chuaDi->id . '/handover', $this->payload())
+            ->assertOk();
+
+        $this->assertTrue($chuaDi->fresh()->hasGuide($this->nguoiMoi->id));
     }
 
     public function test_chuyen_da_ket_thuc_thi_khong_ban_giao_duoc(): void

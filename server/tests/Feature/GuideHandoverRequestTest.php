@@ -35,6 +35,7 @@ class GuideHandoverRequestTest extends TestCase
     private User $dieuHanh;
     private User $nguoiDan;
     private User $nguoiThay;
+    private User $nguoiOLai;
     private Tour $tour;
     private TourSchedule $chuyen;
 
@@ -64,7 +65,11 @@ class GuideHandoverRequestTest extends TestCase
             'booked_people' => 0,
         ]);
 
-        $this->chuyen->guides()->sync([$this->nguoiDan->id]);
+        // Người thứ hai ở lại với đoàn: đoàn đang trên đường nên phải có người này thì lúc duyệt
+        // mới bàn giao được. Gửi yêu cầu thì không cần - người đang ốm vẫn phải xin được.
+        $this->nguoiOLai = $this->taoNguoi('guide');
+
+        $this->chuyen->guides()->sync([$this->nguoiDan->id, $this->nguoiOLai->id]);
     }
 
     private function taoNguoi(string $role): User
@@ -216,6 +221,38 @@ class GuideHandoverRequestTest extends TestCase
         $daTai = $this->chuyen->fresh();
         $this->assertFalse($daTai->hasGuide($this->nguoiDan->id));
         $this->assertTrue($daTai->hasGuide($this->nguoiThay->id));
+    }
+
+    /**
+     * Luật "không bỏ rơi đoàn" áp lúc duyệt, không áp lúc gửi yêu cầu.
+     *
+     * Người đang ốm vẫn phải xin được — chặn từ đầu là bịt miệng người đang cần giúp. Điều hành
+     * nhận yêu cầu, thấy chuyến chỉ có một người thì bổ sung người trước rồi mới duyệt.
+     */
+    public function test_van_xin_duoc_du_chuyen_chi_co_mot_nguoi_nhung_chua_duyet_duoc(): void
+    {
+        $this->chuyen->guides()->detach($this->nguoiOLai->id);
+
+        $yeuCau = $this->guiYeuCau();
+
+        $this->assertSame(HandoverRequestStatus::Pending, $yeuCau->status);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/approve', [
+            'to_guide_id' => $this->nguoiThay->id,
+        ])->assertStatus(422);
+
+        $this->assertSame(HandoverRequestStatus::Pending, $yeuCau->fresh()->status);
+
+        // Bổ sung người ở lại rồi thì duyệt được.
+        $this->chuyen->guides()->attach($this->nguoiOLai->id);
+
+        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/approve', [
+            'to_guide_id' => $this->nguoiThay->id,
+        ])->assertOk();
+
+        $this->assertSame(HandoverRequestStatus::Approved, $yeuCau->fresh()->status);
     }
 
     public function test_duyet_ma_khong_chon_nguoi_thay_thi_bi_tu_choi(): void
