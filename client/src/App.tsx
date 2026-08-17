@@ -33,6 +33,8 @@ import { GuideDashboard } from "@/pages/guide/GuideDashboard";
 import { GuideTours } from "@/pages/guide/GuideTours";
 import { GuideBookings } from "@/pages/guide/GuideBookings";
 import { GuideAttendance } from "@/pages/guide/GuideAttendance";
+import GuideIncidents from "@/pages/guide/GuideIncidents";
+import IncidentManagement from "@/pages/admin/IncidentManagement";
 import TourDetail from "@/components/TourDetail";
 import { CreateTourForm } from "@/pages/admin/create/CreateTourForm";
 import BookingTour from "@/pages/BookingTour";
@@ -141,6 +143,10 @@ const router = createBrowserRouter([
             path: "/guide/attendance/:scheduleId",
             element: <GuideAttendance />,
           },
+          {
+            path: "/guide/incidents",
+            element: <GuideIncidents />,
+          },
         ],
       },
     ],
@@ -192,6 +198,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/audit-logs",
             element: <AuditLogManagement />,
+          },
+          {
+            path: "/admin/incidents",
+            element: <IncidentManagement />,
           },
           {
             path: "/admin/change-requests",

@@ -151,6 +151,25 @@ const navItems = [
     ),
   },
   {
+    to: "/admin/incidents",
+    label: "Sự cố dọc đường",
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0l-7.1 12.25A2 2 0 005 19z"
+        />
+      </svg>
+    ),
+  },
+  {
     to: "/admin/audit-logs",
     label: "Nhật ký hệ thống",
     icon: (

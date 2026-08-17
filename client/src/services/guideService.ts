@@ -142,6 +142,42 @@ export const buildTourPayload = (form: unknown) => {
   return data;
 };
 
+/** Một sự cố dọc đường, nhìn từ phía hướng dẫn viên. */
+export interface GuideIncident {
+  id: number;
+  tour_schedule_id: number;
+  tour_title: string | null;
+  start_date: string | null;
+  type: string;
+  type_label: string;
+  severity: string;
+  severity_label: string;
+  status: string;
+  status_label: string;
+  occurred_at: string | null;
+  /** Báo muộn hơn 6 tiếng so với lúc xảy ra: mất sóng giữa biển là chuyện thường. */
+  reported_late: boolean;
+  description: string;
+  /** Phương án do điều hành quyết. Hướng dẫn viên chỉ đọc, không sửa. */
+  resolution: string | null;
+  photos: { id: number; image_path: string; caption: string | null }[];
+}
+
+export const INCIDENT_TYPES = [
+  { value: "weather", label: "Thời tiết" },
+  { value: "vehicle", label: "Phương tiện" },
+  { value: "health", label: "Sức khỏe khách" },
+  { value: "supplier", label: "Nhà cung cấp" },
+  { value: "security", label: "An ninh, an toàn" },
+  { value: "other", label: "Khác" },
+] as const;
+
+export const INCIDENT_SEVERITIES = [
+  { value: "low", label: "Nhẹ" },
+  { value: "medium", label: "Vừa" },
+  { value: "high", label: "Nghiêm trọng" },
+] as const;
+
 const guideService = {
   getDashboardStats: async (): Promise<GuideDashboardStats> => {
     const response = await api.get("/guide/dashboard");
@@ -245,6 +281,43 @@ const guideService = {
       { headers: { "Content-Type": "multipart/form-data" } },
     );
     return extractObject<UploadCheckinPhotoResult>(response);
+  },
+
+  // --- O: Sự cố dọc đường ---
+  // Cố ý không có tham số tiền nào. Hướng dẫn viên báo cáo những gì nhìn thấy; điều hành quyết
+  // ai trả bao nhiêu. Người đang đứng giữa đoàn khách mệt không nên là người quyết mức thu.
+
+  getMyIncidents: async (): Promise<GuideIncident[]> => {
+    const response = await api.get("/guide/incidents");
+    return extractArray<GuideIncident>(response);
+  },
+
+  reportIncident: async (
+    scheduleId: number,
+    payload: {
+      type: string;
+      severity: string;
+      occurred_at: string;
+      description: string;
+      tour_itinerary_id?: number | null;
+    },
+  ): Promise<{ incident: GuideIncident | null; message: string }> => {
+    const response = await api.post(`/guide/schedules/${scheduleId}/incidents`, payload);
+    return {
+      incident: extractObject<GuideIncident>(response),
+      message: response.data?.message ?? "Đã gửi báo cáo.",
+    };
+  },
+
+  uploadIncidentPhoto: async (incidentId: number, photo: File, caption?: string) => {
+    const data = new FormData();
+    data.append("photo", photo);
+    if (caption) data.append("caption", caption);
+
+    const response = await api.post(`/guide/incidents/${incidentId}/photos`, data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data?.success !== false;
   },
 };
 

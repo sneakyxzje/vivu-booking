@@ -239,6 +239,74 @@ export interface MergeCandidatesResponse {
   candidates: MergeCandidate[];
 }
 
+/** Khoản tiền sinh ra từ một sự cố, gắn với một đơn cụ thể. */
+export interface IncidentSurcharge {
+  id: number;
+  booking_id: number;
+  customer_name: string | null;
+  kind: "surcharge" | "refund";
+  kind_label: string;
+  amount: number;
+  reason: string;
+  status: string;
+  status_label: string;
+  /** Chờ duyệt thì chưa có hiệu lực với khách. */
+  in_effect: boolean;
+  customer_consent_at: string | null;
+}
+
+export interface AdminIncident {
+  id: number;
+  tour_schedule_id: number;
+  tour_title: string | null;
+  start_date: string | null;
+  type: string;
+  type_label: string;
+  severity: string;
+  severity_label: string;
+  /** Mức nghiêm trọng và chưa ai xử lý: đẩy lên đầu danh sách. */
+  needs_attention: boolean;
+  status: string;
+  status_label: string;
+  occurred_at: string | null;
+  reported_late: boolean;
+  description: string;
+  reporter_name: string | null;
+  resolution: string | null;
+  cost_delta: number | null;
+  who_bears: string | null;
+  who_bears_label: string | null;
+  reviewed_at: string | null;
+  photos: { id: number; image_path: string; caption: string | null }[];
+  surcharges: IncidentSurcharge[];
+}
+
+export interface IncidentListResponse {
+  incidents: AdminIncident[];
+  options: {
+    bearers: { value: string; label: string; customer_pays: boolean }[];
+    kinds: { value: string; label: string }[];
+  };
+}
+
+export interface IncidentDetailResponse {
+  incident: AdminIncident;
+  bookings: {
+    booking_id: number;
+    customer_name: string;
+    customer_phone: string | null;
+    guests: number;
+  }[];
+}
+
+/** Một khoản điều hành lập cho một đơn khi xử lý sự cố. */
+export interface IncidentChargeInput {
+  booking_id: number;
+  kind: "surcharge" | "refund";
+  amount: number;
+  reason: string;
+}
+
 /** Một đơn đã thanh toán của chuyến sắp hủy. Mỗi đơn phải có một phương án. */
 export interface CancelPaidBooking {
   booking_id: number;
@@ -561,6 +629,45 @@ const adminService = {
       reason,
     });
     return response.data?.message ?? "Đã ghép chuyến.";
+  },
+
+  // --- O: Sự cố dọc đường ---
+  // Đây là nơi duy nhất quyết được tiền của một sự cố. Hướng dẫn viên chỉ báo cáo.
+
+  getIncidents: async (status?: string): Promise<IncidentListResponse | null> => {
+    const response = await api.get("/admin/incidents", {
+      params: status ? { status } : {},
+    });
+    return extractObject<IncidentListResponse>(response);
+  },
+
+  getIncident: async (id: number): Promise<IncidentDetailResponse | null> => {
+    const response = await api.get(`/admin/incidents/${id}`);
+    return extractObject<IncidentDetailResponse>(response);
+  },
+
+  /** Ghi phương án và phân bổ chi phí. Các khoản lập ra ở trạng thái chờ duyệt. */
+  resolveIncident: async (
+    id: number,
+    payload: {
+      resolution: string;
+      cost_delta?: number | null;
+      who_bears?: string | null;
+      charges: IncidentChargeInput[];
+    },
+  ) => {
+    const response = await api.post(`/admin/incidents/${id}/resolve`, payload);
+    return response.data?.message ?? "Đã ghi phương án.";
+  },
+
+  approveSurcharge: async (id: number) => {
+    const response = await api.put(`/admin/surcharges/${id}/approve`);
+    return response.data?.message ?? "Đã duyệt.";
+  },
+
+  waiveSurcharge: async (id: number, reason: string) => {
+    const response = await api.put(`/admin/surcharges/${id}/waive`, { reason });
+    return response.data?.message ?? "Đã miễn.";
   },
 
   /**

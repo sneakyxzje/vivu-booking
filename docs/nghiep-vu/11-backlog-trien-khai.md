@@ -322,7 +322,19 @@ Tài liệu tham chiếu: 02 mục 2.2 và 2.3, 07 mục 3.1.
 
 **Tổng nhóm N: 11,25 ngày**
 
-## Nhóm O - Sự cố và chi phí phát sinh
+## Nhóm O - Sự cố và chi phí phát sinh — ĐÃ LÀM
+
+Đã cài đặt O01, O02, O03, O05, O06, O09.
+
+**O04 (thông báo đẩy cho điều hành) làm gọn hơn thiết kế:** sự cố mức nghiêm trọng chưa ai xử lý
+được đánh dấu `needs_attention` và đẩy lên đầu danh sách, thay vì dựng hệ thống thông báo riêng.
+Với quy mô một công ty lữ hành thì danh sách chờ xử lý có sắp thứ tự là đủ.
+
+**O07 (xác nhận của khách) làm một nửa:** bảng có `customer_consent_at` và `consent_note`, hướng
+dẫn viên tải được ảnh biên bản lên. Chưa có ký điện tử của từng khách.
+
+**O08 (hoàn theo giá vốn) bỏ:** phụ thuộc R05, mà nhóm R đã ra khỏi phạm vi. Số tiền hoàn do điều
+hành nhập kèm diễn giải bắt buộc, hệ thống không tự tính. Ghi rõ chỗ này khi trình bày.
 
 Tài liệu tham chiếu: 04 mục 6, 07 mục 3.2.
 

@@ -36,6 +36,8 @@ use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminChangeRequestController;
 use App\Http\Controllers\Api\Admin\AdminPassengerController;
 use App\Http\Controllers\Api\Admin\AdminAuditLogController;
+use App\Http\Controllers\Api\Admin\AdminIncidentController;
+use App\Http\Controllers\Api\Guide\IncidentController as GuideIncidentController;
 use App\Http\Controllers\Api\Admin\AdminScheduleCancellationController;
 use App\Http\Controllers\Api\Admin\AdminScheduleDeadlineController;
 use App\Http\Controllers\Api\Admin\AdminScheduleMergeController;
@@ -137,6 +139,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/my-tours/{id}', [GuideTourController::class, 'show']);
         Route::get('/bookings', [GuideBookingController::class, 'index']);
         Route::put('/bookings/{id}/confirm', [GuideBookingController::class, 'confirm']);
+
+        // O - Báo cáo sự cố tại hiện trường. Cố ý không có trường tiền nào ở đây.
+        Route::get('/incidents', [GuideIncidentController::class, 'index']);
+        Route::post('/schedules/{schedule}/incidents', [GuideIncidentController::class, 'store']);
+        Route::post('/incidents/{id}/photos', [GuideIncidentController::class, 'uploadPhoto']);
        Route::get(
             '/schedules/{schedule}/attendance',
             [AttendanceController::class, 'show']
@@ -180,6 +187,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // A10 — Đổi trạng thái chuyến thủ công (open ↔ closed, → confirmed, → cancelled).
         Route::patch('/schedules/{id}/status', [AdminTourController::class, 'updateScheduleStatus']);
+
+        // O - Sự cố dọc đường. Chỉ ở đây mới quyết được tiền; hướng dẫn viên chỉ báo cáo.
+        Route::get('/incidents', [AdminIncidentController::class, 'index']);
+        Route::get('/incidents/{id}', [AdminIncidentController::class, 'show']);
+        Route::post('/incidents/{id}/resolve', [AdminIncidentController::class, 'resolve']);
+        Route::put('/surcharges/{id}/approve', [AdminIncidentController::class, 'approveSurcharge']);
+        Route::put('/surcharges/{id}/waive', [AdminIncidentController::class, 'waiveSurcharge']);
 
         // K - Hủy cả chuyến. Đi đường riêng vì phải gán phương án cho từng đơn đã thanh toán.
         Route::get('/schedules/{id}/cancel-preview', [AdminScheduleCancellationController::class, 'preview']);
