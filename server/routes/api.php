@@ -143,6 +143,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Biên bản bàn giao: người mới đọc tình trạng đoàn, người cũ xem lại mình đã giao gì.
         Route::get('/handovers', [GuideIncidentController::class, 'handovers']);
+        Route::put('/handovers/{id}/acknowledge', [GuideIncidentController::class, 'acknowledgeHandover']);
 
         // Xin được bàn giao. Không chọn người thay: đó là việc xếp lịch của điều hành.
         Route::get('/handover-requests', [GuideIncidentController::class, 'myHandoverRequests']);

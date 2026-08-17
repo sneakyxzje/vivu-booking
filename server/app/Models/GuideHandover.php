@@ -16,6 +16,7 @@ class GuideHandover extends Model
         'reason',
         'handover_note',
         'is_emergency_cover',
+        'acknowledged_at',
         'created_by',
     ];
 
@@ -23,6 +24,7 @@ class GuideHandover extends Model
     {
         return [
             'handed_over_at' => 'datetime',
+            'acknowledged_at' => 'datetime',
             'is_emergency_cover' => 'boolean',
         ];
     }

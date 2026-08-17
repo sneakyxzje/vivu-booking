@@ -812,6 +812,11 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->line('   Phía HDV: đăng nhập guide@gmail.com -> /guide/handovers');
         $cmd->line('     xem yêu cầu của mình, rút lại được khi chưa duyệt; đọc tình trạng đoàn khi nhận');
         $cmd->newLine();
+        $cmd->line('   Sau khi duyệt: /admin/handovers hiện "Chưa xác nhận · N phút" kèm SĐT để gọi.');
+        $cmd->line('     Đăng nhập bằng người NHẬN đoàn -> /guide/handovers -> "Đã đọc, tôi tiếp nhận"');
+        $cmd->line('     -> nhãn đổi thành "Đã tiếp nhận". Việc chuyển KHÔNG chờ nút này: đoàn đã');
+        $cmd->line('        thuộc về họ từ lúc duyệt, nút chỉ để điều hành biết họ đã nắm tình hình.');
+        $cmd->newLine();
 
         $cmd->comment(' THÊM (không bắt buộc)');
         $cmd->line('   Mở lại đơn hủy nhầm: /admin/bookings -> ' . $id('moiHuy') . ' -> nút Mở lại');

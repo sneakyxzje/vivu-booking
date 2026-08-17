@@ -269,6 +269,21 @@ chỉ có một hướng dẫn viên trong suốt hành trình, không mô tả 
 > những ai đang dẫn đoàn khác**, kèm nhãn để điều hành biết mình đang nhờ chứ không phải điều
 > người rảnh.
 >
+> **Người nhận xác nhận đã đọc, nhưng không phải bước duyệt.** Bắt chờ người nhận xác nhận rồi
+> mới chuyển thì trong lúc chờ, người cũ đã rời mà người mới chưa nhận — đoàn không ai chịu trách
+> nhiệm, đúng khoảng trống mà luật trên sinh ra để bịt. Nên điều hành **toàn quyền chuyển, chuyển
+> ngay**.
+>
+> Nhưng rủi ro thật không phải "họ từ chối" mà là **họ không biết**: màn hình ghi đã bàn giao,
+> ngoài đời người kia đang trong hang không có sóng. Cột `acknowledged_at` biến câu hỏi "nó biết
+> chưa nhỉ" từ một cuộc gọi thành một dòng trên màn hình — điều hành thấy "Chưa xác nhận · 25
+> phút" kèm số điện thoại thì gọi.
+>
+> **Không có nút từ chối nhận.** Nó tạo ra trạng thái không ai muốn tồn tại: đoàn đã gỡ người cũ,
+> người mới bấm từ chối, giờ ai chịu. Không kham nổi thì gửi yêu cầu bàn giao của chính mình —
+> từ chối một đoàn đang trên đường không phải là trả lại, mà là xin được thay tiếp, và vẫn phải
+> qua điều hành.
+>
 > Một điểm đáng nói khi trình bày: chờ duyệt nghe như chậm nhưng an toàn hơn — người xin **vẫn
 > giữ quyền phụ trách cho tới lúc duyệt**, nên không có khoảnh khắc nào đoàn không có ai chịu
 > trách nhiệm trên hệ thống. Tự bàn giao ngay mới tạo ra khoảng trống đó.

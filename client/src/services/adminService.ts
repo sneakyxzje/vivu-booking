@@ -251,6 +251,10 @@ export interface GuideHandoverRow {
   handover_note: string;
   /** Nhờ hướng dẫn viên của đoàn khác trông hộ: người nhận đang giữ hai đoàn, còn việc dở. */
   is_emergency_cover: boolean;
+  /** Người nhận đã xác nhận đọc chưa. Không chặn gì, chỉ để biết có cần gọi điện không. */
+  acknowledged_at: string | null;
+  /** Bao nhiêu phút trôi qua mà chưa ai xác nhận. Null khi đã xác nhận. */
+  minutes_waiting: number | null;
   created_by_name: string | null;
   created_at: string | null;
   /** Ghi vào máy muộn hơn lúc bàn giao thật, vì bàn giao xảy ra trên đường. */

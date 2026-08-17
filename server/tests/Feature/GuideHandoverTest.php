@@ -371,6 +371,52 @@ class GuideHandoverTest extends TestCase
         )->assertStatus(422);
     }
 
+    // --- Người nhận xác nhận đã đọc --------------------------------------------------------
+
+    /**
+     * Xác nhận không phải bước duyệt.
+     *
+     * Việc chuyển đã xong từ lúc điều hành bấm; không có gì phụ thuộc vào hành động này. Nó chỉ
+     * trả lời câu hỏi "người kia biết chưa" — rủi ro thật không phải họ từ chối, mà là họ đang
+     * trong hang không có sóng và chưa hề hay biết mình vừa nhận thêm một đoàn.
+     */
+    public function test_nguoi_nhan_xac_nhan_da_doc_nhung_viec_chuyen_da_xong_tu_truoc(): void
+    {
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/handover', $this->payload())
+            ->assertOk();
+
+        $bienBan = GuideHandover::query()->latest('id')->first();
+
+        // Chưa xác nhận, nhưng quyền đã chuyển xong rồi.
+        $this->assertNull($bienBan->acknowledged_at);
+        $this->assertTrue($this->chuyen->fresh()->hasGuide($this->nguoiMoi->id));
+
+        Sanctum::actingAs($this->nguoiMoi);
+
+        $this->putJson('/api/guide/handovers/' . $bienBan->id . '/acknowledge')->assertOk();
+
+        $this->assertNotNull($bienBan->fresh()->acknowledged_at);
+    }
+
+    public function test_chi_nguoi_nhan_moi_xac_nhan_duoc(): void
+    {
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/handover', $this->payload())
+            ->assertOk();
+
+        $bienBan = GuideHandover::query()->latest('id')->first();
+
+        // Người giao không xác nhận thay được: đây là bằng chứng người nhận đã biết.
+        Sanctum::actingAs($this->nguoiCu);
+
+        $this->putJson('/api/guide/handovers/' . $bienBan->id . '/acknowledge')->assertStatus(422);
+
+        $this->assertNull($bienBan->fresh()->acknowledged_at);
+    }
+
     // --- Hai phía đều đọc được biên bản ----------------------------------------------------
 
     /**

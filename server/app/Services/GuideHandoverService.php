@@ -367,6 +367,31 @@ class GuideHandoverService
     }
 
     /**
+     * Người nhận xác nhận đã đọc biên bản.
+     *
+     * Không phải bước duyệt: việc chuyển đã xong từ lúc điều hành bấm, và không có gì phụ thuộc
+     * vào hành động này. Nó chỉ trả lời câu hỏi "người kia biết chưa" — thứ mà trước đó chỉ hỏi
+     * được bằng cách gọi điện.
+     *
+     * Không kham nổi thì không từ chối ở đây, mà gửi yêu cầu bàn giao của chính mình: từ chối một
+     * đoàn đang trên đường không phải là trả lại, mà là xin được thay tiếp.
+     */
+    public function acknowledge(GuideHandover $handover, User $guide): GuideHandover
+    {
+        if ((int) $handover->to_guide_id !== (int) $guide->getKey()) {
+            throw new BusinessRuleException('Chỉ người nhận đoàn mới xác nhận được biên bản này.');
+        }
+
+        if ($handover->acknowledged_at) {
+            return $handover;
+        }
+
+        $handover->forceFill(['acknowledged_at' => now()])->save();
+
+        return $handover->fresh();
+    }
+
+    /**
      * Lịch sử bàn giao của một chuyến, cũ trước mới sau.
      *
      * @return \Illuminate\Database\Eloquent\Collection<int, GuideHandover>

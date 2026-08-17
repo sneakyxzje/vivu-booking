@@ -280,6 +280,17 @@ class AdminGuideHandoverController extends Controller
             'handover_note' => $bg->handover_note,
             // Nhờ người của đoàn khác trông hộ: người nhận đang giữ hai đoàn, còn việc dở.
             'is_emergency_cover' => (bool) $bg->is_emergency_cover,
+
+            /*
+             * Người nhận đã đọc biên bản chưa, và bao lâu rồi.
+             *
+             * Không chặn gì cả. Nó chỉ trả lời câu hỏi "nó biết chưa nhỉ" — thứ mà trước đó chỉ
+             * hỏi được bằng cách gọi điện. Chưa đọc lâu thì gọi.
+             */
+            'acknowledged_at' => $bg->acknowledged_at?->toDateTimeString(),
+            'minutes_waiting' => $bg->acknowledged_at
+                ? null
+                : (int) $bg->handed_over_at?->diffInMinutes(GioVietNam::bayGio(), true),
             'created_by_name' => $bg->creator?->name,
             'created_at' => $bg->created_at?->toDateTimeString(),
             // Ghi vào máy muộn hơn lúc bàn giao thật: bàn giao xảy ra trên đường.

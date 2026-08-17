@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, ArrowRight, Clock, Phone } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, Clock, Phone } from "lucide-react";
 import adminService from "@/services/adminService";
 import type {
   HandoverHistoryResponse,
@@ -249,6 +249,22 @@ export default function HandoverManagement() {
                 </span>
               )}
 
+              {/*
+                Đã đọc chưa. Không chặn gì cả — đoàn đã chuyển xong từ lúc bấm duyệt. Cái này chỉ
+                trả lời "nó biết chưa nhỉ", thứ mà trước đó phải gọi điện mới biết.
+              */}
+              {bg.acknowledged_at ? (
+                <span className="flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                  <Check className="h-3 w-3" />
+                  Đã tiếp nhận
+                </span>
+              ) : (
+                <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-700">
+                  Chưa xác nhận
+                  {bg.minutes_waiting !== null && ` · ${bg.minutes_waiting} phút`}
+                </span>
+              )}
+
               <span className="ml-auto flex items-center gap-1 text-xs text-gray-500">
                 <Clock className="h-3 w-3" />
                 {formatDateTime(bg.handed_over_at)}
@@ -258,6 +274,11 @@ export default function HandoverManagement() {
             <p className="text-xs text-gray-500">
               {bg.tour_title} · chuyến #{bg.tour_schedule_id}
               {bg.created_by_name ? ` · ${bg.created_by_name} thực hiện` : ""}
+              {!bg.acknowledged_at && bg.to_guide?.phone && (
+                <span className="ml-1 text-rose-700">
+                  · gọi {bg.to_guide.name}: {bg.to_guide.phone}
+                </span>
+              )}
             </p>
 
             <p className="text-xs text-gray-700">

@@ -136,9 +136,28 @@ class IncidentController extends Controller
                 'handed_over_at' => $bg->handed_over_at?->toDateTimeString(),
                 'reason' => $bg->reason,
                 'handover_note' => $bg->handover_note,
+                'is_emergency_cover' => (bool) $bg->is_emergency_cover,
+                'acknowledged_at' => $bg->acknowledged_at?->toDateTimeString(),
             ]);
 
         return $this->success($ds, 'Lấy biên bản bàn giao thành công');
+    }
+
+    /** Người nhận xác nhận đã đọc. Không phải bước duyệt: việc chuyển đã xong từ trước. */
+    public function acknowledgeHandover(Request $request, int $id): JsonResponse
+    {
+        $bienBan = \App\Models\GuideHandover::query()->find($id);
+
+        if (!$bienBan) {
+            return $this->error('Không tìm thấy biên bản bàn giao', 404);
+        }
+
+        $daXacNhan = app(GuideHandoverService::class)->acknowledge($bienBan, $request->user());
+
+        return $this->success(
+            ['id' => $daXacNhan->id, 'acknowledged_at' => $daXacNhan->acknowledged_at?->toDateTimeString()],
+            'Đã xác nhận tiếp nhận đoàn.',
+        );
     }
 
     /** Các sự cố của những chuyến hướng dẫn viên này phụ trách. */
