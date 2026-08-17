@@ -103,6 +103,9 @@ class TourSchedule extends Model
     public function guides(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'tour_schedule_guides', 'tour_schedule_id', 'guide_id')
+            // accepted_at: người này đã xác nhận nhận chuyến chưa. Chưa xác nhận vẫn là đã được
+            // phân công, nên quan hệ này cố ý KHÔNG lọc theo nó.
+            ->withPivot('accepted_at')
             ->withTimestamps()
             ->orderBy('tour_schedule_guides.id');
     }
