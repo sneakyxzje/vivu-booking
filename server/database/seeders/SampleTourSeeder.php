@@ -7,7 +7,9 @@ use App\Models\Category;
 use App\Models\Service;
 use App\Models\Tour;
 use App\Models\TourImage;
+use App\Models\TourSchedule;
 use App\Models\User;
+use App\Services\ScheduleGuideService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +29,13 @@ class SampleTourSeeder extends Seeder
             return;
         }
 
-        $guide = User::query()->where('role', 'guide')->first();
+        // Cả đội, không riêng người đầu: các tour mẫu có chuyến sát ngày nhau, gán chung một
+        // người thì dữ liệu mẫu vi phạm chính luật chống trùng lịch mà hệ thống đang chặn.
+        $guides = User::query()
+            ->where('role', 'guide')
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->get();
 
         $categories = collect([
             ['name' => 'Biển đảo', 'slug' => 'bien-dao'],
@@ -188,7 +196,7 @@ class SampleTourSeeder extends Seeder
 
         $chinhSachHuy = \App\Models\CancellationPolicy::query()->where('is_default', true)->first();
 
-        DB::transaction(function () use ($admin, $guide, $categories, $services, $tours, $chinhSachHuy) {
+        DB::transaction(function () use ($admin, $guides, $categories, $services, $tours, $chinhSachHuy) {
             foreach ($tours as $tourData) {
                 $tour = Tour::query()->updateOrCreate(
                     ['slug' => $tourData['slug']],
@@ -266,9 +274,7 @@ class SampleTourSeeder extends Seeder
                         'status' => ScheduleStatus::Open->value,
                     ]);
 
-                    if ($guide) {
-                        $schedule->guides()->sync([$guide->id]);
-                    }
+                    $this->phanCongNguoiRanh($schedule, $tour, $guides);
                 }
 
                 $tour->images()->delete();
@@ -280,6 +286,38 @@ class SampleTourSeeder extends Seeder
                 }
             }
         });
+    }
+
+    /**
+     * Gán một hướng dẫn viên đang trống lịch cho chuyến.
+     *
+     * Không lấy cứng người đầu danh sách: các tour mẫu có chuyến trùng ngày nhau, mà một người
+     * thì không đứng ở hai đoàn cùng lúc. Dùng lại ScheduleGuideService để phép so ở đây giống
+     * hệt lúc chạy thật, thay vì chép thành đoạn mã thứ hai rồi lệch dần.
+     *
+     * Không ai rảnh thì để trống - "chưa phân công" là trạng thái hợp lệ, còn gán bừa thì tạo ra
+     * dữ liệu mà chính hệ thống sẽ từ chối nếu người dùng làm y hệt trên giao diện.
+     *
+     * @param  \Illuminate\Support\Collection<int, User>  $guides
+     */
+    private function phanCongNguoiRanh(TourSchedule $schedule, Tour $tour, $guides): void
+    {
+        if ($guides->isEmpty()) {
+            return;
+        }
+
+        $service = app(ScheduleGuideService::class);
+        [$start, $end] = $service->periodOf($schedule->setRelation('tour', $tour));
+
+        foreach ($guides as $nguoi) {
+            if ($service->conflictFor($nguoi->id, $start, $end, $schedule->getKey())) {
+                continue;
+            }
+
+            $schedule->guides()->sync([$nguoi->id]);
+
+            return;
+        }
     }
 }
 

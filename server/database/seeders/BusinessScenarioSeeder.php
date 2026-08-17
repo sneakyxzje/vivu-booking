@@ -16,6 +16,7 @@ use App\Models\TourItinerary;
 use App\Models\TourSchedule;
 use App\Models\User;
 use App\Services\BookingChangeRequestService;
+use App\Services\ScheduleGuideService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -43,6 +44,17 @@ class BusinessScenarioSeeder extends Seeder
     private const TAG = '[kich-ban]';
 
     private Tour $tour;
+
+    /**
+     * Cả đội hướng dẫn viên, sắp theo id.
+     *
+     * Cần nhiều người chứ không một: có nhiều người mới thấy được chuyến hai HDV, và mới thử
+     * được luật chặn trùng lịch - muốn chặn thì phải có người thứ hai để so.
+     *
+     * @var \Illuminate\Support\Collection<int, User>
+     */
+    private $guides;
+
     private ?User $guide = null;
     private User $customer;
     private ?User $admin = null;
@@ -65,7 +77,8 @@ class BusinessScenarioSeeder extends Seeder
     public function run(): void
     {
         $this->admin = User::query()->where('role', 'admin')->first();
-        $this->guide = User::query()->where('role', 'guide')->first();
+        $this->guides = User::query()->where('role', 'guide')->where('status', 'active')->orderBy('id')->get();
+        $this->guide = $this->guides->first();
         $this->policy = CancellationPolicy::query()->where('is_default', true)->first();
 
         if (!$this->admin) {
@@ -203,21 +216,25 @@ class BusinessScenarioSeeder extends Seeder
     private function dungCacChuyen(): void
     {
         $chuyen = [
-            ['ma' => 'S1', 'gio' => 480, 'status' => ScheduleStatus::Open, 'min' => 4, 'mo_ta' => 'Hoàn 90%, còn xa hạn chốt'],
-            ['ma' => 'S2', 'gio' => 240, 'status' => ScheduleStatus::Open, 'min' => 4, 'mo_ta' => 'Hoàn 70%'],
-            ['ma' => 'S3', 'gio' => 120, 'status' => ScheduleStatus::Open, 'min' => 4, 'mo_ta' => 'Hoàn 50%, còn 48 giờ nữa mới tới hạn chốt'],
-            ['ma' => 'S4', 'gio' => 60, 'status' => ScheduleStatus::Closed, 'min' => 4, 'mo_ta' => 'Hoàn 30%, ĐÃ QUA hạn chốt nên hủy sinh ghế chết'],
-            ['ma' => 'S5', 'gio' => 26, 'status' => ScheduleStatus::Confirmed, 'min' => 4, 'mo_ta' => 'Hoàn 0%, đã chốt danh sách'],
-            ['ma' => 'S6', 'gio' => -24, 'status' => ScheduleStatus::InProgress, 'min' => 4, 'mo_ta' => 'Đang chạy: khóa hủy, mở điểm danh'],
-            ['ma' => 'S7', 'gio' => -120, 'status' => ScheduleStatus::Completed, 'min' => 4, 'mo_ta' => 'Đã kết thúc, đơn chờ chốt'],
-            ['ma' => 'S8', 'gio' => 360, 'status' => ScheduleStatus::Cancelled, 'min' => 4, 'mo_ta' => 'Chuyến bị hủy, trạng thái cuối'],
+            // so_hdv: số hướng dẫn viên muốn phân công. Không có luật nào ràng buộc con số này
+            // với số khách - đặt khác nhau ở đây chỉ để lúc thử tay nhìn thấy đủ ba trạng thái:
+            // chuyến nhiều người dẫn, chuyến một người, và chuyến chưa phân công ai.
+            ['ma' => 'S1', 'gio' => 480, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 3, 'mo_ta' => 'Hoàn 90%, còn xa hạn chốt'],
+            ['ma' => 'S2', 'gio' => 240, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 70%'],
+            ['ma' => 'S3', 'gio' => 120, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 50%, còn 48 giờ nữa mới tới hạn chốt'],
+            ['ma' => 'S4', 'gio' => 60, 'status' => ScheduleStatus::Closed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 30%, ĐÃ QUA hạn chốt nên hủy sinh ghế chết'],
+            ['ma' => 'S5', 'gio' => 26, 'status' => ScheduleStatus::Confirmed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 0%, đã chốt danh sách'],
+            ['ma' => 'S6', 'gio' => -24, 'status' => ScheduleStatus::InProgress, 'min' => 4, 'so_hdv' => 2, 'mo_ta' => 'Đang chạy: khóa hủy, mở điểm danh'],
+            ['ma' => 'S7', 'gio' => -120, 'status' => ScheduleStatus::Completed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Đã kết thúc, đơn chờ chốt'],
+            // Chuyến đã hủy thì không cần ai dẫn: để trống cho thấy trạng thái "Chưa phân công".
+            ['ma' => 'S8', 'gio' => 360, 'status' => ScheduleStatus::Cancelled, 'min' => 4, 'so_hdv' => 0, 'mo_ta' => 'Chuyến bị hủy, trạng thái cuối'],
             // Hạn chốt rơi vào trong 18 giờ tới, tức nằm trong cửa sổ 24 giờ mà lệnh chốt chuyến
             // xét tới. Đặt xa hơn thì lệnh không nhìn tới chuyến này và chạy xong không thấy gì.
-            ['ma' => 'S9', 'gio' => 90, 'status' => ScheduleStatus::Open, 'min' => 2, 'mo_ta' => 'Đủ khách tối thiểu và tới hạn chốt: lệnh sẽ tự chốt'],
+            ['ma' => 'S9', 'gio' => 90, 'status' => ScheduleStatus::Open, 'min' => 2, 'so_hdv' => 1, 'mo_ta' => 'Đủ khách tối thiểu và tới hạn chốt: lệnh sẽ tự chốt'],
             // Hai chuyến sát ngày nhau, mỗi chuyến ít khách. Đây là tình huống ghép chuyến:
             // không chuyến nào đủ mức tối thiểu, dồn về một thì cả hai đoàn đều được đi.
-            ['ma' => 'S10', 'gio' => 600, 'status' => ScheduleStatus::Open, 'min' => 6, 'mo_ta' => 'Ít khách, dùng làm chuyến nguồn để ghép'],
-            ['ma' => 'S11', 'gio' => 624, 'status' => ScheduleStatus::Open, 'min' => 6, 'mo_ta' => 'Ít khách, cách S10 một ngày, dùng làm chuyến đích'],
+            ['ma' => 'S10', 'gio' => 600, 'status' => ScheduleStatus::Open, 'min' => 6, 'so_hdv' => 1, 'mo_ta' => 'Ít khách, dùng làm chuyến nguồn để ghép'],
+            ['ma' => 'S11', 'gio' => 624, 'status' => ScheduleStatus::Open, 'min' => 6, 'so_hdv' => 2, 'mo_ta' => 'Ít khách, cách S10 một ngày, dùng làm chuyến đích'],
         ];
 
         foreach ($chuyen as $item) {
@@ -249,11 +266,44 @@ class BusinessScenarioSeeder extends Seeder
 
             $this->schedules[$item['ma']] = TourSchedule::query()->create($payload);
 
-            // Phân công đi qua bảng nối, vì một chuyến có thể có nhiều hướng dẫn viên.
-            if ($this->guide) {
-                $this->schedules[$item['ma']]->guides()->sync([$this->guide->id]);
-            }
+            $this->phanCongHuongDanVien($this->schedules[$item['ma']], (int) $item['so_hdv']);
         }
+    }
+
+    /**
+     * Chọn đủ số hướng dẫn viên đang rảnh cho một chuyến.
+     *
+     * Chọn theo lịch trống thật chứ không gán cứng, vì các chuyến kịch bản nằm sát nhau và một
+     * người không đứng ở hai đoàn cùng lúc. Trước đây seeder gán cùng một người cho cả mười một
+     * chuyến, tức dữ liệu mẫu vi phạm chính cái luật mà hệ thống đang chặn ở giao diện.
+     *
+     * Dùng lại ScheduleGuideService để phép so trùng lịch ở đây giống hệt lúc chạy thật, thay vì
+     * chép lại thành đoạn mã thứ hai rồi lệch dần.
+     */
+    private function phanCongHuongDanVien(TourSchedule $schedule, int $soNguoi): void
+    {
+        if ($soNguoi < 1 || $this->guides->isEmpty()) {
+            return;
+        }
+
+        $service = app(ScheduleGuideService::class);
+        [$start, $end] = $service->periodOf($schedule->setRelation('tour', $this->tour));
+
+        $chon = [];
+
+        foreach ($this->guides as $nguoi) {
+            if (count($chon) >= $soNguoi) {
+                break;
+            }
+
+            if ($service->conflictFor($nguoi->id, $start, $end, $schedule->getKey())) {
+                continue;
+            }
+
+            $chon[] = $nguoi->id;
+        }
+
+        $schedule->guides()->sync($chon);
     }
 
     private function dungCacDon(): void
@@ -420,7 +470,11 @@ class BusinessScenarioSeeder extends Seeder
     {
         $diemDon = $this->checkpointDauTien();
 
-        if (!$diemDon || !$this->guide) {
+        // Người sửa điểm danh phải là người thật sự dẫn chuyến đó, không phải hướng dẫn viên đầu
+        // danh sách: chuyến đang chạy có thể do người khác dẫn vì người đầu vướng lịch.
+        $nguoiDanS6 = $this->schedules['S6']->guides()->first();
+
+        if (!$diemDon || !$nguoiDanS6) {
             return;
         }
 
@@ -445,7 +499,7 @@ class BusinessScenarioSeeder extends Seeder
                     'old_status' => PassengerCheckinStatus::Present->value,
                     'new_status' => PassengerCheckinStatus::Absent->value,
                     'note' => 'Ghi nhầm lúc đầu là có mặt, kiểm lại thì khách không lên xe.',
-                    'changed_by' => $this->guide->id,
+                    'changed_by' => $nguoiDanS6->id,
                     'changed_at' => now()->subHours(20),
                 ]);
             }
@@ -568,8 +622,15 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->newLine();
 
         $cmd->line(' Đăng nhập:  admin@gmail.com / admin123');
-        $cmd->line('             guide@gmail.com / guide123');
+        $cmd->line('             guide@gmail.com / guide123   (Phạm Hoàng Long)');
         $cmd->line('             customer@gmail.com / customer123');
+        $cmd->newLine();
+
+        $cmd->line(' HƯỚNG DẪN VIÊN: có ' . $this->guides->count() . ' người, mật khẩu đều là guide123');
+        foreach ($this->guides as $nguoi) {
+            $soChuyen = $nguoi->assignedSchedules()->count();
+            $cmd->line(sprintf('   %-18s %-28s dẫn %d chuyến', $nguoi->name, $nguoi->email, $soChuyen));
+        }
         $cmd->newLine();
         $cmd->line(' CÁCH TÌM: mọi đơn kịch bản đều cùng tên khách và cùng tour, nên đừng dò bằng mắt.');
         $cmd->line('   /admin/bookings   -> gõ mã đơn vào ô tìm kiếm, ví dụ  BK-19');
@@ -665,9 +726,28 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->line('     -> phải báo "Số chỗ của mọi chuyến đều khớp"');
         $cmd->newLine();
 
+        $cmd->comment(' VÒNG 7 — nhiều hướng dẫn viên.  Vào /admin/schedules');
+        $cmd->line('   Cột "Hướng dẫn viên" đang có ba kiểu, xem trước cho quen mắt:');
+        $cmd->line('     ' . $chuyen('S1') . '  ->  3 người');
+        $cmd->line('     ' . $chuyen('S6') . '  ->  2 người, và đang khởi hành');
+        $cmd->line('     ' . $chuyen('S8') . '  ->  chưa phân công ai');
+        $cmd->newLine();
+        $cmd->line('   Bấm "Sửa" ở ' . $chuyen('S2') . ' rồi tick thêm người -> lưu được, không có cảnh báo nào');
+        $cmd->line('     (hệ thống KHÔNG tính hộ bao nhiêu khách cần bao nhiêu HDV, đó là việc của bạn)');
+        $cmd->newLine();
+        $cmd->line('   Thử luật DUY NHẤT còn lại — một người không đứng ở hai đoàn cùng lúc:');
+        $cmd->line('     ở ' . $chuyen('S5') . ' tick người đang dẫn ' . $chuyen('S6') . ' -> phải bị từ chối,');
+        $cmd->line('     và những người khác vừa tick cũng KHÔNG được lưu (được ăn cả ngã về không)');
+        $cmd->newLine();
+        $cmd->line('   Đăng nhập bằng một HDV của ' . $chuyen('S6') . ' -> vào được màn điểm danh của chuyến đó.');
+        $cmd->line('   Đăng nhập bằng người KHÔNG thuộc chuyến -> không thấy chuyến đó.');
+        $cmd->newLine();
+
         $cmd->comment(' THÊM (không bắt buộc)');
         $cmd->line('   Mở lại đơn hủy nhầm: /admin/bookings -> ' . $id('moiHuy') . ' -> nút Mở lại');
         $cmd->line('   Xem mức hoàn không cần đăng nhập: /booking-success/' . ($this->don['hoan90']->public_token ?? ''));
+        $cmd->line('   Danh sách đoàn theo nhóm: /admin/schedules -> ' . $chuyen('S6') . ' -> nút "Danh sách đoàn"');
+        $cmd->line('     -> bấm vào từng nhóm để xem nhóm đó gồm những ai');
         $cmd->newLine();
 
         $this->inBangChuyen();
