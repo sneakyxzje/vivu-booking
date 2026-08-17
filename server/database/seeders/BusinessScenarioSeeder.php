@@ -3,11 +3,13 @@
 namespace Database\Seeders;
 
 use App\Enums\BookingStatus;
+use App\Enums\HandoverRequestStatus;
 use App\Enums\PassengerCheckinStatus;
 use App\Enums\ScheduleStatus;
 use App\Models\Booking;
 use App\Models\BookingPassenger;
 use App\Models\CancellationPolicy;
+use App\Models\GuideHandoverRequest;
 use App\Models\ItineraryCheckpoint;
 use App\Models\PassengerCheckin;
 use App\Models\PassengerCheckinHistory;
@@ -94,6 +96,7 @@ class BusinessScenarioSeeder extends Seeder
         $this->dungCacChuyen();
         $this->dungCacDon();
         $this->dungYeuCauHuy();
+        $this->dungYeuCauBanGiao();
         $this->dungDiemDanh();
         $this->dongBoSoCho();
         $this->inHuongDan();
@@ -461,6 +464,34 @@ class BusinessScenarioSeeder extends Seeder
     }
 
     /**
+     * Một yêu cầu bàn giao đang chờ, để màn duyệt của điều hành có thứ mà hiện.
+     *
+     * Không có nó thì dải báo ở đầu trang quản lý chuyến không bao giờ xuất hiện, và người thử
+     * tay phải đăng nhập bằng hướng dẫn viên gửi một yêu cầu trước mới thấy được màn duyệt. Dữ
+     * liệu mẫu tồn tại để khỏi phải làm đúng cái vòng đó.
+     *
+     * Đặt ở S6 vì đó là chuyến đang chạy: bàn giao giữa chừng mới là tình huống đáng thử.
+     */
+    private function dungYeuCauBanGiao(): void
+    {
+        $chuyen = $this->schedules['S6'] ?? null;
+        $nguoiDan = $chuyen?->guides()->first();
+
+        if (!$chuyen || !$nguoiDan) {
+            return;
+        }
+
+        GuideHandoverRequest::query()->create([
+            'tour_schedule_id' => $chuyen->getKey(),
+            'requested_by' => $nguoiDan->getKey(),
+            'status' => HandoverRequestStatus::Pending,
+            'reason' => 'Tôi bị sốt cao từ sáng, không dẫn tiếp được.',
+            'group_state' => 'Đoàn đang ở Bãi Cháy, đã điểm danh xong điểm đón đầu tiên. '
+                . 'Khách Lê Minh Cường bị say xe, cần để ý. Chiều còn lịch đi thuyền lúc 14h.',
+        ]);
+    }
+
+    /**
      * Điểm danh dựng sẵn cho chuyến đang chạy và chuyến đã kết thúc.
      *
      * Chuyến đang chạy để trên màn hướng dẫn viên có sẵn dữ liệu mà nhìn; chuyến đã kết thúc để
@@ -751,6 +782,20 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->newLine();
         $cmd->line('   Đăng nhập bằng một HDV của ' . $chuyen('S6') . ' -> vào được màn điểm danh của chuyến đó.');
         $cmd->line('   Đăng nhập bằng người KHÔNG thuộc chuyến -> không thấy chuyến đó.');
+        $cmd->newLine();
+
+        $cmd->comment(' VÒNG 8 — bàn giao hướng dẫn viên.  Vào /admin/schedules');
+        $cmd->line('   Ngay dưới tiêu đề có dải vàng "1 yêu cầu bàn giao đang chờ" — đã seed sẵn.');
+        $cmd->line('     Bấm vào -> đọc tình trạng đoàn do HDV viết -> chọn người thay -> Duyệt');
+        $cmd->line('     Duyệt xong: người cũ rời danh sách phụ trách, người mới vào, có biên bản');
+        $cmd->newLine();
+        $cmd->line('   Thử luật KHÔNG BỎ RƠI ĐOÀN ở ' . $chuyen('S6') . ':');
+        $cmd->line('     bấm "Sửa" cột HDV, bỏ bớt để chuyến chỉ còn 1 người, rồi bấm "Bàn giao HDV"');
+        $cmd->line('     -> ô chọn chỉ hiện người ĐANG DẪN ĐOÀN KHÁC, kèm chữ "đang dẫn đoàn khác"');
+        $cmd->line('     -> chọn người đó và lưu: biên bản có nhãn "Nhờ trông hộ", người ấy giữ 2 đoàn');
+        $cmd->newLine();
+        $cmd->line('   Phía HDV: đăng nhập guide@gmail.com -> /guide/handovers');
+        $cmd->line('     xem yêu cầu của mình, rút lại được khi chưa duyệt; đọc tình trạng đoàn khi nhận');
         $cmd->newLine();
 
         $cmd->comment(' THÊM (không bắt buộc)');
