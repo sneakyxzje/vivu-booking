@@ -38,6 +38,7 @@ use App\Http\Controllers\Api\Admin\AdminPassengerController;
 use App\Http\Controllers\Api\Admin\AdminAuditLogController;
 use App\Http\Controllers\Api\Admin\AdminGuideHandoverController;
 use App\Http\Controllers\Api\Admin\AdminIncidentController;
+use App\Http\Controllers\Api\Guide\AssignmentController as GuideAssignmentController;
 use App\Http\Controllers\Api\Guide\IncidentController as GuideIncidentController;
 use App\Http\Controllers\Api\Admin\AdminScheduleCancellationController;
 use App\Http\Controllers\Api\Admin\AdminScheduleDeadlineController;
@@ -140,6 +141,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/my-tours/{id}', [GuideTourController::class, 'show']);
         Route::get('/bookings', [GuideBookingController::class, 'index']);
         Route::put('/bookings/{id}/confirm', [GuideBookingController::class, 'confirm']);
+
+        // Chuyến được phân công: xác nhận, hoặc từ chối kèm lý do khi chuyến chưa khởi hành.
+        Route::get('/assignments', [GuideAssignmentController::class, 'index']);
+        Route::get('/assignments/declines', [GuideAssignmentController::class, 'myDeclines']);
+        Route::put('/assignments/{schedule}/accept', [GuideAssignmentController::class, 'accept']);
+        Route::put('/assignments/{schedule}/decline', [GuideAssignmentController::class, 'decline']);
 
         // Biên bản bàn giao: người mới đọc tình trạng đoàn, người cũ xem lại mình đã giao gì.
         Route::get('/handovers', [GuideIncidentController::class, 'handovers']);
