@@ -58,11 +58,12 @@ class BusinessScenarioSeederTest extends TestCase
             ->firstOrFail();
     }
 
-    public function test_dung_du_chin_chuyen_phu_het_sau_trang_thai(): void
+    /** Mười hai chuyến: sáu trạng thái vòng đời, cặp ghép chuyến, và đoàn thứ hai đang trên đường. */
+    public function test_dung_du_chuyen_phu_het_sau_trang_thai(): void
     {
         $schedules = TourSchedule::query()->where('tour_id', $this->tour->id)->get();
 
-        $this->assertCount(11, $schedules);
+        $this->assertCount(12, $schedules);
 
         $trangThai = $schedules
             ->map(fn (TourSchedule $s) => $s->getRawOriginal('status'))
@@ -341,7 +342,7 @@ class BusinessScenarioSeederTest extends TestCase
         );
 
         $this->assertSame(
-            11,
+            12,
             TourSchedule::query()
                 ->whereIn('tour_id', Tour::query()->where('slug', 'tour-thu-nghiem-nghiep-vu')->pluck('id'))
                 ->count(),

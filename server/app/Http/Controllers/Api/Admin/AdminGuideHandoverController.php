@@ -73,8 +73,15 @@ class AdminGuideHandoverController extends Controller
             /*
              * Người thay: đang hoạt động và chưa phụ trách chính chuyến này.
              *
-             * Kèm cờ leading_other_group để điều hành biết ai đang ở ngoài đường mà nhờ. Trùng
-             * lịch thì vẫn để máy chủ từ chối lúc bấm, vì đó là phép so theo khoảng ngày.
+             * Kèm cờ leading_other_group và xếp nhóm đó lên trước.
+             *
+             * Lý do phải phân biệt: đoàn đang trên đường thì khoảng cách mới là thứ quyết định.
+             * Người đang dẫn đoàn khác thì đã ở ngoài, tới trong vòng ít phút tới một giờ. Người
+             * đang rảnh có thể đang ở nhà cách đoàn nửa ngày đường - vẫn cử được nếu chuyến còn
+             * dài, nhưng không phải thứ chọn khi cần người ngay.
+             *
+             * Hệ thống không biết ai đang ở đâu, nên "đang dẫn đoàn khác" chỉ là dấu hiệu gần
+             * đúng. Vẫn hơn là không phân biệt gì.
              */
             'available_guides' => User::query()
                 ->where('role', 'guide')
@@ -88,7 +95,13 @@ class AdminGuideHandoverController extends Controller
                     'phone' => $g->phone,
                     'leading_other_group' => $this->dangDanDoanKhac($g->id, $schedule->id),
                 ])
+                ->sortByDesc('leading_other_group')
                 ->values(),
+
+            // Còn bao nhiêu giờ nữa đoàn về. Cử người ở xa cho chuyến sắp kết thúc là vô nghĩa.
+            'hours_remaining' => $schedule->end_date
+                ? max(0, (int) GioVietNam::bayGio()->diffInHours($schedule->end_date, false))
+                : null,
 
             'handovers' => $this->handoverService->lichSu($schedule)->map(
                 fn (GuideHandover $bg) => $this->dong($bg),

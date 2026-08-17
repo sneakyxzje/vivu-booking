@@ -238,6 +238,16 @@ class BusinessScenarioSeeder extends Seeder
             // không chuyến nào đủ mức tối thiểu, dồn về một thì cả hai đoàn đều được đi.
             ['ma' => 'S10', 'gio' => 600, 'status' => ScheduleStatus::Open, 'min' => 6, 'so_hdv' => 1, 'mo_ta' => 'Ít khách, dùng làm chuyến nguồn để ghép'],
             ['ma' => 'S11', 'gio' => 624, 'status' => ScheduleStatus::Open, 'min' => 6, 'so_hdv' => 2, 'mo_ta' => 'Ít khách, cách S10 một ngày, dùng làm chuyến đích'],
+            /*
+             * Đoàn thứ hai đang trên đường, do người khác dẫn.
+             *
+             * Không có nó thì luật "nhờ hướng dẫn viên đoàn khác trông hộ" không thử được: chỉ
+             * một đoàn trên đường thì chẳng có ai để nhờ, và danh sách chọn người thay trống rỗng.
+             *
+             * Đặt cuối mảng có chủ ý: các bài kiểm thử tra chuyến theo thứ tự tạo, chèn vào giữa
+             * là lệch hết S10 với S11.
+             */
+            ['ma' => 'S12', 'gio' => -20, 'status' => ScheduleStatus::InProgress, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Đoàn thứ hai đang đi, dùng làm nơi nhờ người trông hộ'],
         ];
 
         foreach ($chuyen as $item) {
@@ -790,9 +800,13 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->line('     Duyệt xong: người cũ rời danh sách phụ trách, người mới vào, có biên bản');
         $cmd->line('   (/admin/schedules cũng có dải vàng báo, nhưng chỉ dẫn sang đây)');
         $cmd->newLine();
+        $cmd->line('   Ô chọn người thay tách hai nhóm: "đang dẫn đoàn khác" (tới ngay) và');
+        $cmd->line('     "đang rảnh" (phải di chuyển tới). Chọn nhóm dưới sẽ có cảnh báo.');
+        $cmd->newLine();
         $cmd->line('   Thử luật KHÔNG BỎ RƠI ĐOÀN ở ' . $chuyen('S6') . ':');
-        $cmd->line('     bấm "Sửa" cột HDV, bỏ bớt để chuyến chỉ còn 1 người, rồi bấm "Bàn giao HDV"');
-        $cmd->line('     -> ô chọn chỉ hiện người ĐANG DẪN ĐOÀN KHÁC, kèm chữ "đang dẫn đoàn khác"');
+        $cmd->line('     /admin/schedules -> bấm "Sửa" cột HDV, bỏ bớt để chuyến chỉ còn 1 người');
+        $cmd->line('     rồi quay lại /admin/handovers duyệt yêu cầu đó');
+        $cmd->line('     -> ô chọn CHỈ còn người đang dẫn ' . $chuyen('S12'));
         $cmd->line('     -> chọn người đó và lưu: biên bản có nhãn "Nhờ trông hộ", người ấy giữ 2 đoàn');
         $cmd->newLine();
         $cmd->line('   Phía HDV: đăng nhập guide@gmail.com -> /guide/handovers');

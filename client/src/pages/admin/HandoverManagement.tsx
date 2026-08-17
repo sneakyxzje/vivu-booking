@@ -73,6 +73,18 @@ export default function HandoverManagement() {
 
   const khongCoAiNhoDuoc = canNhoTrongHo && nguoiThayChonDuoc.length === 0;
 
+  /*
+   * Tách hai nhóm để người chọn thấy được khoảng cách.
+   *
+   * Đoàn đang ở Hạ Long mà cử người đang rảnh ở Hà Nội thì họ phải đi mấy tiếng mới tới. Vẫn
+   * làm được nếu chuyến còn dài, nhưng không phải thứ chọn khi cần người ngay — và màn hình
+   * không nói ra thì nhìn vào tưởng chọn ai cũng như nhau.
+   */
+  const dangNgoaiDuong = nguoiThayChonDuoc.filter((g) => g.leading_other_group);
+  const dangRanh = nguoiThayChonDuoc.filter((g) => !g.leading_other_group);
+
+  const dangChay = panel?.schedule.status === "in_progress";
+
   const openReview = async (yc: PendingHandoverRequest) => {
     setReviewing(yc);
     setPanel(null);
@@ -330,18 +342,55 @@ export default function HandoverManagement() {
                   Từ chối kèm lý do để người xin biết đường xoay xở.
                 </p>
               ) : (
-                <select
-                  value={guideId}
-                  onChange={(e) => setGuideId(Number(e.target.value))}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
-                >
-                  {nguoiThayChonDuoc.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                      {g.leading_other_group ? " — đang dẫn đoàn khác" : ""}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    value={guideId}
+                    onChange={(e) => setGuideId(Number(e.target.value))}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
+                  >
+                    {/* Đang chạy thì tách nhóm, vì khoảng cách mới là thứ quyết định */}
+                    {dangChay ? (
+                      <>
+                        {dangNgoaiDuong.length > 0 && (
+                          <optgroup label="Đang dẫn đoàn khác — tới ngay được">
+                            {dangNgoaiDuong.map((g) => (
+                              <option key={g.id} value={g.id}>
+                                {g.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {dangRanh.length > 0 && (
+                          <optgroup label="Đang rảnh — phải di chuyển tới chỗ đoàn">
+                            {dangRanh.map((g) => (
+                              <option key={g.id} value={g.id}>
+                                {g.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </>
+                    ) : (
+                      nguoiThayChonDuoc.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+
+                  {/* Chọn người đang rảnh cho đoàn đang đi: nói rõ họ chưa có mặt */}
+                  {dangChay && dangRanh.some((g) => g.id === guideId) && (
+                    <p className="mt-1.5 rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
+                      Người này không dẫn đoàn nào lúc này, nên có thể đang ở xa và phải di chuyển
+                      tới chỗ đoàn.
+                      {panel?.hours_remaining !== null && panel?.hours_remaining !== undefined && (
+                        <> Đoàn còn khoảng {panel.hours_remaining} giờ nữa là kết thúc.</>
+                      )}{" "}
+                      Cần người có mặt ngay thì chọn nhóm trên.
+                    </p>
+                  )}
+                </>
               )}
             </div>
 

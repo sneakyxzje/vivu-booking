@@ -295,11 +295,19 @@ export interface HandoverPanelResponse {
    * đó đúng là quãng đoàn không có ai.
    */
   needs_emergency_cover: boolean;
+  /** Còn bao nhiêu giờ nữa đoàn về. Cử người ở xa cho chuyến sắp kết thúc là vô nghĩa. */
+  hours_remaining: number | null;
   available_guides: {
     id: number;
     name: string;
     phone?: string | null;
-    /** Đang dẫn một đoàn khác cũng trên đường, tức nhờ trông hộ được. */
+    /**
+     * Đang dẫn một đoàn khác cũng trên đường.
+     *
+     * Dấu hiệu gần đúng cho "ở gần đoàn": họ đã ra ngoài rồi. Người không có cờ này có thể đang
+     * ở nhà cách đoàn nửa ngày đường — hệ thống không biết ai ở đâu, nhưng phân biệt được thế
+     * này vẫn hơn không phân biệt gì.
+     */
     leading_other_group: boolean;
   }[];
   handovers: GuideHandoverRow[];
