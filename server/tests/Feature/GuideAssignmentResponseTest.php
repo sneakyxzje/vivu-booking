@@ -196,4 +196,32 @@ class GuideAssignmentResponseTest extends TestCase
 
         $this->assertNull($daTai->guides->firstWhere('id', $nguoiMoi->id)->pivot->accepted_at);
     }
+
+    // --- Điều hành nhìn thấy gì -------------------------------------------------------------
+
+    /**
+     * Từ chối xong thì điều hành phải đọc được lý do.
+     *
+     * Từ chối gỡ người khỏi chuyến, nên nhìn bảng chỉ thấy chuyến thiếu người - không có màn này
+     * thì không phân biệt được "chưa xếp ai" với "đã xếp và người ta nói không".
+     */
+    public function test_dieu_hanh_doc_duoc_ai_tu_choi_va_vi_sao(): void
+    {
+        Sanctum::actingAs($this->guide);
+
+        $this->putJson('/api/guide/assignments/' . $this->chuyen->id . '/decline', [
+            'reason' => 'Tuan do toi da co lich gia dinh, khong di duoc.',
+        ])->assertOk();
+
+        Sanctum::actingAs($this->taoNguoi('admin'));
+
+        $ds = $this->getJson('/api/admin/tour-schedules/' . $this->chuyen->id . '/guide-declines')
+            ->assertOk()
+            ->json('data');
+
+        $this->assertCount(1, $ds);
+        $this->assertSame($this->guide->id, $ds[0]['guide_id']);
+        $this->assertSame($this->guide->name, $ds[0]['guide_name']);
+        $this->assertStringContainsString('lich gia dinh', $ds[0]['reason']);
+    }
 }
