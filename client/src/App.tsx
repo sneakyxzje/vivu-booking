@@ -30,6 +30,7 @@ import HeldSeatsManagement from "@/pages/admin/HeldSeatsManagement";
 import ChangeRequestManagement from "@/pages/admin/ChangeRequestManagement";
 import CancellationPolicyManagement from "@/pages/admin/CancellationPolicyManagement";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
+import GuideAssignments from "@/pages/guide/GuideAssignments";
 import { GuideTours } from "@/pages/guide/GuideTours";
 import { GuideBookings } from "@/pages/guide/GuideBookings";
 import { GuideAttendance } from "@/pages/guide/GuideAttendance";
@@ -132,6 +133,10 @@ const router = createBrowserRouter([
           {
             path: "/guide/dashboard",
             element: <GuideDashboard />,
+          },
+          {
+            path: "/guide/assignments",
+            element: <GuideAssignments />,
           },
           {
             path: "/guide/tours",
