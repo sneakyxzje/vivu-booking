@@ -207,8 +207,34 @@ class IncidentTest extends TestCase
 
         $this->postJson(
             '/api/guide/schedules/' . $this->chuyen->id . '/incidents',
-            $this->baoCao(['occurred_at' => now()->addHours(3)->toDateTimeString()]),
+            $this->baoCao([
+                'occurred_at' => \App\Support\GioVietNam::bayGio()->addHours(3)->toDateTimeString(),
+            ]),
         )->assertStatus(422);
+    }
+
+    /**
+     * Giờ gõ từ trình duyệt là giờ Việt Nam, phải chấp nhận được.
+     *
+     * Ứng dụng chạy UTC còn ô datetime-local gửi lên giờ treo tường Việt Nam. So thẳng với now()
+     * thì mọi thời điểm trong 7 tiếng vừa qua đều bị coi là tương lai - tức gần như cả ngày làm
+     * việc, và hướng dẫn viên không báo được sự cố nào.
+     *
+     * Bộ kiểm thử cũ không bắt được vì nó dựng dữ liệu bằng chính now(), tức cả hai vế cùng UTC
+     * nên lệch bao nhiêu cũng triệt tiêu. Bài này cố ý gửi đúng thứ trình duyệt gửi.
+     */
+    public function test_gio_go_tu_trinh_duyet_la_gio_viet_nam_thi_van_bao_duoc(): void
+    {
+        Sanctum::actingAs($this->guide);
+
+        $nhuTrinhDuyetGui = now(\App\Support\GioVietNam::MUI_GIO)
+            ->subMinutes(5)
+            ->format('Y-m-d H:i:s');
+
+        $this->postJson(
+            '/api/guide/schedules/' . $this->chuyen->id . '/incidents',
+            $this->baoCao(['occurred_at' => $nhuTrinhDuyetGui]),
+        )->assertOk()->assertJsonPath('data.reported_late', false);
     }
 
     // --- Điều hành quyết chi phí ----------------------------------------------------------

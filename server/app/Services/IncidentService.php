@@ -15,6 +15,7 @@ use App\Models\BookingSurcharge;
 use App\Models\ScheduleIncident;
 use App\Models\TourSchedule;
 use App\Models\User;
+use App\Support\GioVietNam;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -63,13 +64,22 @@ class IncidentService
 
         $xayRa = Carbon::parse($duLieu['occurred_at']);
 
-        if ($xayRa->isFuture()) {
+        /*
+         * So với giờ Việt Nam, không phải với now().
+         *
+         * Ứng dụng chạy UTC còn ô nhập trên trình duyệt gửi lên giờ treo tường Việt Nam, nên
+         * so thẳng với now() thì mọi thời điểm trong 7 tiếng vừa qua đều bị coi là tương lai -
+         * tức gần như cả ngày làm việc. Xem GioVietNam.
+         */
+        $bayGio = GioVietNam::bayGio();
+
+        if ($xayRa->gt($bayGio)) {
             throw new BusinessRuleException('Thời điểm xảy ra sự cố không thể nằm ở tương lai.');
         }
 
         // Mất sóng giữa biển hoặc trên núi là chuyện thường, nên báo muộn được chấp nhận. Nhưng
         // phải đánh dấu, vì đối chiếu về sau cần biết con số này ghi tại chỗ hay nhớ lại.
-        $ghiBu = now()->diffInHours($xayRa, true) > self::GIO_COI_LA_GHI_BU;
+        $ghiBu = $bayGio->diffInHours($xayRa, true) > self::GIO_COI_LA_GHI_BU;
 
         return ScheduleIncident::query()->create([
             'tour_schedule_id' => $schedule->getKey(),
