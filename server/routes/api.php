@@ -19,6 +19,7 @@ use App\Models\Service;
 use App\Http\Controllers\Api\Customer\BookingController as CustomerBookingController;
 use App\Http\Controllers\Api\Customer\ChangeRequestController as CustomerChangeRequestController;
 use App\Http\Controllers\Api\Customer\PassengerController as CustomerPassengerController;
+use App\Http\Controllers\Api\Customer\GroupBookingController as CustomerGroupBookingController;
 use App\Http\Controllers\Api\Customer\ReviewController;
 
 // Guide
@@ -36,6 +37,7 @@ use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminChangeRequestController;
 use App\Http\Controllers\Api\Admin\AdminPassengerController;
 use App\Http\Controllers\Api\Admin\AdminAuditLogController;
+use App\Http\Controllers\Api\Admin\AdminGroupBookingController;
 use App\Http\Controllers\Api\Admin\AdminGuideHandoverController;
 use App\Http\Controllers\Api\Admin\AdminIncidentController;
 use App\Http\Controllers\Api\Guide\AssignmentController as GuideAssignmentController;
@@ -71,6 +73,11 @@ Route::get('/services', fn() => response()->json([
     'data' => Service::where('is_active', true)->orderBy('name')->get(),
 ]));
 Route::post('/bookings', [CustomerBookingController::class, 'store']);
+// 14 - Booking theo đoàn: gửi yêu cầu, tra cứu bằng mã, rút yêu cầu. Không cần tài khoản,
+// cùng cơ chế mã tra cứu ngẫu nhiên với đơn lẻ.
+Route::post('/group-bookings', [CustomerGroupBookingController::class, 'store']);
+Route::get('/group-bookings/{publicToken}', [CustomerGroupBookingController::class, 'show']);
+Route::put('/group-bookings/{publicToken}/withdraw', [CustomerGroupBookingController::class, 'withdraw']);
 // Task X06a - API gửi lại mã tra cứu về email khách vãng lai
 Route::post('/bookings/resend-code', [CustomerBookingController::class, 'resendLookupCode']);
 Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']);
@@ -224,6 +231,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/incidents/{id}/resolve', [AdminIncidentController::class, 'resolve']);
         Route::put('/surcharges/{id}/approve', [AdminIncidentController::class, 'approveSurcharge']);
         Route::put('/surcharges/{id}/waive', [AdminIncidentController::class, 'waiveSurcharge']);
+
+        // 14 - Booking đoàn: báo giá, chốt thành đơn, sổ thu tiền nhiều đợt, giảm số khách.
+        Route::get('/group-bookings', [AdminGroupBookingController::class, 'index']);
+        Route::put('/group-bookings/{id}/quote', [AdminGroupBookingController::class, 'quote']);
+        Route::put('/group-bookings/{id}/confirm', [AdminGroupBookingController::class, 'confirm']);
+        Route::put('/group-bookings/{id}/reject', [AdminGroupBookingController::class, 'reject']);
+        Route::get('/bookings/{id}/payments', [AdminGroupBookingController::class, 'payments']);
+        Route::post('/bookings/{id}/payments', [AdminGroupBookingController::class, 'storePayment']);
+        Route::put('/bookings/{id}/reduce-guests', [AdminGroupBookingController::class, 'reduceGuests']);
 
         // K - Hủy cả chuyến. Đi đường riêng vì phải gán phương án cho từng đơn đã thanh toán.
         Route::get('/schedules/{id}/cancel-preview', [AdminScheduleCancellationController::class, 'preview']);
