@@ -60,13 +60,30 @@ return new class extends Migration
             ]);
         }
 
-        // Chỉ mục cũ dựng trên cột sắp bỏ, phải gỡ trước.
-        Schema::table('tour_schedules', function (Blueprint $table) {
-            $table->dropIndex('idx_schedules_guide_dates');
-        });
-
+        /*
+         * Thứ tự bắt buộc: khóa ngoại -> chỉ mục -> cột.
+         *
+         * MySQL dùng idx_schedules_guide_dates (guide_id, start_date, end_date) để đỡ chính khóa
+         * ngoại trên guide_id, vì guide_id là cột trái nhất của chỉ mục ấy. Gỡ chỉ mục khi khóa
+         * ngoại còn sống thì MySQL từ chối: "Cannot drop index ... needed in a foreign key
+         * constraint" (lỗi 1553).
+         *
+         * SQLite không lộ ra chuyện này vì nó dựng lại cả bảng, nên viết sai thứ tự ở đây vẫn
+         * chạy trên máy phát triển rồi mới hỏng trên máy chạy MySQL.
+         */
         Schema::table('tour_schedules', function (Blueprint $table) {
             $table->dropForeign(['guide_id']);
+        });
+
+        // Hỏi trước khi gỡ: mỗi trình điều khiển tự đặt thêm chỉ mục cho khóa ngoại theo cách
+        // riêng, nên chỉ mục đặt tên tay có thể đã biến mất cùng khóa ngoại vừa gỡ.
+        if (Schema::hasIndex('tour_schedules', 'idx_schedules_guide_dates')) {
+            Schema::table('tour_schedules', function (Blueprint $table) {
+                $table->dropIndex('idx_schedules_guide_dates');
+            });
+        }
+
+        Schema::table('tour_schedules', function (Blueprint $table) {
             $table->dropColumn('guide_id');
         });
     }
