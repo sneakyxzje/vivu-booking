@@ -163,12 +163,29 @@ class CancellationPolicyService
     /**
      * Số tiền khách đã thực trả cho đơn này.
      *
-     * Hiện hệ thống chỉ có thanh toán một lần nên đã trả là trả đủ. Khi sổ giao dịch đơn hàng
-     * vào (task N01), thay thân hàm này bằng tổng các giao dịch thu đã thành công, phần còn lại
-     * của lớp dịch vụ không phải sửa.
+     * Hai nguồn, chọn theo đơn:
+     *
+     *   - Đơn có sổ giao dịch (đơn đoàn, trả nhiều đợt): tổng thu trừ tổng hoàn. Đây là chỗ làm
+     *     cho phép tính "mất cọc" chạy đúng - đoàn mới đóng cọc 30% mà hủy sát ngày thì tiền
+     *     hoàn trừ trên số cọc đã thu, không phải trên tổng giá trị đơn.
+     *   - Đơn lẻ: trả một lần qua cổng, đã trả là trả đủ, đọc theo mốc paid_at như cũ.
+     *
+     * Phân nhánh theo "sổ có dòng hay không" chứ không theo "đơn có phải đơn đoàn không", để nếu
+     * mai kia đơn lẻ cũng chuyển sang sổ thì hàm này không phải sửa.
      */
     private function paidAmount(Booking $booking): float
     {
+        if ($booking->payments()->exists()) {
+            $thu = (float) $booking->payments()
+                ->whereIn('kind', \App\Models\BookingPayment::THU)
+                ->sum('amount');
+            $hoan = (float) $booking->payments()
+                ->where('kind', \App\Models\BookingPayment::HOAN)
+                ->sum('amount');
+
+            return round($thu - $hoan);
+        }
+
         return $booking->paid_at ? round((float) $booking->total_amount) : 0.0;
     }
 }
