@@ -21,7 +21,7 @@ Ba đối tượng sử dụng: khách hàng, hướng dẫn viên, và bộ ph�
 | Hủy và hoàn | Chính sách hủy theo mốc thời gian, phân quyền hủy, hoàn tiền có đối soát | 03 |
 | Điều hành | Vòng đời chuyến, chốt chuyến, ghép chuyến, hủy chuyến, phân công hướng dẫn viên | 04 |
 | Dẫn đoàn | Điểm danh theo điểm dừng, ảnh check-in, báo cáo sự cố | 04 |
-| Đoàn và hồ sơ | Danh sách đoàn chia theo nhóm đã có. **Booking đoàn, báo giá, hợp đồng chưa cài đặt** — xem [06 mục 6](06-doi-chieu-feedback.md) | 05 |
+| Đoàn và hồ sơ | Danh sách đoàn theo nhóm, booking đoàn (yêu cầu → báo giá → chốt, thu nhiều đợt) đã có. **Hợp đồng và nộp danh sách bằng Excel chưa cài đặt** — xem [06 mục 6](06-doi-chieu-feedback.md) | 05 |
 | Cung ứng | Nhà cung cấp, allotment, giá vốn, lãi lỗ từng chuyến | 09 |
 | Tài chính | Sổ giao dịch đơn hàng, tạm ứng và quyết toán đoàn, ghi nhận doanh thu | 10 |
 
