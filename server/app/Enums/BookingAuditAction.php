@@ -29,6 +29,9 @@ enum BookingAuditAction: string
 
     case PassengersUpdated = 'passengers_updated';
 
+    /** Sửa thông tin người đặt: tên, điện thoại, thư điện tử liên hệ. */
+    case ContactUpdated = 'contact_updated';
+
     /** Chuyển đơn sang chuyến khác, cùng tour hoặc khác tour. */
     case Transferred = 'transferred';
 
@@ -46,6 +49,7 @@ enum BookingAuditAction: string
             self::CancelRequestWithdrawn => 'Khách rút lại yêu cầu hủy',
             self::Finalized => 'Chốt đơn sau chuyến',
             self::PassengersUpdated => 'Cập nhật danh sách hành khách',
+            self::ContactUpdated => 'Sửa thông tin liên hệ',
             self::Transferred => 'Chuyển sang chuyến khác',
         };
     }

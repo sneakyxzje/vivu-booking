@@ -131,6 +131,20 @@ const bookingService = {
   getMyBookings: () => api.get("/my-bookings"),
 
   /**
+   * Khách tự sửa thông tin liên hệ đã nhập nhầm.
+   *
+   * Không bị hạn chốt danh sách khóa, khác với sửa danh sách hành khách: đây là số công ty và
+   * hướng dẫn viên gọi khách, càng sát ngày càng cần đúng.
+   *
+   * Số lượng khách thì không sửa được - đổi số người là đổi cả chỗ lẫn tiền, phải hủy và đặt lại.
+   */
+  updateMyBookingContact: (
+    id: number,
+    payload: { customer_name: string; customer_email: string; customer_phone?: string | null },
+  ) =>
+    api.put<{ success: boolean; message: string }>(`/my-bookings/${id}/contact`, payload),
+
+  /**
    * Khách tự hủy đơn của mình.
    *
    * Máy chủ chỉ nhận đơn chưa thanh toán, và từ chối kèm lý do khi chuyến đã khởi hành. Lỗi để

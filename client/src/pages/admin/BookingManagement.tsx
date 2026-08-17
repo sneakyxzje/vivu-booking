@@ -29,6 +29,16 @@ export default function BookingManagement() {
   const [history, setHistory] = useState<BookingAuditEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
 
+  // Sửa thông tin liên hệ nhập nhầm. Không bị hạn chốt khóa, khác danh sách hành khách.
+  const [editingContact, setEditingContact] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    customer_name: "",
+    customer_email: "",
+    customer_phone: "",
+  });
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactError, setContactError] = useState("");
+
   // I06 - Chuyển đơn sang chuyến khác
   const [transferMode, setTransferMode] = useState(false);
   const [transferOptions, setTransferOptions] = useState<TransferOption[]>([]);
@@ -130,6 +140,7 @@ export default function BookingManagement() {
     setIsModalOpen(true);
     setHistory([]);
     setShowHistory(false);
+    setEditingContact(false);
 
     try {
       const detailed = await adminService.getBookingById(booking.id);
@@ -146,6 +157,50 @@ export default function BookingManagement() {
       setHistory(await adminService.getBookingHistory(booking.id));
     } catch (err) {
       console.error("Lỗi lấy lịch sử đơn đặt hàng: ", err);
+    }
+  };
+
+  const openContactEditor = (booking: Booking) => {
+    setContactForm({
+      customer_name: booking.customer_name ?? "",
+      customer_email: booking.customer_email ?? "",
+      customer_phone: booking.customer_phone ?? "",
+    });
+    setContactError("");
+    setEditingContact(true);
+  };
+
+  const saveContact = async () => {
+    if (!selectedBooking) return;
+
+    setContactSaving(true);
+    setContactError("");
+
+    try {
+      const moi = {
+        customer_name: contactForm.customer_name.trim(),
+        customer_email: contactForm.customer_email.trim(),
+        customer_phone: contactForm.customer_phone.trim() || null,
+      };
+
+      await adminService.updateBookingContact(selectedBooking.id, moi);
+
+      setSelectedBooking((truoc) => (truoc ? { ...truoc, ...moi } : truoc));
+
+      // Cập nhật luôn dòng trong bảng, khỏi phải tải lại cả trang danh sách.
+      setBookings((truoc) =>
+        truoc.map((item) => (item.id === selectedBooking.id ? { ...item, ...moi } : item)),
+      );
+
+      setEditingContact(false);
+
+      // Nhật ký vừa có thêm một dòng, lấy lại để màn lịch sử khớp ngay.
+      setHistory(await adminService.getBookingHistory(selectedBooking.id));
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      setContactError(response?.message || "Không lưu được thông tin liên hệ.");
+    } finally {
+      setContactSaving(false);
     }
   };
 
@@ -771,21 +826,92 @@ export default function BookingManagement() {
             {/* Customer & Payment info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
               <div className="bg-gray-50/50 p-5 rounded-lg border border-gray-200">
-                <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Thông tin người đặt</h5>
-                <div className="mt-3.5 space-y-2 text-sm font-inter">
-                  <p className="flex justify-between border-b border-gray-100 pb-1.5">
-                    <span className="text-gray-400">Họ và tên:</span>{" "}
-                    <span className="font-semibold text-gray-800">{selectedBooking.customer_name}</span>
-                  </p>
-                  <p className="flex justify-between border-b border-gray-100 pb-1.5">
-                    <span className="text-gray-400">Email:</span>{" "}
-                    <span className="font-semibold text-gray-800 font-mono text-xs">{selectedBooking.customer_email}</span>
-                  </p>
-                  <p className="flex justify-between">
-                    <span className="text-gray-400">Số ĐT:</span>{" "}
-                    <span className="font-semibold text-gray-800 font-mono">{selectedBooking.customer_phone ?? "Không có"}</span>
-                  </p>
+                <div className="flex items-center justify-between gap-2">
+                  <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Thông tin người đặt</h5>
+                  {!editingContact && (
+                    <button
+                      type="button"
+                      onClick={() => openContactEditor(selectedBooking)}
+                      className="rounded border border-gray-200 bg-white px-2 py-0.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 transition-colors"
+                    >
+                      Sửa
+                    </button>
+                  )}
                 </div>
+
+                {/*
+                  Sửa được cả sau hạn chốt và cả khi đoàn đang đi — khác hẳn danh sách hành khách.
+                  Đây là số hướng dẫn viên gọi khách, sát ngày mới càng cần đúng.
+                */}
+                {editingContact ? (
+                  <div className="mt-3.5 space-y-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Họ và tên</label>
+                      <input
+                        value={contactForm.customer_name}
+                        onChange={(e) => setContactForm((truoc) => ({ ...truoc, customer_name: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-primary-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Email</label>
+                      <input
+                        type="email"
+                        value={contactForm.customer_email}
+                        onChange={(e) => setContactForm((truoc) => ({ ...truoc, customer_email: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-primary-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 mb-1">Số điện thoại</label>
+                      <input
+                        value={contactForm.customer_phone}
+                        onChange={(e) => setContactForm((truoc) => ({ ...truoc, customer_phone: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-mono outline-none focus:border-primary-400"
+                      />
+                    </div>
+
+                    {contactError && (
+                      <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+                        {contactError}
+                      </p>
+                    )}
+
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditingContact(false)}
+                        disabled={contactSaving}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        Bỏ qua
+                      </button>
+                      <button
+                        type="button"
+                        onClick={saveContact}
+                        disabled={contactSaving}
+                        className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-40"
+                      >
+                        {contactSaving ? "Đang lưu..." : "Lưu"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3.5 space-y-2 text-sm font-inter">
+                    <p className="flex justify-between border-b border-gray-100 pb-1.5">
+                      <span className="text-gray-400">Họ và tên:</span>{" "}
+                      <span className="font-semibold text-gray-800">{selectedBooking.customer_name}</span>
+                    </p>
+                    <p className="flex justify-between border-b border-gray-100 pb-1.5">
+                      <span className="text-gray-400">Email:</span>{" "}
+                      <span className="font-semibold text-gray-800 font-mono text-xs">{selectedBooking.customer_email}</span>
+                    </p>
+                    <p className="flex justify-between">
+                      <span className="text-gray-400">Số ĐT:</span>{" "}
+                      <span className="font-semibold text-gray-800 font-mono">{selectedBooking.customer_phone ?? "Không có"}</span>
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="bg-gray-50/50 p-5 rounded-lg border border-gray-200">

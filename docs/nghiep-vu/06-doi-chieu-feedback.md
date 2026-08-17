@@ -17,7 +17,7 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 | STT | Hội đồng nêu | Hiện trạng | Luật nằm ở đâu |
 | --- | --- | --- | --- |
 | 1 | Hỗ trợ chuyển tour | **Đã có** | `BookingTransferService` — cùng tour và khác tour, khóa hai chuyến theo id tăng dần, lần hai thu phí, chặn sau hạn chốt |
-| 2 | Cập nhật lại booking | **Một phần** | Sửa hành khách, xác nhận, hủy, mở lại, chuyển chuyến đều có. **Thiếu sửa số khách** (thêm bớt người kèm chênh tiền) |
+| 2 | Cập nhật lại booking | **Đã có** | `BookingContactService` sửa thông tin người đặt; `PassengerPolicyService` sửa hành khách; chuyển chuyến, xác nhận, hủy, mở lại. **Số khách cố ý không cho sửa** — xem ghi chú dưới bảng |
 | 3 | Cập nhật thông tin khách hàng | **Đã có** | `PassengerPolicyService` — quyền sửa theo thời điểm: trước hạn chốt khách tự sửa, sau đó chỉ điều hành, khởi hành rồi thì khóa |
 | 4 | Validate điểm danh | **Đã có** | `AttendanceService` — chín quy tắc. Quy tắc 8 (điểm dừng bắt buộc ảnh) đã viết nhưng chưa có nút gọi |
 | 5 | Điểm danh từng điểm đến từng ngày | **Đã có** | `passenger_checkins` theo từng hành khách, từng điểm dừng |
@@ -35,7 +35,27 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 | 17 | Hướng dẫn viên phù hợp cho từng tour | **Một phần** | Chỉ trả lời được "ai đang rảnh" (`ScheduleGuideService`). **Chưa có hồ sơ năng lực**: ngôn ngữ, tuyến quen, chuyên môn |
 | 18 | Hợp đồng, danh sách khách hàng | **Một phần** | Danh sách đoàn chia theo nhóm đã có. **Hợp đồng chưa có gì** |
 
-**Tổng kết: 11 điểm đã có mã chạy, 4 điểm còn một mảng thiếu, 3 điểm chưa làm.**
+**Tổng kết: 12 điểm đã có mã chạy, 3 điểm còn một mảng thiếu, 3 điểm chưa làm.**
+
+### Vì sao không cho sửa số khách (điểm 2)
+
+Đây là **quyết định có chủ ý, không phải thiếu sót**, và nếu bị hỏi thì trả lời thẳng như vậy.
+
+Hội đồng nêu *"cập nhật lại booking, thực tế và trên web"*. Tài liệu này trước đây tự diễn giải
+thành hai luồng, trong đó có sửa số lượng khách, rồi backlog dựng hẳn nhóm J gần 6 ngày công. Đọc
+lại nguyên văn thì hội đồng không nói tới số lượng.
+
+Ranh giới đang áp: **sửa thứ gõ nhầm thì được, đổi thứ đã mua thì không.**
+
+Tên, điện thoại, thư điện tử, thông tin hành khách là dữ liệu mô tả — gõ sai thì sửa, không ảnh
+hưởng chỗ và tiền. Số lượng khách là thứ đã mua: đổi nó là đổi số chỗ giữ ở chuyến, tổng tiền đơn,
+và nếu giảm thì phải tính phí hủy trên phần bớt đi. Khách cần đổi số người thì hủy và đặt lại theo
+đúng chính sách hủy, chứ không đi cửa sau qua màn sửa đơn.
+
+Đổi lại, việc sửa thông tin liên hệ **không bị hạn chốt danh sách khóa** — khác với sửa danh sách
+hành khách. Danh sách hành khách gửi cho nhà cung cấp nên sau hạn chốt khách hết quyền sửa. Thông
+tin liên hệ không đi đâu cả, nó là số hướng dẫn viên gọi khách, càng sát ngày càng cần đúng. Áp
+cùng một mốc cho cả hai là khóa ngược.
 
 Nguyên nhân gốc ở mục 2 đã được xử lý: chuyến khởi hành nay có vòng đời đầy đủ, và mười một điểm
 đóng được đều nhờ nền đó.
@@ -103,10 +123,13 @@ hoàn toàn và hoàn chênh nếu tour đích rẻ hơn. Về kỹ thuật, tha
 nên phải khóa theo thứ tự khóa chính tăng dần để tránh khóa chết.
 
 **2. Cập nhật lại booking theo thực tế.**
-Tách thành hai luồng theo mức rủi ro. Sửa thông tin hành khách thì khách tự làm được trước hạn
-chốt danh sách. Sửa số lượng khách thì bắt buộc qua điều hành vì chạm tới chỗ và tiền: tăng thì
-khóa chuyến kiểm tra còn chỗ rồi tạo khoản thu thêm, giảm thì áp chính sách hủy một phần.
-Mọi thay đổi đều ghi nhật ký gồm người thao tác, giá trị trước và sau, lý do.
+Ranh giới là **sửa thứ gõ nhầm thì được, đổi thứ đã mua thì không**. Thông tin người đặt và thông
+tin hành khách đều sửa được vì đó là dữ liệu mô tả, gõ sai thì sửa lại. Số lượng khách thì không,
+vì đổi nó là đổi số chỗ giữ ở chuyến và tổng tiền đơn — khách cần đổi số người thì hủy và đặt lại
+theo đúng chính sách hủy. Hai loại thông tin trên chịu hai mốc khóa khác nhau: danh sách hành khách
+khóa với khách sau hạn chốt vì đã gửi nhà cung cấp, còn thông tin liên hệ sửa được tới tận lúc
+đoàn đang đi vì đó là số hướng dẫn viên gọi khách. Mọi thay đổi đều ghi nhật ký gồm người thao tác,
+giá trị trước và sau.
 
 **3. Cập nhật thông tin khách hàng.**
 Bổ sung đủ trường cần cho vận hành thực tế: giới tính, ngày sinh, số căn cước hoặc hộ chiếu,

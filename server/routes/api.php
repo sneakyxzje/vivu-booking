@@ -122,6 +122,8 @@ Route::middleware('auth:sanctum')->group(function () {
         // G03 - Khách sửa danh sách hành khách, chỉ trước hạn chốt danh sách.
         Route::get('/my-bookings/{id}/passengers', [CustomerPassengerController::class, 'index']);
         Route::put('/my-bookings/{id}/passengers', [CustomerPassengerController::class, 'update']);
+        // Sửa thông tin liên hệ nhập nhầm. Không khóa theo hạn chốt: đây là số công ty gọi khách.
+        Route::put('/my-bookings/{id}/contact', [CustomerBookingController::class, 'updateContact']);
     });
 
     /*
@@ -206,6 +208,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // G03, G05 - Danh sách hành khách. Điều hành sửa được cả sau hạn chốt.
         Route::get('/bookings/{id}/passengers', [AdminPassengerController::class, 'index']);
         Route::put('/bookings/{id}/passengers', [AdminPassengerController::class, 'update']);
+        Route::put('/bookings/{id}/contact', [AdminBookingController::class, 'updateContact']);
         // Danh sách đoàn chia theo nhóm: mỗi đơn là một nhóm do người đại diện đăng ký.
         Route::get('/schedules/{id}/manifest', [AdminPassengerController::class, 'manifest']);
 

@@ -12,6 +12,7 @@ use App\Models\Booking;
 use App\Models\BookingAuditLog;
 use App\Models\TourSchedule;
 use App\Services\BookingAuditLogger;
+use App\Services\BookingContactService;
 use App\Services\BookingHoldService;
 use App\Services\BookingPolicyService;
 use App\Services\CancellationPolicyService;
@@ -31,6 +32,7 @@ class AdminBookingController extends Controller
         private ScheduleLifecycleService $scheduleLifecycle,
         private CancellationPolicyService $cancellationPolicy,
         private BookingAuditLogger $auditLogger,
+        private BookingContactService $contactService,
     ) {
     }
 
@@ -239,6 +241,30 @@ class AdminBookingController extends Controller
             'seats_will_be_released' => $this->holdService->shouldReleaseSeats($booking, $schedule),
             'policy_name' => $booking->cancellationPolicy?->name,
         ], 'Lấy dự báo hủy đơn thành công');
+    }
+
+    /**
+     * Sửa thông tin liên hệ của người đặt.
+     *
+     * Không áp hạn chốt danh sách: số điện thoại là thứ hướng dẫn viên gọi khách, càng sát ngày
+     * càng cần đúng. Xem BookingContactService.
+     */
+    public function updateContact(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate(BookingContactService::validationRules());
+
+        $booking = Booking::query()->find($id);
+
+        if (!$booking) {
+            return $this->error('Không tìm thấy đơn đặt hàng', 404);
+        }
+
+        $daSua = $this->contactService->update($booking, $validated, $request->user());
+
+        return $this->success(
+            $daSua->only(['id', 'customer_name', 'customer_email', 'customer_phone']),
+            'Đã cập nhật thông tin liên hệ.',
+        );
     }
 
     public function cancel(Request $request, int $id): JsonResponse

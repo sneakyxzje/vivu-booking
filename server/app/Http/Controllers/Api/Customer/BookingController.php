@@ -12,6 +12,7 @@ use App\Models\DiscountCode;
 use App\Models\PaymentLog;
 use App\Models\TourSchedule;
 use App\Services\BookingAuditLogger;
+use App\Services\BookingContactService;
 use App\Services\BookingHoldService;
 use App\Services\BookingPolicyService;
 use App\Services\CancellationPolicyService;
@@ -352,6 +353,37 @@ class BookingController extends Controller
                     'note' => $rule->note,
                 ]),
             ],
+        ]);
+    }
+
+    /**
+     * Khách tự sửa thông tin liên hệ đã nhập nhầm.
+     *
+     * Không khóa theo hạn chốt danh sách, khác với sửa danh sách hành khách: thông tin liên hệ
+     * không gửi cho nhà cung cấp, nó là số công ty gọi khách. Xem BookingContactService.
+     */
+    public function updateContact(Request $request, int $id): JsonResponse
+    {
+        $validated = $request->validate(BookingContactService::validationRules());
+
+        $booking = Booking::query()
+            ->where('id', $id)
+            ->where('customer_id', $request->user()->id)
+            ->first();
+
+        if (!$booking) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy đơn đặt tour của bạn.',
+            ], 404);
+        }
+
+        $daSua = app(BookingContactService::class)->update($booking, $validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã cập nhật thông tin liên hệ.',
+            'data' => $daSua->only(['id', 'customer_name', 'customer_email', 'customer_phone']),
         ]);
     }
 

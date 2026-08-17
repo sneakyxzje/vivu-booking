@@ -36,6 +36,17 @@ export const MyBookingsTab: React.FC = () => {
 
   // Modals state
   const [selectedBooking, setSelectedBooking] = useState<ExtendedBooking | null>(null);
+  // Sửa thông tin liên hệ nhập nhầm. Số lượng khách thì không sửa được: đổi số người là đổi cả
+  // chỗ lẫn tiền, phải hủy và đặt lại theo chính sách hủy.
+  const [editingContact, setEditingContact] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    customer_name: "",
+    customer_email: "",
+    customer_phone: "",
+  });
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactError, setContactError] = useState("");
+
   const [showReviewModal, setShowReviewModal] = useState<ExtendedBooking | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
@@ -64,6 +75,45 @@ export const MyBookingsTab: React.FC = () => {
   const [paxSaving, setPaxSaving] = useState(false);
   const [paxError, setPaxError] = useState("");
   const [paxSaved, setPaxSaved] = useState("");
+
+  const openContactEditor = (booking: ExtendedBooking) => {
+    setContactForm({
+      customer_name: booking.customer_name ?? "",
+      customer_email: booking.customer_email ?? "",
+      customer_phone: booking.customer_phone ?? "",
+    });
+    setContactError("");
+    setEditingContact(true);
+  };
+
+  const saveContact = async () => {
+    if (!selectedBooking) return;
+
+    setContactSaving(true);
+    setContactError("");
+
+    try {
+      const moi = {
+        customer_name: contactForm.customer_name.trim(),
+        customer_email: contactForm.customer_email.trim(),
+        customer_phone: contactForm.customer_phone.trim() || null,
+      };
+
+      await bookingService.updateMyBookingContact(selectedBooking.id, moi);
+
+      setSelectedBooking((truoc) => (truoc ? { ...truoc, ...moi } : truoc));
+      setBookings((truoc) =>
+        truoc.map((item) => (item.id === selectedBooking.id ? { ...item, ...moi } : item)),
+      );
+
+      setEditingContact(false);
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      setContactError(response?.message || "Không lưu được thông tin liên hệ.");
+    } finally {
+      setContactSaving(false);
+    }
+  };
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -679,11 +729,77 @@ export const MyBookingsTab: React.FC = () => {
                     {selectedBooking.adult_count ?? 0} người lớn, {selectedBooking.child_count ?? 0} trẻ em, {selectedBooking.infant_count ?? 0} em bé
                   </strong>
                 </p>
-                <p>
-                  <span className="text-gray-500">Người liên hệ:</span>{" "}
-                  <strong className="text-gray-900">{selectedBooking.customer_name}</strong>
-                  {selectedBooking.customer_phone ? ` — ${selectedBooking.customer_phone}` : ""}
-                </p>
+                {/*
+                  Sửa được cả sau hạn chốt và cả khi đoàn đang đi, khác với danh sách hành khách:
+                  đây là số hướng dẫn viên gọi khách, sát ngày mới càng cần đúng.
+                */}
+                {editingContact ? (
+                  <div className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+                    <input
+                      value={contactForm.customer_name}
+                      onChange={(e) =>
+                        setContactForm((truoc) => ({ ...truoc, customer_name: e.target.value }))
+                      }
+                      placeholder="Họ và tên người liên hệ"
+                      className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-primary-400"
+                    />
+                    <input
+                      type="email"
+                      value={contactForm.customer_email}
+                      onChange={(e) =>
+                        setContactForm((truoc) => ({ ...truoc, customer_email: e.target.value }))
+                      }
+                      placeholder="Email"
+                      className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-primary-400"
+                    />
+                    <input
+                      value={contactForm.customer_phone}
+                      onChange={(e) =>
+                        setContactForm((truoc) => ({ ...truoc, customer_phone: e.target.value }))
+                      }
+                      placeholder="Số điện thoại"
+                      className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-primary-400"
+                    />
+
+                    {contactError && (
+                      <p className="rounded bg-rose-50 px-2 py-1.5 text-xs font-medium text-rose-700">
+                        {contactError}
+                      </p>
+                    )}
+
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingContact(false)}
+                        disabled={contactSaving}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        Bỏ qua
+                      </button>
+                      <button
+                        type="button"
+                        onClick={saveContact}
+                        disabled={contactSaving}
+                        className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-40"
+                      >
+                        {contactSaving ? "Đang lưu..." : "Lưu"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="flex flex-wrap items-center gap-x-2">
+                    <span className="text-gray-500">Người liên hệ:</span>{" "}
+                    <strong className="text-gray-900">{selectedBooking.customer_name}</strong>
+                    {selectedBooking.customer_phone ? ` — ${selectedBooking.customer_phone}` : ""}
+                    <button
+                      type="button"
+                      onClick={() => openContactEditor(selectedBooking)}
+                      className="text-xs font-semibold text-primary-600 hover:underline"
+                    >
+                      Sửa nếu nhập nhầm
+                    </button>
+                  </p>
+                )}
                 {selectedBooking.passengers && selectedBooking.passengers.length > 0 && (
                   <div className="pt-2 mt-1 border-t border-gray-200/60 space-y-1.5">
                     {selectedBooking.passengers.map((passenger, idx) => (

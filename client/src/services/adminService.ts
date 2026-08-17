@@ -668,6 +668,20 @@ const adminService = {
     return extractObject<AuditLogResponse>(response);
   },
 
+  /**
+   * Sửa thông tin liên hệ của người đặt.
+   *
+   * Không bị hạn chốt danh sách khóa: đây là số hướng dẫn viên gọi khách, sát ngày mới càng cần
+   * đúng. Chỉ dừng khi đơn đã kết thúc vòng đời.
+   */
+  updateBookingContact: async (
+    id: number,
+    payload: { customer_name: string; customer_email: string; customer_phone?: string | null },
+  ) => {
+    const response = await api.put(`/admin/bookings/${id}/contact`, payload);
+    return response.data?.message ?? "Đã cập nhật thông tin liên hệ.";
+  },
+
   getBookingHistory: async (id: number): Promise<BookingAuditEntry[]> => {
     const response = await api.get(`/admin/bookings/${id}/history`);
     return response.data?.data ?? [];

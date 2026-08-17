@@ -219,7 +219,20 @@ Tài liệu tham chiếu: 02 mục 4, 07 mục 2.1.
 
 **Tổng nhóm I: 8,5 ngày**
 
-## Nhóm J - Sửa số lượng khách
+## ~~Nhóm J - Sửa số lượng khách~~ — ĐÃ BỎ KHỎI PHẠM VI
+
+**Không làm.** Nhóm này sinh ra từ một diễn giải của chính chúng ta, không phải từ lời hội đồng:
+hội đồng nêu *"cập nhật lại booking, thực tế và trên web"*, không nói tới số lượng.
+
+Ranh giới đã chốt: **sửa thứ gõ nhầm thì được, đổi thứ đã mua thì không.** Số lượng khách là thứ
+đã mua — đổi nó là đổi số chỗ giữ ở chuyến, tổng tiền đơn, và nếu giảm thì phải tính phí hủy trên
+phần bớt đi. Khách cần đổi số người thì hủy và đặt lại theo đúng chính sách hủy, chứ không đi cửa
+sau qua màn sửa đơn.
+
+Phần thật sự cần đã làm bằng `BookingContactService`: sửa tên, điện thoại, thư điện tử của người
+đặt. Xem [06 mục 1](06-doi-chieu-feedback.md).
+
+Bảng dưới giữ lại để đối chiếu, không phải việc phải làm.
 
 Tài liệu tham chiếu: 02 mục 3.2.
 
