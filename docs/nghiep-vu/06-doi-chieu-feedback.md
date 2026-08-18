@@ -10,7 +10,7 @@ Ký hiệu hiện trạng:
 - `Đã có`: có mã chạy thật và có kiểm thử tự động giữ.
 
 **Cập nhật ngày 17/08/2026.** Bảng dưới đây phản ánh mã nguồn tại thời điểm đó, không phải kế
-hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu được ngay. Bộ kiểm thử: 491 bài, xanh.
+hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu được ngay. Bộ kiểm thử: 488 bài, xanh.
 
 ## 1. Bảng đối chiếu tổng hợp
 
@@ -32,7 +32,7 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 | 14 | Booking theo đoàn | **Một phần** | `GroupBookingService` — đường ống yêu cầu → báo giá → chốt; chỉ bước chốt mới chiếm chỗ và đi qua đúng luật giữ chỗ của khách lẻ; thu tiền nhiều đợt qua sổ giao dịch; đoàn được giảm số khách trước hạn chốt (khách lẻ vẫn không). **Còn thiếu:** nộp danh sách bằng Excel, hóa đơn VAT mới lưu thông tin chưa phát hành — xem ghi chú mục 6 |
 | 15 | Xóa tour khi đã có người thanh toán | **Đã có** | `ScheduleCancellationService` — ba bước bắt buộc, mỗi đơn đã trả tiền phải có phương án, hoàn 100% hoặc chuyển miễn phí |
 | 16 | Ghép tour | **Đã có** | `ScheduleMergeService` — cùng tour, lệch không quá 2 ngày, cả hai chuyến phải còn trước hạn chốt |
-| 17 | Hướng dẫn viên phù hợp cho từng tour | **Đã có** | `GuideSuitabilityService` chấm và xếp hạng; `guide_profiles` + `guide_categories` giữ thẻ hành nghề, ngôn ngữ, tuyến quen, chuyên môn, sức dẫn. Chỉ hai thứ chặn: trùng lịch và thẻ hết hạn giữa chuyến — xem ghi chú dưới bảng |
+| 17 | Hướng dẫn viên phù hợp cho từng tour | **Đã có** | `GuideSuitabilityService` chấm và xếp hạng; `guide_profiles` + `guide_categories` giữ ngôn ngữ, tuyến quen, chuyên môn, sức dẫn. Hồ sơ **không chặn ai** — luật chặn duy nhất vẫn là trùng lịch. Xem ghi chú dưới bảng |
 | 18 | Hợp đồng, danh sách khách hàng | **Một phần** | Danh sách đoàn chia theo nhóm đã có. **Hợp đồng chưa có gì** |
 
 **Tổng kết: 15 điểm đã có mã chạy, 3 điểm còn một mảng thiếu (12, 14, 18), không còn điểm nào
@@ -43,13 +43,13 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 Đây là chỗ dễ bị hỏi nhất, và câu trả lời phải nhất quán với nguyên tắc đã áp ở mọi nơi khác:
 **hệ thống hỗ trợ quyết định, không quyết thay.**
 
-Thiết kế ban đầu ở mục 3 dưới đây liệt kê bốn tiêu chí lọc bắt buộc, trong đó có *"đủ sức dẫn quy
-mô đoàn"*. Khi cài đặt đã **cố ý bỏ ba trong bốn**, chỉ giữ lại hai luật:
+Thiết kế ban đầu ở mục 3 dưới đây liệt kê **bốn tiêu chí lọc bắt buộc** — không trùng lịch, thẻ
+hành nghề còn hiệu lực, đang nhận tour, đủ sức dẫn quy mô đoàn. Khi cài đặt đã **cố ý bỏ ba trong
+bốn**, chỉ giữ lại một:
 
 | Luật | Vì sao chặn | Nằm ở đâu |
 | --- | --- | --- |
-| Trùng lịch | Luật vật lý — một người không đứng ở hai đoàn cùng lúc | `ScheduleGuideService::lyDoChan` |
-| Thẻ hành nghề hết hạn giữa chuyến | Luật pháp lý — Luật Du lịch 2017 yêu cầu hướng dẫn viên hành nghề phải có thẻ còn hiệu lực | cùng chỗ |
+| Trùng lịch | Luật vật lý — một người không đứng ở hai đoàn cùng lúc. Hệ thống biết chắc, và người dùng không thể muốn khác | `ScheduleGuideService::lyDoChan` |
 
 Chuyên môn, tuyến quen, sức dẫn, tải công việc **chỉ xếp thứ tự và nói ra lý do**. Lý do: tỷ lệ
 người dẫn trên số khách khác nhau theo loại tour và cách từng công ty vận hành — chặn theo một con
@@ -57,14 +57,27 @@ số cứng là áp giá trị do lập trình viên nghĩ ra lên mọi tour. �
 không biết: người này vừa nhận lời đi tuyến đó, người kia đang muốn học tuyến mới, và họ có thể xếp
 thêm người thứ hai mà hệ thống chưa thấy.
 
+**Vì sao bỏ điều kiện thẻ hành nghề.** Thẻ hướng dẫn viên là giấy phép hành nghề do Sở Du lịch cấp,
+có thời hạn — nên về lý thì thẻ hết hạn giữa chuyến là điều kiện pháp lý, không phải chuyện ưu tiên
+cao thấp. Đã cài đặt xong rồi gỡ đi, vì hai lý do:
+
+1. Hội đồng hỏi *"hướng dẫn viên phù hợp cho từng tour"* — ý là **hợp về chuyên môn**. Điều kiện
+   hành nghề nằm cạnh câu hỏi đó chứ không nằm trong nó; trả lời bằng nó là trả lời lệch câu.
+2. Theo dõi hiệu lực thẻ là việc của quản lý nhân sự. Phần mềm đặt tour biết ngày kết thúc chuyến
+   nhưng không phải là nơi giữ hồ sơ pháp lý của nhân viên — kéo vào đây là mở rộng phạm vi sang
+   một trụ nghiệp vụ khác.
+
+Kết quả: điểm 17 nay chỉ có **đúng một luật cứng**, và đó là luật không ai cãi được. Toàn bộ phần
+còn lại là hỗ trợ quyết định — nhất quán với mọi chỗ khác trong hệ thống.
+
 Ba điểm nữa nên nói thẳng nếu bị hỏi sâu:
 
-- **Chưa khai hồ sơ thì không bị chặn.** Không biết không phải là biết rằng sai. Chặn theo dữ liệu
-  trống nghĩa là hôm bật tính năng lên thì cả đội ngũ biến mất khỏi danh sách chọn.
+- **Chưa khai hồ sơ thì không bị trừ điểm, cũng không bị đánh dấu.** Người đó chỉ không được cộng
+  điểm nào nên nằm giữa danh sách. Phạt họ là phạt nhầm đối tượng: lỗi ở chỗ chưa ai nhập dữ liệu.
 - **Ngôn ngữ hiện ra nhưng không chấm điểm.** Tour không có ô khai đoàn cần tiếng gì nên không có
   vế cầu để so. Nói thẳng tốt hơn là bịa ra một tiêu chí trông có vẻ thông minh.
-- **Người bị chặn vẫn hiện trong danh sách**, kèm đúng câu máy chủ sẽ từ chối. Lọc bỏ thì điều hành
-  đi tìm mãi một cái tên đáng lẽ phải có mà không hiểu vì sao mất.
+- **Người trùng lịch vẫn hiện trong danh sách**, kèm đúng câu máy chủ sẽ từ chối. Lọc bỏ thì điều
+  hành đi tìm mãi một cái tên đáng lẽ phải có mà không hiểu vì sao mất.
 
 Thiết kế ở mục 3 còn nêu *"khoảng nghỉ tối thiểu mười hai giờ giữa hai chuyến"*. Không cài riêng,
 vì luật chống trùng lịch hiện có so theo **ngày** chứ không theo giờ — đoàn về lúc 22h thì hôm đó
@@ -314,7 +327,7 @@ sâu hơn mức thường thấy ở đồ án.
 | Nhật ký giao dịch thanh toán phục vụ đối soát | Đã triển khai |
 | Toàn hệ thống chạy giờ Việt Nam (`Asia/Ho_Chi_Minh`), cột thời gian nghiệp vụ lưu giờ treo tường | Đã triển khai |
 | Tra cứu đơn cho khách vãng lai bằng mã ngẫu nhiên thay vì số thứ tự | Đã triển khai |
-| **491 kiểm thử tự động**, chạy trong quy trình tích hợp liên tục | Đã triển khai |
+| **488 kiểm thử tự động**, chạy trong quy trình tích hợp liên tục | Đã triển khai |
 | Khóa hai chuyến theo id tăng dần khi thao tác chạm hai chuyến, để tránh khóa chết | Chuyển chuyến và ghép chuyến |
 | Nhật ký thay đổi cho cả đơn hàng lẫn chuyến, gộp thành một dòng thời gian tra cứu được | `/admin/audit-logs`, lọc riêng được các lần chạm tiền |
 | Xem trước hậu quả trước khi bấm ở mọi thao tác nặng | Hủy đơn, hủy chuyến, ghép chuyến, chuyển chuyến, dời hạn chốt |
