@@ -9,10 +9,12 @@ use App\Enums\ScheduleStatus;
 use App\Models\Booking;
 use App\Models\BookingPassenger;
 use App\Models\CancellationPolicy;
+use App\Models\GroupBookingRequest;
 use App\Models\GuideHandoverRequest;
 use App\Models\ItineraryCheckpoint;
 use App\Models\PassengerCheckin;
 use App\Models\PassengerCheckinHistory;
+use App\Models\Review;
 use App\Models\Tour;
 use App\Models\TourItinerary;
 use App\Models\TourSchedule;
@@ -121,14 +123,25 @@ class BusinessScenarioSeeder extends Seeder
 
     private function donDepLanTruoc(): void
     {
-        $tourCu = Tour::query()->where('slug', self::TOUR_SLUG)->first();
+        /*
+         * `withTrashed` và `forceDelete` là bắt buộc ở đây, không phải cho chắc.
+         *
+         * Tour nay xóa mềm. Dọn bằng `delete()` thường thì hàng cũ vẫn nằm đó giữ nguyên `slug`,
+         * và lần dựng tour tiếp theo vỡ vì trùng slug. Đây là seeder dựng lại kịch bản thử tay
+         * nên nó thật sự cần xóa hẳn, khác với việc điều hành cất một tour đi.
+         */
+        $tourCu = Tour::withTrashed()->where('slug', self::TOUR_SLUG)->first();
 
         if ($tourCu) {
-            // Xóa đơn trước, vì khóa ngoại tour_schedule_id chặn xóa chuyến khi còn đơn.
+            // Xóa đơn trước, vì khóa ngoại tour_schedule_id chặn xóa chuyến khi còn đơn. Đơn và
+            // đánh giá cũng phải sạch trước khi xóa cứng tour: khóa ngoại của chúng nay là
+            // `restrict`, cố tình chặn đúng tình huống này.
             Booking::query()->where('tour_id', $tourCu->id)->delete();
+            Review::query()->where('tour_id', $tourCu->id)->delete();
+            GroupBookingRequest::query()->where('tour_id', $tourCu->id)->delete();
             $tourCu->schedules()->delete();
             $tourCu->itineraries()->delete();
-            $tourCu->delete();
+            $tourCu->forceDelete();
         }
 
         Booking::query()->where('note', 'like', self::TAG . '%')->delete();
