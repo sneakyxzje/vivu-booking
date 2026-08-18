@@ -1,6 +1,25 @@
 @import "tailwindcss";
 
+/*
+ * Hệ thiết kế — áp theo DESIGN.md (phân tích hệ thống Airbnb), giữ nguyên tone màu của dự án.
+ *
+ * Cái được mượn từ DESIGN.md là **ngữ pháp**: thang chữ, ngôn ngữ hình khối, nhịp khoảng cách,
+ * một tầng đổ bóng duy nhất, và quy cách từng thành phần. Cái KHÔNG mượn là bảng màu — Rausch
+ * (#ff385c) không xuất hiện ở đâu; dải primary xanh navy của dự án giữ nguyên từng mã một và
+ * vẫn là điện áp thương hiệu duy nhất.
+ *
+ * Ánh xạ bo góc cố ý đặt lại các mốc sẵn có của Tailwind thay vì đẻ ra tên mới, để ~740 chỗ đang
+ * dùng `rounded-md` / `rounded-xl` tự rơi đúng vào giá trị của hệ mà không phải sửa tay:
+ *
+ *   rounded-md   6px  → 8px   nút và ô nhập  ({rounded.sm} của DESIGN.md)
+ *   rounded-lg   8px  → 8px   giữ nguyên, vốn đã đúng
+ *   rounded-xl   12px → 14px  thẻ           ({rounded.md})
+ *   rounded-2xl  16px → 20px  bảng lớn      ({rounded.lg})
+ *   rounded-3xl  24px → 32px  dải, khối hero ({rounded.xl})
+ */
+
 @theme {
+  /* --- Màu thương hiệu: GIỮ NGUYÊN, không đụng vào --- */
   --color-primary-50: #eef2f9;
   --color-primary-100: #d9e2f0;
   --color-primary-200: #b6c6e0;
@@ -12,28 +31,376 @@
   --color-primary-800: #132557;
   --color-primary-900: #0e1b40;
   --color-background: #f8f9fa;
-  --font-inter: "Inter", sans-serif;
-  --font-plus-jakarta: "Plus Jakarta Sans", sans-serif;
+
+  /*
+   * --- Dải trung tính theo DESIGN.md ---
+   *
+   * Trước đây chỉ có đúng một màu chữ #333333 cho mọi thứ. Bốn bậc dưới đây thay nó bằng một
+   * thang có chủ đích: tiêu đề đậm nhất, chữ chạy nhẹ hơn, chú thích nhạt hơn nữa. Không có
+   * đen tuyệt đối — #222 là bậc đậm nhất, đúng nguyên tắc "never pure black".
+   */
+  --color-ink: #222222;
+  --color-body: #3f3f3f;
+  --color-muted: #6a6a6a;
+  --color-muted-soft: #929292;
+
+  --color-hairline: #dddddd;
+  --color-hairline-soft: #ebebeb;
+  --color-border-strong: #c1c1c1;
+
+  --color-canvas: #ffffff;
+  --color-surface-soft: #f7f7f7;
+  --color-surface-strong: #f2f2f2;
+
+  /*
+   * --- Chữ ---
+   *
+   * DESIGN.md: một họ chữ duy nhất cho toàn hệ, không có họ riêng cho tiêu đề, và Inter là chữ
+   * thay thế gần nhất khi không có Airbnb Cereal. Dự án trước đây chạy hai họ (Inter + Plus
+   * Jakarta Sans); nay gộp về một, bớt luôn một lượt tải phông.
+   */
+  --font-inter: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-inter);
+
+  /*
+   * `font-plus-jakarta` còn nằm ở 35 chỗ trong mã. Trỏ nó về họ chữ hiển thị thay vì xóa: các
+   * chỗ ấy tự khớp hệ mà không phải sửa tay, và muốn quay lại hai họ chữ thì đổi đúng dòng này.
+   */
+  --font-plus-jakarta: var(--font-display);
+
+  /*
+   * --- Thang chữ ---
+   *
+   * Trọng lượng cố ý nhẹ: tiêu đề chạy 500–600 chứ không phải 700+. Hệ này tin vào ảnh và
+   * khoảng trắng để tạo thứ bậc, không dùng cơ bắp của phông chữ.
+   */
+  --text-display-xl: 28px;
+  --text-display-xl--line-height: 1.25;
+  --text-display-xl--font-weight: 700;
+
+  --text-display-lg: 22px;
+  --text-display-lg--line-height: 1.18;
+  --text-display-lg--font-weight: 500;
+  --text-display-lg--letter-spacing: -0.44px;
+
+  --text-display-md: 21px;
+  --text-display-md--line-height: 1.3;
+  --text-display-md--font-weight: 700;
+
+  --text-display-sm: 20px;
+  --text-display-sm--line-height: 1.2;
+  --text-display-sm--font-weight: 600;
+  --text-display-sm--letter-spacing: -0.18px;
+
+  --text-title-md: 16px;
+  --text-title-md--line-height: 1.25;
+  --text-title-md--font-weight: 600;
+
+  --text-title-sm: 16px;
+  --text-title-sm--line-height: 1.25;
+  --text-title-sm--font-weight: 500;
+
+  --text-body-md: 16px;
+  --text-body-md--line-height: 1.5;
+  --text-body-md--font-weight: 400;
+
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 1.43;
+  --text-body-sm--font-weight: 400;
+
+  --text-caption: 14px;
+  --text-caption--line-height: 1.29;
+  --text-caption--font-weight: 500;
+
+  --text-caption-sm: 13px;
+  --text-caption-sm--line-height: 1.23;
+  --text-caption-sm--font-weight: 400;
+
+  --text-badge: 11px;
+  --text-badge--line-height: 1.18;
+  --text-badge--font-weight: 600;
+
+  --text-micro: 12px;
+  --text-micro--line-height: 1.33;
+  --text-micro--font-weight: 700;
+
+  --text-button-md: 16px;
+  --text-button-md--line-height: 1.25;
+  --text-button-md--font-weight: 500;
+
+  --text-button-sm: 14px;
+  --text-button-sm--line-height: 1.29;
+  --text-button-sm--font-weight: 500;
+
+  --text-nav: 16px;
+  --text-nav--line-height: 1.25;
+  --text-nav--font-weight: 600;
+
+  /*
+   * DESIGN.md đặt nhãn viết hoa ở 8px. Tiếng Việt có dấu, 8px viết hoa thì dấu dính vào nhau và
+   * đọc không ra — nâng lên 10px và giữ nguyên phần chữ giãn. Đây là chỗ cố ý lệch khỏi tài liệu.
+   */
+  --text-tag: 10px;
+  --text-tag--line-height: 1.25;
+  --text-tag--font-weight: 700;
+  --text-tag--letter-spacing: 0.4px;
+
+  /* --- Hình khối: đặt lại các mốc sẵn có, xem chú thích đầu tệp --- */
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+  --radius-3xl: 32px;
+
+  /*
+   * --- Đổ bóng: đúng MỘT tầng ---
+   *
+   * DESIGN.md chỉ có một định nghĩa bóng cho cả hệ, phần còn lại là phẳng. Chiều sâu đến từ
+   * ảnh, từ mặt trắng trên nền xám và từ bo góc, không đến từ việc chồng nhiều lớp bóng.
+   *
+   * Đặt lại xs/sm/md về cùng một giá trị nên mọi chỗ đang dùng chúng tự động khớp hệ. Giữ
+   * nguyên `shadow-2xl` cho hộp thoại: hộp thoại nổi trên một lớp phủ tối, cần tách bạch hơn.
+   */
+  --shadow-float:
+    rgba(0, 0, 0, 0.02) 0 0 0 1px, rgba(0, 0, 0, 0.04) 0 2px 6px 0,
+    rgba(0, 0, 0, 0.1) 0 4px 8px 0;
+  --shadow-xs: var(--shadow-float);
+  --shadow-sm: var(--shadow-float);
+  --shadow-md: var(--shadow-float);
 }
 
 @layer base {
   body {
     font-family: var(--font-inter);
     background-color: var(--color-background);
-    color: #333333;
+    color: var(--color-body);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
   }
 
+  /*
+   * Tiêu đề mặc định rơi vào đúng thang chữ, để trang nào chưa gán lớp tiện ích vẫn không lệch
+   * hệ. Lớp tiện ích của Tailwind vẫn thắng, nên trang đã chỉnh tay không bị ảnh hưởng.
+   */
   h1,
   h2,
   h3,
   h4,
   h5,
   h6 {
-    font-family: var(--font-plus-jakarta);
+    font-family: var(--font-display);
+    color: var(--color-ink);
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-size: var(--text-display-xl);
+    line-height: 1.25;
+    font-weight: 700;
+  }
+
+  h2 {
+    font-size: var(--text-display-lg);
+    line-height: 1.18;
+    font-weight: 500;
+    letter-spacing: -0.44px;
+  }
+
+  h3 {
+    font-size: var(--text-display-sm);
+    line-height: 1.2;
+    font-weight: 600;
+    letter-spacing: -0.18px;
+  }
+
+  h4,
+  h5,
+  h6 {
+    font-size: var(--text-title-md);
+    line-height: 1.25;
+    font-weight: 600;
+  }
+
+  /* Bàn phím phải thấy được mình đang ở đâu. Viền đặc, không quầng sáng. */
+  :focus-visible {
+    outline: 2px solid var(--color-primary-600);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
 
-/* Custom slick scrollbar */
+/*
+ * Thành phần theo quy cách ở DESIGN.md mục "Components".
+ *
+ * Khai ở đây thay vì lặp chuỗi lớp tiện ích ở từng trang: quy cách nút nằm một chỗ thì sửa một
+ * lần là cả hệ đổi theo, còn chép tay thì mỗi trang trôi một kiểu — đúng cái đang xảy ra trước
+ * khi có tệp này.
+ */
+@layer components {
+  /* Cao 48px, bo 8px, chữ 16/500. Nút chính duy nhất mang màu thương hiệu. */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 14px 24px;
+    border-radius: 8px;
+    background-color: var(--color-primary-600);
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.25;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-primary-700);
+  }
+
+  .btn-primary:disabled {
+    background-color: var(--color-primary-200);
+    cursor: not-allowed;
+  }
+
+  /* Nền trắng, viền mực 1px. Dùng cho hành động phụ và cho nút đảo trên nền màu. */
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 13px 23px;
+    border-radius: 8px;
+    background-color: var(--color-canvas);
+    border: 1px solid var(--color-ink);
+    color: var(--color-ink);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.25;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--color-surface-soft);
+  }
+
+  /* Chữ trần, gạch chân khi rê chuột. Dành cho "Xem thêm", "Đóng". */
+  .btn-tertiary {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-ink);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.25;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* Viên thuốc: bo tròn hết cỡ, dùng cho bộ lọc và hành động nhỏ trong dải. */
+  .btn-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: 9999px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.29;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  /* Mặt thẻ: trắng, bo 14px, viền tóc 1px, phẳng cho tới khi rê chuột. */
+  .card-surface {
+    background-color: var(--color-canvas);
+    border: 1px solid var(--color-hairline-soft);
+    border-radius: 14px;
+  }
+
+  .card-hover {
+    transition: box-shadow 0.18s ease;
+  }
+
+  .card-hover:hover {
+    box-shadow: var(--shadow-float);
+  }
+
+  /*
+   * Ô nhập cao 56px, bo 8px. Khi tụ tiêu điểm thì viền dày lên 2px và đổi sang màu mực —
+   * không quầng sáng, không vòng ngoài. Đây là quy cách rõ ràng nhất của DESIGN.md và cũng là
+   * chỗ trước đây mỗi trang làm một kiểu.
+   */
+  .input-field {
+    width: 100%;
+    min-height: 56px;
+    padding: 14px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--color-hairline);
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-size: 16px;
+    line-height: 1.5;
+    transition: border-color 0.15s ease;
+  }
+
+  .input-field::placeholder {
+    color: var(--color-muted-soft);
+  }
+
+  .input-field:focus {
+    outline: none;
+    border: 2px solid var(--color-ink);
+    padding: 13px 11px;
+  }
+
+  /* Nhãn xếp trên ô nhập. */
+  .field-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.29;
+    color: var(--color-muted);
+  }
+
+  /* Huy hiệu nổi trên ảnh hoặc cạnh tiêu đề. */
+  .badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.18;
+    white-space: nowrap;
+  }
+
+  /* Nhãn viết hoa cỡ nhỏ: "MỚI", "HOT". */
+  .tag-upper {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  /* Đường kẻ tóc dùng chung, để không mỗi nơi một sắc xám. */
+  .hairline {
+    border-color: var(--color-hairline-soft);
+  }
+}
+
+/* Thanh cuộn */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -48,7 +415,7 @@
   background: #94a3b8;
 }
 
-/* Subtle keyframe animations */
+/* Chuyển động: nhẹ và ngắn. Ai tắt hiệu ứng thì tôn trọng lựa chọn đó. */
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -62,4 +429,15 @@
 
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
