@@ -5,7 +5,6 @@ import { Toast, ConfirmModal } from "@/components/admin/CustomAlert";
 import { TableActions } from "@/components/admin/TableActions";
 import { Modal } from "@/components/admin/Modal";
 import { GuideProfileModal } from "@/components/admin/GuideProfileModal";
-import { formatDate } from "@/utils/format";
 
 export default function GuideManagement() {
   const [guides, setGuides] = useState<Guide[]>([]);
@@ -391,42 +390,39 @@ export default function GuideManagement() {
                       </td>
 
                       {/*
-                        Hồ sơ năng lực.
+                        Hồ sơ năng lực — chuyên môn trước, rồi tới tuyến quen.
 
-                        Hạn thẻ để trước vì đó là thứ duy nhất chặn được phân công: hết hạn thì
-                        người này không nhận được chuyến nào kéo dài quá mốc đó, và điều hành cần
-                        thấy ngay ở danh sách chứ không phải mở từng người ra mới biết.
+                        Đây là hai thứ được cộng điểm khi xếp người, nên là hai thứ điều hành cần
+                        liếc thấy ngay ở danh sách. Chưa khai thì mời bổ sung chứ không để ô trống:
+                        ô trống đọc như "ở đây không có gì", trong khi ý là ngược lại.
                       */}
                       <td className="py-3.5 px-6">
                         {guide.guide_profile ? (
                           <div className="space-y-1">
-                            <p
-                              className={`text-xs font-semibold ${
-                                guide.guide_profile.card_expiry &&
-                                guide.guide_profile.card_expiry < new Date().toISOString().slice(0, 10)
-                                  ? "text-rose-700"
-                                  : "text-gray-700"
-                              }`}
-                            >
-                              {guide.guide_profile.card_expiry
-                                ? `Thẻ đến ${formatDate(guide.guide_profile.card_expiry)}`
-                                : "Chưa khai thẻ"}
-                            </p>
-
                             <div className="flex flex-wrap gap-1">
-                              {(guide.guide_categories ?? []).map((loai) => (
-                                <span
-                                  key={loai.id}
-                                  className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
-                                >
-                                  {loai.name}
-                                </span>
-                              ))}
+                              {(guide.guide_categories ?? []).length === 0 ? (
+                                <span className="text-[11px] text-gray-400">Chưa khai chuyên môn</span>
+                              ) : (
+                                (guide.guide_categories ?? []).map((loai) => (
+                                  <span
+                                    key={loai.id}
+                                    className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
+                                  >
+                                    {loai.name}
+                                  </span>
+                                ))
+                              )}
                             </div>
 
                             {(guide.guide_profile.regions ?? []).length > 0 && (
+                              <p className="text-[11px] text-gray-500 line-clamp-1">
+                                Tuyến quen: {(guide.guide_profile.regions ?? []).join(", ")}
+                              </p>
+                            )}
+
+                            {(guide.guide_profile.languages ?? []).length > 0 && (
                               <p className="text-[11px] text-gray-400 line-clamp-1">
-                                {(guide.guide_profile.regions ?? []).join(", ")}
+                                {(guide.guide_profile.languages ?? []).join(", ")}
                               </p>
                             )}
                           </div>
