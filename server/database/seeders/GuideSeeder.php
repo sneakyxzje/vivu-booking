@@ -30,23 +30,23 @@ class GuideSeeder extends Seeder
         $this->call(CategorySeeder::class);
 
         /*
-         * Hồ sơ năng lực đặt sao cho **nhìn vào là thấy luật**, không phải ai cũng giống ai:
+         * Hồ sơ năng lực đặt lệch nhau để màn xếp người **có gì đó để so**, chứ năm dòng giống hệt
+         * nhau thì không minh họa được gì:
          *
          *   - Hoàng Long và Hoài Anh quen tuyến biển đảo phía Bắc và phía Nam, để thấy điểm cộng
-         *     "quen tuyến" bật lên đúng tour.
-         *   - Tuấn Kiệt chuyên khám phá, quen Sapa - dùng để so với người chỉ rảnh chứ không hợp.
-         *   - Phương Thảo **thẻ sắp hết hạn** (30 ngày nữa): đây là người dùng để thử luật chặn.
-         *     Chuyến nào kéo dài quá mốc đó là không phân công được, và hộp thoại nói rõ vì sao.
-         *   - Gia Huy **cố ý để trống hồ sơ**, để thấy hệ thống nhắc "chưa có hồ sơ" mà vẫn cho
-         *     chọn - chứ không phải biến mất khỏi danh sách.
+         *     "quen tuyến" bật lên đúng tour và tắt ở tour khác.
+         *   - Tuấn Kiệt chuyên khám phá, quen tuyến núi - người để so khi xếp tour Hạ Long: rảnh
+         *     nhưng không có điểm nào khớp, nên tụt xuống dưới mà vẫn chọn được.
+         *   - Phương Thảo sức dẫn 25, dùng để thấy cảnh báo bật lên khi đoàn đông hơn - và bấm
+         *     vẫn được, vì đó là cảnh báo chứ không phải luật.
+         *   - Gia Huy **cố ý để trống hồ sơ**, để thấy người chưa khai vẫn nằm trong danh sách,
+         *     chỉ là không được cộng điểm nào.
          */
         $doiNgu = [
             // Người đã có sẵn, chỉ đặt lại tên và số điện thoại.
             [
                 'email' => 'guide@gmail.com', 'name' => 'Phạm Hoàng Long', 'phone' => '0912004501',
                 'ho_so' => [
-                    'card_number' => 'HDV-NĐ-2023-0417',
-                    'card_expiry' => '2029-05-31',
                     'languages' => ['Tiếng Việt', 'Tiếng Anh'],
                     'regions' => ['Hạ Long', 'Ninh Bình', 'Cát Bà'],
                     'max_group_size' => 35,
@@ -57,8 +57,6 @@ class GuideSeeder extends Seeder
             [
                 'email' => 'hoaianh.guide@gmail.com', 'name' => 'Đỗ Hoài Anh', 'phone' => '0912004502',
                 'ho_so' => [
-                    'card_number' => 'HDV-NĐ-2022-1180',
-                    'card_expiry' => '2028-11-30',
                     'languages' => ['Tiếng Việt', 'Tiếng Anh', 'Tiếng Trung'],
                     'regions' => ['Phú Quốc', 'Nha Trang', 'Đà Nẵng'],
                     'max_group_size' => 40,
@@ -68,8 +66,6 @@ class GuideSeeder extends Seeder
             [
                 'email' => 'tuankiet.guide@gmail.com', 'name' => 'Vũ Tuấn Kiệt', 'phone' => '0912004503',
                 'ho_so' => [
-                    'card_number' => 'HDV-NĐ-2021-0663',
-                    'card_expiry' => '2027-08-31',
                     'languages' => ['Tiếng Việt'],
                     'regions' => ['Sapa', 'Hà Giang', 'Mộc Châu'],
                     'max_group_size' => 20,
@@ -80,9 +76,6 @@ class GuideSeeder extends Seeder
             [
                 'email' => 'phuongthao.guide@gmail.com', 'name' => 'Bùi Phương Thảo', 'phone' => '0912004504',
                 'ho_so' => [
-                    'card_number' => 'HDV-NĐ-2020-0295',
-                    // Sắp hết hạn: người dùng để thử luật chặn khi chuyến vượt quá mốc này.
-                    'card_expiry' => null,
                     'languages' => ['Tiếng Việt', 'Tiếng Hàn'],
                     'regions' => ['Đà Nẵng', 'Hội An', 'Huế'],
                     'max_group_size' => 25,
@@ -114,17 +107,10 @@ class GuideSeeder extends Seeder
                 continue;
             }
 
-            $hoSo = $nguoi['ho_so'];
-
-            /*
-             * Thẻ của Phương Thảo tính từ ngày chạy seeder chứ không ghi cứng một ngày.
-             *
-             * Ghi cứng thì vài tháng nữa nó thành quá khứ và người này bị chặn ở mọi chuyến, kể cả
-             * chuyến ngắn - lúc ấy dữ liệu mẫu không còn minh họa được luật mà chỉ gây khó hiểu.
-             */
-            $hoSo['card_expiry'] ??= now()->addDays(30)->toDateString();
-
-            $guide->guideProfile()->updateOrCreate(['user_id' => $guide->getKey()], $hoSo);
+            $guide->guideProfile()->updateOrCreate(
+                ['user_id' => $guide->getKey()],
+                $nguoi['ho_so'],
+            );
 
             $loaiHinh = Category::query()
                 ->whereIn('slug', $nguoi['loai_hinh'] ?? [])
