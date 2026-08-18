@@ -10,8 +10,9 @@ use Illuminate\Support\Collection;
 /**
  * "Ai phù hợp dẫn chuyến này" - khác với "ai đang rảnh".
  *
- * Rảnh mới là điều kiện cần. Một người rảnh nhưng chưa từng đi tuyến đó, hoặc thẻ hành nghề hết
- * hạn giữa chuyến, vẫn là lựa chọn sai. Trước đây hệ thống chỉ trả lời được vế đầu.
+ * Rảnh mới là điều kiện cần. Một người rảnh nhưng chưa từng đi tuyến đó, hoặc quen dẫn đoàn nghỉ
+ * dưỡng mà bị xếp tour leo núi, vẫn là lựa chọn kém hơn người khác. Trước đây hệ thống chỉ trả
+ * lời được vế đầu.
  *
  * ## Ranh giới quan trọng: cái gì chặn, cái gì chỉ nói
  *
@@ -30,9 +31,9 @@ use Illuminate\Support\Collection;
  *
  * ## Hồ sơ trống thì sao
  *
- * Không chặn. Không khai thẻ không có nghĩa là thẻ hỏng, chỉ nghĩa là chưa ai nhập. Chặn theo dữ
- * liệu trống nghĩa là hôm bật tính năng lên thì cả đội ngũ biến mất khỏi danh sách chọn. Thay vào
- * đó hồ sơ trống bị đánh dấu để điều hành thấy mà đi bổ sung.
+ * Người chưa khai hồ sơ không mất điểm và không bị đánh dấu gì cả - họ chỉ không được cộng điểm
+ * nào, nên nằm giữa danh sách. Phạt người chưa khai là phạt nhầm đối tượng: lỗi ở chỗ chưa ai
+ * nhập dữ liệu, không phải ở người hướng dẫn.
  */
 class GuideSuitabilityService
 {
@@ -64,6 +65,7 @@ class GuideSuitabilityService
             ->where('role', 'guide')
             ->where('status', 'active')
             ->with(['guideProfile', 'guideCategories:id,name', 'assignedSchedules.tour:id,number_of_days'])
+            // Người chưa khai hồ sơ vẫn nằm trong danh sách, chỉ là không được cộng điểm nào.
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'phone', 'status'])
             ->map(fn (User $guide) => $this->chamMotNguoi(
@@ -111,12 +113,6 @@ class GuideSuitabilityService
          * vướng lịch với chính mình.
          */
         $chanVi = $this->guides->lyDoChan($guide, $batDau, $ketThuc, $schedule->getKey());
-
-        // --- Chưa có hồ sơ -------------------------------------------------------------------
-
-        if ($hoSo === null) {
-            $canBiet[] = 'Chưa có hồ sơ năng lực, hệ thống không kiểm được thẻ hành nghề.';
-        }
 
         // --- Điểm cộng: chuyên môn và tuyến quen ---------------------------------------------
 
@@ -175,7 +171,6 @@ class GuideSuitabilityService
             'workload' => $tai,
             // Chỉ để xem: tour chưa có ô khai ngôn ngữ đoàn cần nên không có gì để so khớp.
             'languages' => $hoSo?->languages ?? [],
-            'card_expiry' => $hoSo?->card_expiry?->format('Y-m-d'),
         ];
     }
 
