@@ -23,7 +23,11 @@ export const Header: React.FC = () => {
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-100">
+    /*
+      Thanh trên cao 80px, nền trắng, chỉ một đường kẻ tóc dưới đáy — bỏ đổ bóng.
+      DESIGN.md để thanh điều hướng phẳng; bóng dành cho thứ thật sự nổi lên khỏi mặt giấy.
+    */
+    <header className="fixed top-0 left-0 right-0 z-50 bg-canvas border-b border-hairline">
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20 gap-4">
 
@@ -34,9 +38,13 @@ export const Header: React.FC = () => {
             </div>
           </Link>
 
-          {/* Search Bar */}
-          <div className="hidden lg:flex items-center bg-gray-100 rounded-full px-4 py-2 flex-1 max-w-sm">
-            <svg className="w-5 h-5 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {/*
+            Ô tìm kiếm dạng viên thuốc: mặt trắng, viền tóc, và mang đúng tầng bóng duy nhất
+            của hệ ngay khi đứng yên — đây là chỗ DESIGN.md cho phép nổi mà không cần rê chuột,
+            vì nó là thứ được bấm nhiều nhất trên trang.
+          */}
+          <div className="hidden lg:flex items-center bg-canvas border border-hairline shadow-float rounded-full pl-4 pr-2 h-12 flex-1 max-w-sm">
+            <svg className="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -45,7 +53,7 @@ export const Header: React.FC = () => {
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
               onKeyDown={handleSearchKeyDown}
-              className="bg-transparent border-none focus:outline-none focus:ring-0 px-2 w-full text-sm text-gray-700"
+              className="bg-transparent border-none focus:outline-none px-3 w-full text-body-sm text-ink placeholder:text-muted-soft"
             />
           </div>
 
@@ -55,7 +63,7 @@ export const Header: React.FC = () => {
               <Link
                 key={link.to}
                 to={link.to}
-                className="text-[15px] font-medium text-gray-800 hover:text-primary-600 transition-colors flex items-center gap-1 whitespace-nowrap"
+                className="text-nav text-ink hover:text-primary-600 transition-colors flex items-center gap-1 whitespace-nowrap"
               >
                 {link.label}
               </Link>
