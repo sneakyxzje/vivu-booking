@@ -4,19 +4,33 @@ import type { Booking, BookingLedger, GroupBookingRequestRow, Guide, GuideDeclin
 import { buildTourPayload } from "@/services/guideService";
 
 /**
- * Kết quả xem trước việc xóa tour.
+ * Kết quả xem trước việc cất tour đi.
  *
- * `can_delete` sai thì `blockers` nói rõ cái gì đang chặn và bao nhiêu cái — chặn mà không nói
- * số lượng thì người dùng không biết phải đi dọn cái gì.
+ * Xóa tour là **xóa mềm**: tour biến mất khỏi mọi danh sách nhưng đơn hàng, đánh giá và chuyến
+ * vẫn còn nguyên, và khôi phục lại được. `preserved` là danh sách những thứ **không** mất —
+ * quan trọng ngang phần chặn, vì người bấm cần biết mình không phá gì.
  */
 export interface TourDeletePreview {
   tour_id: number;
   tour_title: string;
   can_delete: boolean;
   blockers: { key: string; count: number; message: string }[];
-  /** Chỉ có nghĩa khi xóa được: những thứ sẽ mất theo. */
-  cascades: { schedules: number; itineraries: number; images: number };
+  preserved: {
+    bookings: number;
+    reviews: number;
+    group_requests: number;
+    schedules: number;
+  };
   already_retired: boolean;
+}
+
+/** Một tour đã cất đi, chờ lấy lại. */
+export interface TrashedTour {
+  id: number;
+  title: string;
+  start_location: string | null;
+  deleted_at: string | null;
+  bookings_count: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -620,20 +634,26 @@ const adminService = {
     return { success: response.data?.success !== false };
   },
 
-  /**
-   * K06 — xóa tour được hay không, và nếu không thì vì sao.
-   *
-   * Đọc trước khi bấm: `bookings.tour_id` khai cascade ở cơ sở dữ liệu, nên một cú xóa nhầm sẽ
-   * kéo theo toàn bộ đơn hàng của tour. Máy chủ là hàng rào, còn màn hình có nhiệm vụ nói rõ.
-   */
+  /** K06 — cất tour đi được chưa, và những gì vẫn ở lại sau khi cất. */
   getTourDeletePreview: async (id: number): Promise<TourDeletePreview | null> => {
     const response = await api.get(`/admin/tours/${id}/delete-preview`);
     return extractObject<TourDeletePreview>(response);
   },
 
+  /** Cất tour đi — xóa mềm, khôi phục lại được. */
   deleteTour: async (id: number) => {
     const response = await api.delete(`/admin/tours/${id}`);
-    return response.data?.message ?? "Đã xóa tour.";
+    return response.data?.message ?? "Đã cất tour đi.";
+  },
+
+  getTrashedTours: async (): Promise<TrashedTour[]> => {
+    const response = await api.get("/admin/tours/trashed");
+    return extractArray<TrashedTour>(response);
+  },
+
+  restoreTour: async (id: number) => {
+    const response = await api.put(`/admin/tours/${id}/restore`);
+    return response.data?.message ?? "Đã khôi phục tour.";
   },
 
   /** Ngừng bán — lối đi cho tour đã có lịch sử. Chuyến đã chốt vẫn chạy. */

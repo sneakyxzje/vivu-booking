@@ -2,11 +2,12 @@ import { useEffect, useState, useMemo, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import type { TourSchedule } from "@/types";
 import adminService from "@/services/adminService";
-import type { TourDeletePreview } from "@/services/adminService";
+import type { TourDeletePreview, TrashedTour } from "@/services/adminService";
 import { Toast } from "@/components/admin/CustomAlert";
 import { TableActions } from "@/components/admin/TableActions";
 import { Modal } from "@/components/admin/Modal";
-import { AlertTriangle, Ban, Trash2 } from "lucide-react";
+import { AlertTriangle, Archive, Ban, RotateCcw, Trash2 } from "lucide-react";
+import { formatDateTime } from "@/utils/format";
 
 type TourStatus = "active" | "inactive" | "full";
 
@@ -74,11 +75,35 @@ export default function TourList() {
       showToast(await thucHien(), "success");
       closeDeleteDialog();
       fetchTours();
+      fetchTrashed();
     } catch (err) {
       const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
       showToast(response?.message || "Thao tác không thành công.", "error");
     } finally {
       setDeleteBusy(false);
+    }
+  };
+
+  // --- Tour đã cất, và đường lấy lại ---
+  const [trashed, setTrashed] = useState<TrashedTour[]>([]);
+  const [trashOpen, setTrashOpen] = useState(false);
+
+  const fetchTrashed = async () => {
+    try {
+      setTrashed(await adminService.getTrashedTours());
+    } catch (err) {
+      console.error("Lỗi tải tour đã cất:", err);
+    }
+  };
+
+  const khoiPhuc = async (id: number) => {
+    try {
+      showToast(await adminService.restoreTour(id), "success");
+      fetchTours();
+      fetchTrashed();
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      showToast(response?.message || "Không khôi phục được.", "error");
     }
   };
 
@@ -101,6 +126,7 @@ export default function TourList() {
 
   useEffect(() => {
     fetchTours();
+    fetchTrashed();
   }, []);
 
   const handleSearch = (e: ChangeEvent<HTMLInputElement>) => {
@@ -145,7 +171,22 @@ export default function TourList() {
             Xem danh sách, quản lý cấu trúc, chỉ định và phân công hướng dẫn viên cho các chương trình tour
           </p>
         </div>
-        <div>
+        <div className="flex items-center gap-3">
+          {/*
+            Chỉ hiện khi thật sự có tour đã cất. Xóa mềm mà không có đường lấy lại thì chỉ là xóa
+            cứng có thêm bước — lối vào phải nằm ngay chỗ người ta vừa cất tour đi.
+          */}
+          {trashed.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setTrashOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-canvas border border-hairline text-ink rounded-md text-button-sm hover:bg-surface-soft transition-colors cursor-pointer"
+            >
+              <Archive className="w-4 h-4" />
+              {trashed.length} tour đã cất
+            </button>
+          )}
+
           <a
             href="/admin/tours/create"
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-md font-semibold text-sm hover:bg-primary-700 shadow-xs transition-colors cursor-pointer"
@@ -367,8 +408,8 @@ export default function TourList() {
                                   ),
                                 },
                                 {
-                                  label: "Xóa tour",
-                                  hint: "Kiểm tra trước, tour đã có đơn thì không xóa được",
+                                  label: "Cất tour đi",
+                                  hint: "Ẩn khỏi danh sách, giữ nguyên đơn cũ, khôi phục được",
                                   onClick: () => openDeleteDialog(tour),
                                   variant: "danger",
                                   icon: <Trash2 className="w-4 h-4" />,
@@ -446,8 +487,8 @@ export default function TourList() {
       <Modal
         isOpen={!!deletingTour}
         onClose={closeDeleteDialog}
-        title={`Xóa tour: ${deletingTour?.title ?? ""}`}
-        subtitle="Xóa tour là thao tác không hoàn tác được. Kiểm tra trước khi bấm."
+        title={`Cất tour đi: ${deletingTour?.title ?? ""}`}
+        subtitle="Tour biến mất khỏi mọi danh sách nhưng dữ liệu vẫn còn nguyên, và khôi phục lại được."
         size="lg"
         footer={
           <>
@@ -460,7 +501,24 @@ export default function TourList() {
               Quay lại
             </button>
 
-            {deletePreview?.can_delete ? (
+            {/*
+              Ngừng bán luôn hiện nếu tour còn đang bán, kể cả khi cất đi được. Hai việc khác
+              nhau chứ không phải phương án dự phòng của nhau: ngừng bán giữ tour trong màn quản
+              trị, cất đi thì bỏ luôn khỏi danh sách.
+            */}
+            {deletePreview && !deletePreview.already_retired && (
+              <button
+                type="button"
+                onClick={() => chayThaoTacXoa(() => adminService.retireTour(deletingTour!.id))}
+                disabled={deleteBusy}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-canvas border border-hairline text-button-sm rounded-lg text-ink hover:bg-surface-soft disabled:opacity-40 cursor-pointer"
+              >
+                <Ban className="w-4 h-4" />
+                Ngừng bán
+              </button>
+            )}
+
+            {deletePreview?.can_delete && (
               <button
                 type="button"
                 onClick={() => chayThaoTacXoa(() => adminService.deleteTour(deletingTour!.id))}
@@ -468,21 +526,8 @@ export default function TourList() {
                 className="inline-flex items-center gap-2 px-4 py-2 bg-rose-600 text-white text-button-sm rounded-lg hover:bg-rose-700 disabled:opacity-40 cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
-                {deleteBusy ? "Đang xóa..." : "Xóa vĩnh viễn"}
+                {deleteBusy ? "Đang xử lý..." : "Cất tour đi"}
               </button>
-            ) : (
-              deletePreview &&
-              !deletePreview.already_retired && (
-                <button
-                  type="button"
-                  onClick={() => chayThaoTacXoa(() => adminService.retireTour(deletingTour!.id))}
-                  disabled={deleteBusy}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-button-sm rounded-lg hover:bg-primary-700 disabled:opacity-40 cursor-pointer"
-                >
-                  <Ban className="w-4 h-4" />
-                  {deleteBusy ? "Đang xử lý..." : "Chuyển sang ngừng bán"}
-                </button>
-              )
             )}
           </>
         }
@@ -492,25 +537,37 @@ export default function TourList() {
         ) : deletePreview.can_delete ? (
           <div className="space-y-4">
             <p className="rounded-lg bg-emerald-50 px-4 py-3 text-body-sm text-emerald-900">
-              Tour này <b>chưa từng phát sinh đơn hàng, đánh giá hay chuyến đã chốt</b> — xóa được.
+              Tour sẽ biến mất khỏi trang khách và khỏi danh sách này, <b>nhưng không mất dữ liệu
+              nào</b>. Bấm nhầm thì khôi phục lại được.
             </p>
 
+            {/*
+              Liệt kê những thứ Ở LẠI, không phải những thứ mất đi. Đây là điểm khác biệt của xóa
+              mềm và cũng là câu người bấm cần nghe: đơn hàng của khách không đi đâu cả.
+            */}
             <div>
-              <p className="text-caption text-muted mb-2">Xóa theo cùng lúc:</p>
+              <p className="text-caption text-muted mb-2">Vẫn giữ nguyên:</p>
               <ul className="space-y-1 text-body-sm text-body">
-                <li>{deletePreview.cascades.schedules} lịch khởi hành</li>
-                <li>{deletePreview.cascades.itineraries} chặng lịch trình</li>
-                <li>{deletePreview.cascades.images} ảnh</li>
+                <li>{deletePreview.preserved.bookings} đơn đặt tour, kèm hành khách và sổ tiền</li>
+                <li>{deletePreview.preserved.schedules} lịch khởi hành</li>
+                <li>{deletePreview.preserved.reviews} đánh giá của khách</li>
+                <li>{deletePreview.preserved.group_requests} yêu cầu booking đoàn</li>
               </ul>
             </div>
+
+            {!deletePreview.already_retired && (
+              <p className="text-body-sm text-muted">
+                Nếu chỉ muốn tạm dừng bán mà vẫn giữ tour trong danh sách quản trị thì chọn{" "}
+                <b>ngừng bán</b> thay vì cất đi.
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex gap-3 rounded-lg bg-rose-50 px-4 py-3">
-              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-              <p className="text-body-sm text-rose-900">
-                Không xóa được tour này vì đã có dữ liệu thật gắn vào. Xóa đi là mất luôn cả những
-                thứ dưới đây, và không lấy lại được.
+            <div className="flex gap-3 rounded-lg bg-amber-50 px-4 py-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-body-sm text-amber-900">
+                Chưa cất tour này đi được — vẫn còn đoàn đang trông vào nó.
               </p>
             </div>
 
@@ -527,14 +584,63 @@ export default function TourList() {
 
             {deletePreview.already_retired ? (
               <p className="text-body-sm text-muted">
-                Tour này hiện <b>đã ngừng bán</b> nên khách không đặt được nữa. Không cần làm gì thêm.
+                Tour này hiện <b>đã ngừng bán</b> nên không nhận khách mới. Đợi chuyến chạy xong
+                rồi cất đi.
               </p>
             ) : (
               <p className="text-body-sm text-muted">
-                Lối đi thay thế là <b>ngừng bán</b>: tour biến mất khỏi trang khách và không nhận
-                đặt mới, nhưng đơn cũ cùng các chuyến đã chốt vẫn chạy đúng cam kết.
+                Muốn thôi nhận khách mới ngay bây giờ thì chọn <b>ngừng bán</b> — chuyến đã chốt
+                vẫn chạy đúng cam kết.
               </p>
             )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Tour đã cất, và nút lấy lại từng cái. */}
+      <Modal
+        isOpen={trashOpen}
+        onClose={() => setTrashOpen(false)}
+        title="Tour đã cất đi"
+        subtitle="Không hiện trên trang khách và trong danh sách quản trị. Dữ liệu vẫn còn nguyên."
+        size="2xl"
+        footer={
+          <button
+            type="button"
+            onClick={() => setTrashOpen(false)}
+            className="px-4 py-2 bg-canvas border border-hairline text-button-sm rounded-lg text-ink hover:bg-surface-soft cursor-pointer"
+          >
+            Đóng
+          </button>
+        }
+      >
+        {trashed.length === 0 ? (
+          <p className="text-body-sm text-muted">Không có tour nào đang cất.</p>
+        ) : (
+          <div className="space-y-2">
+            {trashed.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-wrap items-center gap-3 rounded-lg border border-hairline-soft px-4 py-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-title-sm text-ink">{item.title}</p>
+                  <p className="text-caption-sm text-muted mt-0.5">
+                    {item.start_location} · cất lúc {formatDateTime(item.deleted_at ?? "")}
+                    {item.bookings_count > 0 && ` · giữ ${item.bookings_count} đơn`}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => khoiPhuc(item.id)}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-canvas border border-hairline text-button-sm rounded-lg text-ink hover:bg-surface-soft cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Khôi phục
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </Modal>
