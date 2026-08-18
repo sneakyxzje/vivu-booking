@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   Clock,
@@ -8,7 +8,13 @@ import {
   Filter,
   AlertTriangle,
   RotateCcw,
+  CheckCircle2,
+  ClipboardCheck,
+  GitMerge,
+  Lock,
+  Unlock,
 } from "lucide-react";
+import { TableActions } from "@/components/admin/TableActions";
 import adminService from "@/services/adminService";
 import type {
   CancelPlan,
@@ -26,6 +32,7 @@ import { statusLabel, statusClasses } from "@/utils/schedule";
 import Pagination from "@/components/common/Pagination";
 
 export default function ScheduleManagement() {
+  const navigate = useNavigate();
   const [tours, setTours] = useState<Tour[]>([]);
   const [guides, setGuides] = useState<Guide[]>([]);
   const [loading, setLoading] = useState(true);
@@ -810,119 +817,114 @@ export default function ScheduleManagement() {
                         </div>
                       </td>
 
-                      {/* Vận hành & Thao tác */}
+                      {/*
+                        Vận hành & Thao tác — gói sau một nút bánh răng.
+
+                        Trước đây tám nút trải ngang trên cùng một hàng: cột này rộng hơn cả cột
+                        dữ liệu, và muốn tìm đúng nút thì phải đọc hết tám nhãn. Danh sách dọc
+                        trong menu đọc nhanh hơn hẳn, và hàng bảng gọn lại.
+
+                        Thứ tự trong menu theo vòng đời chuyến chứ không theo mức độ hay tần suất:
+                        xem trước, rồi bán, rồi chốt, rồi điều người, cuối cùng mới tới hủy. Ai
+                        quen vòng đời thì đoán được vị trí mà không cần đọc.
+                      */}
                       <td className="py-4 px-5 text-right whitespace-nowrap">
-                        <div className="flex flex-col gap-2 items-end">
-                          <div className="flex flex-wrap gap-1 justify-end">
-                            {/*
-                              G05 - Danh sách đoàn, chia theo từng nhóm. Trả lời hai câu ở cùng
-                              một chỗ: gửi cho nhà cung cấp được chưa, và nhóm này gồm những ai.
-                              Đặt ngay trên hàng chuyến vì cả hai câu đều hỏi lúc đang nhìn chuyến,
-                              không phải lúc đang mở một đơn.
-                            */}
-                            {status !== "cancelled" && (
-                              <button
-                                type="button"
-                                onClick={() => openManifestCheck(schedule.id)}
-                                className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 duration-150 cursor-pointer"
-                              >
-                                Danh sách đoàn
-                              </button>
-                            )}
+                        <div className="flex items-center gap-2 justify-end">
+                          {(status === "completed" || status === "cancelled") && (
+                            <span className="text-caption-sm text-muted-soft italic">
+                              Đã kết thúc vòng đời
+                            </span>
+                          )}
 
-                            {/* Open/Close toggle */}
-                            {status === "open" && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateStatus(schedule.id, "closed")}
-                                className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 duration-150 cursor-pointer"
-                              >
-                                Đóng bán
-                              </button>
-                            )}
-                            {status === "closed" && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateStatus(schedule.id, "open")}
-                                className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-primary-655 hover:bg-primary-50 transition-all active:scale-95 duration-150 cursor-pointer"
-                              >
-                                Mở bán lại
-                              </button>
-                            )}
+                          <TableActions
+                            id={schedule.id}
+                            label="Vận hành chuyến"
+                            actions={[
+                              /*
+                                G05 - Danh sách đoàn theo từng nhóm. Trả lời hai câu ở cùng một
+                                chỗ: gửi cho nhà cung cấp được chưa, và nhóm này gồm những ai.
+                              */
+                              ...(status !== "cancelled"
+                                ? [{
+                                    label: "Danh sách đoàn",
+                                    onClick: () => openManifestCheck(schedule.id),
+                                    icon: <Users className="w-4 h-4" />,
+                                  }]
+                                : []),
 
-                            {/* Bàn giao giữa chừng: chỉ có nghĩa khi đoàn đã hoặc sắp lên đường
-                                và đang có người phụ trách để mà giao. */}
-                            {(status === "confirmed" || status === "in_progress") &&
-                              (schedule.guides ?? []).length > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => openHandoverDialog(schedule.id)}
-                                  className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-all active:scale-95 duration-150 cursor-pointer"
-                                >
-                                  Bàn giao HDV
-                                </button>
-                              )}
+                              {
+                                label: "Xem điểm danh",
+                                onClick: () => navigate(`/admin/tour-schedules/${schedule.id}/attendance`),
+                                icon: <ClipboardCheck className="w-4 h-4" />,
+                              },
 
-                            {/* Dời hạn chốt danh sách. Chuyến đã chạy hoặc đã xong thì mốc này
-                                không còn nghĩa gì nên không cho sửa. */}
-                            {(status === "open" || status === "closed" || status === "confirmed") && (
-                              <button
-                                type="button"
-                                onClick={() => openDeadlineDialog(schedule)}
-                                className="rounded border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 duration-150 cursor-pointer"
-                              >
-                                Sửa hạn chốt
-                              </button>
-                            )}
+                              ...(status === "open"
+                                ? [{
+                                    label: "Đóng bán",
+                                    onClick: () => handleUpdateStatus(schedule.id, "closed"),
+                                    icon: <Lock className="w-4 h-4" />,
+                                  }]
+                                : []),
 
-                            {/* L03 - Ghép chuyến. Chỉ có nghĩa khi chuyến chưa khởi hành và
-                                đang ít khách, nên để cạnh nút chốt chuyến. */}
-                            {(status === "open" || status === "closed" || status === "confirmed") && (
-                              <button
-                                type="button"
-                                onClick={() => openMergeDialog(schedule.id)}
-                                className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition-all active:scale-95 duration-150 cursor-pointer"
-                              >
-                                Ghép chuyến
-                              </button>
-                            )}
+                              ...(status === "closed"
+                                ? [{
+                                    label: "Mở bán lại",
+                                    onClick: () => handleUpdateStatus(schedule.id, "open"),
+                                    icon: <Unlock className="w-4 h-4" />,
+                                  }]
+                                : []),
 
-                            {/* Confirm action */}
-                            {(status === "open" || status === "closed") && (
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateStatus(schedule.id, "confirmed")}
-                                className="rounded bg-primary-600 px-2 py-1 text-xs font-semibold text-white hover:bg-primary-700 shadow-sm transition-all active:scale-95 duration-150 cursor-pointer"
-                              >
-                                Chốt chuyến
-                              </button>
-                            )}
+                              /* Dời hạn chốt. Chuyến đã chạy hoặc đã xong thì mốc này hết nghĩa. */
+                              ...(status === "open" || status === "closed" || status === "confirmed"
+                                ? [{
+                                    label: "Sửa hạn chốt danh sách",
+                                    onClick: () => openDeadlineDialog(schedule),
+                                    icon: <Clock className="w-4 h-4" />,
+                                  }]
+                                : []),
 
-                            {/* Cancel action */}
-                            {(status === "open" || status === "closed" || status === "confirmed") && (
-                              <button
-                                type="button"
-                                onClick={() => openCancelDialog(schedule.id)}
-                                className="rounded border border-rose-150 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition-all active:scale-95 duration-150 cursor-pointer"
-                              >
-                                Hủy chuyến
-                              </button>
-                            )}
+                              ...(status === "open" || status === "closed"
+                                ? [{
+                                    label: "Chốt chuyến",
+                                    onClick: () => handleUpdateStatus(schedule.id, "confirmed"),
+                                    icon: <CheckCircle2 className="w-4 h-4" />,
+                                    variant: "success" as const,
+                                  }]
+                                : []),
 
-                            {/* Closed lifecycle states */}
-                            {(status === "completed" || status === "cancelled") && (
-                              <span className="text-xs text-gray-400 italic">
-                                Đã kết thúc vòng đời
-                              </span>
-                            )}
-                          </div>
+                              /* L03 - Ghép chuyến: chỉ có nghĩa khi chưa khởi hành và ít khách. */
+                              ...(status === "open" || status === "closed" || status === "confirmed"
+                                ? [{
+                                    label: "Ghép chuyến",
+                                    onClick: () => openMergeDialog(schedule.id),
+                                    icon: <GitMerge className="w-4 h-4" />,
+                                  }]
+                                : []),
 
-                          <Link
-                            to={`/admin/tour-schedules/${schedule.id}/attendance`}
-                            className="text-xs font-semibold text-primary-600 hover:underline inline-flex items-center gap-0.5"
-                          >
-                            Xem điểm danh →
-                          </Link>
+                              /* Bàn giao: chỉ có nghĩa khi đoàn sắp hoặc đã lên đường và đang có
+                                 người phụ trách để mà giao. */
+                              ...((status === "confirmed" || status === "in_progress") &&
+                              (schedule.guides ?? []).length > 0
+                                ? [{
+                                    label: "Bàn giao hướng dẫn viên",
+                                    onClick: () => openHandoverDialog(schedule.id),
+                                    icon: <RotateCcw className="w-4 h-4" />,
+                                    variant: "warning" as const,
+                                  }]
+                                : []),
+
+                              /* Nguy hiểm nằm cuối, TableActions tự chèn đường kẻ tách phía trên. */
+                              ...(status === "open" || status === "closed" || status === "confirmed"
+                                ? [{
+                                    label: "Hủy chuyến",
+                                    hint: "Phải gán phương án cho từng đơn đã thu tiền",
+                                    onClick: () => openCancelDialog(schedule.id),
+                                    icon: <AlertTriangle className="w-4 h-4" />,
+                                    variant: "danger" as const,
+                                  }]
+                                : []),
+                            ]}
+                          />
                         </div>
                       </td>
                     </tr>
