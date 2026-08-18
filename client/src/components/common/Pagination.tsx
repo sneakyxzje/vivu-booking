@@ -37,12 +37,11 @@ export const Pagination: React.FC<PaginationProps> = ({
 
   return (
     <div
-      className={`flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-gray-100 text-xs ${className}`}
+      className={`flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-hairline-soft ${className}`}
     >
-      {/* Bên trái: Text hiển thị ngắn gọn */}
-      <div className="text-gray-500 font-medium">
-        Hiển thị <span className="font-bold text-gray-800">{startItem} - {endItem}</span> /{" "}
-        <span className="font-bold text-gray-800">{total}</span> {itemLabel}
+      <div className="text-body-sm text-muted">
+        Hiển thị <span className="font-semibold text-ink tabular-nums">{startItem} - {endItem}</span> /{" "}
+        <span className="font-semibold text-ink tabular-nums">{total}</span> {itemLabel}
       </div>
 
       {/* Bên phải: Nút Icon điều hướng trang + Dropdown chỉ hiển thị số */}
@@ -55,7 +54,7 @@ export const Pagination: React.FC<PaginationProps> = ({
             title="Trang đầu"
             disabled={currentPage <= 1}
             onClick={() => onPageChange(1)}
-            className="p-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full border border-hairline text-ink hover:bg-surface-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
@@ -68,7 +67,7 @@ export const Pagination: React.FC<PaginationProps> = ({
             title="Trang trước"
             disabled={currentPage <= 1}
             onClick={() => onPageChange(currentPage - 1)}
-            className="p-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full border border-hairline text-ink hover:bg-surface-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -84,9 +83,14 @@ export const Pagination: React.FC<PaginationProps> = ({
               <button
                 type="button"
                 onClick={() => onPageChange(p)}
-                className={`w-7 h-7 rounded-xl text-xs font-bold transition-all ${p === currentPage
-                    ? "bg-primary-600 text-white shadow-xs"
-                    : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                /*
+                  Ô số trang là hình tròn 36px, cùng khuôn với ô ngày của bộ chọn lịch trong
+                  DESIGN.md. Trang đang xem tô đặc, không đổ bóng — bóng để tách tầng, không
+                  để đánh dấu trạng thái.
+                */
+                className={`w-9 h-9 rounded-full text-button-sm transition-colors cursor-pointer ${p === currentPage
+                    ? "bg-primary-600 text-white"
+                    : "bg-canvas border border-hairline text-ink hover:bg-surface-soft"
                   }`}
               >
                 {p}
@@ -100,7 +104,7 @@ export const Pagination: React.FC<PaginationProps> = ({
             title="Trang sau"
             disabled={currentPage >= lastPage}
             onClick={() => onPageChange(currentPage + 1)}
-            className="p-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full border border-hairline text-ink hover:bg-surface-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -113,7 +117,7 @@ export const Pagination: React.FC<PaginationProps> = ({
             title="Trang cuối"
             disabled={currentPage >= lastPage}
             onClick={() => onPageChange(lastPage)}
-            className="p-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full border border-hairline text-ink hover:bg-surface-soft disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
@@ -126,7 +130,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           <select
             value={perPage}
             onChange={(e) => onPerPageChange(Number(e.target.value))}
-            className="px-3.5 py-1.5 min-w-[64px] h-8.5 rounded-xl border border-gray-300 text-xs font-extrabold bg-white text-gray-800 outline-none focus:border-primary-500 shadow-xs cursor-pointer hover:bg-gray-50 transition-colors"
+            className="px-3.5 h-9 min-w-[64px] rounded-full border border-hairline text-button-sm bg-canvas text-ink outline-none focus:border-ink cursor-pointer hover:bg-surface-soft transition-colors"
             title="Số bản ghi mỗi trang"
           >
             {perPageOptions.map((option) => (
