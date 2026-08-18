@@ -28,12 +28,10 @@ export interface GuideBooking {
 /**
  * Hồ sơ năng lực — trả lời "ai phù hợp", khác với "ai đang rảnh".
  *
- * Mọi trường đều để trống được. Riêng `card_expiry` là thứ duy nhất trong đây **chặn** được phân
- * công, và chỉ khi có giá trị: chưa khai không phải là khai sai.
+ * Mọi trường đều để trống được, và **không trường nào chặn được phân công**. Hồ sơ chỉ xếp thứ tự
+ * và nhắc; luật chặn duy nhất vẫn là chống trùng lịch.
  */
 export interface GuideProfile {
-  card_number: string | null;
-  card_expiry: string | null;
   languages: string[] | null;
   regions: string[] | null;
   max_group_size: number | null;
@@ -63,7 +61,8 @@ export interface Guide {
  * Một hướng dẫn viên đã được chấm cho một chuyến cụ thể.
  *
  * `blocked_reason` là câu **máy chủ sẽ từ chối bằng đúng câu đó** nếu vẫn cố lưu — không phải một
- * lời khuyên. Còn `warnings` thì ngược lại: nói ra rồi để điều hành quyết.
+ * lời khuyên. Hiện chỉ có đúng một nguyên nhân: trùng lịch. Còn `warnings` thì ngược lại: nói ra
+ * rồi để điều hành quyết.
  */
 export interface GuideSuitability {
   id: number;
@@ -76,7 +75,6 @@ export interface GuideSuitability {
   warnings: string[];
   workload: number;
   languages: string[];
-  card_expiry: string | null;
 }
 
 /*
