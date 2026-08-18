@@ -68,8 +68,18 @@
                                 Quý khách vui lòng có mặt tại điểm đón trước giờ khởi hành ít nhất 30 phút và mang theo giấy tờ tùy thân.
                             </p>
 
-                            <p style="margin:22px 0;">
-                                <a href="{{ $frontendBookingUrl }}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 18px;border-radius:10px;">
+                            {{-- Việc còn dang dở của khách, để trước nút xem đơn vì nó cần hành động. --}}
+                            <p style="margin:22px 0 10px;">
+                                <a href="{{ $frontendPassengerUrl }}" style="display:inline-block;background:#1e3a8a;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 18px;border-radius:8px;">
+                                    Khai thông tin {{ $booking->guests }} hành khách
+                                </a>
+                            </p>
+                            <p style="margin:0 0 22px;font-size:13px;line-height:1.6;color:#6a6a6a;">
+                                Cần khai xong trước hạn chốt danh sách để làm bảo hiểm du lịch và khai báo lưu trú.
+                            </p>
+
+                            <p style="margin:0 0 22px;">
+                                <a href="{{ $frontendBookingUrl }}" style="display:inline-block;background:#ffffff;color:#222222;text-decoration:none;font-weight:500;font-size:14px;padding:12px 18px;border-radius:8px;border:1px solid #dddddd;">
                                     Xem chi tiết đơn hàng
                                 </a>
                             </p>

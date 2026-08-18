@@ -394,6 +394,25 @@ export default function BookingSuccess() {
                   <div className="border-t border-gray-200/60 pt-4 flex justify-between items-baseline"><span className="font-bold text-gray-800 text-sm">Tổng cộng</span><span className="text-xl font-bold text-red-600 font-mono">{formatCurrency(booking.total_amount)}</span></div>
                 </div>
               </div>
+              {/*
+                Việc tiếp theo của khách, đặt trên cả "về trang chủ".
+
+                Danh sách hành khách nay khai sau khi đặt, nên đây là hành động còn dang dở duy
+                nhất trên trang này — nó phải nổi hơn hai liên kết điều hướng bên dưới, không thì
+                khách đóng tab và quên mất.
+              */}
+              {(booking.public_token || id) && (
+                <Link
+                  to={`/bookings/${booking.public_token ?? id}/passengers`}
+                  className="block w-full rounded-xl bg-amber-50 border border-amber-200 text-center py-3 text-sm text-amber-900 hover:bg-amber-100 transition-colors cursor-pointer"
+                >
+                  <span className="font-bold block">Khai thông tin {booking.guests} hành khách</span>
+                  <span className="text-xs text-amber-800/80">
+                    Cần xong trước hạn chốt danh sách để làm bảo hiểm
+                  </span>
+                </Link>
+              )}
+
               <Link to="/" className="block w-full rounded-xl border border-gray-200 hover:bg-gray-50 text-center font-semibold py-3 text-sm text-gray-700 transition-all duration-300 cursor-pointer">Về trang chủ</Link>
               <Link to="/tours" className="block w-full rounded-xl bg-primary-600 hover:bg-primary-700 text-center font-semibold py-3 text-sm text-white transition-all duration-300 cursor-pointer">Xem tour khác</Link>
             </div>
