@@ -8,6 +8,7 @@ use App\Models\GuideAssignmentDecline;
 use App\Models\TourImage;
 use App\Models\Service;
 use App\Models\Booking;
+use App\Models\CancellationPolicy;
 use App\Models\Tour;
 use App\Models\TourItinerary;
 use App\Models\TourSchedule;
@@ -193,6 +194,11 @@ class AdminTourController extends Controller
         return $this->success([
             'categories' => Category::where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'services' => Service::orderBy('name')->get(['id', 'name']),
+            // Chính sách hủy để biểu mẫu chọn. Mặc định lên đầu vì đó là lựa chọn khi bỏ trống.
+            'cancellation_policies' => CancellationPolicy::query()
+                ->orderByDesc('is_default')
+                ->orderBy('name')
+                ->get(['id', 'name', 'is_default']),
         ], 'Lấy dữ liệu tạo tour thành công');
     }
 
@@ -218,6 +224,16 @@ class AdminTourController extends Controller
             'category_ids.*' => ['exists:categories,id'],
             'service_ids' => ['nullable', 'array'],
             'service_ids.*' => ['exists:services,id'],
+            /*
+             * Chính sách hủy riêng cho tour này.
+             *
+             * Cột `tours.cancellation_policy_id` có từ đầu và đơn đã chép nó lúc đặt, nhưng biểu
+             * mẫu chưa bao giờ gửi lên - nên mọi tour đều rơi về chính sách mặc định và các
+             * chính sách khác nằm chết trong bảng. Đây là chỗ nối dây còn thiếu.
+             *
+             * Để trống nghĩa là dùng chính sách mặc định, không phải không có chính sách.
+             */
+            'cancellation_policy_id' => ['nullable', 'integer', 'exists:cancellation_policies,id'],
             'itineraries' => ['nullable', 'array'],
             'itineraries.*.day_number' => ['required_with:itineraries', 'integer', 'min:1'],
             'itineraries.*.title' => ['required_with:itineraries', 'string', 'max:255'],
@@ -398,6 +414,16 @@ class AdminTourController extends Controller
             'category_ids.*' => ['exists:categories,id'],
             'service_ids' => ['nullable', 'array'],
             'service_ids.*' => ['exists:services,id'],
+            /*
+             * Chính sách hủy riêng cho tour này.
+             *
+             * Cột `tours.cancellation_policy_id` có từ đầu và đơn đã chép nó lúc đặt, nhưng biểu
+             * mẫu chưa bao giờ gửi lên - nên mọi tour đều rơi về chính sách mặc định và các
+             * chính sách khác nằm chết trong bảng. Đây là chỗ nối dây còn thiếu.
+             *
+             * Để trống nghĩa là dùng chính sách mặc định, không phải không có chính sách.
+             */
+            'cancellation_policy_id' => ['nullable', 'integer', 'exists:cancellation_policies,id'],
             'itineraries' => ['nullable', 'array'],
             'itineraries.*.id' => ['nullable', 'exists:tour_itineraries,id'],
             'itineraries.*.day_number' => ['required_with:itineraries', 'integer', 'min:1'],
