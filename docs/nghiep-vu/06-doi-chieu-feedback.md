@@ -10,7 +10,7 @@ Ký hiệu hiện trạng:
 - `Đã có`: có mã chạy thật và có kiểm thử tự động giữ.
 
 **Cập nhật ngày 17/08/2026.** Bảng dưới đây phản ánh mã nguồn tại thời điểm đó, không phải kế
-hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu được ngay. Bộ kiểm thử: 494 bài, xanh.
+hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu được ngay. Bộ kiểm thử: 496 bài, xanh.
 
 ## 1. Bảng đối chiếu tổng hợp
 
@@ -30,7 +30,7 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 | 12 | Chính sách hoàn tiền hoặc đặt cọc | **Một phần** | Hoàn tiền xong. **Sổ giao dịch nhiều đợt đã có** (`booking_payments`, làm nền cho đơn đoàn): cọc, thanh toán nốt, hoàn — `paidAmount()` đọc tổng sổ khi sổ có dòng. **Còn thiếu:** đơn lẻ vẫn trả một lần qua cổng, chưa có nhắc nợ tự động |
 | 13 | Chi phí phát sinh khi tour đã chạy | **Đã có** | `IncidentService` — hướng dẫn viên báo cáo kèm ảnh và **không nhập được tiền**; điều hành quyết phương án và phân bổ cho từng đơn; khoản chưa duyệt chưa có hiệu lực |
 | 14 | Booking theo đoàn | **Một phần** | `GroupBookingService` — đường ống yêu cầu → báo giá → chốt; chỉ bước chốt mới chiếm chỗ và đi qua đúng luật giữ chỗ của khách lẻ; thu tiền nhiều đợt qua sổ giao dịch; đoàn được giảm số khách trước hạn chốt (khách lẻ vẫn không). **Còn thiếu:** nộp danh sách bằng Excel, hóa đơn VAT mới lưu thông tin chưa phát hành — xem ghi chú mục 6 |
-| 15 | Xóa tour khi đã có người thanh toán | **Đã có** | Hai việc khác nhau: hủy **chuyến** đi `ScheduleCancellationService` (ba bước, mỗi đơn đã trả tiền phải có phương án); xóa **tour** đi `TourDeletionService` — chỉ xóa được tour chưa từng phát sinh gì, còn lại chuyển ngừng bán. Xem ghi chú dưới bảng |
+| 15 | Xóa tour khi đã có người thanh toán | **Đã có** | Hai việc khác nhau: hủy **chuyến** đi `ScheduleCancellationService` (ba bước, mỗi đơn đã trả tiền phải có phương án); xóa **tour** đi `TourDeletionService` — xóa mềm, chứng từ giữ nguyên, khôi phục được, và cascade đã gỡ khỏi lược đồ. Xem ghi chú dưới bảng |
 | 16 | Ghép tour | **Đã có** | `ScheduleMergeService` — cùng tour, lệch không quá 2 ngày, cả hai chuyến phải còn trước hạn chốt |
 | 17 | Hướng dẫn viên phù hợp cho từng tour | **Đã có** | `GuideSuitabilityService` chấm và xếp hạng; `guide_profiles` + `guide_categories` giữ ngôn ngữ, tuyến quen, chuyên môn, sức dẫn. Hồ sơ **không chặn ai** — luật chặn duy nhất vẫn là trùng lịch. Xem ghi chú dưới bảng |
 | 18 | Hợp đồng, danh sách khách hàng | **Một phần** | Danh sách đoàn chia theo nhóm đã có. **Hợp đồng chưa có gì** |
@@ -38,35 +38,44 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 **Tổng kết: 15 điểm đã có mã chạy, 3 điểm còn một mảng thiếu (12, 14, 18), không còn điểm nào
 ở con số không.**
 
-### Điểm 15: cơ sở dữ liệu sẵn sàng xóa sạch, luật là hàng rào duy nhất
+### Điểm 15: xóa tour là xóa mềm, và cascade đã bị gỡ khỏi lược đồ
 
-Chỗ đáng nói nhất của điểm này nằm ở lược đồ, không nằm ở giao diện: **`bookings.tour_id` khai
-`onDelete('cascade')`**. Gọi thẳng `$tour->delete()` thì cơ sở dữ liệu **im lặng xóa theo toàn bộ
-đơn hàng của tour** — kèm hành khách, sổ giao dịch, nhật ký thay đổi và nhật ký cổng thanh toán.
-Không cảnh báo, không hoàn tác được. Cùng đường ấy còn kéo theo đánh giá của khách và yêu cầu đoàn.
+Chỗ đáng nói nhất nằm ở lược đồ chứ không ở giao diện. Ban đầu `bookings.tour_id`,
+`reviews.tour_id` và `group_booking_requests.tour_id` đều khai `onDelete('cascade')` — nghĩa là
+**một lệnh xóa tour ở bất kỳ đâu** cũng kéo theo toàn bộ đơn hàng của tour, và theo dây chuyền là
+hành khách, sổ giao dịch, nhật ký thay đổi, nhật ký cổng thanh toán.
 
-Nghĩa là hàng rào duy nhất giữa một cú bấm nhầm và toàn bộ dữ liệu tài chính của một tour chính là
-`TourDeletionService`.
+Đã sửa ở hai tầng, cố ý chồng lên nhau:
 
-Ranh giới đang áp:
+**1. Tour xóa mềm.** "Xóa" nay là **cất đi**: đặt `deleted_at`, tour biến mất khỏi trang khách và
+khỏi màn quản trị, nhưng hàng dữ liệu còn nguyên và khôi phục lại được. Bốn quan hệ trỏ tới `Tour`
+(`Booking`, `TourSchedule`, `Review`, `GroupBookingRequest`) đều khai `withTrashed`, nên **đơn cũ
+vẫn tra ra được tên tour** — thiếu chi tiết này thì chứng từ tuy còn nhưng mất thông tin.
 
-| Tình huống | Xử lý |
-| --- | --- |
-| Tour chưa từng có đơn, chưa có đánh giá, chưa có chuyến rời khỏi trạng thái mở/đóng bán | **Xóa cứng được** — đây là tour tạo nhầm, đúng lúc cần nút xóa |
-| Có bất kỳ đơn nào, kể cả đơn đã hủy | Chặn — đơn hàng là chứng từ tài chính |
-| Có chuyến đã chốt / đang chạy / đã kết thúc / đã hủy | Chặn — đó là lịch sử vận hành, kèm phân công và sự cố |
-| Có đánh giá của khách | Chặn — tiếng nói của khách, không xóa hộ |
+**2. Ba khóa ngoại đổi từ `cascade` sang `restrict`** (migration `2026_08_17_000011`). Kể cả khi
+ai đó cố xóa cứng bằng tinker hay bằng truy vấn tay, cơ sở dữ liệu từ chối thay vì xóa sạch. Chứng
+từ không nên phụ thuộc vào việc mọi người sau này đều nhớ gọi đúng lớp dịch vụ.
 
-Hai chi tiết nên nói nếu bị hỏi kỹ:
+Giữ nguyên cascade ở `tour_images`, `tour_itineraries`, `category_tour`, `tour_service`,
+`tour_schedules`: đó là **thành phần cấu tạo nên tour**, không phải chứng từ giao dịch.
 
-- **Hệ thống không tự chuyển sang ngừng bán** khi thấy không xóa được. Bấm "xóa" mà máy lặng lẽ
-  làm việc khác là máy quyết thay người dùng; nó nói rõ cái gì đang chặn và bao nhiêu cái, rồi để
-  điều hành chọn.
-- **Ngừng bán không đụng tới chuyến đã chốt.** Khách đã mua thì chuyến vẫn phải chạy đúng cam kết;
-  ngừng bán chỉ có nghĩa là không nhận khách mới.
+Điều kiện chặn còn lại chỉ có một: **đoàn đang trên đường thì chưa cất tour đi được.** Chuyến đã
+chốt hoặc đang khởi hành nghĩa là có khách đã trả tiền và đang đi, còn điều hành vẫn cần tour để
+điểm danh, xử lý sự cố, bàn giao hướng dẫn viên.
 
-Bài kiểm thử quan trọng nhất của phần này không phải "có chặn không" mà là **đếm lại số đơn sau khi
-bị chặn** — chỉ như vậy mới chứng minh được cascade chưa hề chạy.
+Ba chi tiết nên nói nếu bị hỏi kỹ:
+
+- **Cất đi khác ngừng bán.** Ngừng bán giữ tour trong màn quản trị, chỉ thôi nhận khách mới — dùng
+  khi tạm dừng theo mùa. Cất đi thì bỏ khỏi cả danh sách quản trị. Hộp thoại đưa cả hai nút cùng
+  lúc chứ không coi cái này là phương án dự phòng của cái kia.
+- **Xóa mềm phải có đường lấy lại**, nếu không nó chỉ là xóa cứng thêm một bước. Danh sách tour đã
+  cất nằm ngay trên đầu màn quản lý tour, kèm nút khôi phục từng cái.
+- **Trên SQLite phần đổi khóa ngoại không chạy** — SQLite không sửa được khóa ngoại bằng
+  `ALTER TABLE`. Máy chạy thật dùng MySQL nên có đủ hai tầng; máy phát triển chỉ có tầng ứng dụng,
+  và bộ kiểm thử chứng minh hành vi của ứng dụng giống nhau ở cả hai.
+
+Bài kiểm thử quan trọng nhất không phải "có chặn không" mà là: cất tour đi rồi **đọc lại đơn cũ và
+kiểm tra nó vẫn ra đúng tên tour**. Mất `withTrashed` ở một quan hệ là bài đó đỏ ngay.
 
 ### Vì sao điểm 8 không có nút mở lại chỗ
 
@@ -374,7 +383,7 @@ sâu hơn mức thường thấy ở đồ án.
 | Nhật ký giao dịch thanh toán phục vụ đối soát | Đã triển khai |
 | Toàn hệ thống chạy giờ Việt Nam (`Asia/Ho_Chi_Minh`), cột thời gian nghiệp vụ lưu giờ treo tường | Đã triển khai |
 | Tra cứu đơn cho khách vãng lai bằng mã ngẫu nhiên thay vì số thứ tự | Đã triển khai |
-| **494 kiểm thử tự động**, chạy trong quy trình tích hợp liên tục | Đã triển khai |
+| **496 kiểm thử tự động**, chạy trong quy trình tích hợp liên tục | Đã triển khai |
 | Khóa hai chuyến theo id tăng dần khi thao tác chạm hai chuyến, để tránh khóa chết | Chuyển chuyến và ghép chuyến |
 | Nhật ký thay đổi cho cả đơn hàng lẫn chuyến, gộp thành một dòng thời gian tra cứu được | `/admin/audit-logs`, lọc riêng được các lần chạm tiền |
 | Xem trước hậu quả trước khi bấm ở mọi thao tác nặng | Hủy đơn, hủy chuyến, ghép chuyến, chuyển chuyến, dời hạn chốt |

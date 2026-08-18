@@ -21,10 +21,10 @@ Tài liệu này nhìn theo **người dùng làm được gì**.
 | Lớp dịch vụ (`app/Services`) | 25 |
 | Enum trạng thái | 16 |
 | Controller API | 35 |
-| Điểm cuối API | 116 |
+| Điểm cuối API | 118 |
 | Lệnh chạy nền | 7 |
 | Màn hình giao diện | 37 |
-| **Kiểm thử tự động** | **494 bài, xanh** |
+| **Kiểm thử tự động** | **496 bài, xanh** |
 
 Ba vai trò: **khách hàng**, **hướng dẫn viên**, **điều hành kiêm quản trị**.
 
@@ -116,9 +116,9 @@ Ba vai trò: **khách hàng**, **hướng dẫn viên**, **điều hành kiêm q
 - **Hủy cả chuyến — ba bước bắt buộc**: xem tác động (số đơn, số khách, tổng đã thu) → gán phương
   án cho **từng đơn đã thanh toán** (hoàn đủ hoặc chuyển miễn phí) → mới được xác nhận. Còn đơn
   chưa có phương án thì bị chặn kèm số lượng cụ thể.
-- **Xóa tour** chỉ chạy được với tour chưa từng phát sinh gì. Có đơn, có đánh giá, hay có chuyến
-  đã chốt thì bị chặn kèm số lượng, và lối đi thay thế là **ngừng bán** — tour biến mất khỏi trang
-  khách nhưng chuyến đã chốt vẫn chạy.
+- **Cất tour đi** (xóa mềm): tour biến mất khỏi trang khách và màn quản trị, **đơn hàng và đánh
+  giá giữ nguyên**, khôi phục lại được. Chặn khi còn chuyến đã chốt hoặc đang khởi hành. Khác với
+  **ngừng bán** — cái đó giữ tour trong màn quản trị, chỉ thôi nhận khách mới.
 
 ### Tiền
 
