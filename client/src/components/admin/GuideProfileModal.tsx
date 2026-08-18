@@ -10,8 +10,8 @@ import { Modal } from "@/components/admin/Modal";
  * bên là thông tin nghề nghiệp. Gộp lại thì mỗi lần tạm ngưng một người cũng phải gửi kèm cả danh
  * sách ngôn ngữ.
  *
- * Điều quan trọng nhất màn này phải nói rõ: **chỉ hạn thẻ mới chặn được phân công.** Ngôn ngữ,
- * tuyến quen, sức dẫn chỉ để xếp thứ tự và nhắc — điền sai không khóa ai ra khỏi hệ thống.
+ * Điều quan trọng nhất màn này phải nói rõ: **không ô nào ở đây chặn được phân công.** Tất cả chỉ
+ * để xếp thứ tự và nhắc — điền sai hay bỏ trống đều không khóa ai ra khỏi hệ thống.
  */
 interface Props {
   guide: Guide | null;
@@ -31,8 +31,6 @@ export const GuideProfileModal: React.FC<Props> = ({ guide, onClose, onSaved, on
   const [categories, setCategories] = useState<Category[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
   const [languages, setLanguages] = useState("");
   const [regions, setRegions] = useState("");
   const [maxGroupSize, setMaxGroupSize] = useState("");
@@ -44,8 +42,6 @@ export const GuideProfileModal: React.FC<Props> = ({ guide, onClose, onSaved, on
 
     const hoSo = guide.guide_profile;
 
-    setCardNumber(hoSo?.card_number ?? "");
-    setCardExpiry(hoSo?.card_expiry ?? "");
     setLanguages((hoSo?.languages ?? []).join(", "));
     setRegions((hoSo?.regions ?? []).join(", "));
     setMaxGroupSize(hoSo?.max_group_size ? String(hoSo.max_group_size) : "");
@@ -67,8 +63,6 @@ export const GuideProfileModal: React.FC<Props> = ({ guide, onClose, onSaved, on
     setSaving(true);
 
     const payload: GuideProfilePayload = {
-      card_number: cardNumber.trim() || null,
-      card_expiry: cardExpiry || null,
       languages: tachDanhSach(languages),
       regions: tachDanhSach(regions),
       max_group_size: maxGroupSize ? Number(maxGroupSize) : null,
@@ -92,7 +86,7 @@ export const GuideProfileModal: React.FC<Props> = ({ guide, onClose, onSaved, on
       isOpen={!!guide}
       onClose={onClose}
       title={`Hồ sơ năng lực: ${guide?.name ?? ""}`}
-      subtitle="Dùng để xếp thứ tự khi phân công. Chỉ hạn thẻ mới chặn được, phần còn lại là gợi ý."
+      subtitle="Dùng để xếp thứ tự khi phân công — toàn bộ là gợi ý, không ô nào chặn được ai."
       onSubmit={luu}
       size="xl"
       footer={
@@ -116,46 +110,13 @@ export const GuideProfileModal: React.FC<Props> = ({ guide, onClose, onSaved, on
     >
       <div className="space-y-4">
         {/*
-          Thẻ hành nghề đứng riêng một khối vì đây là thứ duy nhất ở đây có sức chặn. Để lẫn vào
-          giữa các ô gợi ý thì người nhập không biết ô nào quan trọng hơn ô nào.
+          Nói ngay từ đầu biểu mẫu: điền hay không điền đều không khóa ai ra khỏi hệ thống. Không
+          nói thì người nhập dè dặt, sợ điền sai thì người ta mất chuyến.
         */}
-        <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 space-y-3">
-          <p className="text-xs font-bold text-amber-900">
-            Thẻ hành nghề — ô duy nhất có thể chặn phân công
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                Số thẻ
-              </label>
-              <input
-                type="text"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(e.target.value)}
-                placeholder="HDV-NĐ-2023-0417"
-                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md bg-white focus:outline-none focus:border-primary-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                Hết hạn
-              </label>
-              <input
-                type="date"
-                value={cardExpiry}
-                onChange={(e) => setCardExpiry(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md bg-white focus:outline-none focus:border-primary-500"
-              />
-            </div>
-          </div>
-
-          <p className="text-[11px] text-amber-800/80">
-            Thẻ hết hạn trước ngày kết thúc chuyến thì không phân công được — hướng dẫn viên hành
-            nghề phải có thẻ còn hiệu lực. Để trống thì hệ thống không kiểm, không phải là hợp lệ.
-          </p>
-        </div>
+        <p className="rounded-lg bg-gray-50 px-3 py-2 text-[11px] text-gray-500">
+          Hồ sơ này chỉ dùng để <b>xếp thứ tự</b> khi chọn người dẫn — không có ô nào ở đây chặn
+          được phân công. Bỏ trống cũng không sao, người đó vẫn nằm trong danh sách chọn.
+        </p>
 
         {/* Loại hình chuyên: chọn từ danh mục thật của tour, không gõ tay, để so khớp được. */}
         <div>
