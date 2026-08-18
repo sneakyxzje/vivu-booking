@@ -54,50 +54,48 @@ export const Modal: React.FC<ModalProps> = ({
   const ContentWrapper = onSubmit ? "form" : "div";
 
   return (
+    /*
+      Lớp phủ đen 50% — đúng `{colors.scrim}` của DESIGN.md. Bỏ `backdrop-blur`: hệ này tách
+      tầng bằng lớp phủ và bo góc, không bằng hiệu ứng làm mờ nền.
+    */
     <div
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/50 animate-fade-in"
     >
       <div
-        className={`relative bg-white w-full ${sizeClasses[size]} rounded-lg shadow-2xl border border-gray-100 overflow-hidden transform transition-all duration-300`}
+        className={`relative bg-canvas w-full ${sizeClasses[size]} rounded-xl shadow-2xl overflow-hidden`}
       >
-        {/* Modal Header */}
-        <div className="p-6 pb-4 border-b border-gray-100 flex items-start justify-between bg-white">
-          <div className="border-l-4 border-primary-500 pl-3.5">
-            <h3 className="text-lg font-bold text-gray-900 font-plus-jakarta tracking-tight">
-              {title}
-            </h3>
+        {/*
+          Bỏ thanh màu dọc bên trái tiêu đề. Hệ này không dùng vạch trang trí cạnh thẻ — thứ bậc
+          do cỡ chữ và khoảng trắng gánh, thêm vạch màu là thêm một tín hiệu không mang thông tin.
+        */}
+        <div className="px-6 pt-6 pb-4 border-b border-hairline-soft flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="text-display-sm text-ink">{title}</h3>
             {subtitle && (
-              <p className="text-xs text-gray-500 font-inter mt-1 font-normal leading-relaxed">
-                {subtitle}
-              </p>
+              <p className="text-body-sm text-muted mt-1">{subtitle}</p>
             )}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 cursor-pointer"
+            aria-label="Đóng"
+            className="shrink-0 w-8 h-8 flex items-center justify-center bg-surface-strong hover:bg-hairline-soft text-ink rounded-full transition-colors cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Modal Content Form/Div */}
         {/* @ts-ignore */}
-        <ContentWrapper
-          onSubmit={onSubmit}
-          className="flex flex-col"
-        >
-          {/* Modal Body */}
-          <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto font-inter text-sm">
+        <ContentWrapper onSubmit={onSubmit} className="flex flex-col">
+          <div className="px-6 py-6 space-y-5 max-h-[70vh] overflow-y-auto text-body-md text-body">
             {children}
           </div>
 
-          {/* Modal Footer */}
           {footer && (
-            <div className="bg-gray-50/50 px-6 py-4 flex justify-end gap-3 border-t border-gray-100 rounded-b-lg">
+            <div className="bg-surface-soft px-6 py-4 flex justify-end gap-3 border-t border-hairline-soft">
               {footer}
             </div>
           )}
