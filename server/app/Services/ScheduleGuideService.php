@@ -143,39 +143,21 @@ class ScheduleGuideService
      * luật có ở đường ghi mà thiếu ở đường đọc, nên người dùng bấm xong mới biết không được. Gộp
      * vào một chỗ thì hai phía không lệch nhau được nữa.
      *
-     * Hai luật, và chỉ hai:
-     *
-     *   1. **Trùng lịch** - luật vật lý, một người không đứng ở hai đoàn cùng lúc.
-     *   2. **Thẻ hành nghề hết hạn giữa chuyến** - luật pháp lý. Luật Du lịch 2017 yêu cầu hướng
-     *      dẫn viên hành nghề phải có thẻ còn hiệu lực; cho đi là đẩy công ty vào chỗ sai luật.
+     * **Đúng một luật, và cố ý chỉ một:** trùng lịch - luật vật lý, một người không đứng ở hai
+     * đoàn cùng lúc. Đây là thứ hệ thống biết chắc chắn và người dùng không thể muốn khác.
      *
      * Chuyên môn, tuyến quen, sức dẫn, tải công việc đều **không** ở đây. Chúng chỉ xếp thứ tự ở
      * `GuideSuitabilityService` - xem lý do đầy đủ trong lớp đó.
      *
-     * Chưa khai thẻ thì không chặn: không biết không phải là biết rằng sai, và chặn theo dữ liệu
-     * trống nghĩa là hôm bật tính năng lên thì không phân công được cho ai nữa.
+     * Hàm vẫn tồn tại dù chỉ còn một luật, vì giá trị của nó không nằm ở số lượng luật mà ở chỗ
+     * **cả đường ghi lẫn đường đọc cùng hỏi một câu**. Thêm luật mới sau này thì thêm vào đây,
+     * hai phía tự khớp.
      */
     public function lyDoChan(User $guide, Carbon $start, Carbon $end, ?int $boQuaChuyen = null): ?string
     {
         $vuong = $this->conflictFor($guide->getKey(), $start, $end, $boQuaChuyen);
 
-        if ($vuong) {
-            return $this->moTaTrungLich($guide->name, $vuong);
-        }
-
-        $hoSo = $guide->guideProfile;
-
-        if ($hoSo && !$hoSo->theConHan($end)) {
-            return sprintf(
-                'Thẻ hành nghề của %s hết hạn ngày %s, trong khi chuyến kéo dài tới %s. '
-                . 'Hướng dẫn viên phải có thẻ còn hiệu lực trong suốt chuyến.',
-                $guide->name,
-                $hoSo->card_expiry->format('d/m/Y'),
-                $end->format('d/m/Y'),
-            );
-        }
-
-        return null;
+        return $vuong ? $this->moTaTrungLich($guide->name, $vuong) : null;
     }
 
     /**
@@ -208,8 +190,7 @@ class ScheduleGuideService
             return collect();
         }
 
-        // Nạp sẵn hồ sơ vì lyDoChan() ngay sau đó cần đọc hạn thẻ của từng người.
-        $nguoi = User::query()->whereIn('id', $guideIds)->with('guideProfile')->get()->keyBy('id');
+        $nguoi = User::query()->whereIn('id', $guideIds)->get()->keyBy('id');
 
         foreach ($guideIds as $id) {
             $guide = $nguoi->get($id);
