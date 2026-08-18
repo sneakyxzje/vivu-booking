@@ -1271,8 +1271,8 @@ export default function ScheduleManagement() {
 
             <p className="text-[11px] text-gray-400">
               Xếp theo mức hợp với tour: chuyên đúng loại hình và quen tuyến lên trước, đang gánh
-              nhiều chuyến thì lùi xuống. Chỉ hai thứ thật sự chặn — trùng lịch và thẻ hành nghề
-              hết hạn giữa chuyến. Phần còn lại chỉ là gợi ý, bạn vẫn quyết.
+              nhiều chuyến thì lùi xuống. Chỉ đúng một thứ thật sự chặn — trùng lịch, vì một người
+              không đứng ở hai đoàn cùng lúc. Phần còn lại chỉ là gợi ý, bạn vẫn quyết.
             </p>
 
             <div className="flex justify-end gap-2">
