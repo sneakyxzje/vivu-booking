@@ -27,8 +27,9 @@ class Review extends Model
         return $this->belongsTo(User::class);
     }
 
+    /** Đọc được cả tour đã xóa mềm, để đánh giá cũ không mất tên tour. */
     public function tour()
     {
-        return $this->belongsTo(Tour::class);
+        return $this->belongsTo(Tour::class)->withTrashed();
     }
 }

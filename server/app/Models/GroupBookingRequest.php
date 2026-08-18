@@ -69,9 +69,10 @@ class GroupBookingRequest extends Model
             && GioVietNam::bayGio()->gte($this->quote_expires_at);
     }
 
+    /** Đọc được cả tour đã xóa mềm, để báo giá cũ không mất tên tour. */
     public function tour(): BelongsTo
     {
-        return $this->belongsTo(Tour::class);
+        return $this->belongsTo(Tour::class)->withTrashed();
     }
 
     public function schedule(): BelongsTo

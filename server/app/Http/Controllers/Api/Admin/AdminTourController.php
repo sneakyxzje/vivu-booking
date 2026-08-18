@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\GuideAssignmentDecline;
 use App\Models\TourImage;
 use App\Models\Service;
+use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourItinerary;
 use App\Models\TourSchedule;
@@ -40,10 +41,10 @@ class AdminTourController extends Controller
     }
 
     /**
-     * K06 - Xem trước việc xóa tour: xóa được không, và nếu không thì vì sao.
+     * K06 - Xem trước việc cất tour đi: cất được không, và những gì vẫn ở lại.
      *
-     * Đọc trước khi bấm, không phải sau. Xóa tour là thao tác không hoàn tác được và cơ sở dữ
-     * liệu sẽ xóa theo mọi đơn hàng, nên người bấm phải thấy hậu quả trước.
+     * Đọc trước khi bấm. Phần "vẫn ở lại" quan trọng ngang phần chặn: người bấm cần thấy rằng
+     * đơn hàng và đánh giá của khách không mất đi đâu cả.
      */
     public function deletePreview(int $id): JsonResponse
     {
@@ -57,7 +58,7 @@ class AdminTourController extends Controller
     }
 
     /**
-     * Xóa cứng. Chỉ chạy được với tour chưa từng phát sinh dữ liệu.
+     * Cất tour đi (xóa mềm). Hoàn tác được bằng `restore`.
      */
     public function destroy(int $id): JsonResponse
     {
@@ -71,7 +72,37 @@ class AdminTourController extends Controller
 
         $this->tourDeletion->delete($tour);
 
-        return $this->success(null, sprintf('Đã xóa tour "%s".', $ten));
+        return $this->success(
+            null,
+            sprintf('Đã cất "%s" đi. Đơn hàng và đánh giá cũ vẫn còn nguyên; khôi phục lại được.', $ten),
+        );
+    }
+
+    /** Danh sách tour đã cất, để lấy lại. */
+    public function trashed(): JsonResponse
+    {
+        $ds = Tour::onlyTrashed()
+            ->orderByDesc('deleted_at')
+            ->get(['id', 'title', 'start_location', 'status', 'deleted_at'])
+            ->map(fn (Tour $tour) => [
+                'id' => $tour->id,
+                'title' => $tour->title,
+                'start_location' => $tour->start_location,
+                'deleted_at' => $tour->deleted_at?->format('Y-m-d H:i:s'),
+                'bookings_count' => Booking::query()->where('tour_id', $tour->id)->count(),
+            ]);
+
+        return $this->success($ds, 'Lấy danh sách tour đã cất thành công');
+    }
+
+    public function restore(int $id): JsonResponse
+    {
+        $tour = $this->tourDeletion->restore($id);
+
+        return $this->success(
+            ['id' => $tour->id, 'title' => $tour->title],
+            sprintf('Đã khôi phục "%s".', $tour->title),
+        );
     }
 
     /**

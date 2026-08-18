@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'admin_id',
@@ -28,9 +29,17 @@ use Illuminate\Database\Eloquent\Model;
     'type',
     'cancellation_policy_id',
 ])]
+/**
+ * Tour — xóa mềm.
+ *
+ * Xóa một tour không được phép làm mất chứng từ của khách. Đơn hàng, đánh giá và yêu cầu đoàn đều
+ * trỏ tới đây, nên xóa cứng là xóa theo cả lịch sử giao dịch. Xóa mềm giữ nguyên hàng dữ liệu:
+ * tour biến mất khỏi mọi danh sách, còn đơn cũ vẫn tra ra được tên tour vì các quan hệ trỏ tới
+ * `Tour` đều khai `withTrashed`.
+ */
 class Tour extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
     public function admin()
     {
         return $this->belongsTo(User::class, 'admin_id');

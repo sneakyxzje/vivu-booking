@@ -77,9 +77,15 @@ class Booking extends Model
             && $this->expires_at->isPast();
     }
 
+    /**
+     * Tour của đơn — đọc được cả khi tour đã bị xóa mềm.
+     *
+     * Không có `withTrashed` thì xóa một tour làm mọi đơn cũ của nó mất tên tour trên màn hình
+     * và trên chứng từ. Đó đúng là thứ việc xóa mềm sinh ra để tránh.
+     */
     public function tour()
     {
-        return $this->belongsTo(Tour::class);
+        return $this->belongsTo(Tour::class)->withTrashed();
     }
 
     public function customer()

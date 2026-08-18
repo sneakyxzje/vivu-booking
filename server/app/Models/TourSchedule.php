@@ -88,9 +88,10 @@ class TourSchedule extends Model
 
     // ─── Quan hệ ────────────────────────────────────────────────────────────
 
+    /** Đọc được cả tour đã xóa mềm, để chuyến cũ không mất tên tour. */
     public function tour(): BelongsTo
     {
-        return $this->belongsTo(Tour::class);
+        return $this->belongsTo(Tour::class)->withTrashed();
     }
 
     /**
