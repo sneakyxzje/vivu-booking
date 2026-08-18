@@ -45,6 +45,7 @@ import { Profile } from "@/pages/Profile";
 import InfoPage from "@/pages/InfoPage";
 import { BookingLookup } from "@/pages/BookingLookup";
 import GroupBooking from "@/pages/GroupBooking";
+import PassengerDeclaration from "@/pages/PassengerDeclaration";
 import GroupBookingManagement from "@/pages/admin/GroupBookingManagement";
 
 const router = createBrowserRouter([
@@ -83,6 +84,11 @@ const router = createBrowserRouter([
       {
         path: "/group-booking",
         element: <GroupBooking />,
+      },
+      {
+        // G03 - Khai danh sách hành khách sau khi đặt. Mở bằng mã tra cứu, không cần đăng nhập.
+        path: "/bookings/:publicToken/passengers",
+        element: <PassengerDeclaration />,
       },
       {
         path: "/about",
