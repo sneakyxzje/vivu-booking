@@ -23,9 +23,11 @@ use Tests\TestCase;
  *
  * Bộ test này giữ đúng một ranh giới, và đó là phần dễ trôi nhất khi sửa về sau:
  *
- *   - **Chỉ hai thứ chặn**: trùng lịch và thẻ hành nghề hết hạn giữa chuyến.
- *   - **Mọi thứ khác chỉ xếp thứ tự**. Chuyên môn lệch, tuyến lạ, quá sức dẫn đều vẫn bấm được.
- *     Nếu một ngày nào đó chúng bắt đầu chặn, một trong các bài dưới đây sẽ đỏ.
+ *   - **Chỉ đúng một thứ chặn**: trùng lịch. Đó là luật vật lý, hệ thống biết chắc và người dùng
+ *     không thể muốn khác.
+ *   - **Toàn bộ hồ sơ năng lực chỉ xếp thứ tự**. Chuyên môn lệch, tuyến lạ, quá sức dẫn, thậm chí
+ *     chưa khai hồ sơ - đều vẫn bấm được. Nếu một ngày nào đó chúng bắt đầu chặn, một trong các
+ *     bài dưới đây sẽ đỏ.
  */
 class GuideSuitabilityTest extends TestCase
 {
@@ -91,43 +93,13 @@ class GuideSuitabilityTest extends TestCase
         $guide->unsetRelation('guideProfile');
     }
 
-    // --- Thẻ hành nghề: luật chặn duy nhất mới thêm ------------------------------------------
+    // --- Hồ sơ không chặn ai -----------------------------------------------------------------
 
     /**
-     * Thẻ hết hạn giữa chuyến thì không phân công được.
+     * Chưa khai hồ sơ thì phân công bình thường.
      *
-     * Không phải chuyện ưu tiên cao thấp: Luật Du lịch yêu cầu hướng dẫn viên hành nghề phải có
-     * thẻ còn hiệu lực, nên cho đi là đẩy công ty vào chỗ sai luật.
-     */
-    public function test_the_het_han_giua_chuyen_thi_khong_phan_cong_duoc(): void
-    {
-        $guide = $this->taoGuide('Người thẻ hết hạn');
-
-        // Chuyến chạy ngày 20-22; thẻ hết hạn ngày 21 là hết hạn giữa chừng.
-        $this->hoSo($guide, ['card_expiry' => Carbon::parse($this->chuyen->start_date)->addDay()]);
-
-        $this->expectException(BusinessRuleException::class);
-        $this->expectExceptionMessageMatches('/thẻ còn hiệu lực trong suốt chuyến/u');
-
-        app(ScheduleGuideService::class)->sync($this->chuyen, [$guide->id]);
-    }
-
-    public function test_the_con_han_toi_het_chuyen_thi_phan_cong_binh_thuong(): void
-    {
-        $guide = $this->taoGuide();
-
-        $this->hoSo($guide, ['card_expiry' => Carbon::parse($this->chuyen->start_date)->addYear()]);
-
-        app(ScheduleGuideService::class)->sync($this->chuyen, [$guide->id]);
-
-        $this->assertTrue($this->chuyen->fresh()->hasGuide($guide->id));
-    }
-
-    /**
-     * Chưa khai hồ sơ thì **không** chặn.
-     *
-     * Không biết không phải là biết rằng sai. Chặn theo dữ liệu trống nghĩa là hôm bật tính năng
-     * này lên thì cả đội ngũ biến mất khỏi danh sách chọn.
+     * Phạt người chưa khai là phạt nhầm đối tượng: lỗi ở chỗ chưa ai nhập dữ liệu, không phải ở
+     * người hướng dẫn. Họ chỉ không được cộng điểm nào nên nằm giữa danh sách.
      */
     public function test_chua_khai_ho_so_thi_khong_bi_chan(): void
     {
@@ -139,32 +111,19 @@ class GuideSuitabilityTest extends TestCase
     }
 
     /**
-     * Luật thẻ phải có ở **cả hai** đường đọc, không chỉ ở đường ghi.
+     * Hồ sơ lệch hoàn toàn với tour vẫn phân công được.
      *
-     * Màn tạo tour đọc danh sách người rảnh qua một truy vấn riêng. Trước đây mỗi lần một luật chỉ
-     * được cài ở một phía là một lần người dùng chọn xong, bấm lưu rồi mới bị từ chối.
+     * Đây là bài giữ ranh giới của cả tính năng: chuyên môn và tuyến quen **chỉ xếp thứ tự**.
+     * Nếu một ngày nào đó chúng bắt đầu chặn, bài này đỏ.
      */
-    public function test_man_tao_tour_khong_moi_chon_nguoi_the_het_han(): void
+    public function test_ho_so_lech_hoan_toan_van_phan_cong_duoc(): void
     {
-        $hetHan = $this->taoGuide('Người thẻ hết hạn');
-        $conHan = $this->taoGuide('Người thẻ còn hạn');
+        $guide = $this->taoGuide('Người lạ tuyến');
+        $this->hoSo($guide, ['regions' => ['Đà Lạt'], 'max_group_size' => 5]);
 
-        $start = Carbon::parse($this->chuyen->start_date);
+        app(ScheduleGuideService::class)->sync($this->chuyen, [$guide->id]);
 
-        $this->hoSo($hetHan, ['card_expiry' => $start->copy()->addDay()]);
-        $this->hoSo($conHan, ['card_expiry' => $start->copy()->addYear()]);
-
-        Sanctum::actingAs($this->taoAdmin());
-
-        $ds = $this->getJson(sprintf(
-            '/api/admin/available-guides?start_date=%s&number_of_days=3',
-            $start->format('Y-m-d'),
-        ))->assertOk()->json('data');
-
-        $ten = collect($ds)->pluck('name')->all();
-
-        $this->assertContains('Người thẻ còn hạn', $ten);
-        $this->assertNotContains('Người thẻ hết hạn', $ten);
+        $this->assertTrue($this->chuyen->fresh()->hasGuide($guide->id));
     }
 
     // --- Chấm điểm: chỉ xếp thứ tự, không chặn -----------------------------------------------
@@ -250,8 +209,8 @@ class GuideSuitabilityTest extends TestCase
         $this->assertTrue($this->chuyen->fresh()->hasGuide($guide->id));
     }
 
-    /** Chưa khai hồ sơ thì được đánh dấu để điều hành đi bổ sung, chứ không bị loại. */
-    public function test_chua_co_ho_so_thi_duoc_nhac(): void
+    /** Người chưa khai hồ sơ vẫn nằm trong danh sách chọn, chỉ là không được cộng điểm nào. */
+    public function test_chua_co_ho_so_van_chon_duoc(): void
     {
         $guide = $this->taoGuide('Người chưa khai');
 
@@ -259,8 +218,9 @@ class GuideSuitabilityTest extends TestCase
             ->danhGia($this->chuyen)
             ->firstWhere('name', 'Người chưa khai');
 
+        $this->assertNotNull($dong);
         $this->assertNull($dong['blocked_reason']);
-        $this->assertNotEmpty($dong['warnings']);
+        $this->assertSame([], $dong['matches']);
     }
 
     // --- Hồ sơ ------------------------------------------------------------------------------
@@ -272,8 +232,6 @@ class GuideSuitabilityTest extends TestCase
         Sanctum::actingAs($this->taoAdmin());
 
         $this->putJson('/api/admin/guides/' . $guide->id . '/profile', [
-            'card_number' => 'HDV-2026-001',
-            'card_expiry' => '2028-12-31',
             'languages' => ['Tiếng Việt', 'Tiếng Anh', ''],
             'regions' => ['Hạ Long'],
             'max_group_size' => 30,
@@ -282,30 +240,10 @@ class GuideSuitabilityTest extends TestCase
 
         $hoSo = $guide->fresh()->guideProfile;
 
-        $this->assertSame('HDV-2026-001', $hoSo->card_number);
+        $this->assertSame(30, (int) $hoSo->max_group_size);
         // Ô nhập tách bằng dấu phẩy rất dễ để lại phần tử rỗng, phải lọc đi.
         $this->assertSame(['Tiếng Việt', 'Tiếng Anh'], $hoSo->languages);
         $this->assertSame([$this->bienDao->id], $guide->fresh()->guideCategories->pluck('id')->all());
-    }
-
-    /**
-     * Hạn thẻ trả về phải là một **ngày trần**, không phải mốc ISO quy về UTC.
-     *
-     * Cast `date` trơn cho ra "2028-12-30T17:00:00.000000Z" cho ngày 31/12 giờ Việt Nam: lùi mất
-     * một ngày, và quan trọng hơn là `<input type="date">` coi chuỗi đó như rỗng. Mở hồ sơ ra thấy
-     * ô hạn thẻ trắng, bấm lưu là xóa mất hạn thẻ - tức mất luôn luật chặn duy nhất của điểm này,
-     * mà không có gì báo.
-     */
-    public function test_han_the_tra_ve_dang_ngay_tran(): void
-    {
-        $guide = $this->taoGuide();
-        $this->hoSo($guide, ['card_expiry' => '2028-12-31']);
-
-        Sanctum::actingAs($this->taoAdmin());
-
-        $ds = $this->getJson('/api/admin/guides/' . $guide->id)->assertOk()->json('data');
-
-        $this->assertSame('2028-12-31', $ds['guide_profile']['card_expiry']);
     }
 
     private function taoAdmin(): User
