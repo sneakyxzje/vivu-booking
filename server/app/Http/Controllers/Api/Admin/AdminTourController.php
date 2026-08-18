@@ -85,24 +85,13 @@ class AdminTourController extends Controller
         $guides = User::query()
             ->where('role', 'guide')
             ->where('status', 'active')
-            ->with(['assignedSchedules.tour:id,number_of_days', 'guideProfile'])
+            ->with('assignedSchedules.tour:id,number_of_days')
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'phone', 'status'])
             ->filter(function (User $guide) use ($start, $end) {
-                if ($guide->assignedSchedules->contains(
+                return ! $guide->assignedSchedules->contains(
                     fn (TourSchedule $schedule) => $this->scheduleOverlaps($start, $end, $schedule)
-                )) {
-                    return false;
-                }
-
-                /*
-                 * Thẻ hành nghề phải còn hạn tới hết chuyến.
-                 *
-                 * Cùng luật với `ScheduleGuideService::lyDoChan()` bên đường ghi. Bỏ ở đây thì
-                 * màn tạo tour vẫn mời chọn một người mà lúc bấm lưu máy chủ mới từ chối - đúng
-                 * cái khuôn lỗi đã gặp nhiều lần: luật có một đường mà thiếu đường kia.
-                 */
-                return $guide->guideProfile?->theConHan($end) ?? true;
+                );
             })
             ->values()
             ->map(fn (User $guide) => $guide->only(['id', 'name', 'email', 'phone', 'status']));
@@ -732,8 +721,8 @@ class AdminTourController extends Controller
      * Chấm cả đội ngũ cho một chuyến: ai phù hợp, ai bị chặn, và vì sao.
      *
      * Trả về **cả người bị chặn**. Giấu đi thì điều hành tìm mãi một cái tên đáng lẽ phải có mà
-     * không hiểu vì sao mất; hiện ra kèm lý do thì họ biết phải sửa gì - gia hạn thẻ, hay bỏ người
-     * đó khỏi chuyến đang vướng.
+     * không hiểu vì sao mất; hiện ra kèm lý do thì họ biết phải sửa gì - bỏ người đó khỏi chuyến
+     * đang vướng, hoặc đổi ngày.
      */
     public function scheduleGuideSuitability(int $id): JsonResponse
     {

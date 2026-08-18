@@ -93,8 +93,6 @@ class AdminGuideController extends Controller
         }
 
         $validated = $request->validate([
-            'card_number' => ['nullable', 'string', 'max:50'],
-            'card_expiry' => ['nullable', 'date'],
             /*
              * Phần tử để `nullable`, không phải `string`.
              *
@@ -110,16 +108,12 @@ class AdminGuideController extends Controller
             'note' => ['nullable', 'string', 'max:1000'],
             'category_ids' => ['present', 'array'],
             'category_ids.*' => ['integer', 'exists:categories,id'],
-        ], [
-            'card_expiry.date' => 'Ngày hết hạn thẻ không hợp lệ.',
         ]);
 
         DB::transaction(function () use ($guide, $validated) {
             $guide->guideProfile()->updateOrCreate(
                 ['user_id' => $guide->getKey()],
                 [
-                    'card_number' => $validated['card_number'] ?? null,
-                    'card_expiry' => $validated['card_expiry'] ?? null,
                     // Lọc chuỗi rỗng: ô nhập tách bằng dấu phẩy rất dễ để lại phần tử trống.
                     'languages' => $this->locDanhSach($validated['languages'] ?? []),
                     'regions' => $this->locDanhSach($validated['regions'] ?? []),
