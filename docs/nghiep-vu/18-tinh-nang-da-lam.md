@@ -24,7 +24,7 @@ Tài liệu này nhìn theo **người dùng làm được gì**.
 | Điểm cuối API | 120 |
 | Lệnh chạy nền | 7 |
 | Màn hình giao diện | 37 |
-| **Kiểm thử tự động** | **504 bài, xanh** |
+| **Kiểm thử tự động** | **510 bài, xanh** |
 
 Ba vai trò: **khách hàng**, **hướng dẫn viên**, **điều hành kiêm quản trị**.
 
@@ -124,8 +124,9 @@ Ba vai trò: **khách hàng**, **hướng dẫn viên**, **điều hành kiêm q
 
 ### Tiền
 
-- Chính sách hủy **bậc thang lưu thành dữ liệu**, admin sửa được; đơn **sao chép chính sách lúc
-  đặt** nên sửa về sau không hồi tố.
+- Chính sách hủy **bậc thang lưu thành dữ liệu**, admin sửa được. **Mỗi tour chọn một chính sách
+  riêng** — tour bay vé máy bay không thể cùng điều khoản hoàn với tour đi xe — tour không chọn
+  thì dùng chính sách mặc định. Đơn **sao chép chính sách lúc đặt** nên sửa về sau không hồi tố.
 - **Sổ giao dịch nhiều đợt cho đơn đoàn**: cọc, thanh toán nốt, hoàn — chỉ thêm dòng, không ghi
   đè. Số đã thu là tổng của sổ.
 - **Chi phí phát sinh dọc đường**: duyệt phương án của hướng dẫn viên, phân bổ cho từng đơn, quyết

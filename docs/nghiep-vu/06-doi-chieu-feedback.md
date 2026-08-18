@@ -10,7 +10,7 @@ Ký hiệu hiện trạng:
 - `Đã có`: có mã chạy thật và có kiểm thử tự động giữ.
 
 **Cập nhật ngày 17/08/2026.** Bảng dưới đây phản ánh mã nguồn tại thời điểm đó, không phải kế
-hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu được ngay. Bộ kiểm thử: 504 bài, xanh.
+hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu được ngay. Bộ kiểm thử: 510 bài, xanh.
 
 ## 1. Bảng đối chiếu tổng hợp
 
@@ -22,7 +22,7 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 | 4 | Validate điểm danh | **Đã có** | `AttendanceService` — chín quy tắc. Quy tắc 8 (điểm dừng bắt buộc ảnh) đã viết nhưng chưa có nút gọi |
 | 5 | Điểm danh từng điểm đến từng ngày | **Đã có** | `passenger_checkins` theo từng hành khách, từng điểm dừng |
 | 6 | Ghi chú khi khách vắng mặt | **Đã có** | Bắt buộc ghi chú tối thiểu 10 ký tự khi trạng thái khác có mặt |
-| 7 | Thời gian hủy tour phải trước bao lâu | **Đã có** | `CancellationPolicy` + `CancellationPolicyService` — bậc thang lưu thành dữ liệu, admin sửa được, đơn chép chính sách lúc đặt nên không hồi tố |
+| 7 | Thời gian hủy tour phải trước bao lâu | **Đã có** | `CancellationPolicy` + `CancellationPolicyService` — bậc thang lưu thành dữ liệu, **mỗi tour chọn một chính sách riêng**, tour không chọn thì dùng chính sách mặc định; đơn chép chính sách lúc đặt nên không hồi tố |
 | 8 | Hủy sát giờ có cộng lại slot không | **Đã có** | `BookingHoldService::shouldReleaseSeats` — ghế chết. Câu trả lời là **không**, và cố ý không có nút mở lại — xem ghi chú dưới bảng |
 | 9 | Tour đang chạy không được hủy | **Đã có** | `BookingPolicyService::assertCancellable` ở tầng dịch vụ, áp cho cả bốn lối vào |
 | 10 | Ai được hủy, ai xác nhận | **Đã có** | `BookingChangeRequestService` — khách xin, điều hành duyệt; kèm nhật ký ghi ai làm gì |
@@ -384,7 +384,7 @@ sâu hơn mức thường thấy ở đồ án.
 | Nhật ký giao dịch thanh toán phục vụ đối soát | Đã triển khai |
 | Toàn hệ thống chạy giờ Việt Nam (`Asia/Ho_Chi_Minh`), cột thời gian nghiệp vụ lưu giờ treo tường | Đã triển khai |
 | Tra cứu đơn cho khách vãng lai bằng mã ngẫu nhiên thay vì số thứ tự | Đã triển khai |
-| **504 kiểm thử tự động**, chạy trong quy trình tích hợp liên tục | Đã triển khai |
+| **510 kiểm thử tự động**, chạy trong quy trình tích hợp liên tục | Đã triển khai |
 | Khóa hai chuyến theo id tăng dần khi thao tác chạm hai chuyến, để tránh khóa chết | Chuyển chuyến và ghép chuyến |
 | Nhật ký thay đổi cho cả đơn hàng lẫn chuyến, gộp thành một dòng thời gian tra cứu được | `/admin/audit-logs`, lọc riêng được các lần chạm tiền |
 | Xem trước hậu quả trước khi bấm ở mọi thao tác nặng | Hủy đơn, hủy chuyến, ghép chuyến, chuyển chuyến, dời hạn chốt |
