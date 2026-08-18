@@ -2,8 +2,11 @@ import { useEffect, useState, useMemo, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import type { TourSchedule } from "@/types";
 import adminService from "@/services/adminService";
+import type { TourDeletePreview } from "@/services/adminService";
 import { Toast } from "@/components/admin/CustomAlert";
 import { TableActions } from "@/components/admin/TableActions";
+import { Modal } from "@/components/admin/Modal";
+import { AlertTriangle, Ban, Trash2 } from "lucide-react";
 
 type TourStatus = "active" | "inactive" | "full";
 
@@ -32,6 +35,51 @@ export default function TourList() {
 
   const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
     setToast({ message, type, isOpen: true });
+  };
+
+  /*
+   * K06 - Xóa tour, đi qua một bước xem trước.
+   *
+   * Không dùng hộp xác nhận chung được: câu hỏi ở đây không phải "bạn có chắc không" mà là "tour
+   * này có xóa được không, và nếu không thì vì sao". Cơ sở dữ liệu khai cascade từ tour xuống
+   * đơn hàng, nên hậu quả của một cú bấm nhầm là mất sạch chứng từ tài chính - phải nói ra
+   * trước, không phải sau.
+   */
+  const [deletingTour, setDeletingTour] = useState<Tour | null>(null);
+  const [deletePreview, setDeletePreview] = useState<TourDeletePreview | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const openDeleteDialog = async (tour: Tour) => {
+    setDeletingTour(tour);
+    setDeletePreview(null);
+
+    try {
+      setDeletePreview(await adminService.getTourDeletePreview(tour.id));
+    } catch (err) {
+      console.error("Lỗi xem trước xóa tour:", err);
+      showToast("Không đọc được thông tin tour này.", "error");
+      setDeletingTour(null);
+    }
+  };
+
+  const closeDeleteDialog = () => {
+    setDeletingTour(null);
+    setDeletePreview(null);
+  };
+
+  const chayThaoTacXoa = async (thucHien: () => Promise<string>) => {
+    setDeleteBusy(true);
+
+    try {
+      showToast(await thucHien(), "success");
+      closeDeleteDialog();
+      fetchTours();
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      showToast(response?.message || "Thao tác không thành công.", "error");
+    } finally {
+      setDeleteBusy(false);
+    }
   };
 
   // Lấy danh sách tour từ API
@@ -320,13 +368,10 @@ export default function TourList() {
                                 },
                                 {
                                   label: "Xóa tour",
-                                  onClick: () => showToast("Tính năng xóa tour đang cập nhật!", "info"),
+                                  hint: "Kiểm tra trước, tour đã có đơn thì không xóa được",
+                                  onClick: () => openDeleteDialog(tour),
                                   variant: "danger",
-                                  icon: (
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                  ),
+                                  icon: <Trash2 className="w-4 h-4" />,
                                 },
                               ]}
                             />
@@ -385,6 +430,114 @@ export default function TourList() {
           </>
         )}
       </div>
+
+      {/*
+        Hộp thoại xóa tour.
+
+        Hai kết cục, và hộp thoại đổi hẳn nội dung lẫn nút theo kết cục đó thay vì hiện một nút
+        xóa rồi báo lỗi sau khi bấm:
+
+          - Xóa được  -> nói rõ những gì sẽ mất theo, nút đỏ "Xóa vĩnh viễn".
+          - Bị chặn   -> liệt kê từng thứ đang chặn kèm số lượng, và đổi nút thành "Ngừng bán".
+
+        Hệ thống KHÔNG tự ngừng bán thay khi thấy không xóa được. Bấm "xóa" mà máy lặng lẽ làm
+        việc khác là máy quyết thay người dùng; ở đây nó nói lý do rồi để họ chọn.
+      */}
+      <Modal
+        isOpen={!!deletingTour}
+        onClose={closeDeleteDialog}
+        title={`Xóa tour: ${deletingTour?.title ?? ""}`}
+        subtitle="Xóa tour là thao tác không hoàn tác được. Kiểm tra trước khi bấm."
+        size="lg"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={closeDeleteDialog}
+              disabled={deleteBusy}
+              className="px-4 py-2 bg-canvas border border-hairline text-button-sm rounded-lg text-ink hover:bg-surface-soft cursor-pointer"
+            >
+              Quay lại
+            </button>
+
+            {deletePreview?.can_delete ? (
+              <button
+                type="button"
+                onClick={() => chayThaoTacXoa(() => adminService.deleteTour(deletingTour!.id))}
+                disabled={deleteBusy}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-rose-600 text-white text-button-sm rounded-lg hover:bg-rose-700 disabled:opacity-40 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                {deleteBusy ? "Đang xóa..." : "Xóa vĩnh viễn"}
+              </button>
+            ) : (
+              deletePreview &&
+              !deletePreview.already_retired && (
+                <button
+                  type="button"
+                  onClick={() => chayThaoTacXoa(() => adminService.retireTour(deletingTour!.id))}
+                  disabled={deleteBusy}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-button-sm rounded-lg hover:bg-primary-700 disabled:opacity-40 cursor-pointer"
+                >
+                  <Ban className="w-4 h-4" />
+                  {deleteBusy ? "Đang xử lý..." : "Chuyển sang ngừng bán"}
+                </button>
+              )
+            )}
+          </>
+        }
+      >
+        {!deletePreview ? (
+          <p className="text-body-sm text-muted">Đang kiểm tra tour...</p>
+        ) : deletePreview.can_delete ? (
+          <div className="space-y-4">
+            <p className="rounded-lg bg-emerald-50 px-4 py-3 text-body-sm text-emerald-900">
+              Tour này <b>chưa từng phát sinh đơn hàng, đánh giá hay chuyến đã chốt</b> — xóa được.
+            </p>
+
+            <div>
+              <p className="text-caption text-muted mb-2">Xóa theo cùng lúc:</p>
+              <ul className="space-y-1 text-body-sm text-body">
+                <li>{deletePreview.cascades.schedules} lịch khởi hành</li>
+                <li>{deletePreview.cascades.itineraries} chặng lịch trình</li>
+                <li>{deletePreview.cascades.images} ảnh</li>
+              </ul>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex gap-3 rounded-lg bg-rose-50 px-4 py-3">
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <p className="text-body-sm text-rose-900">
+                Không xóa được tour này vì đã có dữ liệu thật gắn vào. Xóa đi là mất luôn cả những
+                thứ dưới đây, và không lấy lại được.
+              </p>
+            </div>
+
+            <ul className="space-y-2">
+              {deletePreview.blockers.map((item) => (
+                <li
+                  key={item.key}
+                  className="rounded-lg border border-hairline-soft px-4 py-3 text-body-sm text-body"
+                >
+                  {item.message}
+                </li>
+              ))}
+            </ul>
+
+            {deletePreview.already_retired ? (
+              <p className="text-body-sm text-muted">
+                Tour này hiện <b>đã ngừng bán</b> nên khách không đặt được nữa. Không cần làm gì thêm.
+              </p>
+            ) : (
+              <p className="text-body-sm text-muted">
+                Lối đi thay thế là <b>ngừng bán</b>: tour biến mất khỏi trang khách và không nhận
+                đặt mới, nhưng đơn cũ cùng các chuyến đã chốt vẫn chạy đúng cam kết.
+              </p>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {/* --- CUSTOM ALERT TOAST --- */}
       <Toast
