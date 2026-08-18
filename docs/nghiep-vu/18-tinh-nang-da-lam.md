@@ -21,10 +21,10 @@ Tài liệu này nhìn theo **người dùng làm được gì**.
 | Lớp dịch vụ (`app/Services`) | 25 |
 | Enum trạng thái | 16 |
 | Controller API | 35 |
-| Điểm cuối API | 118 |
+| Điểm cuối API | 120 |
 | Lệnh chạy nền | 7 |
 | Màn hình giao diện | 37 |
-| **Kiểm thử tự động** | **496 bài, xanh** |
+| **Kiểm thử tự động** | **504 bài, xanh** |
 
 Ba vai trò: **khách hàng**, **hướng dẫn viên**, **điều hành kiêm quản trị**.
 
@@ -39,7 +39,9 @@ Ba vai trò: **khách hàng**, **hướng dẫn viên**, **điều hành kiêm q
 - Giữ chỗ 10 phút chờ thanh toán, có đếm ngược.
 - Thanh toán trực tuyến qua VNPay, kiểm chữ ký HMAC SHA512 trước khi tin dữ liệu trả về.
 - Áp mã giảm giá, kiểm lại hiệu lực và số lượt **ngay trong giao dịch tạo đơn**.
-- Khai danh sách hành khách đầy đủ: giới tính, ngày sinh, số giấy tờ, yêu cầu đặc biệt.
+- **Đặt xong mới khai danh sách hành khách**, qua liên kết riêng theo mã tra cứu — không cần đăng
+  nhập. Lúc bấm đặt chỉ cần số lượng khách và một người đại diện; hạn cuối để khai là hạn chốt
+  danh sách của chuyến.
 - Gửi lại mã tra cứu về email khi làm mất.
 
 ### Sau khi đặt
