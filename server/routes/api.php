@@ -200,6 +200,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/tours', [AdminTourController::class, 'store']);
         Route::put('/tours/{id}', [AdminTourController::class, 'update']);
         Route::post('/tours/{id}', [AdminTourController::class, 'update']);
+        // K06 - Xóa tour. Xem trước trước đã: cơ sở dữ liệu xóa theo cả đơn hàng nên phải biết
+        // hậu quả trước khi bấm. Tour đã có lịch sử thì đi đường ngừng bán.
+        Route::get('/tours/{id}/delete-preview', [AdminTourController::class, 'deletePreview']);
+        Route::delete('/tours/{id}', [AdminTourController::class, 'destroy']);
+        Route::put('/tours/{id}/retire', [AdminTourController::class, 'retire']);
         Route::get('/available-guides', [AdminTourController::class, 'availableGuides']);
         Route::put('/tour-schedules/{id}/assign-guide', [AdminTourController::class, 'assignScheduleGuide']);
         // Ai đã từ chối chuyến này. Đọc lúc xếp người, để khỏi gán lại đúng người vừa nói không.

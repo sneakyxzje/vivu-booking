@@ -18,6 +18,7 @@ use App\Services\GuideSuitabilityService;
 use App\Services\ScheduleDeadlineService;
 use App\Services\ScheduleGuideService;
 use App\Services\ScheduleLifecycleService;
+use App\Services\TourDeletionService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,7 +35,65 @@ class AdminTourController extends Controller
         protected ScheduleDeadlineService $scheduleDeadline,
         protected ScheduleGuideService $scheduleGuides,
         protected GuideSuitabilityService $guideSuitability,
+        protected TourDeletionService $tourDeletion,
     ) {
+    }
+
+    /**
+     * K06 - Xem trước việc xóa tour: xóa được không, và nếu không thì vì sao.
+     *
+     * Đọc trước khi bấm, không phải sau. Xóa tour là thao tác không hoàn tác được và cơ sở dữ
+     * liệu sẽ xóa theo mọi đơn hàng, nên người bấm phải thấy hậu quả trước.
+     */
+    public function deletePreview(int $id): JsonResponse
+    {
+        $tour = Tour::query()->find($id);
+
+        if (! $tour) {
+            return $this->error('Không tìm thấy tour', 404);
+        }
+
+        return $this->success($this->tourDeletion->preview($tour), 'Lấy thông tin xóa tour thành công');
+    }
+
+    /**
+     * Xóa cứng. Chỉ chạy được với tour chưa từng phát sinh dữ liệu.
+     */
+    public function destroy(int $id): JsonResponse
+    {
+        $tour = Tour::query()->find($id);
+
+        if (! $tour) {
+            return $this->error('Không tìm thấy tour', 404);
+        }
+
+        $ten = $tour->title;
+
+        $this->tourDeletion->delete($tour);
+
+        return $this->success(null, sprintf('Đã xóa tour "%s".', $ten));
+    }
+
+    /**
+     * Ngừng bán - lối đi cho tour đã có lịch sử, thay cho việc xóa.
+     *
+     * Không đụng tới chuyến đã chốt: khách đã mua thì chuyến vẫn phải chạy. Ngừng bán chỉ có
+     * nghĩa là không nhận khách mới.
+     */
+    public function retire(Request $request, int $id): JsonResponse
+    {
+        $tour = Tour::query()->find($id);
+
+        if (! $tour) {
+            return $this->error('Không tìm thấy tour', 404);
+        }
+
+        $this->tourDeletion->retire($tour, $request->user());
+
+        return $this->success(
+            ['id' => $tour->id, 'status' => $tour->status],
+            sprintf('Đã chuyển "%s" sang ngừng bán. Chuyến đã chốt vẫn chạy bình thường.', $tour->title),
+        );
     }
 
 
