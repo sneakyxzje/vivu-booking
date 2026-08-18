@@ -81,6 +81,15 @@ Route::put('/group-bookings/{publicToken}/withdraw', [CustomerGroupBookingContro
 // Task X06a - API gửi lại mã tra cứu về email khách vãng lai
 Route::post('/bookings/resend-code', [CustomerBookingController::class, 'resendLookupCode']);
 Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']);
+/*
+ * G03 - Khai danh sách hành khách bằng mã tra cứu, không cần đăng nhập.
+ *
+ * Đặt tour vốn không cần tài khoản, nên đường sửa hành khách cũng không được đòi. Trước đây chỉ
+ * có đường `/my-bookings/{id}/passengers` sau `role:customer`, tức khách vãng lai đặt xong là
+ * không bao giờ sửa được danh sách. Luật quyền sửa vẫn là luật cũ ở PassengerPolicyService.
+ */
+Route::get('/bookings/{publicToken}/passengers', [CustomerPassengerController::class, 'publicIndex']);
+Route::put('/bookings/{publicToken}/passengers', [CustomerPassengerController::class, 'publicUpdate']);
 // Mức hoàn dự kiến nếu hủy ngay bây giờ. Khách vãng lai cũng xem được bằng mã tra cứu.
 Route::get('/bookings/{publicToken}/refund-quote', [CustomerBookingController::class, 'refundQuote']);
 Route::post('/discount-codes/validate', [DiscountCodeController::class, 'validateCode']);
