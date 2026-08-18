@@ -170,8 +170,11 @@ class BookingHoldService
      *    đã chốt theo danh sách này. Trả về kho là bán ra một chỗ không có dịch vụ đi kèm.
      *    Chỗ đó thành ghế chết: hãng đã trả tiền cho nó nhưng không có khách.
      *
-     * Điều hành vẫn mở lại được thủ công khi xin thêm được suất từ nhà cung cấp, nhưng đó là
-     * quyết định của con người chứ không phải mặc định của hệ thống.
+     * Ghế chết ở lại như thế cho tới khi chuyến kết thúc. Từng có màn hình cho điều hành mở lại
+     * chỗ ấy khi xin thêm được suất từ nhà cung cấp; đã bỏ, vì phí hủy đã bù phần chi phí đã cam
+     * kết nên chuyện còn lại thuần túy là **đừng bán ra thứ không giao được** - và đó là việc của
+     * luật này, không cần thêm một thao tác thủ công nào. Điều hành muốn bán tiếp thì tăng sức
+     * chứa của chuyến, một quyết định nhìn thấy rõ hơn.
      */
     public function shouldReleaseSeats(Booking $booking, ?TourSchedule $schedule): bool
     {
@@ -261,70 +264,6 @@ class BookingHoldService
         }
 
         $this->refreshTourAvailability($schedule);
-    }
-
-    /**
-     * Mở lại chỗ thủ công cho một đơn đã hủy sau hạn chốt.
-     *
-     * Hệ thống cố ý không tự làm việc này. Chỉ điều hành mới biết có gọi được cho nhà cung cấp
-     * để xin thêm suất hay không, nên đây phải là quyết định của con người.
-     *
-     * Trả về false khi đơn không ở trạng thái mở lại được, để lời gọi phân biệt với trường hợp
-     * mở lại thành công.
-     */
-    public function releaseHeldSeats(Booking $booking, ?int $actorId = null): bool
-    {
-        return DB::transaction(function () use ($booking, $actorId) {
-            $schedule = $booking->tour_schedule_id
-                ? TourSchedule::query()
-                    ->whereKey($booking->tour_schedule_id)
-                    ->lockForUpdate()
-                    ->first()
-                : null;
-
-            $fresh = Booking::query()->whereKey($booking->getKey())->lockForUpdate()->first();
-
-            // Đọc lại sau khi khóa: hai người cùng bấm mở lại thì người sau phải thấy chỗ đã
-            // được trả và dừng, chứ không trừ booked_people lần thứ hai.
-            if (!$fresh || $fresh->status !== 'cancelled' || $fresh->seats_released) {
-                return false;
-            }
-
-            $fresh->forceFill([
-                'seats_released' => true,
-                'seats_released_at' => now(),
-                'seats_released_by' => $actorId,
-            ])->save();
-
-            if (!$schedule) {
-                return true;
-            }
-
-            $schedule->decrement('booked_people', min($fresh->guests, (int) $schedule->booked_people));
-            $schedule->refresh();
-
-            // Chỉ mở bán lại khi chuyến vẫn còn trong hạn chốt danh sách.
-            //
-            // Ghế chết theo định nghĩa chỉ sinh ra sau hạn chốt, nên nhánh này gần như luôn rơi
-            // vào chuyến đã quá hạn. Mở nó về "đang mở bán" là ghi một trạng thái không đúng:
-            // chuyến hiện là mở bán trên màn hình quản trị trong khi khách vẫn không đặt được,
-            // và tác vụ đóng bán chạy sau đó lại đóng nó về ngay. Trả chỗ về kho là chuyện của
-            // số chỗ, không phải lý do để mở lại việc bán.
-            if ($schedule->status === ScheduleStatus::Closed
-                && $schedule->booked_people < $schedule->max_people
-                && $this->conTrongHanChot($schedule)) {
-                $this->lifecycle->transitionTo(
-                    $schedule,
-                    ScheduleStatus::Open,
-                    'Điều hành mở lại chỗ của đơn đã hủy sau hạn chốt danh sách.',
-                    $actorId,
-                );
-            }
-
-            $this->refreshTourAvailability($schedule);
-
-            return true;
-        });
     }
 
     public function releaseDiscountUsage(Booking $booking): void

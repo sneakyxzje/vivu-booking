@@ -203,25 +203,6 @@ class BookingAuditLogTest extends TestCase
         $this->assertStringContainsString('dieu khoan', $logs->last()->reason);
     }
 
-    public function test_mo_lai_cho_ghe_chet_duoc_ghi(): void
-    {
-        $don = $this->taoDon();
-        $this->schedule->update(['booking_deadline' => now()->subHour()]);
-
-        Sanctum::actingAs($this->dieuHanh);
-
-        $this->putJson("/api/admin/bookings/{$don->id}/cancel", [
-            'cancel_reason' => 'Khach huy sat ngay di.',
-        ])->assertOk();
-
-        $this->putJson("/api/admin/bookings/{$don->id}/release-seats")->assertOk();
-
-        $this->assertSame(
-            BookingAuditAction::SeatsReleased,
-            $this->nhatKy($don)->last()->action,
-        );
-    }
-
     public function test_xac_nhan_don_duoc_ghi(): void
     {
         $don = $this->taoDon('pending');

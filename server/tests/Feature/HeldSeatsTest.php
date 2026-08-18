@@ -165,64 +165,6 @@ class HeldSeatsTest extends TestCase
             ->assertJsonPath('data.refund_amount', 3600000);
     }
 
-    /**
-     * Mở lại chỗ trả số chỗ về kho, nhưng không được kéo chuyến về "đang mở bán".
-     *
-     * Ghế chết chỉ sinh ra sau hạn chốt danh sách, nên nhánh mở lại luôn chạy trên chuyến đã quá
-     * hạn. Ghi trạng thái đang mở bán ở đó là nói dối màn hình quản trị: khách vẫn không đặt
-     * được vì hạn chốt đã qua, và tác vụ đóng bán chạy phút sau lại đóng về, thành ra trạng thái
-     * nhấp nháy mà không ai hiểu vì sao.
-     */
-    public function test_mo_lai_cho_khong_keo_chuyen_qua_han_ve_dang_mo_ban(): void
-    {
-        [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->subHour()->toDateTimeString());
-        $schedule->update(['status' => ScheduleStatus::Closed->value]);
-
-        $admin = $this->taoAdmin();
-        Sanctum::actingAs($admin);
-
-        $this->putJson("/api/admin/bookings/{$booking->id}/cancel", [
-            'cancel_reason' => 'Khach huy sat ngay di',
-        ])->assertOk();
-
-        $this->putJson("/api/admin/bookings/{$booking->id}/release-seats")->assertOk();
-
-        $schedule->refresh();
-
-        $this->assertSame(0, (int) $schedule->booked_people, 'Chỗ vẫn phải về kho.');
-        $this->assertSame(
-            ScheduleStatus::Closed->value,
-            $schedule->getRawOriginal('status'),
-            'Chuyến đã qua hạn chốt thì giữ nguyên đã đóng bán.',
-        );
-    }
-
-    /** Còn trong hạn chốt thì mở lại chỗ kéo theo mở bán lại, vì lúc đó bán tiếp được thật. */
-    public function test_mo_lai_cho_khi_con_trong_han_thi_chuyen_mo_ban_lai(): void
-    {
-        [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
-
-        $admin = $this->taoAdmin();
-        Sanctum::actingAs($admin);
-
-        // Dựng thẳng một đơn đã hủy mà chỗ chưa trả, tình huống chỉ sinh ra được bằng tay khi
-        // hạn chốt còn phía trước.
-        $booking->forceFill([
-            'status' => 'cancelled',
-            'cancelled_at' => now()->subHour(),
-            'seats_released' => false,
-        ])->save();
-
-        $schedule->update(['status' => ScheduleStatus::Closed->value]);
-
-        $this->putJson("/api/admin/bookings/{$booking->id}/release-seats")->assertOk();
-
-        $this->assertSame(
-            ScheduleStatus::Open->value,
-            $schedule->fresh()->getRawOriginal('status'),
-        );
-    }
-
     public function test_huy_truoc_han_chot_thi_cho_ve_kho_ngay(): void
     {
         [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
@@ -281,59 +223,30 @@ class HeldSeatsTest extends TestCase
         $this->assertTrue((bool) $booking->fresh()->seats_released);
     }
 
-    public function test_ghe_chet_hien_tren_danh_sach_cho_dieu_hanh(): void
-    {
-        [, $booking] = $this->taoChuyenVaDon(hanChot: now()->subHour()->toDateTimeString());
-        Sanctum::actingAs($this->taoAdmin());
-
-        $this->putJson("/api/admin/bookings/{$booking->id}/cancel", [
-            'cancel_reason' => 'Huy sat ngay di',
-        ])->assertOk();
-
-        $this->getJson('/api/admin/bookings/held-seats')
-            ->assertOk()
-            ->assertJsonPath('data.total_held_seats', 4)
-            ->assertJsonPath('data.bookings.data.0.id', $booking->id);
-    }
-
-    public function test_dieu_hanh_mo_lai_cho_thi_ban_tiep_duoc(): void
+    /**
+     * Ghế chết ở lại tới khi chuyến kết thúc, không có đường nào trả nó về kho.
+     *
+     * Từng có màn hình cho điều hành mở lại; đã bỏ. Phí hủy đã bù phần chi phí đã cam kết với nhà
+     * cung cấp, nên việc còn lại thuần túy là **đừng bán ra thứ không giao được** - và luật này
+     * lo trọn. Bài test giữ đúng điều đó: đơn hủy sau hạn chốt thì số chỗ đứng yên.
+     */
+    public function test_ghe_chet_khong_tu_quay_ve_kho(): void
     {
         [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->subHour()->toDateTimeString());
-        $admin = $this->taoAdmin();
-        Sanctum::actingAs($admin);
+        Sanctum::actingAs($this->taoAdmin());
 
         $this->putJson("/api/admin/bookings/{$booking->id}/cancel", [
             'cancel_reason' => 'Huy sat ngay di',
         ])->assertOk();
 
         $this->assertSame(4, (int) $schedule->fresh()->booked_people);
+        $this->assertFalse((bool) $booking->fresh()->seats_released);
 
-        $this->putJson("/api/admin/bookings/{$booking->id}/release-seats")->assertOk();
+        // Chạy hết các tác vụ nền: không tác vụ nào được âm thầm trả chỗ ấy về kho.
+        $this->artisan('bookings:release-expired')->assertSuccessful();
+        $this->artisan('schedules:close-expired')->assertSuccessful();
 
-        $booking->refresh();
-
-        $this->assertSame(0, (int) $schedule->fresh()->booked_people);
-        $this->assertTrue((bool) $booking->seats_released);
-        $this->assertNotNull($booking->seats_released_at);
-        $this->assertSame($admin->id, $booking->seats_released_by);
-    }
-
-    /**
-     * Hai người cùng bấm mở lại thì người sau phải bị từ chối, không được trừ số chỗ lần hai.
-     */
-    public function test_mo_lai_cho_lan_hai_bi_tu_choi(): void
-    {
-        [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->subHour()->toDateTimeString());
-        Sanctum::actingAs($this->taoAdmin());
-
-        $this->putJson("/api/admin/bookings/{$booking->id}/cancel", [
-            'cancel_reason' => 'Huy sat ngay di',
-        ])->assertOk();
-
-        $this->putJson("/api/admin/bookings/{$booking->id}/release-seats")->assertOk();
-        $this->putJson("/api/admin/bookings/{$booking->id}/release-seats")->assertStatus(400);
-
-        $this->assertSame(0, (int) $schedule->fresh()->booked_people);
+        $this->assertSame(4, (int) $schedule->fresh()->booked_people);
     }
 
     public function test_ghi_lai_ai_huy_va_huy_kieu_gi(): void

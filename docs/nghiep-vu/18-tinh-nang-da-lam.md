@@ -170,7 +170,8 @@ song song thì luồng sau phải thấy thay đổi của luồng trước.
 theo thứ tự cố định để hai luồng chéo nhau không gây khóa chết.
 
 **Ghế chết.** Hủy sau hạn chốt danh sách thì **không** trả chỗ về kho, vì phòng và suất ăn đã đặt
-theo danh sách gửi nhà cung cấp — trả về là bán ra một chỗ không có dịch vụ đi kèm.
+theo danh sách gửi nhà cung cấp — trả về là bán ra một chỗ không có dịch vụ đi kèm. Chỗ đó giữ
+nguyên tới khi chuyến kết thúc; muốn bán tiếp thì tăng sức chứa chuyến, không có nút mở lại riêng.
 
 **Một mốc điều khiển năm luật.** `booking_deadline` ban đầu chỉ định dùng để ngừng bán, cuối cùng
 điều khiển năm quy tắc thuộc năm nhóm: bán chỗ, trả chỗ, sửa tên khách, chuyển chuyến, ghép chuyến.
@@ -203,6 +204,7 @@ Nêu ra kèm lý do thì là quyết định thiết kế; im lặng thì là th
 | Bậc giá đoàn tự động | Giảm bao nhiêu phụ thuộc mùa, quan hệ, chỗ trống — điều hành quyết, hệ thống không tính hộ |
 | Tỷ lệ hướng dẫn viên trên số khách | Khác nhau theo loại tour và cách từng công ty vận hành |
 | Chặn theo thẻ hành nghề | Hội đồng hỏi về **chuyên môn**; hiệu lực thẻ là việc của quản lý nhân sự |
+| Màn hình mở lại ghế chết | Phí hủy đã bù chi phí đã cam kết. Việc còn lại chỉ là **đừng bán ra thứ không giao được**, và luật đã lo trọn — thêm màn hình không giải quyết thêm gì |
 | Hoàn tiền tự động qua cổng | Cần hợp đồng thương mại thật với đơn vị thanh toán |
 | Hóa đơn điện tử | Phải phát hành qua tổ chức được cấp phép, cần chữ ký số thật |
 | Đại lý, kênh phân phối | Là mô hình bán buôn, khối lượng ngang toàn bộ phần bán lẻ hiện có |

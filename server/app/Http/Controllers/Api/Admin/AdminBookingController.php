@@ -46,66 +46,6 @@ class AdminBookingController extends Controller
     }
 
     /**
-     * C03 - Các đơn đã hủy nhưng chỗ chưa được trả về kho.
-     *
-     * Đây là ghế chết: chỗ trống về mặt vật lý nhưng chưa bán lại được vì phòng, ghế và suất ăn
-     * đã chốt theo danh sách gửi nhà cung cấp. Điều hành nhìn màn hình này để quyết định có xin
-     * thêm suất rồi mở bán lại hay chấp nhận lỗ.
-     *
-     * Xem docs/nghiep-vu/03-luong-huy-va-hoan-tien.md mục 3.
-     */
-    public function heldSeats(Request $request): JsonResponse
-    {
-        $bookings = Booking::query()
-            ->withHeldSeats()
-            ->with(['tour:id,title', 'schedule:id,start_date,booking_deadline,max_people,booked_people'])
-            ->orderBy('cancelled_at')
-            ->paginate(10);
-
-        $tongCho = (int) Booking::query()->withHeldSeats()->sum('guests');
-
-        return $this->success([
-            'bookings' => $bookings,
-            'total_held_seats' => $tongCho,
-        ], 'Lấy danh sách chỗ chưa mở bán lại thành công');
-    }
-
-    /**
-     * Mở lại chỗ của một đơn đã hủy sau hạn chốt, trả chỗ về kho để bán tiếp.
-     */
-    public function releaseHeldSeats(Request $request, int $id): JsonResponse
-    {
-        $booking = Booking::query()->find($id);
-
-        if (!$booking) {
-            return $this->error('Không tìm thấy đơn đặt hàng', 404);
-        }
-
-        $daMoLai = $this->holdService->releaseHeldSeats($booking, $request->user()?->id);
-
-        if (!$daMoLai) {
-            return $this->error(
-                'Đơn này không ở trạng thái mở lại chỗ được. Chỉ đơn đã hủy mà chỗ chưa trả về kho mới mở lại được.',
-                400,
-            );
-        }
-
-        // Mở lại ghế chết là quyết định của con người sau khi xin thêm suất từ nhà cung cấp,
-        // nên phải ghi lại ai quyết định và vào lúc nào.
-        $this->auditLogger->log(
-            $booking,
-            BookingAuditAction::SeatsReleased,
-            ['seats_released' => false],
-            ['seats_released' => true, 'guests' => (int) $booking->guests],
-        );
-
-        return $this->success(
-            $booking->fresh(['tour:id,title', 'schedule:id,start_date,max_people,booked_people']),
-            'Đã mở lại chỗ để bán tiếp.',
-        );
-    }
-
-    /**
      * E04 - Dòng thời gian của một đơn: ai làm gì, lúc nào, vì sao.
      *
      * Câu hỏi cần trả lời được ở đây: ai đã duyệt khoản hoàn này, trước đó đơn ở trạng thái nào,

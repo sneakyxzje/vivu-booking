@@ -16,9 +16,6 @@ enum BookingAuditAction: string
     case Cancelled = 'cancelled';
     case Reopened = 'reopened';
 
-    /** Điều hành trả chỗ của ghế chết về kho để bán lại. */
-    case SeatsReleased = 'seats_released';
-
     case CancelRequested = 'cancel_requested';
     case CancelRequestApproved = 'cancel_request_approved';
     case CancelRequestRejected = 'cancel_request_rejected';
@@ -48,7 +45,6 @@ enum BookingAuditAction: string
             self::Confirmed => 'Xác nhận đơn',
             self::Cancelled => 'Hủy đơn',
             self::Reopened => 'Mở lại đơn đã hủy',
-            self::SeatsReleased => 'Trả chỗ về kho',
             self::CancelRequested => 'Khách gửi yêu cầu hủy',
             self::CancelRequestApproved => 'Duyệt yêu cầu hủy',
             self::CancelRequestRejected => 'Từ chối yêu cầu hủy',

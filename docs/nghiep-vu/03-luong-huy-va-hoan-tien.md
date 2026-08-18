@@ -113,23 +113,29 @@ phí hủy   = tổng giá trị đơn x (100 - phần trăm hoàn) / 100
 Nói cách khác: chỗ trống về mặt vật lý không đồng nghĩa với chỗ bán được. Sau hạn chốt,
 một chỗ trống là **ghế chết**, hãng đã trả tiền cho nó nhưng không có khách.
 
-### 3.2 Cơ chế mở lại chỗ thủ công
+### 3.2 Ghi nhận bằng cột `seats_released`
 
-Vẫn phải cho điều hành mở lại chỗ, vì có trường hợp gọi được cho nhà cung cấp để bổ sung
-suất. Nhưng đó là quyết định của con người, không phải mặc định của hệ thống.
-
-Thiết kế: thêm cột `seats_released` kiểu boolean vào `bookings`.
+Thiết kế: cột `seats_released` kiểu boolean trên `bookings`.
 
 - Khi hủy trước hạn chốt: `seats_released = true`, trừ `booked_people` ngay.
 - Khi hủy sau hạn chốt: `seats_released = false`, **giữ nguyên** `booked_people`.
   Đơn vẫn là `cancelled` nhưng chỗ chưa về kho.
-- Màn hình quản trị hiển thị nhóm "Chỗ trống chưa mở bán lại" với nút mở lại từng đơn.
-  Khi điều hành bấm, hệ thống trừ `booked_people`, đặt `seats_released = true`,
-  ghi nhật ký ai mở và lý do.
 
 Nhờ cột này, số liệu vẫn nhất quán: `booked_people` luôn bằng tổng số khách của các đơn
-chưa hủy cộng với các đơn đã hủy nhưng chưa mở lại chỗ. Có thể viết một lệnh kiểm tra
-tính nhất quán để chạy định kỳ.
+chưa hủy cộng với các đơn đã hủy mà chỗ chưa trả về. Lệnh `bookings:check-seat-consistency`
+đối chiếu định kỳ.
+
+**Không có cơ chế mở lại chỗ thủ công.** Thiết kế ban đầu có: một màn hình liệt kê ghế chết
+kèm nút mở lại, cho trường hợp điều hành gọi được nhà cung cấp xin thêm suất. Đã cài đặt rồi
+bỏ đi, vì lập luận này:
+
+> Phí hủy đã bù phần chi phí đã cam kết với nhà cung cấp — đó chính là lý do bảng phí tồn tại.
+> Nên chuyện còn lại thuần túy là **đừng bán ra thứ không giao được**, và luật ở mục 3.1 lo
+> trọn phần đó. Thêm một màn hình và một thao tác thủ công không giải quyết thêm vấn đề nào.
+
+Hệ quả cần biết: ghế chết ở lại tới khi chuyến kết thúc. Điều hành muốn bán tiếp thì **tăng
+sức chứa của chuyến** — một thao tác nhìn thấy rõ hơn, và đúng bản chất hơn (họ vừa xin thêm
+được dịch vụ, tức chuyến chứa được nhiều hơn thật).
 
 ### 3.3 Ảnh hưởng tới doanh thu
 

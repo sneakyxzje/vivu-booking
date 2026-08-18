@@ -242,16 +242,19 @@ và mọi chỗ đều bị trả về kho.
 Trường hợp dễ sót nhất: đơn được **quản trị xác nhận tay** không có `paid_at` nhưng vẫn nằm trong
 danh sách gửi nhà cung cấp, nên phải đối xử như đơn đã thanh toán.
 
-### Mở lại chỗ là quyết định của con người
+### Ghế chết ở lại tới hết chuyến
 
-Hệ thống **cố ý không tự mở lại**. Chỉ điều hành mới biết có gọi được cho nhà cung cấp để xin
-thêm suất hay không.
+Từng có màn hình `/admin/held-seats` liệt kê chỗ đang bị giữ kèm nút mở lại. **Đã bỏ.**
 
-Màn hình `/admin/held-seats` liệt kê mọi chỗ đang bị giữ, kèm chuyến, số chỗ, thời điểm hủy và
-lý do. Bấm "Mở bán lại" thì chỗ về kho, và nếu chuyến đang `closed` thì tự chuyển về `open`.
+Lý do: phí hủy đã bù phần chi phí đã cam kết với nhà cung cấp, nên việc còn lại thuần túy là đừng
+bán ra một chỗ không có dịch vụ đi kèm - và luật ở trên lo trọn. Thêm một màn hình và một thao tác
+thủ công không giải quyết thêm vấn đề nào.
 
-Bấm hai lần thì lần hai bị từ chối - hàm khóa dòng rồi **đọc lại** trạng thái trước khi trừ, nên
-hai người bấm cùng lúc không làm số chỗ bị trừ hai lượt.
+Điều hành xin thêm được suất và muốn bán tiếp thì **tăng `max_people` của chuyến**. Đúng bản chất
+hơn: chuyến chứa được nhiều hơn thật, chứ không phải chỗ cũ sống lại.
+
+Lý do đầy đủ ở [06 - Đối chiếu feedback](06-doi-chieu-feedback.md), mục "Vì sao điểm 8 không có
+nút mở lại chỗ".
 
 ### Lệnh đối chiếu
 

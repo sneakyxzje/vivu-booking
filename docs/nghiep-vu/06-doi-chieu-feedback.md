@@ -23,7 +23,7 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 | 5 | Điểm danh từng điểm đến từng ngày | **Đã có** | `passenger_checkins` theo từng hành khách, từng điểm dừng |
 | 6 | Ghi chú khi khách vắng mặt | **Đã có** | Bắt buộc ghi chú tối thiểu 10 ký tự khi trạng thái khác có mặt |
 | 7 | Thời gian hủy tour phải trước bao lâu | **Đã có** | `CancellationPolicy` + `CancellationPolicyService` — bậc thang lưu thành dữ liệu, admin sửa được, đơn chép chính sách lúc đặt nên không hồi tố |
-| 8 | Hủy sát giờ có cộng lại slot không | **Đã có** | `BookingHoldService::shouldReleaseSeats` — ghế chết. Câu trả lời là **không**, và có nút mở lại thủ công |
+| 8 | Hủy sát giờ có cộng lại slot không | **Đã có** | `BookingHoldService::shouldReleaseSeats` — ghế chết. Câu trả lời là **không**, và cố ý không có nút mở lại — xem ghi chú dưới bảng |
 | 9 | Tour đang chạy không được hủy | **Đã có** | `BookingPolicyService::assertCancellable` ở tầng dịch vụ, áp cho cả bốn lối vào |
 | 10 | Ai được hủy, ai xác nhận | **Đã có** | `BookingChangeRequestService` — khách xin, điều hành duyệt; kèm nhật ký ghi ai làm gì |
 | 11 | Thay hướng dẫn viên giữa chừng | **Đã có** | `GuideHandoverService` — hai lối vào: hướng dẫn viên xin rồi điều hành duyệt, hoặc điều hành tự bàn giao khi không liên lạc được. Bắt buộc kèm lý do và tình trạng đoàn; người cũ mất quyền ghi ngay, dữ liệu đã ghi giữ nguyên |
@@ -37,6 +37,22 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 
 **Tổng kết: 15 điểm đã có mã chạy, 3 điểm còn một mảng thiếu (12, 14, 18), không còn điểm nào
 ở con số không.**
+
+### Vì sao điểm 8 không có nút mở lại chỗ
+
+Thiết kế ở [03 mục 3.2](03-luong-huy-va-hoan-tien.md) có một màn hình liệt kê ghế chết kèm nút mở
+lại, cho trường hợp điều hành gọi được nhà cung cấp xin thêm suất. **Đã cài đặt xong rồi bỏ đi.**
+
+Lý do: phí hủy đã bù phần chi phí đã cam kết — đó chính là việc bảng phí hủy làm. Nên chuyện còn
+lại thuần túy là **đừng bán ra một chỗ không có dịch vụ đi kèm**, và luật `shouldReleaseSeats` lo
+trọn phần đó. Một màn hình riêng cộng một thao tác thủ công không giải quyết thêm vấn đề nào.
+
+Nếu bị hỏi *"xin thêm được phòng thì sao?"* — câu trả lời: điều hành **tăng sức chứa của chuyến**.
+Đúng bản chất hơn một nút "mở lại chỗ": họ vừa xin thêm được dịch vụ, tức chuyến chứa được nhiều
+hơn thật, chứ không phải chỗ cũ sống lại.
+
+Đây là ví dụ tốt cho câu "cái gì thuộc về luật, cái gì thuộc về màn hình": luật giữ nguyên và có
+kiểm thử giữ, chỉ phần giao diện quanh nó bị bỏ.
 
 ### Ranh giới của điểm 17: cái gì chặn, cái gì chỉ gợi ý
 
@@ -238,8 +254,9 @@ việc sửa chính sách về sau không hồi tố.
 Có điều kiện. Hủy trước hạn chốt danh sách thì trả chỗ ngay vì còn bán lại được. Hủy sau hạn chốt
 thì không trả tự động, vì phòng và suất ăn đã đặt theo danh sách đã chốt, trả chỗ về kho sẽ khiến
 hệ thống bán ra một chỗ mà thực tế không có dịch vụ đi kèm. Chỗ đó là ghế chết, hãng đã trả tiền
-mà không có khách. Vẫn cho điều hành mở lại chỗ thủ công vì có khi xin thêm suất được, nhưng đó
-là quyết định của con người chứ không phải mặc định của hệ thống.
+mà không có khách — và phần tiền ấy đã được bù bằng phí hủy, nên chuyện còn lại thuần túy là đừng
+bán ra thứ không giao được. Ghế chết ở lại tới khi chuyến kết thúc; muốn bán tiếp thì điều hành
+tăng sức chứa chuyến, hệ thống không có nút mở lại riêng (xem ghi chú dưới bảng ở mục 1).
 
 **9. Tour đang chạy có được hủy không.**
 Không, và chặn ở tầng dịch vụ chứ không chỉ ở giao diện, vì có bốn lối vào khác nhau. Trong máy

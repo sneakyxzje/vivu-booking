@@ -99,7 +99,7 @@ này để xem một lần là hết.
 | S1 | còn 480h | Đang mở bán | Hủy → hoàn **90%**, chỗ trả về kho. Có sẵn một đơn vừa hủy 2 giờ trước để thử **mở lại đơn** |
 | S2 | còn 240h | Đang mở bán | Hủy → hoàn **70%** |
 | S3 | còn 120h | Đang mở bán | Hủy → hoàn **50%**, vẫn **trước** hạn chốt nên chỗ trả về |
-| S4 | còn 60h | Đã đóng bán | Hủy → hoàn **30%** nhưng **sau** hạn chốt nên sinh **ghế chết**. Có sẵn một ghế chết cho màn mở lại chỗ |
+| S4 | còn 60h | Đã đóng bán | Hủy → hoàn **30%** nhưng **sau** hạn chốt nên sinh **ghế chết**. Có sẵn một ghế chết dựng trước |
 | S5 | còn 26h | Đã chốt chuyến | Hủy → hoàn **0%**. Có sẵn một đơn quá hạn thanh toán để chạy `bookings:release-expired` |
 | S6 | đã qua 24h | Đang khởi hành | **Chặn hủy** ở cả hai trang. Điểm danh: một đơn đã ghi dở, một đơn chưa ghi gì |
 | S7 | đã qua 120h | Đã kết thúc | Chạy `bookings:finalize-completed`: ba đơn ra ba kết quả khác nhau |
@@ -333,18 +333,17 @@ phải trả tiền cho suất cũ.
 ### Đã thêm
 
 Khái niệm **ghế chết**: chỗ trống về mặt vật lý nhưng chưa bán lại được. Quyết định trả chỗ dựa
-trên `booking_deadline`. Màn quản trị để điều hành mở lại chỗ bằng tay khi xin thêm được suất.
-Lệnh đối chiếu số chỗ chạy hằng giờ.
+trên `booking_deadline`. Ghế chết ở lại tới khi chuyến kết thúc — không có nút mở lại, lý do ở
+[06](06-doi-chieu-feedback.md). Lệnh đối chiếu số chỗ chạy hằng giờ.
 
 ### Neo mã
 
 | Việc | Vị trí |
 | --- | --- |
-| Quyết định trả chỗ hay không | `server/app/Services/BookingHoldService.php:176` |
-| Đã vào danh sách đoàn chưa | `server/app/Services/BookingHoldService.php:202` |
-| Mở lại chỗ bằng tay | `server/app/Services/BookingHoldService.php:262` |
+| Quyết định trả chỗ hay không | `server/app/Services/BookingHoldService.php::shouldReleaseSeats` |
+| Đã vào danh sách đoàn chưa | `server/app/Services/BookingHoldService.php::hasEnteredManifest` |
 | Lệnh đối chiếu | `server/app/Console/Commands/CheckSeatConsistency.php` |
-| Màn quản trị | `client/src/pages/admin/HeldSeatsManagement.tsx` |
+| Đếm ghế chết khi dời hạn chốt | `server/app/Services/ScheduleDeadlineService.php::impact` |
 
 ### Hai chi tiết đáng đọc kỹ
 
@@ -556,14 +555,15 @@ Vòng này không mất dữ liệu. Đọc xong năm con số là thấy trọn
 | --- | --- | --- | --- |
 | 3 | Hủy **thật** đơn của **S3** | Dự báo báo trước "chỗ sẽ được trả về kho". Xong, `/admin/schedules` cho thấy S3 giảm chỗ | C |
 | 4 | Hủy **thật** đơn của **S4** | Dự báo cảnh báo đỏ **chỗ không quay lại kho**. Xong, số chỗ của S4 **giữ nguyên** | C |
-| 5 | `/admin/held-seats` | Hai dòng ghế chết: một dựng sẵn, một vừa sinh ra ở bước 4 | C |
-| 6 | Mở lại một dòng, nhập lý do | Số chỗ S4 giảm, nhưng trạng thái chuyến **vẫn Đã đóng bán** | C, A |
-
-Bước 6 là chi tiết dễ bỏ qua nhất. Trả chỗ về kho là chuyện của **số chỗ**; chuyến đã qua hạn
-chốt thì vẫn không nhận đặt mới, nên không được kéo về "đang mở bán".
+| 5 | Chờ tác vụ nền chạy, xem lại **S4** | Số chỗ **vẫn giữ nguyên** — không tác vụ nào âm thầm trả ghế chết về kho | C |
+| 6 | Dời hạn chốt của **S4** ra sau | Bảng xem trước đếm đúng số ghế chết đang treo trên chuyến | C, A |
 
 Bước 3 với bước 4 là hai đơn giống hệt nhau, cách nhau 60 giờ, ra hai kết quả khác nhau. Nếu chỉ
 demo được một thứ thì demo chỗ này.
+
+Ghế chết ở lại tới khi chuyến kết thúc — cố ý không có nút mở lại, lý do ở
+[06](06-doi-chieu-feedback.md) mục "Vì sao điểm 8 không có nút mở lại chỗ". Nếu hội đồng hỏi
+*"xin thêm được phòng thì sao?"*: điều hành tăng sức chứa chuyến.
 
 ### Vòng 3 — Nhóm D, hai lối vào (5 phút)
 

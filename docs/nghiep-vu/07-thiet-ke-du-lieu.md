@@ -68,7 +68,7 @@ Bản ghi mặc định do seeder tạo, đúng bảng phí ở tài liệu 03:
 | `cancelled_at` | datetime nullable | null | |
 | `seats_released` | boolean | true | False khi hủy sau hạn chốt, chỗ chưa về kho |
 | `seats_released_at` | datetime nullable | null | |
-| `seats_released_by` | foreignId nullable | null | Ai mở lại chỗ thủ công |
+| `seats_released_by` | foreignId nullable | null | Ai thao tác lúc chỗ được trả về kho |
 | `refund_amount` | decimal(12,2) nullable | null | Số tiền hoàn đã tính |
 | `cancellation_plan` | string(20) nullable | null | Dùng khi hủy chuyến: `refund`, `transfer`, `credit` |
 
@@ -248,7 +248,7 @@ Mỗi quy tắc nghiệp vụ nên có ít nhất một kiểm thử. Danh sách
 | --- | --- |
 | Vòng đời chuyến | Không đặt được cho chuyến `closed`; chuyến tự chuyển `closed` khi qua hạn chốt; chuyến đủ khách thì `confirmed` |
 | Chính sách hủy | Đúng mức hoàn tại từng mốc; hủy sau giờ khởi hành hoàn 0; chính sách sửa về sau không hồi tố đơn cũ |
-| Trả chỗ | Hủy trước hạn chốt thì `booked_people` giảm; hủy sau hạn chốt thì không giảm; mở lại chỗ thủ công thì giảm và ghi nhật ký |
+| Trả chỗ | Hủy trước hạn chốt thì `booked_people` giảm; hủy sau hạn chốt thì không giảm và giữ nguyên tới hết chuyến |
 | Chặn hủy | Không hủy được đơn của chuyến `in_progress` qua cả bốn lối vào |
 | Phân quyền hủy | Khách đã thanh toán chỉ tạo được yêu cầu; hướng dẫn viên không hủy được |
 | Chuyển chuyến | Chuyến đích hết chỗ thì quay lui; chênh giá tạo đúng giao dịch; hai luồng chuyển đồng thời không làm sai số chỗ |

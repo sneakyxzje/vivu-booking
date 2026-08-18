@@ -26,7 +26,6 @@ import ScheduleAttendance from "@/pages/admin/ScheduleAttendance";
 import AttendanceReport from "@/pages/admin/AttendanceReport";
 import ScheduleManagement from "@/pages/admin/ScheduleManagement";
 import AuditLogManagement from "@/pages/admin/AuditLogManagement";
-import HeldSeatsManagement from "@/pages/admin/HeldSeatsManagement";
 import ChangeRequestManagement from "@/pages/admin/ChangeRequestManagement";
 import CancellationPolicyManagement from "@/pages/admin/CancellationPolicyManagement";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
@@ -227,10 +226,6 @@ const router = createBrowserRouter([
           {
             path: "/admin/change-requests",
             element: <ChangeRequestManagement />,
-          },
-          {
-            path: "/admin/held-seats",
-            element: <HeldSeatsManagement />,
           },
           {
             path: "/admin/cancellation-policies",

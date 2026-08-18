@@ -328,8 +328,8 @@ class BusinessScenarioSeeder extends Seeder
         $this->don['hoan30'] = $this->taoDon('S4', 'confirmed', 2, 0, 'Hủy thử: hoàn 30% nhưng chỗ KHÔNG trả về, sinh ghế chết', 'B, C');
         $this->don['hoan0'] = $this->taoDon('S5', 'confirmed', 2, 0, 'Hủy thử: hoàn 0%, chỗ không trả về', 'B, C');
 
-        // Nhóm C: ghế chết có sẵn, để màn Chỗ đã hủy chưa mở bán lại có dữ liệu ngay.
-        $gheChet = $this->taoDon('S4', 'cancelled', 3, 0, 'Ghế chết dựng sẵn: mở màn Chỗ đã hủy chưa mở bán lại', 'C');
+        // Nhóm C: ghế chết dựng sẵn, để thấy số chỗ của S4 không nhả ra dù đơn đã hủy.
+        $gheChet = $this->taoDon('S4', 'cancelled', 3, 0, 'Ghế chết dựng sẵn: hủy sau hạn chốt, chỗ không về kho', 'C');
         $gheChet->forceFill([
             'cancelled_at' => now()->subHours(5),
             'cancel_type' => 'customer',
@@ -702,8 +702,8 @@ class BusinessScenarioSeeder extends Seeder
         $cmd->line('      -> chỗ TRẢ về kho. Vào /admin/schedules xem chuyến đó: số chỗ đã giảm');
         $cmd->line('   2. Hủy ' . $id('hoan30') . ', thuộc chuyến ' . $chuyen('S4'));
         $cmd->line('      -> GHẾ CHẾT. Xem chuyến đó: số chỗ GIỮ NGUYÊN');
-        $cmd->line('   3. Vào /admin/held-seats -> có 2 dòng -> mở lại 1 dòng kèm lý do');
-        $cmd->line('      Lúc này số chỗ mới giảm, nhưng chuyến vẫn "Đã đóng bán"');
+        $cmd->line('      Chỗ đó chết tới hết chuyến: không tác vụ nào trả nó về kho');
+        $cmd->line('   3. Dời hạn chốt của ' . $chuyen('S4') . ' ra sau -> bảng xem trước đếm đúng số ghế chết');
         $cmd->newLine();
 
         $cmd->comment(' VÒNG 2b — yêu cầu hủy của khách đã thanh toán (nhóm F)');

@@ -125,7 +125,7 @@ class AdminAuditLogTest extends TestCase
 
         $this->ghiNhatKyDon($don, BookingAuditAction::Cancelled, now()->subHours(3));
         $this->ghiNhatKyChuyen(now()->subHours(2));
-        $this->ghiNhatKyDon($don, BookingAuditAction::SeatsReleased, now()->subHour());
+        $this->ghiNhatKyDon($don, BookingAuditAction::ContactUpdated, now()->subHour());
 
         Sanctum::actingAs($this->quanTri);
 
@@ -134,7 +134,7 @@ class AdminAuditLogTest extends TestCase
         $this->assertCount(3, $rows);
 
         // Mới nhất lên đầu, và hai nguồn thật sự nằm chung một dòng thời gian.
-        $this->assertSame('seats_released', $rows[0]['action']);
+        $this->assertSame('contact_updated', $rows[0]['action']);
         $this->assertSame('schedule', $rows[1]['source']);
         $this->assertSame('deadline_changed', $rows[1]['action']);
         $this->assertSame('cancelled', $rows[2]['action']);
