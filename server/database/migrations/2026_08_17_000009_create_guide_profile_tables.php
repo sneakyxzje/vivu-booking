@@ -8,8 +8,11 @@ use Illuminate\Support\Facades\Schema;
  * Hồ sơ năng lực hướng dẫn viên.
  *
  * Trước đây hệ thống chỉ trả lời được **"ai đang rảnh"**, không trả lời được **"ai phù hợp"**.
- * Rảnh là điều kiện cần: một người rảnh nhưng chưa từng đi tuyến Tây Bắc, hoặc thẻ hành nghề hết
- * hạn giữa chuyến, vẫn là lựa chọn sai.
+ * Rảnh là điều kiện cần chứ chưa đủ: một người rảnh nhưng chưa từng đi tuyến Tây Bắc, hoặc quen
+ * dẫn đoàn nghỉ dưỡng mà bị xếp tour leo núi, vẫn là lựa chọn kém hơn người khác.
+ *
+ * Hồ sơ này **không chặn ai**. Nó chỉ xếp thứ tự và nói ra lý do; luật chặn duy nhất vẫn là
+ * chống trùng lịch. Ai hợp hơn ai là chuyện điều hành cân, hệ thống chỉ đưa thông tin lên bàn.
  *
  * Bảng riêng chứ không thêm cột vào `users`, vì `users` dùng chung cho ba vai trò - khách hàng và
  * điều hành sẽ mang theo một loạt cột không bao giờ có giá trị.
@@ -29,17 +32,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->unique()->constrained('users')->cascadeOnDelete();
 
-            /*
-             * Thẻ hành nghề. Đây là thứ duy nhất trong hồ sơ này **chặn** được việc phân công:
-             * Luật Du lịch 2017 yêu cầu hướng dẫn viên hành nghề phải có thẻ còn hiệu lực, nên
-             * thẻ hết hạn giữa chuyến không phải chuyện ưu tiên cao thấp mà là không được phép.
-             *
-             * Để nullable: người chưa khai thẻ thì không chặn, chỉ nhắc. Chặn theo dữ liệu trống
-             * nghĩa là ngày bật tính năng này lên thì không phân công được cho ai nữa.
-             */
-            $table->string('card_number', 50)->nullable();
-            $table->date('card_expiry')->nullable();
-
             // Danh sách, lưu JSON vì chỉ đọc cả cụm chứ không truy vấn theo từng phần tử.
             $table->json('languages')->nullable();
             $table->json('regions')->nullable();
@@ -55,8 +47,6 @@ return new class extends Migration
 
             $table->text('note')->nullable();
             $table->timestamps();
-
-            $table->index('card_expiry');
         });
 
         Schema::create('guide_categories', function (Blueprint $table) {
