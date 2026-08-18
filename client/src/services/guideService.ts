@@ -84,6 +84,15 @@ export const buildTourPayload = (form: unknown) => {
     data.append("service_ids[]", String(id));
   });
 
+  /*
+   * Chính sách hủy riêng của tour.
+   *
+   * Chỉ gửi khi thật sự có chọn. Gửi chuỗi rỗng thì middleware của Laravel đổi thành null và
+   * ghi đè lựa chọn cũ — đúng ý khi người ta chủ động bỏ chọn, nhưng ở đây `cancellation_policy_id`
+   * luôn có mặt trong form nên phải phân biệt "bỏ chọn" với "không đụng tới".
+   */
+  data.append("cancellation_policy_id", String(f.cancellation_policy_id ?? ""));
+
   (
     (f.itineraries as
       | { day_number: string; title: string; start_point?: string; end_point?: string; route_points?: string[]; rest_stops?: string; content: string }[]
@@ -263,10 +272,17 @@ const guideService = {
     return extractArray<Record<string, unknown>>(response).map(mapBooking);
   },
 
+  /**
+   * Dữ liệu để dựng biểu mẫu tour: danh mục, dịch vụ, và chính sách hủy.
+   *
+   * `allSettled` để một nguồn hỏng không kéo cả biểu mẫu chết theo — mất danh sách chính sách
+   * thì vẫn tạo được tour, chỉ là không chọn được chính sách riêng.
+   */
   getFormData: async () => {
-    const [categoriesRes, servicesRes] = await Promise.allSettled([
+    const [categoriesRes, servicesRes, policiesRes] = await Promise.allSettled([
       api.get("/categories"),
       api.get("/services"),
+      api.get("/admin/cancellation-policies"),
     ]);
 
     const categories =
@@ -279,7 +295,12 @@ const guideService = {
         ? extractArray<{ id: number; name: string }>(servicesRes.value)
         : [];
 
-    return { categories, services };
+    const cancellationPolicies =
+      policiesRes.status === "fulfilled"
+        ? extractArray<{ id: number; name: string; is_default: boolean }>(policiesRes.value)
+        : [];
+
+    return { categories, services, cancellationPolicies };
   },
 
   updateTour: async (

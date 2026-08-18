@@ -51,6 +51,8 @@ export interface TourFormState {
   schedules: ScheduleFormItem[];
   category_ids: number[];
   service_ids: number[];
+  /** Rỗng nghĩa là dùng chính sách hủy mặc định của hệ thống, không phải không có chính sách. */
+  cancellation_policy_id: string;
 }
 
 export interface TourFormSectionProps {

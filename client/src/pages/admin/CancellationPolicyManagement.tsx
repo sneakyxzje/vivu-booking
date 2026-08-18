@@ -163,9 +163,17 @@ export default function CancellationPolicyManagement() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-950">Chính sách hủy</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Phí hủy theo mốc thời gian còn lại tới khởi hành. Đơn đặt tour sao chép chính sách
-            tại thời điểm đặt, nên sửa ở đây không đổi điều khoản của đơn đã có.
+          {/*
+            Nói ngay cách chọn chính sách hoạt động ra sao.
+
+            Có nhiều chính sách mà không biết cái nào áp cho tour nào là câu hỏi đầu tiên người
+            dùng gặp ở màn này. Trả lời ngay dưới tiêu đề, thay vì để họ tự suy ra từ các thẻ.
+          */}
+          <p className="mt-1 text-sm text-gray-500 max-w-2xl">
+            Phí hủy theo mốc thời gian còn lại tới khởi hành. Mỗi tour <b>chọn một chính sách
+            riêng</b> ở biểu mẫu tạo/sửa tour; tour nào không chọn thì dùng chính sách đang đánh
+            dấu <b>mặc định</b>. Đơn đặt tour sao chép chính sách tại thời điểm đặt, nên sửa ở đây
+            không đổi điều khoản của đơn đã bán.
           </p>
         </div>
         <button
@@ -210,8 +218,18 @@ export default function CancellationPolicyManagement() {
                     </span>
                   )}
                 </div>
+                {/*
+                  Nói rõ chính sách này đang chi phối cái gì.
+
+                  Trước đây mọi thẻ đều hiện "0 tour đang sử dụng" — vì biểu mẫu tour chưa bao
+                  giờ gửi `cancellation_policy_id` lên, nên không tour nào chọn được chính sách
+                  riêng và cái mặc định âm thầm gánh hết. Nhìn vào không ai biết cái nào dùng ở
+                  đâu. Nay gán được rồi thì con số này mới có nghĩa, và cái mặc định phải tự nói
+                  ra vai trò của nó.
+                */}
                 <p className="mt-1 text-xs text-gray-500">
-                  {policy.tours_count ?? 0} tour đang sử dụng
+                  {policy.tours_count ?? 0} tour chọn riêng chính sách này
+                  {policy.is_default && " · áp cho mọi tour chưa chọn riêng"}
                 </p>
               </div>
               <div className="flex shrink-0 gap-2">
