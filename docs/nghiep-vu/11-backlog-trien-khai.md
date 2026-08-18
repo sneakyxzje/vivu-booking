@@ -2,6 +2,26 @@
 
 Danh sách công việc để hiện thực hóa toàn bộ nghiệp vụ trong bộ tài liệu này thành mã nguồn.
 
+## Hiện trạng — đối chiếu mã nguồn ngày 18/08/2026
+
+Tài liệu này viết lúc chưa làm gì và **tiêu đề nhóm không được cập nhật trong suốt quá trình**,
+nên đọc nó một mình sẽ tưởng còn nợ gần hết. Bảng dưới là hiện trạng thật.
+
+| Trạng thái | Nhóm |
+| --- | --- |
+| **Đã làm** | A, B, C, D, E, F, G, H, I, K, L, M, O — 13 nhóm |
+| **Một phần** | N (sổ giao dịch xong, cọc khách lẻ chưa) · P (đường ống đoàn xong, còn nhập Excel) |
+| **Chưa làm** | Q hợp đồng · R cung ứng · S doanh thu và đối soát |
+| **Đã bỏ** | J sửa số lượng khách — có lý do, xem mục của nhóm |
+
+**R và S không nằm trong 18 góp ý của hội đồng.** Đó là hai trụ nhóm tự mở rộng ở tài liệu 09 và
+10; tài liệu 00 mục 7 đã tự đánh giá là "có mô hình, chưa triển khai". Đừng để chúng làm tưởng còn
+nợ hội đồng nhiều hơn thực tế.
+
+Đối chiếu theo từng góp ý của hội đồng: [06](06-doi-chieu-feedback.md).
+Danh sách tính năng đã chạy, nhìn theo vai trò người dùng: [18](18-tinh-nang-da-lam.md).
+Danh mục tình huống ngoại lệ, đã rà cùng đợt: [08](08-danh-muc-edge-case.md).
+
 ## Cách dùng
 
 **Mã công việc:** chữ cái là nhóm chức năng, số là thứ tự trong nhóm. Ví dụ `A03`.
@@ -25,7 +45,7 @@ cả viết kiểm thử. Ước lượng cho người đã quen codebase.
 
 Mục tiêu: xử lý 12 trên 18 điểm hội đồng nêu. Đây là phần bắt buộc.
 
-## Nhóm A - Vòng đời chuyến khởi hành
+## Nhóm A - Vòng đời chuyến khởi hành — ĐÃ LÀM
 
 Tài liệu tham chiếu: 01 mục 4, 07 mục 1.1.
 
@@ -47,7 +67,7 @@ Tài liệu tham chiếu: 01 mục 4, 07 mục 1.1.
 
 **Tổng nhóm A: 8,75 ngày**
 
-## Nhóm B - Chính sách hủy
+## Nhóm B - Chính sách hủy — ĐÃ LÀM
 
 Tài liệu tham chiếu: 03 mục 2, 07 mục 1.2.
 
@@ -64,7 +84,7 @@ Tài liệu tham chiếu: 03 mục 2, 07 mục 1.2.
 
 **Tổng nhóm B: 5,25 ngày**
 
-## Nhóm C - Trả chỗ khi hủy
+## Nhóm C - Trả chỗ khi hủy — ĐÃ LÀM
 
 Tài liệu tham chiếu: 03 mục 3, 07 mục 1.3.
 
@@ -79,7 +99,7 @@ Tài liệu tham chiếu: 03 mục 3, 07 mục 1.3.
 
 **Tổng nhóm C: 4,25 ngày**
 
-## Nhóm D - Chặn hủy khi chuyến đang chạy
+## Nhóm D - Chặn hủy khi chuyến đang chạy — ĐÃ LÀM
 
 Tài liệu tham chiếu: 03 mục 4.
 
@@ -92,7 +112,7 @@ Tài liệu tham chiếu: 03 mục 4.
 
 **Tổng nhóm D: 2,25 ngày**
 
-## Nhóm E - Nhật ký thay đổi đơn hàng
+## Nhóm E - Nhật ký thay đổi đơn hàng — ĐÃ LÀM
 
 Tài liệu tham chiếu: 02 mục 3.3, 07 mục 1.4.
 
@@ -106,7 +126,7 @@ Tài liệu tham chiếu: 02 mục 3.3, 07 mục 1.4.
 
 **Tổng nhóm E: 3,5 ngày**
 
-## Nhóm F - Yêu cầu thay đổi của khách
+## Nhóm F - Yêu cầu thay đổi của khách — ĐÃ LÀM
 
 Tài liệu tham chiếu: 03 mục 5.2, 07 mục 1.7.
 
@@ -122,7 +142,7 @@ Tài liệu tham chiếu: 03 mục 5.2, 07 mục 1.7.
 
 **Tổng nhóm F: 5,75 ngày**
 
-## Nhóm G - Thông tin hành khách
+## Nhóm G - Thông tin hành khách — ĐÃ LÀM
 
 Tài liệu tham chiếu: 02 mục 3.1, 07 mục 1.5.
 
@@ -137,7 +157,7 @@ Tài liệu tham chiếu: 02 mục 3.1, 07 mục 1.5.
 
 **Tổng nhóm G: 4,25 ngày**
 
-## Nhóm H - Điểm danh chi tiết
+## Nhóm H - Điểm danh chi tiết — ĐÃ LÀM (trừ H07 chốt điểm dừng, xem doc 08 mục G10)
 
 Tài liệu tham chiếu: 04 mục 5, 07 mục 1.6. Đây là nhóm lớn nhất của Mốc 1.
 
@@ -202,7 +222,7 @@ Phân bổ theo mốc: Mốc 1 là 5,5 ngày (X01 tới X07, X12, X14), Mốc 2 
 
 # MỐC 2 - Vận hành chuyến đi
 
-## Nhóm I - Chuyển chuyến và chuyển tour
+## Nhóm I - Chuyển chuyến và chuyển tour — ĐÃ LÀM (trừ I04 tách đơn khi chuyển một phần)
 
 Tài liệu tham chiếu: 02 mục 4, 07 mục 2.1.
 
@@ -246,7 +266,7 @@ Tài liệu tham chiếu: 02 mục 3.2.
 
 **Tổng nhóm J: 5,75 ngày**
 
-## Nhóm K - Hủy chuyến
+## Nhóm K - Hủy chuyến — ĐÃ LÀM
 
 Tài liệu tham chiếu: 04 mục 3.
 
@@ -262,7 +282,7 @@ Tài liệu tham chiếu: 04 mục 3.
 
 **Tổng nhóm K: 7,5 ngày**
 
-## Nhóm L - Ghép chuyến
+## Nhóm L - Ghép chuyến — ĐÃ LÀM
 
 Tài liệu tham chiếu: 04 mục 2.
 
@@ -276,7 +296,7 @@ Tài liệu tham chiếu: 04 mục 2.
 
 **Tổng nhóm L: 5 ngày**
 
-## Nhóm M - Hướng dẫn viên
+## Nhóm M - Hướng dẫn viên — ĐÃ LÀM (M11 phần thẻ hành nghề đã cố ý bỏ, xem doc 06)
 
 Tài liệu tham chiếu: 04 mục 4, 07 mục 2.2.
 
@@ -302,7 +322,7 @@ Tài liệu tham chiếu: 04 mục 4, 07 mục 2.2.
 
 # MỐC 3 - Tài chính và hồ sơ
 
-## Nhóm N - Đặt cọc và sổ giao dịch
+## Nhóm N - Đặt cọc và sổ giao dịch — MỘT PHẦN: sổ giao dịch xong, cọc cho khách lẻ chưa
 
 Tài liệu tham chiếu: 02 mục 2.2 và 2.3, 07 mục 3.1.
 
@@ -352,7 +372,7 @@ Tài liệu tham chiếu: 04 mục 6, 07 mục 3.2.
 
 **Tổng nhóm O: 8,75 ngày**
 
-## Nhóm P - Booking theo đoàn
+## Nhóm P - Booking theo đoàn — MỘT PHẦN: đường ống xong, còn P06 nhập Excel
 
 Tài liệu tham chiếu: 05 mục 1, 07 mục 3.3.
 
@@ -369,7 +389,7 @@ Tài liệu tham chiếu: 05 mục 1, 07 mục 3.3.
 
 **Tổng nhóm P: 10,25 ngày**
 
-## Nhóm Q - Hợp đồng và hồ sơ
+## Nhóm Q - Hợp đồng và hồ sơ — CHƯA LÀM
 
 Tài liệu tham chiếu: 05 mục 2 và 3, 07 mục 3.4.
 
@@ -389,7 +409,7 @@ Tài liệu tham chiếu: 05 mục 2 và 3, 07 mục 3.4.
 
 **Tổng nhóm Q: 10,75 ngày**
 
-## Nhóm R - Cung ứng và giá vốn
+## Nhóm R - Cung ứng và giá vốn — CHƯA LÀM, ngoài 18 góp ý của hội đồng
 
 Tài liệu tham chiếu: 09.
 
@@ -413,7 +433,7 @@ Tài liệu tham chiếu: 09.
 
 **Tổng nhóm R: 17,25 ngày**
 
-## Nhóm S - Ghi nhận doanh thu và đối soát
+## Nhóm S - Ghi nhận doanh thu và đối soát — CHƯA LÀM, ngoài 18 góp ý của hội đồng
 
 Tài liệu tham chiếu: 10.
 
