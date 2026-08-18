@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import adminService from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
+import { TableActions } from "@/components/admin/TableActions";
+import { Pencil, Trash2 } from "lucide-react";
 import type { Category, CategoryPayload } from "@/types";
 
 const emptyForm: CategoryPayload = {
@@ -213,24 +215,30 @@ export default function CategoryManagement() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => openEditModal(item)}
-                      className="mr-3 font-semibold text-primary-600 hover:text-primary-700"
-                    >
-                      Sửa
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item)}
-                      disabled={(item.tours_count ?? 0) > 0}
-                      title={
-                        (item.tours_count ?? 0) > 0
-                          ? "Còn tour đang thuộc danh mục này"
-                          : "Xóa danh mục"
-                      }
-                      className="font-semibold text-red-600 hover:text-red-700 disabled:cursor-not-allowed disabled:text-gray-300"
-                    >
-                      Xóa
-                    </button>
+                    <TableActions
+                      id={item.id}
+                      label="Thao tác danh mục"
+                      actions={[
+                        {
+                          label: "Sửa danh mục",
+                          onClick: () => openEditModal(item),
+                          icon: <Pencil className="w-4 h-4" />,
+                        },
+                        {
+                          label: "Xóa danh mục",
+                          onClick: () => handleDelete(item),
+                          icon: <Trash2 className="w-4 h-4" />,
+                          variant: "danger",
+                          // Còn tour thuộc danh mục thì khóa, và nói luôn vì sao — trước đây
+                          // lý do chỉ nằm trong tooltip, phải rê chuột mới thấy.
+                          disabled: (item.tours_count ?? 0) > 0,
+                          hint:
+                            (item.tours_count ?? 0) > 0
+                              ? `Còn ${item.tours_count} tour đang thuộc danh mục này`
+                              : undefined,
+                        },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))

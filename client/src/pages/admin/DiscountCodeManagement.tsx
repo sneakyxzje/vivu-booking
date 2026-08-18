@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import adminService from "@/services/adminService";
+import { TableActions } from "@/components/admin/TableActions";
+import { Pencil, Trash2 } from "lucide-react";
 import type { DiscountCode, DiscountCodePayload } from "@/types/discount";
 
 const emptyForm: DiscountCodePayload = {
@@ -251,8 +253,23 @@ export default function DiscountCodeManagement() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button onClick={() => startEdit(item)} className="mr-3 font-semibold text-primary-600 hover:text-primary-700">Sửa</button>
-                  <button onClick={() => removeCode(item.id)} className="font-semibold text-red-600 hover:text-red-700">Xóa</button>
+                  <TableActions
+                    id={item.id}
+                    label="Thao tác mã giảm giá"
+                    actions={[
+                      {
+                        label: "Sửa mã giảm giá",
+                        onClick: () => startEdit(item),
+                        icon: <Pencil className="w-4 h-4" />,
+                      },
+                      {
+                        label: "Xóa mã giảm giá",
+                        onClick: () => removeCode(item.id),
+                        icon: <Trash2 className="w-4 h-4" />,
+                        variant: "danger",
+                      },
+                    ]}
+                  />
                 </td>
               </tr>
             ))}

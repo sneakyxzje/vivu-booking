@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import adminService from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
+import { TableActions } from "@/components/admin/TableActions";
+import { Pencil, Trash2 } from "lucide-react";
 import type { Service, ServicePayload } from "@/types";
 
 const emptyForm: ServicePayload = {
@@ -227,18 +229,23 @@ export default function ServiceManagement() {
                   </td>
 
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => openEditModal(item)}
-                      className="mr-3 font-semibold text-primary-600 hover:text-primary-700"
-                    >
-                      Sửa
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item.id, item.name)}
-                      className="font-semibold text-red-600 hover:text-red-700"
-                    >
-                      Xóa
-                    </button>
+                    <TableActions
+                      id={item.id}
+                      label="Thao tác dịch vụ"
+                      actions={[
+                        {
+                          label: "Sửa dịch vụ",
+                          onClick: () => openEditModal(item),
+                          icon: <Pencil className="w-4 h-4" />,
+                        },
+                        {
+                          label: "Xóa dịch vụ",
+                          onClick: () => handleDelete(item.id, item.name),
+                          icon: <Trash2 className="w-4 h-4" />,
+                          variant: "danger",
+                        },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))
