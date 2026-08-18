@@ -41,7 +41,7 @@ class AdminTourController extends Controller
     }
 
     /**
-     * K06 - Xem trước việc cất tour đi: cất được không, và những gì vẫn ở lại.
+     * K06 - Xem trước việc xóa tour: xóa được không, và những gì vẫn ở lại.
      *
      * Đọc trước khi bấm. Phần "vẫn ở lại" quan trọng ngang phần chặn: người bấm cần thấy rằng
      * đơn hàng và đánh giá của khách không mất đi đâu cả.
@@ -58,7 +58,7 @@ class AdminTourController extends Controller
     }
 
     /**
-     * Cất tour đi (xóa mềm). Hoàn tác được bằng `restore`.
+     * Xóa tour. Bên dưới là xóa mềm nên hoàn tác được bằng `restore`.
      */
     public function destroy(int $id): JsonResponse
     {
@@ -74,11 +74,11 @@ class AdminTourController extends Controller
 
         return $this->success(
             null,
-            sprintf('Đã cất "%s" đi. Đơn hàng và đánh giá cũ vẫn còn nguyên; khôi phục lại được.', $ten),
+            sprintf('Đã xóa "%s". Đơn hàng và đánh giá cũ vẫn còn nguyên; khôi phục lại được.', $ten),
         );
     }
 
-    /** Danh sách tour đã cất, để lấy lại. */
+    /** Danh sách tour đã xóa, để khôi phục. */
     public function trashed(): JsonResponse
     {
         $ds = Tour::onlyTrashed()
@@ -92,7 +92,7 @@ class AdminTourController extends Controller
                 'bookings_count' => Booking::query()->where('tour_id', $tour->id)->count(),
             ]);
 
-        return $this->success($ds, 'Lấy danh sách tour đã cất thành công');
+        return $this->success($ds, 'Lấy danh sách tour đã xóa thành công');
     }
 
     public function restore(int $id): JsonResponse

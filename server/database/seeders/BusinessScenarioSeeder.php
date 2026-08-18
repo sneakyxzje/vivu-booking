@@ -128,7 +128,7 @@ class BusinessScenarioSeeder extends Seeder
          *
          * Tour nay xóa mềm. Dọn bằng `delete()` thường thì hàng cũ vẫn nằm đó giữ nguyên `slug`,
          * và lần dựng tour tiếp theo vỡ vì trùng slug. Đây là seeder dựng lại kịch bản thử tay
-         * nên nó thật sự cần xóa hẳn, khác với việc điều hành cất một tour đi.
+         * nên nó thật sự cần xóa hẳn, khác với việc điều hành xóa một tour trên màn quản trị.
          */
         $tourCu = Tour::withTrashed()->where('slug', self::TOUR_SLUG)->first();
 

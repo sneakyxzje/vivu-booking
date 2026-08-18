@@ -84,7 +84,7 @@ export default function TourList() {
     }
   };
 
-  // --- Tour đã cất, và đường lấy lại ---
+  // --- Tour đã xóa, và đường khôi phục ---
   const [trashed, setTrashed] = useState<TrashedTour[]>([]);
   const [trashOpen, setTrashOpen] = useState(false);
 
@@ -92,7 +92,7 @@ export default function TourList() {
     try {
       setTrashed(await adminService.getTrashedTours());
     } catch (err) {
-      console.error("Lỗi tải tour đã cất:", err);
+      console.error("Lỗi tải tour đã xóa:", err);
     }
   };
 
@@ -173,8 +173,8 @@ export default function TourList() {
         </div>
         <div className="flex items-center gap-3">
           {/*
-            Chỉ hiện khi thật sự có tour đã cất. Xóa mềm mà không có đường lấy lại thì chỉ là xóa
-            cứng có thêm bước — lối vào phải nằm ngay chỗ người ta vừa cất tour đi.
+            Chỉ hiện khi thật sự có tour đã xóa. Xóa mềm mà không có đường khôi phục thì chỉ là
+            xóa cứng thêm một bước — lối vào phải nằm ngay chỗ người ta vừa xóa tour.
           */}
           {trashed.length > 0 && (
             <button
@@ -183,7 +183,7 @@ export default function TourList() {
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-canvas border border-hairline text-ink rounded-md text-button-sm hover:bg-surface-soft transition-colors cursor-pointer"
             >
               <Archive className="w-4 h-4" />
-              {trashed.length} tour đã cất
+              {trashed.length} tour đã xóa
             </button>
           )}
 
@@ -408,8 +408,8 @@ export default function TourList() {
                                   ),
                                 },
                                 {
-                                  label: "Cất tour đi",
-                                  hint: "Ẩn khỏi danh sách, giữ nguyên đơn cũ, khôi phục được",
+                                  label: "Xóa tour",
+                                  hint: "Giữ nguyên đơn cũ và khôi phục lại được",
                                   onClick: () => openDeleteDialog(tour),
                                   variant: "danger",
                                   icon: <Trash2 className="w-4 h-4" />,
@@ -487,7 +487,7 @@ export default function TourList() {
       <Modal
         isOpen={!!deletingTour}
         onClose={closeDeleteDialog}
-        title={`Cất tour đi: ${deletingTour?.title ?? ""}`}
+        title={`Xóa tour: ${deletingTour?.title ?? ""}`}
         subtitle="Tour biến mất khỏi mọi danh sách nhưng dữ liệu vẫn còn nguyên, và khôi phục lại được."
         size="lg"
         footer={
@@ -502,9 +502,9 @@ export default function TourList() {
             </button>
 
             {/*
-              Ngừng bán luôn hiện nếu tour còn đang bán, kể cả khi cất đi được. Hai việc khác
-              nhau chứ không phải phương án dự phòng của nhau: ngừng bán giữ tour trong màn quản
-              trị, cất đi thì bỏ luôn khỏi danh sách.
+              Ngừng bán luôn hiện nếu tour còn đang bán, kể cả khi xóa được. Hai việc khác nhau
+              chứ không phải phương án dự phòng của nhau: ngừng bán giữ tour trong màn quản trị,
+              xóa thì bỏ luôn khỏi danh sách.
             */}
             {deletePreview && !deletePreview.already_retired && (
               <button
@@ -526,7 +526,7 @@ export default function TourList() {
                 className="inline-flex items-center gap-2 px-4 py-2 bg-rose-600 text-white text-button-sm rounded-lg hover:bg-rose-700 disabled:opacity-40 cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
-                {deleteBusy ? "Đang xử lý..." : "Cất tour đi"}
+                {deleteBusy ? "Đang xóa..." : "Xóa tour"}
               </button>
             )}
           </>
@@ -558,7 +558,7 @@ export default function TourList() {
             {!deletePreview.already_retired && (
               <p className="text-body-sm text-muted">
                 Nếu chỉ muốn tạm dừng bán mà vẫn giữ tour trong danh sách quản trị thì chọn{" "}
-                <b>ngừng bán</b> thay vì cất đi.
+                <b>ngừng bán</b> thay vì xóa.
               </p>
             )}
           </div>
@@ -567,7 +567,7 @@ export default function TourList() {
             <div className="flex gap-3 rounded-lg bg-amber-50 px-4 py-3">
               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-body-sm text-amber-900">
-                Chưa cất tour này đi được — vẫn còn đoàn đang trông vào nó.
+                Chưa xóa tour này được — vẫn còn đoàn đang trông vào nó.
               </p>
             </div>
 
@@ -585,7 +585,7 @@ export default function TourList() {
             {deletePreview.already_retired ? (
               <p className="text-body-sm text-muted">
                 Tour này hiện <b>đã ngừng bán</b> nên không nhận khách mới. Đợi chuyến chạy xong
-                rồi cất đi.
+                rồi xóa.
               </p>
             ) : (
               <p className="text-body-sm text-muted">
@@ -597,11 +597,11 @@ export default function TourList() {
         )}
       </Modal>
 
-      {/* Tour đã cất, và nút lấy lại từng cái. */}
+      {/* Tour đã xóa, và nút khôi phục từng cái. */}
       <Modal
         isOpen={trashOpen}
         onClose={() => setTrashOpen(false)}
-        title="Tour đã cất đi"
+        title="Tour đã xóa"
         subtitle="Không hiện trên trang khách và trong danh sách quản trị. Dữ liệu vẫn còn nguyên."
         size="2xl"
         footer={
@@ -615,7 +615,7 @@ export default function TourList() {
         }
       >
         {trashed.length === 0 ? (
-          <p className="text-body-sm text-muted">Không có tour nào đang cất.</p>
+          <p className="text-body-sm text-muted">Không có tour nào đã xóa.</p>
         ) : (
           <div className="space-y-2">
             {trashed.map((item) => (
@@ -626,7 +626,7 @@ export default function TourList() {
                 <div className="min-w-0 flex-1">
                   <p className="text-title-sm text-ink">{item.title}</p>
                   <p className="text-caption-sm text-muted mt-0.5">
-                    {item.start_location} · cất lúc {formatDateTime(item.deleted_at ?? "")}
+                    {item.start_location} · xóa lúc {formatDateTime(item.deleted_at ?? "")}
                     {item.bookings_count > 0 && ` · giữ ${item.bookings_count} đơn`}
                   </p>
                 </div>

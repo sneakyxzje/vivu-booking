@@ -196,14 +196,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/users/{id}/status', [AdminUserController::class, 'toggleStatus']);
         Route::get('/tours', [AdminTourController::class, 'index']);
         Route::get('/tours/create', [AdminTourController::class, 'create']);
-        // K06 - Tour đã cất đi. Phải khai trước /tours/{id}, nếu không "trashed" bị khớp vào {id}
+        // K06 - Tour đã xóa. Phải khai trước /tours/{id}, nếu không "trashed" bị khớp vào {id}
         // và đi thẳng vào show() với id không phải số.
         Route::get('/tours/trashed', [AdminTourController::class, 'trashed']);
         Route::get('/tours/{id}', [AdminTourController::class, 'show']);
         Route::post('/tours', [AdminTourController::class, 'store']);
         Route::put('/tours/{id}', [AdminTourController::class, 'update']);
         Route::post('/tours/{id}', [AdminTourController::class, 'update']);
-        // Cất tour đi (xóa mềm) và lấy lại.
+        // Xóa tour (thực hiện bằng xóa mềm) và khôi phục.
         Route::get('/tours/{id}/delete-preview', [AdminTourController::class, 'deletePreview']);
         Route::delete('/tours/{id}', [AdminTourController::class, 'destroy']);
         Route::put('/tours/{id}/restore', [AdminTourController::class, 'restore']);

@@ -13,7 +13,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Xóa tour — luôn là xóa mềm, và chặn khi đoàn còn đang đi.
+ * Xóa tour — thực hiện bằng xóa mềm, và chặn khi đoàn còn đang đi.
  *
  * ## Vì sao xóa mềm chứ không xóa cứng
  *
@@ -21,9 +21,9 @@ use Illuminate\Support\Facades\DB;
  * chính của khách - hành khách, sổ giao dịch, nhật ký thanh toán. Với một hệ thống có dòng tiền
  * thì đó là thứ không được phép mất, kể cả khi người bấm thật sự muốn.
  *
- * Nên "xóa" ở đây nghĩa là **cất đi**: tour biến mất khỏi mọi danh sách của khách lẫn của điều
- * hành, không đặt được nữa, nhưng hàng dữ liệu còn nguyên và đơn cũ vẫn tra ra được tên tour.
- * Bấm nhầm thì khôi phục lại được.
+ * Với người dùng thì đây vẫn là **xóa**: tour biến mất khỏi mọi danh sách của khách lẫn của điều
+ * hành và không đặt được nữa. Khác biệt nằm ở dưới - hàng dữ liệu còn nguyên, đơn cũ vẫn tra ra
+ * được tên tour, và xóa nhầm thì khôi phục lại được.
  *
  * Cơ sở dữ liệu cũng đã được đổi để không cho xóa cứng nữa: ba khóa ngoại mang chứng từ chuyển
  * từ `cascade` sang `restrict` ở migration `2026_08_17_000011`. Lớp này là hàng rào thứ nhất,
@@ -32,16 +32,16 @@ use Illuminate\Support\Facades\DB;
  *
  * ## Điều kiện chặn duy nhất
  *
- * **Đoàn đang trên đường thì không cất tour đi được.** Chuyến đã chốt hoặc đang khởi hành nghĩa
- * là có khách đã trả tiền và đang đi; điều hành cần thấy tour ấy để điểm danh, xử lý sự cố, bàn
- * giao hướng dẫn viên. Cất nó khỏi danh sách giữa chừng là lấy mất công cụ vận hành.
+ * **Đoàn đang trên đường thì chưa xóa tour được.** Chuyến đã chốt hoặc đang khởi hành nghĩa là
+ * có khách đã trả tiền và đang đi; điều hành cần thấy tour ấy để điểm danh, xử lý sự cố, bàn
+ * giao hướng dẫn viên. Bỏ nó khỏi danh sách giữa chừng là lấy mất công cụ vận hành.
  *
- * Ngoài ra không chặn gì. Tour có bao nhiêu đơn cũ cũng cất đi được, vì cất không làm mất gì.
+ * Ngoài ra không chặn gì. Tour có bao nhiêu đơn cũ cũng xóa được, vì xóa không làm mất gì.
  *
- * ## Cất đi khác ngừng bán
+ * ## Xóa khác ngừng bán
  *
  * **Ngừng bán** giữ tour trong màn quản trị, chỉ thôi nhận khách mới - dùng khi tour tạm dừng
- * theo mùa hoặc chờ cập nhật giá. **Cất đi** thì biến mất khỏi cả màn quản trị - dùng khi tour
+ * theo mùa hoặc chờ cập nhật giá. **Xóa** thì biến mất khỏi cả màn quản trị - dùng khi tour
  * không còn bán nữa và không muốn nó chiếm chỗ trong danh sách.
  */
 class TourDeletionService
@@ -53,7 +53,7 @@ class TourDeletionService
     ];
 
     /**
-     * Lý do chưa cất tour đi được, hoặc mảng rỗng nếu cất được.
+     * Lý do chưa xóa tour được, hoặc mảng rỗng nếu xóa được.
      *
      * @return array<int, array{key: string, count: int, message: string}>
      */
@@ -74,14 +74,14 @@ class TourDeletionService
             'message' => sprintf(
                 '%d chuyến đã chốt hoặc đang khởi hành. Khách đã trả tiền và đang trông vào '
                 . 'chuyến đó, còn điều hành vẫn cần tour này để điểm danh, xử lý sự cố và bàn '
-                . 'giao hướng dẫn viên. Đợi chuyến kết thúc rồi hãy cất tour đi.',
+                . 'giao hướng dẫn viên. Đợi chuyến kết thúc rồi hãy xóa tour.',
                 $soChuyenDangChay,
             ),
         ]];
     }
 
     /**
-     * Xem trước: cất đi được không, và những gì vẫn ở lại.
+     * Xem trước: xóa được không, và những gì vẫn ở lại.
      *
      * Phần "vẫn ở lại" quan trọng ngang phần chặn - người bấm cần biết mình không làm mất gì.
      *
@@ -94,7 +94,7 @@ class TourDeletionService
             'tour_title' => $tour->title,
             'can_delete' => $this->blockers($tour) === [],
             'blockers' => $this->blockers($tour),
-            // Những thứ KHÔNG mất đi. Cất tour không đụng tới bất cứ dòng nào ở đây.
+            // Những thứ KHÔNG mất đi. Xóa tour không đụng tới bất cứ dòng nào ở đây.
             'preserved' => [
                 'bookings' => Booking::query()->where('tour_id', $tour->getKey())->count(),
                 'reviews' => Review::query()->where('tour_id', $tour->getKey())->count(),
@@ -106,7 +106,7 @@ class TourDeletionService
     }
 
     /**
-     * Cất tour đi. Hoàn tác được bằng `restore()`.
+     * Xóa tour. Bên dưới là xóa mềm nên hoàn tác được bằng `restore()`.
      */
     public function delete(Tour $tour): void
     {
@@ -116,7 +116,7 @@ class TourDeletionService
             $tuoi = Tour::query()->whereKey($tour->getKey())->lockForUpdate()->first();
 
             if (! $tuoi) {
-                throw new BusinessRuleException('Tour này đã được cất đi trước đó.');
+                throw new BusinessRuleException('Tour này đã bị xóa trước đó.');
             }
 
             $canTro = $this->blockers($tuoi);
@@ -129,7 +129,7 @@ class TourDeletionService
         });
     }
 
-    /** Lấy lại tour đã cất. */
+    /** Khôi phục tour đã xóa. */
     public function restore(int $tourId): Tour
     {
         $tour = Tour::withTrashed()->find($tourId);
@@ -148,7 +148,7 @@ class TourDeletionService
     }
 
     /**
-     * Ngừng bán — nhẹ hơn cất đi: tour vẫn nằm trong màn quản trị, chỉ thôi nhận khách mới.
+     * Ngừng bán — nhẹ hơn xóa: tour vẫn nằm trong màn quản trị, chỉ thôi nhận khách mới.
      *
      * Không đụng tới chuyến đã chốt: khách đã mua thì chuyến vẫn phải chạy đúng cam kết.
      */

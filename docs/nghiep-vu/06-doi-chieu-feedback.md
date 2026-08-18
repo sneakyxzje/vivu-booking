@@ -47,8 +47,9 @@ hành khách, sổ giao dịch, nhật ký thay đổi, nhật ký cổng thanh 
 
 Đã sửa ở hai tầng, cố ý chồng lên nhau:
 
-**1. Tour xóa mềm.** "Xóa" nay là **cất đi**: đặt `deleted_at`, tour biến mất khỏi trang khách và
-khỏi màn quản trị, nhưng hàng dữ liệu còn nguyên và khôi phục lại được. Bốn quan hệ trỏ tới `Tour`
+**1. Tour xóa mềm.** Với người dùng vẫn là **xóa** — tour biến mất khỏi trang khách và khỏi màn
+quản trị. Khác biệt nằm ở dưới: chỉ đặt `deleted_at`, hàng dữ liệu còn nguyên và khôi phục lại
+được. Bốn quan hệ trỏ tới `Tour`
 (`Booking`, `TourSchedule`, `Review`, `GroupBookingRequest`) đều khai `withTrashed`, nên **đơn cũ
 vẫn tra ra được tên tour** — thiếu chi tiết này thì chứng từ tuy còn nhưng mất thông tin.
 
@@ -59,22 +60,22 @@ từ không nên phụ thuộc vào việc mọi người sau này đều nhớ 
 Giữ nguyên cascade ở `tour_images`, `tour_itineraries`, `category_tour`, `tour_service`,
 `tour_schedules`: đó là **thành phần cấu tạo nên tour**, không phải chứng từ giao dịch.
 
-Điều kiện chặn còn lại chỉ có một: **đoàn đang trên đường thì chưa cất tour đi được.** Chuyến đã
+Điều kiện chặn còn lại chỉ có một: **đoàn đang trên đường thì chưa xóa tour được.** Chuyến đã
 chốt hoặc đang khởi hành nghĩa là có khách đã trả tiền và đang đi, còn điều hành vẫn cần tour để
 điểm danh, xử lý sự cố, bàn giao hướng dẫn viên.
 
 Ba chi tiết nên nói nếu bị hỏi kỹ:
 
-- **Cất đi khác ngừng bán.** Ngừng bán giữ tour trong màn quản trị, chỉ thôi nhận khách mới — dùng
-  khi tạm dừng theo mùa. Cất đi thì bỏ khỏi cả danh sách quản trị. Hộp thoại đưa cả hai nút cùng
-  lúc chứ không coi cái này là phương án dự phòng của cái kia.
+- **Xóa khác ngừng bán.** Ngừng bán giữ tour trong màn quản trị, chỉ thôi nhận khách mới — dùng
+  khi tạm dừng theo mùa. Xóa thì bỏ khỏi cả danh sách quản trị. Hộp thoại đưa cả hai nút cùng lúc
+  chứ không coi cái này là phương án dự phòng của cái kia.
 - **Xóa mềm phải có đường lấy lại**, nếu không nó chỉ là xóa cứng thêm một bước. Danh sách tour đã
-  cất nằm ngay trên đầu màn quản lý tour, kèm nút khôi phục từng cái.
+  xóa nằm ngay trên đầu màn quản lý tour, kèm nút khôi phục từng cái.
 - **Trên SQLite phần đổi khóa ngoại không chạy** — SQLite không sửa được khóa ngoại bằng
   `ALTER TABLE`. Máy chạy thật dùng MySQL nên có đủ hai tầng; máy phát triển chỉ có tầng ứng dụng,
   và bộ kiểm thử chứng minh hành vi của ứng dụng giống nhau ở cả hai.
 
-Bài kiểm thử quan trọng nhất không phải "có chặn không" mà là: cất tour đi rồi **đọc lại đơn cũ và
+Bài kiểm thử quan trọng nhất không phải "có chặn không" mà là: xóa tour rồi **đọc lại đơn cũ và
 kiểm tra nó vẫn ra đúng tên tour**. Mất `withTrashed` ở một quan hệ là bài đó đỏ ngay.
 
 ### Vì sao điểm 8 không có nút mở lại chỗ

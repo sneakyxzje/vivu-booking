@@ -116,9 +116,9 @@ Ba vai trò: **khách hàng**, **hướng dẫn viên**, **điều hành kiêm q
 - **Hủy cả chuyến — ba bước bắt buộc**: xem tác động (số đơn, số khách, tổng đã thu) → gán phương
   án cho **từng đơn đã thanh toán** (hoàn đủ hoặc chuyển miễn phí) → mới được xác nhận. Còn đơn
   chưa có phương án thì bị chặn kèm số lượng cụ thể.
-- **Cất tour đi** (xóa mềm): tour biến mất khỏi trang khách và màn quản trị, **đơn hàng và đánh
-  giá giữ nguyên**, khôi phục lại được. Chặn khi còn chuyến đã chốt hoặc đang khởi hành. Khác với
-  **ngừng bán** — cái đó giữ tour trong màn quản trị, chỉ thôi nhận khách mới.
+- **Xóa tour**, thực hiện bằng xóa mềm: tour biến mất khỏi trang khách và màn quản trị, **đơn hàng
+  và đánh giá giữ nguyên**, khôi phục lại được. Chặn khi còn chuyến đã chốt hoặc đang khởi hành.
+  Khác với **ngừng bán** — cái đó giữ tour trong màn quản trị, chỉ thôi nhận khách mới.
 
 ### Tiền
 

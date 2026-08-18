@@ -19,15 +19,15 @@ use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * Cất tour đi — K06, và câu trả lời cho góp ý số 15 của hội đồng.
+ * Xóa tour — K06, và câu trả lời cho góp ý số 15 của hội đồng.
  *
- * Xóa tour là **xóa mềm**, vì đơn hàng, đánh giá và yêu cầu đoàn đều trỏ tới tour. Điều bộ test
- * này giữ, và đây là phần dễ hỏng nhất khi sửa về sau:
+ * Với người dùng đây là **xóa**; bên dưới thực hiện bằng **xóa mềm**, vì đơn hàng, đánh giá và
+ * yêu cầu đoàn đều trỏ tới tour. Điều bộ test này giữ, và đây là phần dễ hỏng nhất khi sửa về sau:
  *
- *   1. **Cất tour đi không làm mất chứng từ nào.** Đơn còn nguyên, và vẫn đọc ra được tên tour.
+ *   1. **Xóa tour không làm mất chứng từ nào.** Đơn còn nguyên, và vẫn đọc ra được tên tour.
  *      Vế thứ hai quan trọng ngang vế thứ nhất: thiếu `withTrashed` ở quan hệ thì đơn cũ vẫn tồn
  *      tại nhưng hiện ra với tên tour trống - hỏng đúng thứ việc xóa mềm sinh ra để tránh.
- *   2. **Đoàn đang trên đường thì không cất được.** Điều hành còn cần tour để điểm danh và bàn
+ *   2. **Đoàn đang trên đường thì chưa xóa được.** Điều hành còn cần tour để điểm danh và bàn
  *      giao hướng dẫn viên.
  */
 class TourDeletionTest extends TestCase
@@ -100,12 +100,12 @@ class TourDeletionTest extends TestCase
     // --- Chứng từ phải sống sót ----------------------------------------------------------------
 
     /**
-     * Bài quan trọng nhất của cả tệp: cất tour đi rồi mà đơn vẫn còn, **và vẫn đọc ra tên tour**.
+     * Bài quan trọng nhất của cả tệp: xóa tour rồi mà đơn vẫn còn, **và vẫn đọc ra tên tour**.
      *
      * Nếu quan hệ `Booking::tour()` mất `withTrashed`, hàng đơn vẫn còn nhưng tên tour thành
      * rỗng trên mọi màn hình và mọi chứng từ. Bài này đỏ ngay lúc đó.
      */
-    public function test_cat_tour_di_khong_lam_mat_don_va_don_van_doc_ra_ten_tour(): void
+    public function test_xoa_tour_khong_lam_mat_don_va_don_van_doc_ra_ten_tour(): void
     {
         $tour = $this->taoTour();
         $chuyen = $this->taoChuyen($tour);
@@ -149,8 +149,8 @@ class TourDeletionTest extends TestCase
         $this->assertSame($tour->title, Review::query()->find($danhGia->id)->tour?->title);
     }
 
-    /** Tour có bao nhiêu đơn cũ cũng cất đi được — cất không làm mất gì nên không cần chặn. */
-    public function test_don_cu_khong_chan_viec_cat_di(): void
+    /** Tour có bao nhiêu đơn cũ cũng xóa được — xóa không làm mất gì nên không cần chặn. */
+    public function test_don_cu_khong_chan_viec_xoa(): void
     {
         $tour = $this->taoTour();
         $chuyen = $this->taoChuyen($tour);
@@ -165,7 +165,7 @@ class TourDeletionTest extends TestCase
 
     // --- Đoàn đang đi thì chặn -----------------------------------------------------------------
 
-    public function test_chuyen_dang_khoi_hanh_thi_khong_cat_duoc(): void
+    public function test_chuyen_dang_khoi_hanh_thi_chua_xoa_duoc(): void
     {
         $tour = $this->taoTour();
         $this->taoChuyen($tour, ScheduleStatus::InProgress);
@@ -176,7 +176,7 @@ class TourDeletionTest extends TestCase
         } catch (BusinessRuleException $e) {
             $this->assertStringContainsString('đang khởi hành', $e->getMessage());
             // Câu từ chối phải nói khi nào làm được, không chỉ nói không.
-            $this->assertStringContainsString('Đợi chuyến kết thúc', $e->getMessage());
+            $this->assertStringContainsString('Đợi chuyến kết thúc rồi hãy xóa tour', $e->getMessage());
         }
 
         $this->assertNotNull(Tour::query()->find($tour->id));
@@ -190,7 +190,7 @@ class TourDeletionTest extends TestCase
         $this->assertFalse($this->service->preview($tour)['can_delete']);
     }
 
-    /** Chuyến đã kết thúc hoặc đã hủy thì không còn ai trông vào, cất được. */
+    /** Chuyến đã kết thúc hoặc đã hủy thì không còn ai trông vào, xóa được. */
     public function test_chuyen_da_ket_thuc_khong_chan(): void
     {
         $tour = $this->taoTour();
@@ -202,7 +202,7 @@ class TourDeletionTest extends TestCase
 
     // --- Lấy lại ------------------------------------------------------------------------------
 
-    public function test_khoi_phuc_tour_da_cat(): void
+    public function test_khoi_phuc_tour_da_xoa(): void
     {
         $tour = $this->taoTour();
         $this->service->delete($tour);
@@ -221,7 +221,7 @@ class TourDeletionTest extends TestCase
         $this->service->restore($tour->id);
     }
 
-    // --- Ngừng bán khác cất đi -----------------------------------------------------------------
+    // --- Ngừng bán khác xóa --------------------------------------------------------------------
 
     public function test_ngung_ban_giu_tour_trong_man_quan_tri(): void
     {
@@ -230,7 +230,7 @@ class TourDeletionTest extends TestCase
 
         $this->service->retire($tour);
 
-        // Khác với cất đi: tour vẫn tra được bằng truy vấn thường.
+        // Khác với xóa: tour vẫn tra được bằng truy vấn thường.
         $this->assertNotNull(Tour::query()->find($tour->id));
         $this->assertSame('inactive', $tour->fresh()->status);
         $this->assertSame(
@@ -269,7 +269,7 @@ class TourDeletionTest extends TestCase
         $this->assertSame(1, $xemTruoc['preserved']['schedules']);
     }
 
-    public function test_cat_va_lay_lai_qua_api(): void
+    public function test_xoa_va_khoi_phuc_qua_api(): void
     {
         $tour = $this->taoTour();
         Sanctum::actingAs($this->taoAdmin());
@@ -287,8 +287,8 @@ class TourDeletionTest extends TestCase
         $this->assertCount(0, $this->getJson('/api/admin/tours/trashed')->json('data'));
     }
 
-    /** Tour đã cất phải biến mất khỏi danh sách của khách. */
-    public function test_tour_da_cat_khong_con_tren_trang_khach(): void
+    /** Tour đã xóa phải biến mất khỏi danh sách của khách. */
+    public function test_tour_da_xoa_khong_con_tren_trang_khach(): void
     {
         $tour = $this->taoTour();
         $this->service->delete($tour);

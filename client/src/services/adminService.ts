@@ -4,9 +4,9 @@ import type { Booking, BookingLedger, GroupBookingRequestRow, Guide, GuideDeclin
 import { buildTourPayload } from "@/services/guideService";
 
 /**
- * Kết quả xem trước việc cất tour đi.
+ * Kết quả xem trước việc xóa tour.
  *
- * Xóa tour là **xóa mềm**: tour biến mất khỏi mọi danh sách nhưng đơn hàng, đánh giá và chuyến
+ * Bên dưới là **xóa mềm**: tour biến mất khỏi mọi danh sách nhưng đơn hàng, đánh giá và chuyến
  * vẫn còn nguyên, và khôi phục lại được. `preserved` là danh sách những thứ **không** mất —
  * quan trọng ngang phần chặn, vì người bấm cần biết mình không phá gì.
  */
@@ -24,7 +24,7 @@ export interface TourDeletePreview {
   already_retired: boolean;
 }
 
-/** Một tour đã cất đi, chờ lấy lại. */
+/** Một tour đã xóa, chờ khôi phục. */
 export interface TrashedTour {
   id: number;
   title: string;
@@ -634,16 +634,16 @@ const adminService = {
     return { success: response.data?.success !== false };
   },
 
-  /** K06 — cất tour đi được chưa, và những gì vẫn ở lại sau khi cất. */
+  /** K06 — xóa tour được chưa, và những gì vẫn ở lại sau khi xóa. */
   getTourDeletePreview: async (id: number): Promise<TourDeletePreview | null> => {
     const response = await api.get(`/admin/tours/${id}/delete-preview`);
     return extractObject<TourDeletePreview>(response);
   },
 
-  /** Cất tour đi — xóa mềm, khôi phục lại được. */
+  /** Xóa tour — bên dưới là xóa mềm nên khôi phục lại được. */
   deleteTour: async (id: number) => {
     const response = await api.delete(`/admin/tours/${id}`);
-    return response.data?.message ?? "Đã cất tour đi.";
+    return response.data?.message ?? "Đã xóa tour.";
   },
 
   getTrashedTours: async (): Promise<TrashedTour[]> => {
