@@ -21,10 +21,10 @@ Tài liệu này nhìn theo **người dùng làm được gì**.
 | Lớp dịch vụ (`app/Services`) | 24 |
 | Enum trạng thái | 16 |
 | Controller API | 35 |
-| Điểm cuối API | 115 |
+| Điểm cuối API | 113 |
 | Lệnh chạy nền | 7 |
-| Màn hình giao diện | 38 |
-| **Kiểm thử tự động** | **488 bài, xanh** |
+| Màn hình giao diện | 37 |
+| **Kiểm thử tự động** | **483 bài, xanh** |
 
 Ba vai trò: **khách hàng**, **hướng dẫn viên**, **điều hành kiêm quản trị**.
 
