@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\BookingAuditAction;
 use App\Enums\BookingStatus;
 use App\Enums\CostBearer;
 use App\Enums\IncidentSeverity;
@@ -11,6 +12,7 @@ use App\Enums\SurchargeKind;
 use App\Enums\SurchargeStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Booking;
+use App\Models\BookingPayment;
 use App\Models\BookingSurcharge;
 use App\Models\ScheduleIncident;
 use App\Models\TourSchedule;
@@ -49,6 +51,7 @@ class IncidentService
 
     public function __construct(
         private readonly ScheduleLifecycleService $lifecycle,
+        private readonly BookingAuditLogger $auditLogger,
     ) {
     }
 
@@ -100,8 +103,12 @@ class IncidentService
      * Các khoản tiền được tạo cùng lúc với phương án chứ không tách rời: một phương án không nói
      * rõ ai trả bao nhiêu thì chưa phải phương án.
      *
+     * `who_bears` trên phương án chỉ là **mặc định gợi ý**. Người chịu thật nằm trên từng khoản,
+     * vì một cơn bão sinh ra cả khoản hãng chịu lẫn khoản khách chịu - xem migration
+     * 2026_08_23_000001 và khối chú thích của CostBearer.
+     *
      * @param  array{resolution: string, cost_delta?: float|null, who_bears?: string|null}  $phuongAn
-     * @param  array<int, array{booking_id: int, kind: string, amount: float, reason: string}>  $khoanTien
+     * @param  array<int, array{booking_id: int, kind: string, amount: float, reason: string, who_bears?: string|null}>  $khoanTien
      */
     public function resolve(
         ScheduleIncident $incident,
@@ -141,6 +148,12 @@ class IncidentService
                     'booking_id' => (int) $khoan['booking_id'],
                     'schedule_incident_id' => $khoa->getKey(),
                     'kind' => SurchargeKind::from($khoan['kind']),
+                    // Dòng nào không nói rõ thì lấy mặc định của phương án. Không ép phải điền:
+                    // gợi ý đúng cho phần lớn khoản, và bắt gõ lại cùng một giá trị năm lần là
+                    // cách chắc chắn để người ta bấm bừa cho xong.
+                    'who_bears' => isset($khoan['who_bears'])
+                        ? CostBearer::from($khoan['who_bears'])
+                        : $bearer,
                     'amount' => round((float) $khoan['amount'], 2),
                     'reason' => trim($khoan['reason']),
                     // Tạo ra ở trạng thái chờ duyệt, kể cả khi chính điều hành vừa nhập: duyệt là
@@ -201,12 +214,116 @@ class IncidentService
             throw new BusinessRuleException('Chỉ khoản khách phải trả mới cần khách xác nhận.');
         }
 
+        if ($surcharge->status === SurchargeStatus::Waived) {
+            throw new BusinessRuleException('Khoản đã miễn thì không cần khách xác nhận nữa.');
+        }
+
         $surcharge->forceFill([
             'customer_consent_at' => now(),
             'consent_note' => $ghiChu ? trim($ghiChu) : null,
         ])->save();
 
         return $surcharge->fresh();
+    }
+
+    /**
+     * Tất toán một khoản: ghi tiền vào sổ giao dịch và đóng khoản lại.
+     *
+     * Đây là bước còn thiếu của cả nhóm O. Trước đây khoản duyệt xong thì nằm mãi ở "đã duyệt" -
+     * `SurchargeStatus::Paid` có khai báo nhưng không dòng mã nào đặt giá trị ấy, và sổ giao dịch
+     * không hề biết đến số tiền này. Tức là hệ thống lập một khoản phải trả rồi bỏ đó.
+     *
+     * Đi cả hai chiều, vì tiền của sự cố đi cả hai chiều:
+     *
+     *   - `SurchargeKind::Surcharge` - khách trả thêm, ghi một dòng thu.
+     *   - `SurchargeKind::Refund`    - hãng trả lại khách, ghi một dòng chi.
+     *
+     * Dùng loại bút toán riêng chứ không mượn `balance`/`refund` của giá tour: xem khối chú thích
+     * ở đầu `BookingPayment`.
+     *
+     * Thu tiền mặt dọc đường là chuyện bình thường - hướng dẫn viên hoặc điều hành thu rồi ghi
+     * lại. Nên đây là thao tác **ghi nhận**, không phải một cổng thanh toán.
+     */
+    public function settleSurcharge(
+        BookingSurcharge $surcharge,
+        User $actor,
+        ?string $method = null,
+        ?string $reference = null,
+        ?string $note = null,
+    ): BookingSurcharge {
+        return DB::transaction(function () use ($surcharge, $actor, $method, $reference, $note) {
+            /*
+             * Khóa rồi đọc lại rồi mới kiểm. Hai người cùng bấm "đã thu" trên hai máy thì người
+             * sau phải thấy trạng thái đã đổi và bị từ chối - nếu chỉ kiểm trên bản đọc trước khi
+             * khóa thì cả hai cùng qua và sổ có hai dòng thu cho một lần thu.
+             */
+            $khoa = BookingSurcharge::query()
+                ->whereKey($surcharge->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if (!$khoa) {
+                throw new BusinessRuleException('Không tìm thấy khoản này.', 404);
+            }
+
+            if ($khoa->status === SurchargeStatus::Paid) {
+                throw new BusinessRuleException('Khoản này đã tất toán rồi.');
+            }
+
+            if ($khoa->status !== SurchargeStatus::Approved) {
+                throw new BusinessRuleException(sprintf(
+                    'Khoản đang ở trạng thái "%s". Phải duyệt trước khi thu hoặc hoàn.',
+                    $khoa->status->label(),
+                ));
+            }
+
+            /*
+             * Khách phải biết mình đang trả cái gì trước khi trả. Đây không phải thủ tục giấy tờ:
+             * người ở hiện trường đang mệt và đang bực, và một khoản thu không ai giải thích là
+             * thứ sinh ra khiếu nại. Khoản hoàn thì không cần - không ai phản đối việc được trả
+             * lại tiền.
+             */
+            if ($khoa->kind === SurchargeKind::Surcharge && $khoa->customer_consent_at === null) {
+                throw new BusinessRuleException(
+                    'Chưa ghi nhận khách đồng ý với khoản này. Phải nói với khách và ghi lại '
+                        . 'trước khi thu tiền.',
+                );
+            }
+
+            $payment = BookingPayment::query()->create([
+                'booking_id' => $khoa->booking_id,
+                'booking_surcharge_id' => $khoa->getKey(),
+                'kind' => $khoa->kind === SurchargeKind::Surcharge
+                    ? BookingPayment::PHU_THU
+                    : BookingPayment::PHU_THU_HOAN,
+                'amount' => round((float) $khoa->amount, 2),
+                'method' => $method,
+                'reference' => $reference,
+                // Sổ phải tự đọc được mà không cần mở bảng khác: diễn giải của khoản đi theo dòng.
+                'note' => $note !== null && trim($note) !== ''
+                    ? trim($note)
+                    : $khoa->reason,
+                'paid_at' => now(),
+                'recorded_by' => $actor->getKey(),
+            ]);
+
+            $khoa->forceFill(['status' => SurchargeStatus::Paid])->save();
+
+            $this->auditLogger->log(
+                $khoa->booking,
+                BookingAuditAction::PaymentRecorded,
+                null,
+                [
+                    'surcharge_id' => $khoa->getKey(),
+                    'kind' => $payment->kind,
+                    'amount' => round((float) $khoa->amount),
+                    'method' => $method,
+                ],
+                $khoa->reason,
+            );
+
+            return $khoa->fresh(['booking']);
+        });
     }
 
     /**
@@ -278,16 +395,28 @@ class IncidentService
                 );
             }
 
-            // Đã xác định hãng chịu mà vẫn lập khoản thu của khách là mâu thuẫn với chính phương
-            // án vừa ghi, và đó là loại mâu thuẫn không ai phát hiện ra cho tới lúc khách khiếu nại.
+            /*
+             * Ghi "hãng chịu" mà vẫn thu tiền khách là mâu thuẫn ngay trong một dòng, và là loại
+             * mâu thuẫn không ai phát hiện cho tới lúc khách khiếu nại.
+             *
+             * Kiểm theo người chịu CỦA DÒNG NÀY, lùi về mặc định của phương án khi dòng để trống.
+             * Trước đây chỉ có một giá trị cho cả sự cố nên phép kiểm này chặt tay: đặt "hãng
+             * chịu" cho cơn bão là không lập nổi khoản khách trả cho đêm phòng ở thêm, dù đêm
+             * phòng ấy đúng là khách chịu.
+             */
+            $cuaDong = isset($khoan['who_bears'])
+                ? CostBearer::from($khoan['who_bears'])
+                : $bearer;
+
             if (
                 ($khoan['kind'] ?? null) === SurchargeKind::Surcharge->value
-                && $bearer !== null
-                && !$bearer->khachPhaiTra()
+                && $cuaDong !== null
+                && !$cuaDong->khachPhaiTra()
             ) {
                 throw new BusinessRuleException(sprintf(
-                    'Phương án ghi "%s" nên không lập được khoản thu thêm của khách.',
-                    $bearer->label(),
+                    'Khoản "%s" ghi người chịu là "%s" nên không lập được khoản thu thêm của khách.',
+                    trim((string) ($khoan['reason'] ?? '')),
+                    $cuaDong->label(),
                 ));
             }
         }
