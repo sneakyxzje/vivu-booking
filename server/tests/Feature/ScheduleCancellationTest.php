@@ -6,14 +6,18 @@ use App\Enums\BookingAuditAction;
 use App\Enums\ScheduleAuditAction;
 use App\Enums\ScheduleStatus;
 use App\Enums\TourType;
+use App\Mail\BookingCancelledMail;
+use App\Mail\BookingConfirmedMail;
 use App\Models\Booking;
 use App\Models\BookingAuditLog;
+use App\Models\BookingPayment;
 use App\Models\ScheduleAuditLog;
 use App\Models\Tour;
 use App\Models\TourSchedule;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -338,5 +342,139 @@ class ScheduleCancellationTest extends TestCase
         $this->assertSame(1, $log->new_values['refunded_bookings']);
         $this->assertSame(4_000_000.0, (float) $log->new_values['refund_total']);
         $this->assertStringContainsString('khong con phong', $log->reason);
+    }
+
+    // --- Báo cho khách ---------------------------------------------------------------------
+
+    /**
+     * Lỗ hở lâu nhất của nhóm này: hủy chuyến, hoàn đủ tiền, ghi nhật ký đầy đủ - rồi không nói
+     * với ai. Khách vẫn tưởng mai đi.
+     */
+    public function test_huy_chuyen_thi_moi_khach_deu_nhan_duoc_thu(): void
+    {
+        Mail::fake();
+
+        $daTra = $this->taoDon($this->chuyen);
+        $chuaTra = $this->taoDon($this->chuyen, 'pending');
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/cancel', [
+            'reason' => 'Khong du khach toi thieu nen huy chuyen.',
+            'plans' => [
+                ['booking_id' => $daTra->id, 'action' => 'refund'],
+            ],
+        ])->assertOk();
+
+        Mail::assertSent(BookingCancelledMail::class, 2);
+
+        Mail::assertSent(
+            BookingCancelledMail::class,
+            fn (BookingCancelledMail $thu) => $thu->booking->id === $daTra->id,
+        );
+
+        Mail::assertSent(
+            BookingCancelledMail::class,
+            fn (BookingCancelledMail $thu) => $thu->booking->id === $chuaTra->id,
+        );
+    }
+
+    /** Đơn chuyển chuyến KHÔNG bị hủy, nên gửi thư hủy cho họ là nói sai. */
+    public function test_don_chuyen_chuyen_nhan_thu_xac_nhan_chu_khong_phai_thu_huy(): void
+    {
+        Mail::fake();
+
+        $dich = $this->taoChuyen(now()->addDays(20));
+        $don = $this->taoDon($this->chuyen);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/cancel', [
+            'reason' => 'Khong du khach toi thieu nen huy chuyen.',
+            'plans' => [
+                ['booking_id' => $don->id, 'action' => 'transfer', 'to_schedule_id' => $dich->id],
+            ],
+        ])->assertOk();
+
+        Mail::assertNotSent(BookingCancelledMail::class);
+        Mail::assertSent(BookingConfirmedMail::class, 1);
+    }
+
+    /** Số tiền hoàn phải nằm trên chính đơn, để thư và kế toán đọc được mà không mở bảng khác. */
+    public function test_so_tien_hoan_duoc_ghi_len_don(): void
+    {
+        $don = $this->taoDon($this->chuyen);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/cancel', [
+            'reason' => 'Khong du khach toi thieu nen huy chuyen.',
+            'plans' => [['booking_id' => $don->id, 'action' => 'refund']],
+        ])->assertOk();
+
+        $this->assertSame(4_000_000.0, (float) $don->fresh()->refund_amount);
+    }
+
+    // --- Tiền hoàn phải vào sổ giao dịch ---------------------------------------------------
+
+    /**
+     * `BookingPayment` mở đầu bằng "số đã thu là TỔNG của sổ chứ không phải một cột bị ghi đè".
+     * Hoàn tiền mà không có dòng trong sổ thì câu ấy không còn đúng: đơn đoàn đã cọc bị hủy chuyến
+     * vẫn hiện đủ tiền cọc, và số đã thu thực trả về một con số không còn ai giữ.
+     */
+    public function test_don_co_so_giao_dich_thi_khoan_hoan_vao_so(): void
+    {
+        $don = $this->taoDon($this->chuyen);
+
+        // Đơn dùng sổ: một dòng cọc như đơn đoàn vẫn ghi.
+        BookingPayment::create([
+            'booking_id' => $don->id,
+            'kind' => 'deposit',
+            'amount' => 4_000_000,
+            'paid_at' => now()->subDay(),
+        ]);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/cancel', [
+            'reason' => 'Khong du khach toi thieu nen huy chuyen.',
+            'plans' => [['booking_id' => $don->id, 'action' => 'refund']],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('booking_payments', [
+            'booking_id' => $don->id,
+            'kind' => BookingPayment::HOAN,
+            'amount' => 4_000_000,
+        ]);
+
+        $thu = (float) $don->payments()->whereIn('kind', BookingPayment::THU)->sum('amount');
+        $hoan = (float) $don->payments()->where('kind', BookingPayment::HOAN)->sum('amount');
+
+        $this->assertSame(0.0, $thu - $hoan, 'Hoàn đủ thì sổ phải về 0, không còn giữ đồng nào.');
+    }
+
+    /**
+     * Đơn lẻ KHÔNG dùng sổ thì đừng nhét một dòng hoàn vào sổ trống.
+     *
+     * `paidAmount()` phân nhánh theo "sổ có dòng chưa". Một dòng hoàn đứng lẻ làm nó rơi vào
+     * nhánh sổ, cộng các loại thu ra 0, trừ đi khoản hoàn và trả về số ÂM - đúng cái bẫy vừa gặp
+     * ở phụ thu sự cố, chỉ đổi chiều.
+     */
+    public function test_don_le_khong_dung_so_thi_khong_sinh_dong_hoan_le_loi(): void
+    {
+        $don = $this->taoDon($this->chuyen);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/cancel', [
+            'reason' => 'Khong du khach toi thieu nen huy chuyen.',
+            'plans' => [['booking_id' => $don->id, 'action' => 'refund']],
+        ])->assertOk();
+
+        $this->assertSame(
+            0,
+            $don->payments()->count(),
+            'Đơn trả một lần qua cổng thì tiền của nó ghi bằng paid_at, không phải bằng sổ.',
+        );
     }
 }
