@@ -119,7 +119,7 @@ class ContractTest extends TestCase
 
         $this->postJson('/api/admin/bookings/' . $don->id . '/contract')
             ->assertOk()
-            ->assertJsonPath('data.contract_number', 'HD-' . now()->year . '-0001')
+            ->assertJsonPath('data.contract_number', 'HD-' . now()->year . '-00001')
             ->assertJsonPath('data.booking_id', $don->id);
 
         $this->assertDatabaseHas('booking_contracts', [
@@ -160,8 +160,9 @@ class ContractTest extends TestCase
 
         $nam = now()->year;
 
+        // Năm chữ số theo đúng HD-YYYY-NNNNN mà tài liệu 05 mục 2.2 chốt.
         $this->assertSame(
-            ['HD-' . $nam . '-0001', 'HD-' . $nam . '-0002', 'HD-' . $nam . '-0003'],
+            ['HD-' . $nam . '-00001', 'HD-' . $nam . '-00002', 'HD-' . $nam . '-00003'],
             $so,
         );
     }
@@ -234,6 +235,44 @@ class ContractTest extends TestCase
             // Bậc hoàn phải in ra theo chính sách đơn đã chép lúc đặt.
             ->assertSee('80%')
             ->assertSee('30%');
+    }
+
+    /**
+     * Điều 4 phải nói được đã thu bao nhiêu, còn bao nhiêu, hạn khi nào.
+     *
+     * Tài liệu 05 mục 2.2 điểm 7 đòi ba con số ấy, và cả ba đều đọc từ đơn chứ không phải câu chữ
+     * mẫu. Đơn dưới đây chưa thanh toán, nên hợp đồng phải ghi còn nợ đủ số.
+     */
+    public function test_dieu_4_ghi_dung_so_da_thu_va_con_phai_tra(): void
+    {
+        $don = $this->taoDon();
+        $don->forceFill(['paid_at' => null])->save();
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $url = $this->postJson('/api/admin/bookings/' . $don->id . '/contract')->json('data.print_url');
+
+        $this->get($url)
+            ->assertOk()
+            ->assertSee('Bên B đã thanh toán', false)
+            ->assertSee('Còn phải thanh toán', false)
+            ->assertSee('Hạn thanh toán phần còn lại', false)
+            // Chưa trả đồng nào thì còn nợ đúng tổng giá trị.
+            ->assertSee('5.400.000 đ');
+    }
+
+    public function test_don_da_tra_du_thi_dieu_4_khong_doi_them(): void
+    {
+        $don = $this->taoDon();
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $url = $this->postJson('/api/admin/bookings/' . $don->id . '/contract')->json('data.print_url');
+
+        $this->get($url)
+            ->assertOk()
+            ->assertSee('Bên B đã thanh toán đủ', false)
+            ->assertDontSee('Hạn thanh toán phần còn lại', false);
     }
 
     /** Liên kết không có chữ ký thì không mở được: hợp đồng chứa thông tin cá nhân của khách. */
