@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\Admin\AdminTourController;
 use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminChangeRequestController;
+use App\Http\Controllers\Api\Admin\AdminContractController;
 use App\Http\Controllers\Api\Admin\AdminPassengerController;
 use App\Http\Controllers\Api\Admin\AdminAuditLogController;
 use App\Http\Controllers\Api\Admin\AdminGroupBookingController;
@@ -293,6 +294,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/bookings/{id}/contact', [AdminBookingController::class, 'updateContact']);
         // Danh sách đoàn chia theo nhóm: mỗi đơn là một nhóm do người đại diện đăng ký.
         Route::get('/schedules/{id}/manifest', [AdminPassengerController::class, 'manifest']);
+        // Q07 - Xuất tệp gửi khách sạn, nhà xe, và để hướng dẫn viên in cầm theo.
+        Route::get('/schedules/{id}/manifest/export', [AdminPassengerController::class, 'exportManifest']);
+
+        /*
+         * Q - Hợp đồng du lịch. Bản in nằm ở tuyến web `contracts.print`, không phải ở đây:
+         * nó trả HTML để in và mở bằng liên kết có chữ ký, xem routes/web.php.
+         */
+        Route::get('/bookings/{id}/contract', [AdminContractController::class, 'show']);
+        Route::post('/bookings/{id}/contract', [AdminContractController::class, 'issue']);
+        Route::put('/contracts/{id}/signed', [AdminContractController::class, 'markSigned']);
 
         // L03 - Ghép hai chuyến của cùng một tour.
         Route::get('/schedules/{id}/merge-candidates', [AdminScheduleMergeController::class, 'candidates']);
