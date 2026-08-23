@@ -7,10 +7,15 @@ use App\Enums\BookingStatus;
 use App\Enums\ScheduleAuditAction;
 use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
+use App\Mail\BookingCancelledMail;
+use App\Mail\BookingConfirmedMail;
 use App\Models\Booking;
+use App\Models\BookingPayment;
 use App\Models\TourSchedule;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * K - Hủy cả chuyến khi đã có khách trả tiền.
@@ -103,7 +108,18 @@ class ScheduleCancellationService
         array $phuongAn,
         ?User $actor = null,
     ): array {
-        return DB::transaction(function () use ($schedule, $reason, $phuongAn, $actor) {
+        /*
+         * Thư gửi SAU khi giao dịch chốt, không gửi ở giữa.
+         *
+         * Thư đã bay đi thì không gọi về được. Nếu gửi trong giao dịch rồi một đơn phía sau ném
+         * lỗi, cả giao dịch quay lại nhưng khách đã nhận thư báo hủy một chuyến vẫn đang chạy —
+         * và đó là loại nhầm lẫn tốn cả buổi gọi điện đính chính.
+         *
+         * Nên gom danh sách trong giao dịch, gửi ở ngoài.
+         */
+        $canBao = [];
+
+        $ketQua = DB::transaction(function () use ($schedule, $reason, $phuongAn, $actor, &$canBao) {
             $khoa = TourSchedule::query()->whereKey($schedule->getKey())->lockForUpdate()->first();
 
             if (!$khoa) {
@@ -130,18 +146,21 @@ class ScheduleCancellationService
                 if (($chon['action'] ?? null) === self::CHUYEN_CHUYEN) {
                     $this->chuyenSangChuyenKhac($don, (int) $chon['to_schedule_id'], $reason, $actor);
                     $daChuyen++;
+                    $canBao[] = ['booking_id' => $don->id, 'kieu' => 'chuyen'];
 
                     continue;
                 }
 
                 $tongHoan += $this->hoanDu($don, $khoa, $reason);
                 $daHoan++;
+                $canBao[] = ['booking_id' => $don->id, 'kieu' => 'huy'];
             }
 
             $chuaTra = $this->donChuaThanhToan($khoa);
 
             foreach ($chuaTra as $don) {
                 $this->huyDonChuaTra($don, $khoa, $reason);
+                $canBao[] = ['booking_id' => $don->id, 'kieu' => 'huy'];
             }
 
             // Đổi trạng thái sau cùng: máy trạng thái chặn chuyển đơn ra khỏi chuyến đã hủy, nên
@@ -177,6 +196,55 @@ class ScheduleCancellationService
                 'cancelled_unpaid' => $chuaTra->count(),
             ];
         });
+
+        $ketQua['notified'] = $this->baoChoKhach($canBao);
+
+        return $ketQua;
+    }
+
+    /**
+     * Báo cho từng khách sau khi mọi thứ đã chốt.
+     *
+     * Đây là bước thiếu lâu nhất của nhóm K: hệ thống hủy chuyến, hoàn đủ tiền, ghi nhật ký đầy
+     * đủ - rồi không nói với ai. Khách vẫn tưởng mai đi.
+     *
+     * Thư hỏng không được làm hỏng nghiệp vụ đã chốt. Chuyến đã hủy và tiền đã hoàn là sự thật
+     * rồi; máy chủ thư không gửi được thì ghi ra log để người ta gọi điện, chứ không ném lỗi
+     * ngược lên làm người dùng tưởng thao tác thất bại.
+     *
+     * @param  array<int, array{booking_id: int, kieu: string}>  $canBao
+     */
+    private function baoChoKhach(array $canBao): int
+    {
+        $daGui = 0;
+
+        foreach ($canBao as $muc) {
+            $don = Booking::query()->with(['tour', 'schedule'])->find($muc['booking_id']);
+
+            if (!$don || !$don->customer_email) {
+                continue;
+            }
+
+            try {
+                /*
+                 * Đơn chuyển chuyến KHÔNG bị hủy - nó đổi sang chuyến khác. Gửi thư hủy cho họ là
+                 * nói sai. Thư xác nhận in ra chuyến mới, đúng thứ họ cần biết.
+                 */
+                Mail::to($don->customer_email)->send(
+                    $muc['kieu'] === 'chuyen'
+                        ? new BookingConfirmedMail($don)
+                        : new BookingCancelledMail($don),
+                );
+
+                $daGui++;
+            } catch (\Throwable $e) {
+                Log::error('Không gửi được thư hủy chuyến cho đơn BK-' . $don->id, [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $daGui;
     }
 
     /** Lý do không hủy được, hoặc null khi hủy được. */
@@ -250,9 +318,14 @@ class ScheduleCancellationService
             'cancel_type' => 'by_company',
             'cancel_reason' => $lyDo,
             'cancelled_at' => now(),
+            // Số này là thứ thư báo cho khách đọc, và là thứ kế toán đối chiếu. Trước đây nó chỉ
+            // nằm trong nhật ký, tức phải mở bảng khác mới biết đơn được hoàn bao nhiêu.
+            'refund_amount' => $soTien,
             'seats_released' => true,
             'seats_released_at' => now(),
         ])->save();
+
+        $this->ghiSoHoanTien($don, $soTien, $lyDo);
 
         $this->holdService->releaseDiscountUsage($don);
 
@@ -275,6 +348,44 @@ class ScheduleCancellationService
         );
 
         return $soTien;
+    }
+
+    /**
+     * Ghi khoản hoàn vào sổ giao dịch.
+     *
+     * `BookingPayment` mở đầu bằng câu "số đã thu là TỔNG của sổ chứ không phải một cột bị ghi
+     * đè". Hoàn tiền mà không có dòng trong sổ thì câu ấy không còn đúng: đơn đoàn đã cọc 30% bị
+     * hủy chuyến vẫn hiện đủ tiền cọc trong sổ, và `netPaid()` trả về số không còn ai giữ.
+     *
+     * **Chỉ ghi khi đơn ĐÃ dùng sổ.** Đơn lẻ trả một lần qua cổng, sổ trống, và tiền của nó ghi
+     * bằng `paid_at` cùng mã giao dịch VNPay. Nhét mỗi một dòng hoàn vào sổ trống thì
+     * `paidAmount()` thấy sổ có dòng, cộng các loại thu ra 0, trừ đi khoản hoàn và trả về số ÂM —
+     * đúng cái bẫy vừa gặp ở phụ thu sự cố, chỉ đổi chiều.
+     */
+    private function ghiSoHoanTien(Booking $don, float $soTien, string $lyDo): void
+    {
+        if ($soTien <= 0) {
+            return;
+        }
+
+        $dangDungSo = $don->payments()
+            ->whereIn('kind', array_merge(BookingPayment::THU, [BookingPayment::HOAN]))
+            ->exists();
+
+        if (!$dangDungSo) {
+            return;
+        }
+
+        BookingPayment::query()->create([
+            'booking_id' => $don->getKey(),
+            'kind' => BookingPayment::HOAN,
+            'amount' => round($soTien, 2),
+            'method' => null,
+            'reference' => null,
+            'note' => $lyDo,
+            'paid_at' => now(),
+            'recorded_by' => null,
+        ]);
     }
 
     /** Chuyển miễn phí sang chuyến khách chọn, do hãng khởi xướng. */
