@@ -1,286 +1,90 @@
 import React, { useState } from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
-const navItems = [
+/*
+ * Menu quản trị: bốn nhóm có menu con, kẹp giữa hai mục đứng riêng.
+ *
+ * Trước đây mười lăm mục nằm phẳng thành một cột dài, phải cuộn mới thấy hết và không có gì cho
+ * biết mục nào họ hàng với mục nào — "Chính sách hủy" đứng cạnh "Yêu cầu hủy của khách" chỉ vì
+ * tình cờ được thêm vào cùng lúc.
+ *
+ * Nhóm chia theo việc người dùng đang làm, không theo bảng dữ liệu: dựng sản phẩm để bán, xử lý
+ * đơn đã bán, điều hành chuyến đang chạy. Một mục chỉ thuộc đúng một nhóm — trùng chỗ thì lại
+ * thành phải đoán lần nữa.
+ *
+ * "Tổng quan" và "Nhật ký hệ thống" không vào nhóm nào: cái đầu là nơi mở màn, cái sau là nơi tra
+ * ngược khi có chuyện. Nhét vào một nhóm chỉ để cho đều là tạo ra một ngăn chứa đồ thừa.
+ */
+type NavLeaf = { to: string; label: string };
+
+type NavEntry =
+  | { kind: "link"; to: string; label: string; icon: React.ReactNode }
+  | { kind: "group"; id: string; label: string; icon: React.ReactNode; items: NavLeaf[] };
+
+const icon = (d: string, strokeWidth = 2) => (
+  <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={strokeWidth} d={d} />
+  </svg>
+);
+
+const navEntries: NavEntry[] = [
   {
+    kind: "link",
     to: "/admin/dashboard",
     label: "Tổng quan",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-        />
-      </svg>
+    icon: icon(
+      "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z",
     ),
   },
   {
-    to: "/admin/tours",
-    label: "Quản lý Tour",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-        />
-      </svg>
+    kind: "group",
+    id: "san-pham",
+    label: "Sản phẩm",
+    icon: icon(
+      "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7",
     ),
+    items: [
+      { to: "/admin/tours", label: "Quản lý tour" },
+      { to: "/admin/categories", label: "Danh mục tour" },
+      { to: "/admin/services", label: "Dịch vụ phát sinh" },
+      { to: "/admin/discount-codes", label: "Mã giảm giá" },
+    ],
   },
   {
-    to: "/admin/schedules",
-    label: "Quản lý Chuyến",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-        />
-      </svg>
+    kind: "group",
+    id: "don-hang",
+    label: "Đơn hàng",
+    icon: icon(
+      "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01",
     ),
+    items: [
+      { to: "/admin/bookings", label: "Đơn đặt tour" },
+      { to: "/admin/group-bookings", label: "Booking theo đoàn" },
+      { to: "/admin/change-requests", label: "Yêu cầu hủy của khách" },
+      { to: "/admin/cancellation-policies", label: "Chính sách hủy" },
+    ],
   },
   {
-    to: "/admin/attendance-reports",
-    label: "Báo cáo điểm danh",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-        />
-      </svg>
+    kind: "group",
+    id: "dieu-hanh",
+    label: "Điều hành",
+    icon: icon(
+      "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
     ),
+    items: [
+      { to: "/admin/schedules", label: "Quản lý chuyến" },
+      { to: "/admin/guides", label: "Hướng dẫn viên" },
+      { to: "/admin/handovers", label: "Bàn giao HDV" },
+      { to: "/admin/incidents", label: "Sự cố dọc đường" },
+      { to: "/admin/attendance-reports", label: "Báo cáo điểm danh" },
+    ],
   },
   {
-    to: "/admin/cancellation-policies",
-    label: "Chính sách hủy",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/admin/change-requests",
-    label: "Yêu cầu hủy của khách",
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.8}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/admin/bookings",
-    label: "Xem thông tin đặt hàng",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/admin/group-bookings",
-    label: "Booking theo đoàn",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/admin/handovers",
-    label: "Bàn giao HDV",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/admin/incidents",
-    label: "Sự cố dọc đường",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0l-7.1 12.25A2 2 0 005 19z"
-        />
-      </svg>
-    ),
-  },
-  {
+    kind: "link",
     to: "/admin/audit-logs",
     label: "Nhật ký hệ thống",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/admin/discount-codes",
-    label: "Mã giảm giá",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 14l6-6m-5.5.5h.01m5 5h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-        />
-      </svg>
-    ),
-  },  {
-    to: "/admin/guides",
-    label: "Quản lý HDV",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/admin/categories",
-    label: "Danh mục tour",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/admin/services",
-    label: "Dịch vụ phát sinh",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-        />
-      </svg>
-    ),
+    icon: icon("M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"),
   },
 ];
 
@@ -290,11 +94,42 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
     : "text-slate-400 hover:bg-slate-800 hover:text-white"
   }`;
 
+/*
+ * Mục con: không có biểu tượng, thụt vào sau một đường kẻ dọc.
+ *
+ * Đường kẻ làm việc mà biểu tượng thứ hai không làm được — nó cho thấy các mục này thuộc về đầu
+ * mục ngay trên, và nhìn một cái là biết nhóm dài đến đâu.
+ */
+const subLinkClass = ({ isActive }: { isActive: boolean }) =>
+  `block rounded-md py-2 pl-4 pr-3 text-sm transition-colors duration-200 ${isActive
+    ? "bg-primary-600/15 text-white font-semibold"
+    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+  }`;
+
 export const AdminLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  /*
+   * Nhóm nào chứa trang đang mở thì bung sẵn, các nhóm khác đóng.
+   *
+   * Tính một lần lúc dựng chứ không đồng bộ theo `pathname`: nếu đồng bộ liên tục thì người dùng
+   * mở tay một nhóm khác để so sánh sẽ bị đóng sập lại ngay khi họ điều hướng. Bung lần đầu là
+   * việc của hệ thống, sau đó là việc của người dùng.
+   */
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    const active = navEntries.find(
+      (entry) => entry.kind === "group" && entry.items.some((item) => pathname.startsWith(item.to)),
+    );
+
+    return active && active.kind === "group" ? { [active.id]: true } : {};
+  });
+
+  const toggleGroup = (id: string) =>
+    setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const handleLogout = () => {
     logout();
@@ -343,17 +178,73 @@ export const AdminLayout: React.FC = () => {
 
         {/* Navigation items */}
         <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={linkClass}
-              onClick={() => setIsSidebarOpen(false)}
-            >
-              {item.icon}
-              {item.label}
-            </NavLink>
-          ))}
+          {navEntries.map((entry) => {
+            if (entry.kind === "link") {
+              return (
+                <NavLink
+                  key={entry.to}
+                  to={entry.to}
+                  className={linkClass}
+                  onClick={() => setIsSidebarOpen(false)}
+                >
+                  {entry.icon}
+                  {entry.label}
+                </NavLink>
+              );
+            }
+
+            const isOpen = Boolean(openGroups[entry.id]);
+            const hasActive = entry.items.some((item) => pathname.startsWith(item.to));
+
+            return (
+              <div key={entry.id}>
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(entry.id)}
+                  aria-expanded={isOpen}
+                  aria-controls={`nav-${entry.id}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-colors duration-200 cursor-pointer ${
+                    /*
+                      Nhóm đang chứa trang mở mà bị thu lại thì vẫn phải nhìn ra — nếu không, đóng
+                      nhóm lại là mất dấu hoàn toàn chỗ mình đang đứng.
+                    */
+                    hasActive && !isOpen
+                      ? "bg-slate-800 text-white font-semibold"
+                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  {entry.icon}
+                  <span className="flex-1 text-left">{entry.label}</span>
+                  <svg
+                    className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {isOpen && (
+                  <div
+                    id={`nav-${entry.id}`}
+                    className="mt-1 ml-6 space-y-0.5 border-l border-slate-800 pl-2"
+                  >
+                    {entry.items.map((item) => (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        className={subLinkClass}
+                        onClick={() => setIsSidebarOpen(false)}
+                      >
+                        {item.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="p-4 border-t border-slate-800 space-y-1">
