@@ -9,11 +9,18 @@ import type { PassengerCheckinStatus } from "@/types/guide";
  * Danh sách này phải khớp với App\Enums\PassengerCheckinStatus phía máy chủ.
  */
 
+/*
+ * Không còn trường `icon`. Năm trạng thái này từng đi kèm một biểu tượng cảm xúc, nhưng nhãn đã
+ * nói đủ và biểu tượng chỉ thêm một thứ phải giải mã — hình người đang chạy cho "rời đoàn sớm"
+ * và bong bóng thoại cho "vắng có phép" là hai cái không ai đoán ra nếu chưa được kể.
+ *
+ * Cả hai màn dùng bảng này đều đã bỏ biểu tượng, nên bỏ luôn ở đây để không còn đường quay lại
+ * lệch nhau.
+ */
 export interface AttendanceStatusConfig {
   label: string;
   badgeClass: string;
   buttonClass: string;
-  icon: string;
 }
 
 export const ATTENDANCE_STATUSES: Record<PassengerCheckinStatus, AttendanceStatusConfig> = {
@@ -21,31 +28,26 @@ export const ATTENDANCE_STATUSES: Record<PassengerCheckinStatus, AttendanceStatu
     label: "Có mặt",
     badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
     buttonClass: "bg-emerald-600 text-white shadow-sm",
-    icon: "✓",
   },
   absent: {
     label: "Vắng mặt",
     badgeClass: "bg-rose-50 text-rose-700 border-rose-200",
     buttonClass: "bg-rose-600 text-white shadow-sm",
-    icon: "✕",
   },
   late: {
     label: "Đến muộn",
     badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
     buttonClass: "bg-amber-500 text-white shadow-sm",
-    icon: "🕒",
   },
   left_early: {
     label: "Rời đoàn sớm",
     badgeClass: "bg-purple-50 text-purple-700 border-purple-200",
     buttonClass: "bg-purple-600 text-white shadow-sm",
-    icon: "🏃",
   },
   excused: {
     label: "Vắng có phép",
     badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
     buttonClass: "bg-blue-600 text-white shadow-sm",
-    icon: "💬",
   },
 };
 
