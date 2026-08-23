@@ -10,8 +10,8 @@ nên đọc nó một mình sẽ tưởng còn nợ gần hết. Bảng dưới 
 | Trạng thái | Nhóm |
 | --- | --- |
 | **Đã làm** | A, B, C, D, E, F, G, H, I, K, L, M, O — 13 nhóm |
-| **Một phần** | N (sổ giao dịch xong, cọc khách lẻ chưa) · P (đường ống đoàn xong, còn nhập Excel) |
-| **Chưa làm** | Q hợp đồng · R cung ứng · S doanh thu và đối soát |
+| **Một phần** | N (sổ giao dịch xong, cọc khách lẻ chưa) · P (đường ống đoàn xong, còn nhập Excel) · Q (hợp đồng và danh sách đoàn xong, còn xếp phòng và hồ sơ bàn giao) |
+| **Chưa làm** | R cung ứng · S doanh thu và đối soát |
 | **Đã bỏ** | J sửa số lượng khách — có lý do, xem mục của nhóm |
 
 **R và S không nằm trong 18 góp ý của hội đồng.** Đó là hai trụ nhóm tự mở rộng ở tài liệu 09 và
