@@ -137,9 +137,10 @@ export default function ServiceManagement() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-950">Quản lý Dịch vụ Phát sinh</h1>
+          <h1 className="text-2xl font-bold text-gray-950">Quản lý Dịch vụ đi kèm</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Dịch vụ đi kèm tour: khách sạn, ăn uống, bảo hiểm, vé tham quan...
+            Những thứ tour đã bao gồm trong giá bán: khách sạn, ăn uống, bảo hiểm, vé tham quan.
+            Chi phí phát sinh ngoài ý muốn nằm ở màn "Sự cố dọc đường".
           </p>
         </div>
         <button
@@ -184,7 +185,7 @@ export default function ServiceManagement() {
             <tr>
               <th className="px-4 py-3">Dịch vụ</th>
               <th className="px-4 py-3">Mô tả</th>
-              <th className="px-4 py-3">Giá phát sinh</th>
+              <th className="px-4 py-3">Giá tham khảo</th>
               <th className="px-4 py-3 text-center">Đang dùng</th>
               <th className="px-4 py-3 text-center">Trạng thái</th>
               <th className="px-4 py-3 text-right">Thao tác</th>
@@ -311,12 +312,17 @@ export default function ServiceManagement() {
         </label>
 
         <label className="block space-y-1.5">
-          <span className="text-xs font-semibold uppercase text-gray-500">Giá phát sinh (VNĐ/khách)</span>
+          {/*
+            "Tham khảo" chứ không phải "phát sinh": con số này chỉ hiện lên trang chi tiết tour cho
+            khách đọc, không cộng vào tiền đơn hàng ở bất cứ đâu. Nhãn cũ hứa một việc mà mã không
+            làm, nên ai nhìn cũng tưởng khách sẽ bị thu thêm.
+          */}
+          <span className="text-xs font-semibold uppercase text-gray-500">Giá tham khảo (VNĐ/khách)</span>
           <input
             type="number"
             min="0"
             step="1000"
-            placeholder="Để trống nếu đã bao gồm trong giá tour"
+            placeholder="Để trống nếu không muốn hiện giá lên trang tour"
             value={form.price ?? ""}
             onChange={(e) => updateForm("price", e.target.value === "" ? null : Number(e.target.value))}
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500"
