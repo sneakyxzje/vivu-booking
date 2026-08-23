@@ -361,7 +361,7 @@ export const GuideAttendance: React.FC = () => {
             to="/guide/tours"
             className="inline-block mt-4 text-xs font-bold text-rose-800 underline"
           >
-            ← Quay lại danh sách Tour của tôi
+            Quay lại danh sách Tour của tôi
           </Link>
         </div>
       </div>
@@ -386,7 +386,7 @@ export const GuideAttendance: React.FC = () => {
             to="/guide/tours"
             className="inline-flex items-center gap-1 text-xs font-bold text-primary-600 hover:underline mb-2"
           >
-            ← Quay lại danh sách Tour
+            Quay lại danh sách Tour
           </Link>
           <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 font-jakarta">
             Điểm danh đoàn du lịch
@@ -458,12 +458,18 @@ export const GuideAttendance: React.FC = () => {
                       }`}
                     >
                       <span>{checkpoint.name}</span>
+                      {/* Điểm dừng bắt buộc có ảnh — nói bằng chữ thay vì biểu tượng phải đoán. */}
                       {checkpoint.is_required_photo && (
                         <span
-                          title="Điểm dừng bắt buộc có ảnh check-in"
-                          className={soAnh > 0 ? "opacity-70" : ""}
+                          className={`text-[10px] font-bold uppercase tracking-wide ${
+                            isActive
+                              ? "text-white/80"
+                              : soAnh > 0
+                                ? "text-emerald-600"
+                                : "text-amber-600"
+                          }`}
                         >
-                          {soAnh > 0 ? "📷" : "⚠️"}
+                          {soAnh > 0 ? "Có ảnh" : "Thiếu ảnh"}
                         </span>
                       )}
                     </button>
@@ -507,7 +513,7 @@ export const GuideAttendance: React.FC = () => {
                         key={status}
                         className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold ${ATTENDANCE_STATUSES[status].badgeClass}`}
                       >
-                        {ATTENDANCE_STATUSES[status].icon} {ATTENDANCE_STATUSES[status].label}:{" "}
+                        {ATTENDANCE_STATUSES[status].label}:{" "}
                         {stats[status]}
                       </span>
                     ))}
@@ -518,7 +524,7 @@ export const GuideAttendance: React.FC = () => {
 
                   {activeCheckpoint.is_required_photo && activePhotos.length === 0 && (
                     <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl p-3">
-                      ⚠️ Điểm dừng này bắt buộc có ảnh check-in. Vui lòng chụp ảnh đoàn trước khi rời điểm.
+                      Điểm dừng này bắt buộc có ảnh check-in. Vui lòng chụp ảnh đoàn trước khi rời điểm.
                     </p>
                   )}
                 </div>
@@ -549,7 +555,7 @@ export const GuideAttendance: React.FC = () => {
                             BK-{booking.id}
                           </span>
                           <span className="text-xs text-gray-500">
-                            📞 {booking.customer_phone || "Không có SĐT"} · 👥 {booking.guests} khách
+                            {booking.customer_phone || "Không có SĐT"} · {booking.guests} khách
                           </span>
                         </div>
 
@@ -572,7 +578,7 @@ export const GuideAttendance: React.FC = () => {
                                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                     <div className="flex items-center gap-2">
                                       <span className="font-semibold text-gray-900 text-sm">
-                                        👤 {passenger.name}
+                                        {passenger.name}
                                       </span>
                                       <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[11px] font-medium">
                                         {passenger.type === "adult"
@@ -605,8 +611,7 @@ export const GuideAttendance: React.FC = () => {
                                                 : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                                             }`}
                                           >
-                                            <span>{config.icon}</span>
-                                            <span>{config.label}</span>
+                                            {config.label}
                                           </button>
                                         );
                                       })}
@@ -695,7 +700,6 @@ export const GuideAttendance: React.FC = () => {
 
                 {activePhotos.length === 0 ? (
                   <div className="border border-dashed border-gray-200 rounded-2xl p-8 text-center space-y-2 bg-gray-50/50">
-                    <span className="text-3xl">📸</span>
                     <p className="text-xs text-gray-500">Chưa có ảnh nào tại điểm dừng này.</p>
                     <p className="text-[11px] text-gray-400">
                       Ảnh cần quyền định vị để đối chiếu với tọa độ điểm dừng.
@@ -717,7 +721,7 @@ export const GuideAttendance: React.FC = () => {
                           loading="lazy"
                         />
                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
-                          🔍 Phóng to
+                          Phóng to
                         </div>
                       </button>
                     ))}
@@ -753,7 +757,7 @@ export const GuideAttendance: React.FC = () => {
                     onClick={() => setNoteInput(reason)}
                     className="px-2.5 py-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 text-[11px] font-medium text-left transition-colors"
                   >
-                    💡 {reason}
+                    {reason}
                   </button>
                 ))}
               </div>
