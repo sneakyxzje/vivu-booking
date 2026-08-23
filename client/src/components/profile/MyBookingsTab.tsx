@@ -501,6 +501,61 @@ export const MyBookingsTab: React.FC = () => {
                   </div>
                 </div>
 
+                {/*
+                  Khoản phát sinh từ sự cố dọc đường.
+
+                  Trước đây điều hành lập khoản, duyệt khoản, rồi khách không thấy nó ở đâu cả —
+                  chỉ biết qua lời hướng dẫn viên nói tại chỗ. Một khoản phải trả mà người phải
+                  trả không đọc được ở đâu thì đó là chỗ khiếu nại chờ sẵn.
+
+                  Máy chủ đã lọc, chỉ trả về khoản đã duyệt hoặc đã tất toán: con số điều hành còn
+                  đang cân nhắc thì chưa phải thứ nói với khách.
+                */}
+                {(item.surcharges?.length ?? 0) > 0 && (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/60 p-3.5">
+                    <p className="text-xs font-bold uppercase tracking-wider text-amber-800">
+                      Phát sinh trong chuyến
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-amber-700">
+                      Không nằm trong giá tour. Đây là khoản sinh ra từ sự cố dọc đường.
+                    </p>
+
+                    <div className="mt-2.5 space-y-2">
+                      {item.surcharges?.map((kh) => (
+                        <div
+                          key={kh.id}
+                          className="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-t border-amber-200/70 pt-2 text-xs first:border-t-0 first:pt-0"
+                        >
+                          <strong
+                            className={`font-bold ${
+                              kh.kind === "refund" ? "text-emerald-700" : "text-rose-700"
+                            }`}
+                          >
+                            {kh.kind === "refund" ? "Hoàn lại" : "Trả thêm"}{" "}
+                            {Number(kh.amount).toLocaleString("vi-VN")} đ
+                          </strong>
+                          <span className="text-gray-700">{kh.reason}</span>
+                          <span
+                            className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              kh.status === "paid"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : "bg-white text-amber-800 border border-amber-300"
+                            }`}
+                          >
+                            {kh.status === "paid"
+                              ? kh.kind === "refund"
+                                ? "Đã hoàn"
+                                : "Đã thu"
+                              : kh.kind === "refund"
+                                ? "Chờ hoàn"
+                                : "Chờ thanh toán"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Card Action Footer */}
                 <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-100">
                   <span className="text-[11px] text-gray-400">
