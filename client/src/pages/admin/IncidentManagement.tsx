@@ -70,9 +70,22 @@ export default function IncidentManagement() {
   };
 
   const bearerHienTai = data?.options.bearers.find((b) => b.value === whoBears);
-  // Đã xác định hãng chịu thì không lập khoản thu của khách — máy chủ cũng từ chối, khóa ở đây
-  // để người dùng khỏi nhập xong mới bị chặn.
-  const khachPhaiTra = !whoBears || bearerHienTai?.customer_pays === true;
+
+  /*
+   * Người chịu tính theo TỪNG khoản, lùi về mặc định của phương án khi khoản để trống.
+   *
+   * Trước đây chỉ có một giá trị cho cả sự cố, nên tình huống thật nhất lại là tình huống không
+   * nhập được: bão làm tàu không chạy thì chiếc xe thuê thay tàu là hãng chịu, còn đêm phòng ở
+   * thêm là khách chịu — hai khoản, hai người, một sự cố.
+   */
+  const nguoiChiuCuaKhoan = (khoan: IncidentChargeInput) => khoan.who_bears || whoBears || "";
+
+  const khachPhaiTraKhoan = (khoan: IncidentChargeInput) => {
+    const value = nguoiChiuCuaKhoan(khoan);
+    if (!value) return true;
+
+    return data?.options.bearers.find((b) => b.value === value)?.customer_pays === true;
+  };
 
   const themKhoan = () => {
     const dauTien = detail?.bookings[0];
@@ -82,7 +95,8 @@ export default function IncidentManagement() {
       ...truoc,
       {
         booking_id: dauTien.booking_id,
-        kind: khachPhaiTra ? "surcharge" : "refund",
+        kind: bearerHienTai?.customer_pays === false ? "refund" : "surcharge",
+        who_bears: null,
         amount: 0,
         reason: "",
       },
@@ -129,6 +143,48 @@ export default function IncidentManagement() {
     await adminService.waiveSurcharge(id, lyDo.trim());
     if (detail) setDetail(await adminService.getIncident(detail.incident.id));
     loadData();
+  };
+
+  const taiLaiKhoan = async () => {
+    if (detail) setDetail(await adminService.getIncident(detail.incident.id));
+    loadData();
+  };
+
+  /*
+   * Khách đồng ý là một sự kiện có thật ở hiện trường, nên ghi riêng chứ không gộp vào lúc thu.
+   * Gộp lại thì mất dấu ai nói với khách và lúc nào — đúng thứ cần khi có khiếu nại.
+   */
+  const ghiNhanDongY = async (id: number) => {
+    const ghiChu = window.prompt(
+      "Ai nói với khách và khách trả lời thế nào? (không bắt buộc)",
+      "",
+    );
+
+    // Bấm Hủy thì thôi; để trống rồi bấm OK vẫn ghi nhận, vì lời nhắn chỉ là tùy chọn.
+    if (ghiChu === null) return;
+
+    await adminService.recordSurchargeConsent(id, ghiChu.trim() || undefined);
+    await taiLaiKhoan();
+  };
+
+  /** Bước cuối: đẩy tiền vào sổ giao dịch của đơn và đóng khoản lại. */
+  const ghiNhanTatToan = async (id: number, laKhoanThu: boolean) => {
+    const hinhThuc = window.prompt(
+      laKhoanThu
+        ? "Thu bằng hình thức nào? (VD: tiền mặt, chuyển khoản)"
+        : "Hoàn bằng hình thức nào? (VD: tiền mặt, chuyển khoản)",
+      "Tiền mặt",
+    );
+
+    if (hinhThuc === null) return;
+
+    try {
+      await adminService.settleSurcharge(id, { method: hinhThuc.trim() || null });
+      await taiLaiKhoan();
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      setError(response?.message || "Không ghi nhận được.");
+    }
   };
 
   return (
@@ -280,16 +336,26 @@ export default function IncidentManagement() {
                     >
                       {kh.kind_label} {formatPrice(kh.amount)}
                     </span>
+                    {kh.who_bears_label && (
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600">
+                        {kh.who_bears_label}
+                      </span>
+                    )}
                     <span className="text-gray-500">{kh.reason}</span>
 
-                    <span className="ml-auto flex items-center gap-2">
+                    <span className="ml-auto flex flex-wrap items-center gap-2">
                       <span
                         className={`rounded px-2 py-0.5 font-semibold ${
-                          kh.in_effect ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-600"
+                          kh.settled
+                            ? "bg-emerald-600 text-white"
+                            : kh.in_effect
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-gray-100 text-gray-600"
                         }`}
                       >
                         {kh.status_label}
                       </span>
+
                       {kh.status === "pending" && (
                         <>
                           <button
@@ -308,7 +374,54 @@ export default function IncidentManagement() {
                           </button>
                         </>
                       )}
+
+                      {/*
+                        Vòng đời tiếp tục sau khi duyệt: nói với khách, rồi mới thu. Trước đây
+                        khoản duyệt xong là dừng ở đó — sổ giao dịch không bao giờ biết tới số
+                        tiền này, và "đã thu" là trạng thái không đường nào đi tới được.
+                      */}
+                      {kh.status === "approved" && kh.needs_consent && (
+                        <button
+                          type="button"
+                          onClick={() => ghiNhanDongY(kh.id)}
+                          className="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 font-semibold text-amber-800 hover:bg-amber-100"
+                        >
+                          Khách đã đồng ý
+                        </button>
+                      )}
+
+                      {kh.can_settle && (
+                        <button
+                          type="button"
+                          onClick={() => ghiNhanTatToan(kh.id, kh.kind === "surcharge")}
+                          className="rounded border border-primary-300 bg-primary-50 px-2 py-0.5 font-semibold text-primary-700 hover:bg-primary-100"
+                        >
+                          {kh.kind === "surcharge" ? "Ghi nhận đã thu" : "Ghi nhận đã hoàn"}
+                        </button>
+                      )}
+
+                      {kh.status === "approved" && (
+                        <button
+                          type="button"
+                          onClick={() => mienKhoan(kh.id)}
+                          className="rounded border border-gray-200 px-2 py-0.5 font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                          Miễn
+                        </button>
+                      )}
                     </span>
+
+                    {kh.needs_consent && kh.status === "approved" && (
+                      <p className="w-full text-[11px] text-amber-700">
+                        Chưa ghi nhận khách đồng ý. Phải nói với khách trước khi thu tiền.
+                      </p>
+                    )}
+
+                    {kh.consent_note && (
+                      <p className="w-full text-[11px] text-gray-400">
+                        Khách đồng ý: {kh.consent_note}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -346,7 +459,9 @@ export default function IncidentManagement() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Ai chịu</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Ai chịu (mặc định)
+                  </label>
                   <select
                     value={whoBears}
                     onChange={(e) => setWhoBears(e.target.value)}
@@ -359,13 +474,17 @@ export default function IncidentManagement() {
                       </option>
                     ))}
                   </select>
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Chỉ là giá trị điền sẵn. Từng khoản bên dưới đặt lại được.
+                  </p>
                 </div>
               </div>
 
-              {!khachPhaiTra && (
+              {bearerHienTai && (
                 <p className="rounded-lg bg-gray-50 px-3 py-2 text-[11px] text-gray-600">
-                  Phương án ghi <strong>{bearerHienTai?.label}</strong>, nên chỉ lập được khoản hoàn
-                  cho khách, không lập được khoản thu thêm.
+                  Mặc định <strong>{bearerHienTai.label}</strong>. Một sự cố thường sinh ra nhiều
+                  loại khoản — xe thuê thay tàu là nghĩa vụ tổ chức nên hãng chịu, đêm phòng ở thêm
+                  là tiêu dùng cá nhân nên khách chịu — nên hãy chỉnh từng dòng cho đúng.
                 </p>
               )}
 
@@ -404,15 +523,31 @@ export default function IncidentManagement() {
                       ))}
                     </select>
 
+                    {/* Người chịu của riêng dòng này. Để trống thì lấy mặc định của phương án. */}
+                    <select
+                      value={khoan.who_bears ?? ""}
+                      onChange={(e) => suaKhoan(index, { who_bears: e.target.value || null })}
+                      className="rounded border border-gray-200 px-2 py-1 text-xs sm:col-span-3"
+                    >
+                      <option value="">
+                        {bearerHienTai ? `Theo mặc định (${bearerHienTai.label})` : "Chưa xác định"}
+                      </option>
+                      {data?.options.bearers.map((b) => (
+                        <option key={b.value} value={b.value}>
+                          {b.label}
+                        </option>
+                      ))}
+                    </select>
+
                     <select
                       value={khoan.kind}
                       onChange={(e) =>
                         suaKhoan(index, { kind: e.target.value as "surcharge" | "refund" })
                       }
-                      className="rounded border border-gray-200 px-2 py-1 text-xs sm:col-span-2"
+                      className="rounded border border-gray-200 px-2 py-1 text-xs sm:col-span-3"
                     >
                       {data?.options.kinds
-                        .filter((k) => k.value === "refund" || khachPhaiTra)
+                        .filter((k) => k.value === "refund" || khachPhaiTraKhoan(khoan))
                         .map((k) => (
                           <option key={k.value} value={k.value}>
                             {k.label}
@@ -428,13 +563,6 @@ export default function IncidentManagement() {
                       className="rounded border border-gray-200 px-2 py-1 text-xs sm:col-span-2"
                     />
 
-                    <input
-                      value={khoan.reason}
-                      onChange={(e) => suaKhoan(index, { reason: e.target.value })}
-                      placeholder="Diễn giải cho khách"
-                      className="rounded border border-gray-200 px-2 py-1 text-xs sm:col-span-4"
-                    />
-
                     <button
                       type="button"
                       onClick={() => setCharges((truoc) => truoc.filter((_, i) => i !== index))}
@@ -442,6 +570,17 @@ export default function IncidentManagement() {
                     >
                       Xóa
                     </button>
+
+                    {/*
+                      Diễn giải xuống hàng riêng, chiếm hết chiều ngang. Đây là dòng khách đọc khi
+                      được yêu cầu trả thêm, nên nó cần chỗ nhất chứ không phải ít chỗ nhất.
+                    */}
+                    <input
+                      value={khoan.reason}
+                      onChange={(e) => suaKhoan(index, { reason: e.target.value })}
+                      placeholder="Diễn giải cho khách — VD: một đêm phòng đôi và hai bữa ăn ngoài lịch trình"
+                      className="rounded border border-gray-200 px-2 py-1 text-xs sm:col-span-12"
+                    />
                   </div>
                 ))}
               </div>
