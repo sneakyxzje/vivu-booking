@@ -248,14 +248,56 @@
         <li>Tiền bồi dưỡng hướng dẫn viên và lái xe.</li>
     </ol>
 
-    {{-- ĐIỀU 4 — thanh toán. --}}
-    <h2>Điều 4. Phương thức thanh toán</h2>
+    {{--
+        ĐIỀU 4 — thanh toán.
+
+        Ba con số bắt buộc theo tài liệu 05 mục 2.2 điểm 7: đã thu, còn phải trả, hạn trả nốt.
+        Cả ba đọc từ đơn, không phải câu chữ mẫu.
+    --}}
+    <h2>Điều 4. Phương thức và tiến độ thanh toán</h2>
+    <table>
+        <tr>
+            <th style="width:44%">Tổng giá trị hợp đồng</th>
+            <td class="so">{{ number_format($tongTien, 0, ',', '.') }} đ</td>
+        </tr>
+        <tr>
+            <th>Bên B đã thanh toán</th>
+            <td class="so">{{ number_format($daThu, 0, ',', '.') }} đ</td>
+        </tr>
+        <tr>
+            <th>Còn phải thanh toán</th>
+            <td class="so"><strong>{{ number_format($conPhaiTra, 0, ',', '.') }} đ</strong></td>
+        </tr>
+        @if ($conPhaiTra > 0)
+            <tr>
+                <th>Hạn thanh toán phần còn lại</th>
+                <td class="so">
+                    {{ $hanThanhToan
+                        ? 'Trước ngày ' . $hanThanhToan->format('d/m/Y')
+                        : 'Trước ngày khởi hành' }}
+                </td>
+            </tr>
+        @endif
+    </table>
     <ol class="dieu-khoan">
-        <li>Bên B thanh toán cho Bên A tổng số tiền ghi tại Điều 2 bằng tiền mặt hoặc chuyển khoản.</li>
+        <li>Bên B thanh toán cho Bên A bằng tiền mặt hoặc chuyển khoản.</li>
         <li>Tài khoản nhận: {{ $congTy['bank_account'] }}.</li>
+        @if ($conPhaiTra > 0)
+            <li>
+                Số tiền Bên B đã thanh toán được ghi nhận là tiền đặt cọc giữ chỗ. Quá hạn nêu trên
+                mà Bên B chưa thanh toán đủ, Bên A có quyền hủy chỗ và xử lý phần đã nhận theo
+                Điều 5.
+            </li>
+        @else
+            <li>
+                Bên B đã thanh toán đủ
+                @if ($daThanhToanLuc) ngày {{ $daThanhToanLuc->format('d/m/Y') }} @endif
+                &ndash; không còn nghĩa vụ thanh toán nào theo hợp đồng này.
+            </li>
+        @endif
         <li>
-            Tình trạng thanh toán tại thời điểm ký:
-            <strong>{{ $daThanhToanLuc ? 'đã thanh toán ngày ' . $daThanhToanLuc->format('d/m/Y') : 'chưa thanh toán' }}</strong>.
+            Các khoản phát sinh ngoài giá trị hợp đồng, nếu có, được xử lý riêng theo Điều 6 và
+            chỉ thu sau khi Bên B đồng ý.
         </li>
     </ol>
 
