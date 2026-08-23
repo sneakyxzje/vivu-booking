@@ -349,6 +349,9 @@ export interface IncidentSurcharge {
   customer_name: string | null;
   kind: "surcharge" | "refund";
   kind_label: string;
+  /** Ai chịu KHOẢN NÀY. Một cơn bão sinh ra cả khoản hãng chịu lẫn khoản khách chịu. */
+  who_bears: string | null;
+  who_bears_label: string | null;
   amount: number;
   reason: string;
   status: string;
@@ -356,6 +359,11 @@ export interface IncidentSurcharge {
   /** Chờ duyệt thì chưa có hiệu lực với khách. */
   in_effect: boolean;
   customer_consent_at: string | null;
+  consent_note: string | null;
+  /* Ba câu hỏi máy chủ trả lời sẵn, để giao diện không tự suy từ trạng thái rồi suy sai. */
+  needs_consent: boolean;
+  can_settle: boolean;
+  settled: boolean;
 }
 
 export interface AdminIncident {
@@ -406,6 +414,8 @@ export interface IncidentDetailResponse {
 export interface IncidentChargeInput {
   booking_id: number;
   kind: "surcharge" | "refund";
+  /** Bỏ trống thì máy chủ lùi về `who_bears` của phương án. */
+  who_bears: string | null;
   amount: number;
   reason: string;
 }
@@ -858,6 +868,21 @@ const adminService = {
   waiveSurcharge: async (id: number, reason: string) => {
     const response = await api.put(`/admin/surcharges/${id}/waive`, { reason });
     return response.data?.message ?? "Đã miễn.";
+  },
+
+  /** Khách đã nghe giải thích và đồng ý. Bước bắt buộc trước khi thu. */
+  recordSurchargeConsent: async (id: number, note?: string) => {
+    const response = await api.put(`/admin/surcharges/${id}/consent`, { note: note ?? null });
+    return response.data?.message ?? "Đã ghi nhận khách đồng ý.";
+  },
+
+  /** Ghi nhận đã thu (hoặc đã hoàn). Đây là bước đưa khoản vào sổ giao dịch của đơn. */
+  settleSurcharge: async (
+    id: number,
+    payload: { method?: string | null; reference?: string | null; note?: string | null },
+  ) => {
+    const response = await api.put(`/admin/surcharges/${id}/settle`, payload);
+    return response.data?.message ?? "Đã ghi nhận.";
   },
 
   /**
