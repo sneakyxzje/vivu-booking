@@ -1,7 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Booking } from "@/types";
 import adminService from "@/services/adminService";
-import type { BookingAuditEntry, CancelPreview, TransferOption } from "@/services/adminService";
+import type {
+  BookingAuditEntry,
+  BookingContractInfo,
+  CancelPreview,
+  TransferOption,
+} from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
 import { formatDateTime, formatPrice } from "@/utils/format";
 
@@ -28,6 +33,10 @@ export default function BookingManagement() {
   // E04 - Dòng thời gian thay đổi của đơn
   const [history, setHistory] = useState<BookingAuditEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+
+  // Q - Hợp đồng du lịch. `null` nghĩa là đơn này chưa được cấp hợp đồng.
+  const [contract, setContract] = useState<BookingContractInfo | null>(null);
+  const [contractBusy, setContractBusy] = useState(false);
 
   // Sửa thông tin liên hệ nhập nhầm. Không bị hạn chốt khóa, khác danh sách hành khách.
   const [editingContact, setEditingContact] = useState(false);
@@ -141,6 +150,13 @@ export default function BookingManagement() {
     setHistory([]);
     setShowHistory(false);
     setEditingContact(false);
+    setContract(null);
+
+    // Hỏi luôn tình trạng hợp đồng, để nút hiện đúng chữ ngay lần vẽ đầu thay vì đổi sau một nhịp.
+    adminService
+      .getBookingContract(booking.id)
+      .then(setContract)
+      .catch((err) => console.error("Lỗi lấy tình trạng hợp đồng:", err));
 
     try {
       const detailed = await adminService.getBookingById(booking.id);
@@ -211,6 +227,49 @@ export default function BookingManagement() {
     setCancelReason("");
     setCancelPreview(null);
     setActionError("");
+    setContract(null);
+  };
+
+  /*
+   * Q - Cấp hợp đồng rồi mở bản in.
+   *
+   * Gọi lại không sinh số mới, máy chủ trả lại đúng bản đã cấp — nên nút này bấm mấy lần cũng
+   * an toàn, và người dùng không phải phân biệt "cấp" với "mở lại".
+   *
+   * Mở tab mới bằng liên kết có chữ ký: trang in là HTML, không phải JSON, và nó tự gọi hộp thoại
+   * in khi tải xong.
+   */
+  const moHopDong = async () => {
+    if (!selectedBooking) return;
+
+    setContractBusy(true);
+    setActionError("");
+
+    try {
+      const daCap = contract ?? (await adminService.issueBookingContract(selectedBooking.id));
+      setContract(daCap);
+      window.open(daCap.print_url, "_blank", "noopener");
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      setActionError(response?.message || "Không cấp được hợp đồng cho đơn này.");
+    } finally {
+      setContractBusy(false);
+    }
+  };
+
+  const ghiNhanDaKy = async () => {
+    if (!contract) return;
+
+    const ghiChu = window.prompt("Ghi chú về việc ký (không bắt buộc):", "");
+    if (ghiChu === null) return;
+
+    try {
+      await adminService.markContractSigned(contract.id, ghiChu.trim() || undefined);
+      setContract(await adminService.getBookingContract(contract.booking_id));
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      setActionError(response?.message || "Không ghi nhận được.");
+    }
   };
 
   /**
@@ -769,6 +828,36 @@ export default function BookingManagement() {
                 Hủy đơn
               </button>
             )}
+            {/*
+              Q - Hợp đồng du lịch. Chỉ đơn đã thành giao dịch mới có gì để ký; đơn đang giữ chỗ
+              thì máy chủ cũng từ chối, ẩn nút ở đây để khỏi bấm xong mới bị chặn.
+            */}
+            {selectedBooking && !["pending", "cancelled"].includes(String(selectedBooking.status)) && !cancelMode && !reopenMode && !transferMode && (
+              <>
+                <button
+                  onClick={moHopDong}
+                  disabled={contractBusy}
+                  className="px-4 py-2 bg-white border border-primary-200 text-sm font-semibold rounded-md text-primary-700 hover:bg-primary-50 transition-colors disabled:opacity-50 cursor-pointer"
+                  title={contract ? `Hợp đồng ${contract.contract_number}` : "Cấp số hợp đồng và mở bản in"}
+                >
+                  {contractBusy
+                    ? "Đang xử lý..."
+                    : contract
+                      ? `Mở hợp đồng ${contract.contract_number}`
+                      : "Cấp hợp đồng"}
+                </button>
+
+                {contract && !contract.signed_at && (
+                  <button
+                    onClick={ghiNhanDaKy}
+                    className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-md text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    Đã ký
+                  </button>
+                )}
+              </>
+            )}
+
             {selectedBooking?.status === "cancelled" && canReopen(selectedBooking) && !cancelMode && !reopenMode && (
               <button
                 onClick={() => { setReopenMode(true); setActionError(""); }}
