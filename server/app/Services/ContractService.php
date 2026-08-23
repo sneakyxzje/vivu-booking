@@ -90,12 +90,18 @@ class ContractService
     }
 
     /**
-     * Số kế tiếp trong năm, dạng HD-2026-0001.
+     * Số kế tiếp trong năm, dạng HD-2026-00001.
+     *
+     * Năm chữ số theo đúng `HD-YYYY-NNNNN` mà tài liệu 05 mục 2.2 chốt. Không phải chuyện thẩm
+     * mỹ: số hợp đồng là thứ in ra giấy và đọc qua điện thoại, nên độ dài phải cố định — đổi số
+     * chữ số về sau thì kho hợp đồng có hai kiểu số, và sắp xếp theo chuỗi cũng sai luôn.
      *
      * Đọc số lớn nhất của năm rồi cộng một. Cả hàm này chạy trong giao dịch của `issue()`, và
      * `contract_number` có chỉ mục duy nhất — nên hai yêu cầu cùng lúc thì một cái phải chờ, còn
      * nếu có lọt qua thì cơ sở dữ liệu chặn ở lớp cuối chứ không cấp trùng số.
      */
+    private const DO_DAI_SO = 5;
+
     private function soTiepTheo(): string
     {
         $nam = GioVietNam::bayGio()->year;
@@ -109,7 +115,7 @@ class ContractService
 
         $ke = $soCuoi ? ((int) substr($soCuoi, strlen($tienTo))) + 1 : 1;
 
-        return $tienTo . str_pad((string) $ke, 4, '0', STR_PAD_LEFT);
+        return $tienTo . str_pad((string) $ke, self::DO_DAI_SO, '0', STR_PAD_LEFT);
     }
 
     /**
