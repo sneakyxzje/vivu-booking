@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Enums\CostBearer;
 use App\Enums\IncidentStatus;
 use App\Enums\ScheduleStatus;
 use App\Enums\SurchargeStatus;
 use App\Enums\TourType;
 use App\Models\Booking;
+use App\Models\BookingPayment;
 use App\Models\BookingSurcharge;
 use App\Models\ScheduleIncident;
 use App\Models\Tour;
@@ -426,6 +428,317 @@ class IncidentTest extends TestCase
         $this->assertSame(
             800_000.0,
             (float) BookingSurcharge::query()->where('booking_id', $donHai->id)->first()->amount,
+        );
+    }
+
+    // --- Ai chịu chi phí, tính theo TỪNG khoản --------------------------------------------
+
+    /**
+     * Bài trung tâm của phần này: một cơn bão, ba khoản, ba người chịu khác nhau.
+     *
+     * Trước đây `who_bears` nằm trên sự cố nên tình huống thật nhất của cả nhóm O lại là tình
+     * huống không ghi được. Đặt "hãng chịu" cho cơn bão thì không lập nổi khoản khách trả cho
+     * đêm phòng ở thêm, dù đêm ấy đúng là khách chịu; đặt "khách chịu" thì ngược lại, chiếc xe
+     * thuê thay tàu bỗng thành tiền của khách.
+     */
+    public function test_mot_su_co_sinh_ba_khoan_ba_nguoi_chiu_khac_nhau(): void
+    {
+        $sc = $this->taoSuCo();
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/incidents/' . $sc->id . '/resolve', [
+            'resolution' => 'Thue xe chay duong bo thay tau, o them mot dem, cat buoi tham quan dao.',
+            'who_bears' => 'company',
+            'charges' => [
+                [
+                    'booking_id' => $this->don->id,
+                    'kind' => 'surcharge',
+                    'who_bears' => 'customer',
+                    'amount' => 1_200_000,
+                    'reason' => 'Mot dem phong va hai bua an ngoai lich trinh.',
+                ],
+                [
+                    'booking_id' => $this->don->id,
+                    'kind' => 'refund',
+                    'who_bears' => 'company',
+                    'amount' => 600_000,
+                    'reason' => 'Buoi tham quan dao da ban nhung khong di duoc.',
+                ],
+            ],
+        ])->assertOk();
+
+        $khoanThu = BookingSurcharge::query()->where('kind', 'surcharge')->firstOrFail();
+        $khoanHoan = BookingSurcharge::query()->where('kind', 'refund')->firstOrFail();
+
+        $this->assertSame(
+            CostBearer::Customer,
+            $khoanThu->who_bears,
+            'Đêm phòng ở thêm là tiêu dùng cá nhân, khách chịu.',
+        );
+
+        $this->assertSame(
+            CostBearer::Company,
+            $khoanHoan->who_bears,
+            'Phần chương trình đã bán mà không giao được thì hãng trả lại.',
+        );
+
+        $this->assertSame(
+            CostBearer::Company,
+            $sc->fresh()->who_bears,
+            'Giá trị trên sự cố vẫn còn, nhưng chỉ còn là mặc định gợi ý.',
+        );
+    }
+
+    /** Dòng không nói rõ thì lùi về mặc định của phương án, không để trống. */
+    public function test_khoan_khong_ghi_nguoi_chiu_thi_lay_theo_phuong_an(): void
+    {
+        $sc = $this->taoSuCo();
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/incidents/' . $sc->id . '/resolve', [
+            'resolution' => 'Doi sang chuong trinh trong bo, khach chiu phan an o phat sinh.',
+            'who_bears' => 'customer',
+            'charges' => [[
+                'booking_id' => $this->don->id,
+                'kind' => 'surcharge',
+                'amount' => 900_000,
+                'reason' => 'Mot dem phong doi.',
+            ]],
+        ])->assertOk();
+
+        $this->assertSame(
+            CostBearer::Customer,
+            BookingSurcharge::query()->firstOrFail()->who_bears,
+        );
+    }
+
+    /**
+     * Mâu thuẫn phải chặn ở mức DÒNG, không phải mức sự cố.
+     *
+     * Phương án ghi mặc định "khách chịu", nhưng chính dòng này ghi "hãng chịu" mà vẫn đòi thu
+     * tiền khách. Đó là hai câu ngược nhau trong một dòng.
+     */
+    public function test_dong_ghi_hang_chiu_thi_khong_thu_duoc_tien_khach(): void
+    {
+        $sc = $this->taoSuCo();
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/incidents/' . $sc->id . '/resolve', [
+            'resolution' => 'Thue xe chay duong bo thay tau, chi phi van chuyen do hang chiu.',
+            'who_bears' => 'customer',
+            'charges' => [[
+                'booking_id' => $this->don->id,
+                'kind' => 'surcharge',
+                'who_bears' => 'company',
+                'amount' => 3_000_000,
+                'reason' => 'Thue xe 45 cho chay duong bo.',
+            ]],
+        ])->assertStatus(422);
+
+        $this->assertSame(0, BookingSurcharge::query()->count());
+    }
+
+    // --- Thu tiền: khoản duyệt xong phải thành tiền thật ----------------------------------
+
+    private function taoKhoanDaDuyet(string $kind = 'surcharge', float $soTien = 1_200_000): BookingSurcharge
+    {
+        $sc = $this->taoSuCo();
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/incidents/' . $sc->id . '/resolve', [
+            'resolution' => 'Doi sang chuong trinh trong bo, o them mot dem tai khach san cu.',
+            'who_bears' => $kind === 'surcharge' ? 'customer' : 'company',
+            'charges' => [[
+                'booking_id' => $this->don->id,
+                'kind' => $kind,
+                'amount' => $soTien,
+                'reason' => 'Mot dem phong doi va hai bua an phat sinh.',
+            ]],
+        ])->assertOk();
+
+        $khoan = BookingSurcharge::query()->latest('id')->firstOrFail();
+
+        $this->putJson('/api/admin/surcharges/' . $khoan->id . '/approve')->assertOk();
+
+        return $khoan->fresh();
+    }
+
+    public function test_thu_tien_thi_ghi_mot_dong_vao_so_giao_dich(): void
+    {
+        $khoan = $this->taoKhoanDaDuyet();
+
+        $this->putJson('/api/admin/surcharges/' . $khoan->id . '/consent', [
+            'note' => 'Khach dong y, huong dan vien giai thich tai quay le tan.',
+        ])->assertOk();
+
+        $this->putJson('/api/admin/surcharges/' . $khoan->id . '/settle', [
+            'method' => 'cash',
+            'note' => 'Huong dan vien thu tien mat tai khach san.',
+        ])->assertOk();
+
+        $this->assertSame(
+            SurchargeStatus::Paid,
+            $khoan->fresh()->status,
+            'Trước đây trạng thái này khai báo rồi nhưng không dòng mã nào đặt được nó.',
+        );
+
+        $this->assertDatabaseHas('booking_payments', [
+            'booking_id' => $this->don->id,
+            'booking_surcharge_id' => $khoan->id,
+            'kind' => BookingPayment::PHU_THU,
+            'amount' => 1_200_000,
+            'recorded_by' => $this->dieuHanh->id,
+        ]);
+    }
+
+    /** Hoàn cho khách cũng vào sổ, chỉ khác chiều. */
+    public function test_hoan_cho_khach_ghi_dong_nguoc_chieu(): void
+    {
+        $khoan = $this->taoKhoanDaDuyet('refund', 600_000);
+
+        $this->putJson('/api/admin/surcharges/' . $khoan->id . '/settle')->assertOk();
+
+        $this->assertDatabaseHas('booking_payments', [
+            'booking_surcharge_id' => $khoan->id,
+            'kind' => BookingPayment::PHU_THU_HOAN,
+            'amount' => 600_000,
+        ]);
+    }
+
+    /** Khoản hoàn không cần khách đồng ý: không ai phản đối việc được trả lại tiền. */
+    public function test_khoan_hoan_khong_can_khach_dong_y(): void
+    {
+        $khoan = $this->taoKhoanDaDuyet('refund', 600_000);
+
+        $this->putJson('/api/admin/surcharges/' . $khoan->id . '/settle')->assertOk();
+
+        $this->assertSame(SurchargeStatus::Paid, $khoan->fresh()->status);
+    }
+
+    /**
+     * Chưa nói với khách thì chưa thu.
+     *
+     * Người ở hiện trường đang mệt và đang bực; một khoản thu không ai giải thích là thứ sinh ra
+     * khiếu nại, và lúc đó không có gì chứng minh đã từng giải thích.
+     */
+    public function test_chua_ghi_nhan_khach_dong_y_thi_chua_thu_duoc(): void
+    {
+        $khoan = $this->taoKhoanDaDuyet();
+
+        $this->putJson('/api/admin/surcharges/' . $khoan->id . '/settle')
+            ->assertStatus(422);
+
+        $this->assertSame(SurchargeStatus::Approved, $khoan->fresh()->status);
+        $this->assertDatabaseMissing('booking_payments', ['booking_surcharge_id' => $khoan->id]);
+    }
+
+    /** Chưa duyệt thì chưa thu: duyệt là bước nói rằng con số đã chốt. */
+    public function test_khoan_chua_duyet_thi_khong_thu_duoc(): void
+    {
+        $sc = $this->taoSuCo();
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/incidents/' . $sc->id . '/resolve', [
+            'resolution' => 'Doi sang chuong trinh trong bo, o them mot dem tai khach san cu.',
+            'who_bears' => 'customer',
+            'charges' => [[
+                'booking_id' => $this->don->id,
+                'kind' => 'surcharge',
+                'amount' => 1_200_000,
+                'reason' => 'Mot dem phong doi.',
+            ]],
+        ])->assertOk();
+
+        $khoan = BookingSurcharge::query()->firstOrFail();
+
+        $this->putJson('/api/admin/surcharges/' . $khoan->id . '/consent')->assertOk();
+        $this->putJson('/api/admin/surcharges/' . $khoan->id . '/settle')->assertStatus(422);
+
+        $this->assertDatabaseMissing('booking_payments', ['booking_surcharge_id' => $khoan->id]);
+    }
+
+    /** Bấm hai lần thì lần sau bị từ chối, sổ không có hai dòng cho một lần thu. */
+    public function test_thu_hai_lan_thi_lan_sau_bi_tu_choi(): void
+    {
+        $khoan = $this->taoKhoanDaDuyet();
+
+        $this->putJson('/api/admin/surcharges/' . $khoan->id . '/consent')->assertOk();
+        $this->putJson('/api/admin/surcharges/' . $khoan->id . '/settle')->assertOk();
+        $this->putJson('/api/admin/surcharges/' . $khoan->id . '/settle')->assertStatus(422);
+
+        $this->assertSame(
+            1,
+            BookingPayment::query()->where('booking_surcharge_id', $khoan->id)->count(),
+        );
+    }
+
+    // --- Khách phải thấy được khoản của mình ----------------------------------------------
+
+    public function test_khach_thay_khoan_da_duyet_trong_don_cua_minh(): void
+    {
+        $khoan = $this->taoKhoanDaDuyet();
+
+        $this->getJson('/api/bookings/' . $this->don->public_token)
+            ->assertOk()
+            ->assertJsonPath('data.surcharges.0.id', $khoan->id)
+            ->assertJsonPath('data.surcharges.0.kind_label', 'Khách trả thêm')
+            ->assertJsonPath('data.surcharges.0.reason', 'Mot dem phong doi va hai bua an phat sinh.');
+    }
+
+    /**
+     * Khoản chờ duyệt thì chưa hiện.
+     *
+     * Con số điều hành còn đang cân nhắc mà đã hiện ra thì thành một mức tiền đã nói với khách -
+     * và khách sẽ nhớ đúng con số đầu tiên họ đọc được, kể cả khi về sau nó đổi hoặc bị miễn.
+     */
+    public function test_khoan_cho_duyet_chua_hien_cho_khach(): void
+    {
+        $sc = $this->taoSuCo();
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/incidents/' . $sc->id . '/resolve', [
+            'resolution' => 'Doi sang chuong trinh trong bo, dang can nhac muc thu.',
+            'who_bears' => 'customer',
+            'charges' => [[
+                'booking_id' => $this->don->id,
+                'kind' => 'surcharge',
+                'amount' => 1_200_000,
+                'reason' => 'Mot dem phong doi.',
+            ]],
+        ])->assertOk();
+
+        $this->getJson('/api/bookings/' . $this->don->public_token)
+            ->assertOk()
+            ->assertJsonCount(0, 'data.surcharges');
+    }
+
+    /**
+     * Tiền phụ thu KHÔNG được coi là tiền đã trả cho tour.
+     *
+     * Đây là cái bẫy mà việc ghi phụ thu vào sổ tạo ra. `paidAmount()` phân nhánh theo "sổ đã có
+     * dòng chưa"; nếu câu hỏi ấy đếm cả dòng phụ thu thì một đơn lẻ đã trả đủ qua cổng bỗng rơi
+     * vào nhánh sổ, cộng các loại tiền giá tour ra 0, và báo đã thu 0 đồng.
+     */
+    public function test_dong_phu_thu_khong_lam_hong_so_da_thu_cua_don(): void
+    {
+        $khoan = $this->taoKhoanDaDuyet();
+
+        $this->putJson('/api/admin/surcharges/' . $khoan->id . '/consent')->assertOk();
+        $this->putJson('/api/admin/surcharges/' . $khoan->id . '/settle')->assertOk();
+
+        $bao = app(\App\Services\CancellationPolicyService::class)
+            ->quote($this->don->fresh(), $this->chuyen);
+
+        $this->assertSame(
+            4_000_000.0,
+            $bao['paid_amount'],
+            'Đơn đã trả đủ 4 triệu qua cổng; một triệu hai phụ thu không đổi con số đó.',
         );
     }
 }
