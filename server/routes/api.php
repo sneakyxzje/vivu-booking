@@ -246,7 +246,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/incidents', [AdminIncidentController::class, 'index']);
         Route::get('/incidents/{id}', [AdminIncidentController::class, 'show']);
         Route::post('/incidents/{id}/resolve', [AdminIncidentController::class, 'resolve']);
+        /*
+         * Vòng đời một khoản: duyệt → khách đồng ý → thu (hoặc hoàn). Miễn là lối thoát ở giữa.
+         * Bốn thao tác tách rời vì ở hiện trường chúng xảy ra ở bốn thời điểm khác nhau.
+         */
         Route::put('/surcharges/{id}/approve', [AdminIncidentController::class, 'approveSurcharge']);
+        Route::put('/surcharges/{id}/consent', [AdminIncidentController::class, 'recordConsent']);
+        Route::put('/surcharges/{id}/settle', [AdminIncidentController::class, 'settleSurcharge']);
         Route::put('/surcharges/{id}/waive', [AdminIncidentController::class, 'waiveSurcharge']);
 
         // 14 - Booking đoàn: báo giá, chốt thành đơn, sổ thu tiền nhiều đợt, giảm số khách.
