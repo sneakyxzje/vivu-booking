@@ -13,6 +13,7 @@ use App\Models\Tour;
 use App\Models\TourItinerary;
 use App\Models\TourSchedule;
 use App\Models\User;
+use App\Enums\BookingStatus;
 use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Services\CloudinaryService;
@@ -138,12 +139,30 @@ class AdminTourController extends Controller
             'services',
             'images',
             'itineraries.checkpoints',
-            'schedules',
+            'schedules' => $this->kemSoKhachDaTra(),
         ])
             ->latest()
             ->get();
 
         return $this->success(TourResource::collection($tours), 'Lấy danh sách tour thành công');
+    }
+
+    /**
+     * Kèm `paid_people` vào mỗi chuyến: tổng số khách của các đơn ĐÃ THANH TOÁN.
+     *
+     * Khác `booked_people`, vốn đếm cả chỗ đang giữ mà chưa trả tiền. Lệnh nền
+     * `ConfirmReadySchedules` so số khách **đã trả** với `min_people` để quyết chốt chuyến hay
+     * không, nên màn hình phải nhìn cùng con số ấy — nếu không thì chuyến giữ 8 chỗ mà mới 2 người
+     * trả tiền vẫn trông như đủ khách, và điều hành chỉ biết vào phút cuối.
+     *
+     * Dùng `withSum` để ra một truy vấn cho cả danh sách, không phải mỗi chuyến một truy vấn.
+     */
+    private function kemSoKhachDaTra(): \Closure
+    {
+        return fn ($query) => $query->withSum(
+            ['bookings as paid_people' => fn ($b) => $b->whereIn('status', BookingStatus::paidValues())],
+            'guests',
+        );
     }
 
     public function show(int $id): JsonResponse
