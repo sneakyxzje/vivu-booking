@@ -43,6 +43,29 @@ export interface Booking {
   tour?: Tour;
   schedule?: TourSchedule;
   passengers?: BookingPassenger[];
+  /** Khoản sinh ra từ sự cố dọc đường. Máy chủ chỉ trả về khoản đã có hiệu lực. */
+  surcharges?: BookingSurcharge[];
+}
+
+/**
+ * Một khoản khách phải trả thêm, hoặc được hoàn, vì một sự cố dọc đường.
+ *
+ * Không liên quan tới giá tour: khách trả tiền tour là đã trả xong tour. Đây là thứ xảy ra sau
+ * khi đoàn lên đường mà không ai lường trước — kẹt bão phải ở thêm đêm, hoặc ngược lại, buổi
+ * tham quan đã bán mà không đi được nên phải hoàn.
+ */
+export interface BookingSurcharge {
+  id: number;
+  kind: "surcharge" | "refund";
+  kind_label: string;
+  who_bears: string | null;
+  who_bears_label: string | null;
+  amount: string | number;
+  reason: string;
+  status: "pending" | "approved" | "paid" | "waived";
+  status_label: string;
+  customer_consent_at: string | null;
+  created_at: string;
 }
 
 export interface BookingPassenger {
