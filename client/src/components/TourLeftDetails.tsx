@@ -264,10 +264,17 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
                       {service.description}
                     </p>
                   )}
-                  {/* Giá tham khảo, do quản trị nhập. Không cộng vào tiền đơn — chỉ để khách đọc. */}
+                  {/*
+                    Giá tham khảo, do quản trị nhập. Không cộng vào tiền đơn — dịch vụ này đã nằm
+                    trong giá tour rồi.
+
+                    Bỏ dấu cộng, thêm chữ "Trị giá", và trả màu về xám. Cả ba đều nói cùng một
+                    điều: đây là thứ khách ĐƯỢC, không phải thứ khách PHẢI TRẢ THÊM. Một con số
+                    trần màu thương hiệu trên trang bán hàng thì ai cũng đọc thành giá phải trả.
+                  */}
                   {service.price != null && (
-                    <p className="text-xs font-semibold text-primary-600 mt-1">
-                      +{Number(service.price).toLocaleString("vi-VN")}đ / khách
+                    <p className="text-xs font-medium text-gray-500 mt-1">
+                      Trị giá {Number(service.price).toLocaleString("vi-VN")}đ / khách
                     </p>
                   )}
                 </div>
