@@ -188,6 +188,19 @@ export interface ManifestGroup {
   passengers: ManifestPassenger[];
 }
 
+/** Hợp đồng du lịch của một đơn. `null` ở phía gọi nghĩa là đơn chưa được cấp hợp đồng. */
+export interface BookingContractInfo {
+  id: number;
+  booking_id: number;
+  contract_number: string;
+  issued_at: string | null;
+  issued_by_name: string | null;
+  signed_at: string | null;
+  signed_note: string | null;
+  /** Liên kết có chữ ký, hết hạn sau 24 giờ — sinh mới mỗi lần đọc, đừng lưu lại. */
+  print_url: string;
+}
+
 export interface ScheduleManifestResponse {
   groups: ManifestGroup[];
   total_groups: number;
@@ -723,6 +736,54 @@ const adminService = {
   ): Promise<ScheduleManifestResponse | null> => {
     const response = await api.get(`/admin/schedules/${scheduleId}/manifest`);
     return extractObject<ScheduleManifestResponse>(response);
+  },
+
+  /*
+   * Tải danh sách đoàn về máy.
+   *
+   * Phải đi qua axios chứ không phải một thẻ <a href> thẳng: tuyến này nằm sau Sanctum, mà thẻ
+   * <a> không gắn được tiêu đề Authorization. Nên lấy về dạng blob rồi tự dựng liên kết tạm.
+   *
+   * Tên tệp lấy từ tiêu đề Content-Disposition máy chủ gửi kèm, để cả hai bên gọi tệp giống nhau.
+   */
+  exportScheduleManifest: async (scheduleId: number): Promise<void> => {
+    const response = await api.get(`/admin/schedules/${scheduleId}/manifest/export`, {
+      responseType: "blob",
+    });
+
+    const disposition = String(response.headers?.["content-disposition"] ?? "");
+    const khop = disposition.match(/filename="?([^"]+)"?/);
+
+    const url = URL.createObjectURL(response.data as Blob);
+    const the = document.createElement("a");
+    the.href = url;
+    the.download = khop?.[1] ?? `danh-sach-doan-${scheduleId}.csv`;
+    document.body.appendChild(the);
+    the.click();
+
+    // Dọn ngay: liên kết blob giữ nguyên tệp trong bộ nhớ cho tới khi bị thu hồi.
+    document.body.removeChild(the);
+    URL.revokeObjectURL(url);
+  },
+
+  // --- Q - HỢP ĐỒNG DU LỊCH ---
+
+  getBookingContract: async (bookingId: number): Promise<BookingContractInfo | null> => {
+    const response = await api.get(`/admin/bookings/${bookingId}/contract`);
+    return (response.data?.data ?? null) as BookingContractInfo | null;
+  },
+
+  /** Cấp hợp đồng, hoặc lấy lại bản đã cấp. Không sinh số mới cho đơn đã có. */
+  issueBookingContract: async (bookingId: number): Promise<BookingContractInfo> => {
+    const response = await api.post(`/admin/bookings/${bookingId}/contract`);
+    return response.data.data as BookingContractInfo;
+  },
+
+  markContractSigned: async (contractId: number, note?: string) => {
+    const response = await api.put(`/admin/contracts/${contractId}/signed`, {
+      note: note ?? null,
+    });
+    return response.data?.message ?? "Đã ghi nhận ký.";
   },
 
   // --- YÊU CẦU THAY ĐỔI CỦA KHÁCH ---
