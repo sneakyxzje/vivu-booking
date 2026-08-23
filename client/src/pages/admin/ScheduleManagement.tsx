@@ -34,6 +34,38 @@ import Pagination from "@/components/common/Pagination";
 
 type ScheduleStatus = ExtendedSchedule["status"];
 
+/** Chuyến đã kết thúc vòng đời thì không còn gì để xử lý. */
+const conSong = (s: ExtendedSchedule) => {
+  const status = s.status || "open";
+  return status !== "cancelled" && status !== "completed";
+};
+
+const thieuNguoiDan = (s: ExtendedSchedule) => conSong(s) && (s.guides ?? []).length === 0;
+
+const quaHanConMoBan = (s: ExtendedSchedule, bayGio: number) =>
+  (s.status || "open") === "open" &&
+  s.booking_deadline !== null &&
+  s.booking_deadline !== undefined &&
+  new Date(s.booking_deadline).getTime() < bayGio;
+
+/**
+ * Chuyến đã tới hạn chốt mà số khách ĐÃ TRẢ TIỀN chưa đạt mức tối thiểu.
+ *
+ * So `paid_people` chứ không so `booked_people`: chỗ đang giữ mà chưa trả tiền thì có thể biến
+ * mất bất cứ lúc nào, và lệnh nền `ConfirmReadySchedules` cũng đếm đúng con số này khi quyết chốt
+ * chuyến hay không. Hai bên nhìn hai con số khác nhau thì màn hình báo đủ khách trong khi tác vụ
+ * nền lặng lẽ không chốt.
+ *
+ * Chỉ tính khi đã qua hạn chốt. Trước đó thiếu khách là chuyện bình thường — chuyến còn đang bán.
+ */
+const thieuKhachToiThieu = (s: ExtendedSchedule, bayGio: number) => {
+  if (!conSong(s)) return false;
+  if (s.status === "confirmed" || s.status === "in_progress") return false;
+  if (!s.booking_deadline || new Date(s.booking_deadline).getTime() >= bayGio) return false;
+
+  return (s.paid_people ?? 0) < (s.min_people || 1);
+};
+
 const THU_TU_TRANG_THAI: ScheduleStatus[] = [
   "open",
   "closed",
@@ -230,23 +262,20 @@ export default function ScheduleManagement() {
       );
 
       /*
-       * "Cần xử lý" = chuyến còn sống mà thiếu một trong hai thứ điều hành phải lo: chưa có
-       * người dẫn, hoặc đã qua hạn chốt danh sách mà vẫn đang mở bán.
+       * "Cần xử lý" = chuyến còn sống mà thiếu một trong ba thứ điều hành phải lo: chưa có người
+       * dẫn, đã qua hạn chốt danh sách mà vẫn đang mở bán, hoặc **không đủ khách tối thiểu**.
        */
-      const canXuLy = schedules.filter((s) => {
-        const status = s.status || "open";
-        if (status === "cancelled" || status === "completed") return false;
+      const canXuLy = schedules.filter(
+        (s) => thieuNguoiDan(s) || quaHanConMoBan(s, bayGio) || thieuKhachToiThieu(s, bayGio),
+      ).length;
 
-        const chuaCoHdv = (s.guides ?? []).length === 0;
-        const quaHan =
-          status === "open" && s.booking_deadline
-            ? new Date(s.booking_deadline).getTime() < bayGio
-            : false;
+      /*
+       * Chuyến thiếu khách tách riêng, vì nó là loại việc khác hẳn: hai cái kia sửa bằng một
+       * thao tác, còn cái này buộc phải chọn giữa hủy chuyến và chạy lỗ.
+       */
+      const thieuKhach = schedules.filter((s) => thieuKhachToiThieu(s, bayGio)).length;
 
-        return chuaCoHdv || quaHan;
-      }).length;
-
-      return { ...nhom, schedules, demTrangThai, sapToi, canXuLy };
+      return { ...nhom, schedules, demTrangThai, sapToi, canXuLy, thieuKhach };
     });
   }, [filteredSchedules]);
 
@@ -849,9 +878,23 @@ export default function ScheduleManagement() {
                           {nhom.canXuLy > 0 && (
                             <span
                               className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800"
-                              title="Chuyến chưa phân công hướng dẫn viên, hoặc quá hạn chốt mà vẫn đang mở bán"
+                              title="Chuyến chưa phân công hướng dẫn viên, quá hạn chốt mà vẫn mở bán, hoặc chưa đủ khách tối thiểu"
                             >
                               {nhom.canXuLy} cần xử lý
+                            </span>
+                          )}
+
+                          {/*
+                            Thiếu khách tách thành nhãn riêng, màu nặng hơn: hai loại việc kia sửa
+                            bằng một thao tác, còn cái này buộc phải chọn giữa hủy chuyến và chạy
+                            lỗ — và chọn muộn thì mất luôn quyền hủy.
+                          */}
+                          {nhom.thieuKhach > 0 && (
+                            <span
+                              className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-800"
+                              title="Đã qua hạn chốt mà số khách đã thanh toán chưa đạt mức tối thiểu"
+                            >
+                              {nhom.thieuKhach} chưa đủ khách
                             </span>
                           )}
                         </button>
@@ -928,9 +971,20 @@ export default function ScheduleManagement() {
                                   <p className="font-bold text-gray-900">
                                     {schedule.booked_people} / {schedule.max_people} khách
                                   </p>
-                                  <p className="text-xs text-gray-400 mt-0.5">
-                                    Tối thiểu: {minPeople} khách
-                                  </p>
+                                  {/*
+                                    Số ĐÃ TRẢ TIỀN mới quyết định chuyến có chốt được không. Khi
+                                    thiếu thì nói thẳng con số ấy ra, thay vì chỉ ghi mức tối thiểu
+                                    rồi để người đọc tự trừ với một số khác.
+                                  */}
+                                  {thieuKhachToiThieu(schedule, Date.now()) ? (
+                                    <p className="text-xs font-bold text-rose-600 mt-0.5">
+                                      Mới {schedule.paid_people ?? 0}/{minPeople} khách đã trả tiền
+                                    </p>
+                                  ) : (
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                      Tối thiểu: {minPeople} khách
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                             </td>
