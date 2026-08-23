@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Booking;
 use App\Models\BookingContract;
-use App\Support\GioVietNam;
+use App\Models\BookingPayment;
 use App\Support\SoTienBangChu;
 use Illuminate\Contracts\View\View;
 
@@ -31,6 +32,7 @@ class ContractPrintController extends Controller
         $tour = $booking->tour;
         $tongTien = round((float) $booking->total_amount);
         $giamGia = round((float) ($booking->discount_amount ?? 0));
+        $daThu = $this->daThu($booking, $tongTien);
 
         return view('contracts.tour', [
             'contract' => $contract,
@@ -46,6 +48,26 @@ class ContractPrintController extends Controller
             'khoiHanh' => $this->ngay($booking->schedule?->start_date ?? $booking->departure_date),
             'ketThuc' => $this->ngay($booking->schedule?->end_date),
             'daThanhToanLuc' => $this->ngay($booking->paid_at),
+
+            /*
+             * Điều 4 cần ba con số, theo tài liệu 05 mục 2.2 điểm 7: đã thu, còn phải trả, và
+             * hạn trả nốt.
+             *
+             * Đã thu đọc từ sổ giao dịch nếu đơn có sổ (đơn đoàn trả nhiều đợt), còn đơn lẻ thì
+             * đọc mốc `paid_at` — đúng cách `CancellationPolicyService::paidAmount()` đang làm,
+             * và cùng lý do: hai chỗ trả lời khác nhau cho câu "đơn này đã thu bao nhiêu" là thứ
+             * không ai phát hiện cho tới lúc đối chiếu khiếu nại.
+             *
+             * CỐ Ý bỏ qua các dòng phụ thu sự cố: đó là tiền của chuyện khác, không phải tiền
+             * trả cho tour.
+             */
+            'daThu' => $daThu,
+            'conPhaiTra' => max(0.0, $tongTien - $daThu),
+            /*
+             * Hạn chốt danh sách làm hạn thanh toán. Đó là mốc điều hành phải trả tiền cho khách
+             * sạn và nhà xe, nên cũng là mốc muộn nhất tiền của khách phải về.
+             */
+            'hanThanhToan' => $this->ngay($booking->schedule?->booking_deadline),
             'dongGia' => $this->dongGia($booking, $tour),
             'giamGia' => $giamGia,
             'tongTien' => $tongTien,
@@ -53,6 +75,28 @@ class ContractPrintController extends Controller
             'chinhSach' => $booking->cancellationPolicy,
             'bacHoan' => $booking->cancellationPolicy?->rules ?? collect(),
         ]);
+    }
+
+    /**
+     * Số tiền đã thu cho GIÁ TOUR.
+     *
+     * Chỉ đếm bút toán của giá tour, không đếm phụ thu sự cố — cùng bộ loại mà `paidAmount()`
+     * dùng. Trộn vào thì hợp đồng ghi khách đã trả nhiều hơn thực tế trả cho tour.
+     */
+    private function daThu(Booking $booking, float $tongTien): float
+    {
+        $loaiGiaTour = array_merge(BookingPayment::THU, [BookingPayment::HOAN]);
+
+        $coSo = $booking->payments()->whereIn('kind', $loaiGiaTour)->exists();
+
+        if ($coSo) {
+            $thu = (float) $booking->payments()->whereIn('kind', BookingPayment::THU)->sum('amount');
+            $hoan = (float) $booking->payments()->where('kind', BookingPayment::HOAN)->sum('amount');
+
+            return round($thu - $hoan);
+        }
+
+        return $booking->paid_at ? $tongTien : 0.0;
     }
 
     /** Nhận Carbon, chuỗi hoặc null; trả về Carbon hoặc null. */
