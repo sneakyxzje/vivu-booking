@@ -84,6 +84,13 @@ export interface TourSchedule {
   // Sau migration chuẩn hóa, chuyến không bao giờ mang ba giá trị đó nữa.
   status: "open" | "closed" | "confirmed" | "in_progress" | "completed" | "cancelled";
   min_people?: number;
+  /**
+   * Số khách của các đơn ĐÃ THANH TOÁN. Khác `booked_people`, vốn đếm cả chỗ đang giữ.
+   *
+   * Đây là con số lệnh nền so với `min_people` khi quyết có chốt chuyến hay không, nên màn hình
+   * phải nhìn cùng con số ấy. Máy chủ chỉ kèm nó ở danh sách tour của quản trị.
+   */
+  paid_people?: number;
   booking_deadline?: string;
   cancelled_reason?: string | null;
   /**
