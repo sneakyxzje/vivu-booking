@@ -95,6 +95,7 @@ export default function ScheduleManagement() {
 
   // G05 - Kiểm tra danh sách đoàn trước khi gửi nhà cung cấp
   const [manifestScheduleId, setManifestScheduleId] = useState<number | null>(null);
+  const [dangXuatDanhSach, setDangXuatDanhSach] = useState(false);
   const [manifest, setManifest] = useState<ScheduleManifestResponse | null>(null);
   const [manifestLoading, setManifestLoading] = useState(false);
   // Nhóm đang mở xem chi tiết. Mở sẵn tất cả thì đoàn đông thành một bức tường chữ.
@@ -508,6 +509,22 @@ export default function ScheduleManagement() {
       console.error("Lỗi lấy danh sách đoàn:", err);
     } finally {
       setManifestLoading(false);
+    }
+  };
+
+  /* Q07 - Tải danh sách đoàn về máy để gửi khách sạn, nhà xe, hoặc in cho hướng dẫn viên. */
+  const xuatDanhSachDoan = async () => {
+    if (manifestScheduleId === null) return;
+
+    setDangXuatDanhSach(true);
+
+    try {
+      await adminService.exportScheduleManifest(manifestScheduleId);
+    } catch (err) {
+      console.error("Lỗi xuất danh sách đoàn:", err);
+      setToast({ isOpen: true, type: "error", message: "Không tạo được tệp danh sách đoàn." });
+    } finally {
+      setDangXuatDanhSach(false);
     }
   };
 
@@ -1709,6 +1726,22 @@ export default function ScheduleManagement() {
                     {manifest.total_guests} khách. Chưa gửi được danh sách đoàn.
                   </div>
                 )}
+
+                {/*
+                  Q07 - Đưa danh sách ra khỏi màn hình.
+
+                  Cho tải cả khi còn khai thiếu: điều hành cần bản nháp để đối chiếu và để biết
+                  còn thiếu ai — tệp ghi rõ nhóm nào chưa khai. Ô cảnh báo phía trên đã nói đủ về
+                  việc gửi ra ngoài, chặn thêm ở đây chỉ khiến người ta chép tay.
+                */}
+                <button
+                  type="button"
+                  onClick={xuatDanhSachDoan}
+                  disabled={dangXuatDanhSach}
+                  className="w-full rounded-lg border border-primary-200 bg-primary-50 px-4 py-2.5 text-sm font-bold text-primary-700 hover:bg-primary-100 disabled:opacity-50 transition-colors"
+                >
+                  {dangXuatDanhSach ? "Đang tạo tệp..." : "Tải danh sách đoàn (Excel)"}
+                </button>
 
                 {manifest.groups.length === 0 && (
                   <p className="text-sm text-gray-500">Chuyến này chưa có đơn nào.</p>
