@@ -264,7 +264,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
                       {service.description}
                     </p>
                   )}
-                  {/* Hiển thị giá nếu dịch vụ có phí phát sinh riêng */}
+                  {/* Giá tham khảo, do quản trị nhập. Không cộng vào tiền đơn — chỉ để khách đọc. */}
                   {service.price != null && (
                     <p className="text-xs font-semibold text-primary-600 mt-1">
                       +{Number(service.price).toLocaleString("vi-VN")}đ / khách
