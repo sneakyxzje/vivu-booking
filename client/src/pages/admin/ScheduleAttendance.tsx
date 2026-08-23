@@ -136,7 +136,7 @@ export default function ScheduleAttendance() {
             to="/admin/schedules"
             className="inline-block mt-4 text-xs font-bold text-rose-800 underline"
           >
-            ← Quay lại Quản lý Chuyến
+            Quay lại Quản lý Chuyến
           </Link>
         </div>
       </div>
@@ -165,7 +165,7 @@ export default function ScheduleAttendance() {
             to="/admin/schedules"
             className="inline-flex items-center gap-1 text-xs font-bold text-primary-600 hover:underline mb-2"
           >
-            ← Quay lại Quản lý Chuyến
+            Quay lại Quản lý Chuyến
           </Link>
           <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 font-jakarta">
             Báo cáo điểm danh &amp; Check-in đoàn
@@ -216,9 +216,21 @@ export default function ScheduleAttendance() {
                       }`}
                     >
                       <span>{checkpoint.name}</span>
+                      {/*
+                        Điểm dừng bắt buộc có ảnh: trước đây trạng thái này là một biểu tượng máy
+                        ảnh hoặc dấu chấm than, nghĩa phải đoán. Giờ nói thẳng bằng chữ.
+                      */}
                       {checkpoint.is_required_photo && (
-                        <span title="Điểm dừng bắt buộc có ảnh check-in">
-                          {soAnh > 0 ? "📷" : "⚠️"}
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wide ${
+                            isActive
+                              ? "text-white/80"
+                              : soAnh > 0
+                                ? "text-emerald-600"
+                                : "text-amber-600"
+                          }`}
+                        >
+                          {soAnh > 0 ? "Có ảnh" : "Thiếu ảnh"}
                         </span>
                       )}
                     </button>
@@ -251,8 +263,7 @@ export default function ScheduleAttendance() {
                         key={status}
                         className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold ${ATTENDANCE_STATUSES[status].badgeClass}`}
                       >
-                        {ATTENDANCE_STATUSES[status].icon} {ATTENDANCE_STATUSES[status].label}:{" "}
-                        {stats[status]}
+                        {ATTENDANCE_STATUSES[status].label}: {stats[status]}
                       </span>
                     ))}
                     <span className="px-2.5 py-1 rounded-lg border border-gray-200 bg-gray-50 text-gray-600 text-[11px] font-bold">
@@ -262,7 +273,7 @@ export default function ScheduleAttendance() {
 
                   {activeCheckpoint.is_required_photo && activePhotos.length === 0 && (
                     <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl p-3">
-                      ⚠️ Điểm dừng bắt buộc có ảnh check-in nhưng hướng dẫn viên chưa gửi ảnh nào.
+                      Điểm dừng bắt buộc có ảnh check-in nhưng hướng dẫn viên chưa gửi ảnh nào.
                     </p>
                   )}
                 </div>
@@ -292,7 +303,7 @@ export default function ScheduleAttendance() {
                             BK-{booking.id}
                           </span>
                           <span className="text-xs text-gray-500">
-                            📞 {booking.customer_phone || "Không có SĐT"} · 👥 {booking.guests} khách
+                            {booking.customer_phone || "Không có SĐT"} · {booking.guests} khách
                           </span>
                         </div>
 
@@ -315,7 +326,7 @@ export default function ScheduleAttendance() {
                                 >
                                   <div className="min-w-0">
                                     <span className="font-semibold text-gray-900 text-sm">
-                                      👤 {passenger.name}
+                                      {passenger.name}
                                     </span>
                                     {checkin?.note && (
                                       <p className="text-xs text-gray-500 mt-0.5 truncate">
@@ -340,8 +351,7 @@ export default function ScheduleAttendance() {
                                           : "bg-gray-100 text-gray-500 border-gray-200"
                                       }`}
                                     >
-                                      <span>{config ? config.icon : "⏳"}</span>
-                                      <span>{config ? config.label : "Chưa điểm danh"}</span>
+                                      {config ? config.label : "Chưa điểm danh"}
                                     </span>
                                   </div>
                                 </div>
@@ -383,7 +393,7 @@ export default function ScheduleAttendance() {
                           loading="lazy"
                         />
                         <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
-                          🔍 Xem phóng to
+                          Xem phóng to
                         </div>
                       </button>
                     ))}
