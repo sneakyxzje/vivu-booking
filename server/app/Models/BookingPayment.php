@@ -17,11 +17,29 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class BookingPayment extends Model
 {
+    /*
+     * Hai túi tiền, cố ý không trộn vào nhau.
+     *
+     *   THU / HOAN            — tiền của GIÁ TOUR. Đây là thứ chính sách hủy đọc để tính hoàn.
+     *   PHU_THU / PHU_THU_HOAN — tiền sinh ra từ SỰ CỐ dọc đường, không liên quan giá tour.
+     *
+     * Nếu gộp phụ thu vào THU thì `CancellationPolicyService::paidAmount()` sẽ coi khoản khách trả
+     * cho một đêm phòng chạy bão là tiền đã trả cho tour, và đem hoàn lại theo bậc phần trăm. Đêm
+     * phòng đó đã ở thật rồi.
+     *
+     * Trên thực tế hai luồng không gặp nhau — phụ thu chỉ sinh ra khi chuyến đã khởi hành, mà
+     * chuyến đã khởi hành thì không hủy đơn được nữa. Nhưng dựa vào sự trùng hợp ấy để cho hai
+     * loại tiền dùng chung một nhãn là đúng kiểu lỗi dự án này đã gặp bảy lần: một quy tắc đứng
+     * được nhờ một quy tắc khác ở xa, cho tới hôm ai đó sửa quy tắc kia.
+     */
     public const THU = ['deposit', 'balance'];
     public const HOAN = 'refund';
+    public const PHU_THU = 'surcharge';
+    public const PHU_THU_HOAN = 'surcharge_refund';
 
     protected $fillable = [
         'booking_id',
+        'booking_surcharge_id',
         'kind',
         'amount',
         'method',
@@ -52,12 +70,20 @@ class BookingPayment extends Model
         return $this->belongsTo(User::class, 'recorded_by');
     }
 
+    /** Dòng sinh ra từ một khoản phụ thu sự cố, nếu có. */
+    public function surcharge(): BelongsTo
+    {
+        return $this->belongsTo(BookingSurcharge::class, 'booking_surcharge_id');
+    }
+
     public function kindLabel(): string
     {
         return match ($this->kind) {
             'deposit' => 'Tiền cọc',
             'balance' => 'Thanh toán phần còn lại',
             'refund' => 'Hoàn tiền',
+            self::PHU_THU => 'Thu phụ phí sự cố',
+            self::PHU_THU_HOAN => 'Hoàn do sự cố',
             default => $this->kind,
         };
     }
