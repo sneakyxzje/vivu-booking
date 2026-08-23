@@ -21,6 +21,7 @@ export const Register: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -31,6 +32,13 @@ export const Register: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    // Nút đã khóa, nhưng Enter trong một ô nhập cũng gửi được biểu mẫu. Chặn lại ở đây luôn.
+    if (!agreed) {
+      setError("Vui lòng đồng ý với điều khoản dịch vụ và chính sách bảo mật.");
+      setLoading(false);
+      return;
+    }
 
     if (form.password !== form.password_confirmation) {
       setError("Mật khẩu xác nhận không khớp.");
@@ -245,12 +253,22 @@ export const Register: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-start gap-3 pt-2">
+            {/*
+              Ô đồng ý căn giữa và căn theo trục dọc: trước đây nó dạt trái với `items-start` cùng
+              một `mt-1` đẩy ô xuống, nên ô và dòng chữ không nằm trên cùng một đường.
+
+              `required` giữ lại như chốt chặn của trình duyệt, nhưng nút gửi cũng khóa theo
+              `agreed` — bấm vào nút xám rồi không thấy gì xảy ra thì khó hiểu, nên phải nói ra
+              vì sao nút đang khóa. Dòng nhắc bên dưới làm việc đó.
+            */}
+            <div className="flex items-center justify-center gap-3 pt-2">
               <input
                 id="terms"
                 type="checkbox"
                 required
-                className="mt-1 h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="h-5 w-5 shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               <label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
                 Tôi đồng ý với{" "}
@@ -270,11 +288,17 @@ export const Register: React.FC = () => {
               </label>
             </div>
 
+            {!agreed && (
+              <p className="text-center text-xs text-gray-500">
+                Cần đồng ý với điều khoản trước khi tạo tài khoản.
+              </p>
+            )}
+
             {/* Một nút, chiếm hết chiều ngang — đối xứng với trang đăng nhập. */}
             <button
               type="submit"
-              disabled={loading}
-              className="flex w-full items-center justify-center rounded-full bg-primary-600 px-4 py-3.5 text-sm font-bold text-white hover:bg-primary-700 disabled:opacity-60 transition-colors mt-8"
+              disabled={loading || !agreed}
+              className="flex w-full items-center justify-center rounded-full bg-primary-600 px-4 py-3.5 text-sm font-bold text-white hover:bg-primary-700 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-primary-600 transition-colors mt-4"
             >
               {loading ? (
                 <svg className="h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
