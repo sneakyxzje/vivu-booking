@@ -70,7 +70,8 @@
 
                             {{-- Việc còn dang dở của khách, để trước nút xem đơn vì nó cần hành động. --}}
                             <p style="margin:22px 0 10px;">
-                                <a href="{{ $frontendPassengerUrl }}" style="display:inline-block;background:#1e3a8a;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 18px;border-radius:8px;">
+                                {{-- #0b817a là primary-600 của client. Thư không đọc được biến CSS nên phải chép mã. --}}
+                                <a href="{{ $frontendPassengerUrl }}" style="display:inline-block;background:#0b817a;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 18px;border-radius:8px;">
                                     Khai thông tin {{ $booking->guests }} hành khách
                                 </a>
                             </p>
