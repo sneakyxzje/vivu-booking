@@ -282,8 +282,21 @@ class BookingController extends Controller
             ->get()
             ->each(fn (Booking $booking) => $this->holdService->releaseIfOverdue($booking));
 
+        /*
+         * Kèm cả khoản phụ thu sự cố, nhưng CHỈ những khoản đã có hiệu lực.
+         *
+         * Khoản đang chờ duyệt là con số điều hành còn đang cân nhắc; hiện nó ra là nói với khách
+         * một mức tiền có thể đổi hoặc bị bỏ, và khách sẽ nhớ đúng con số đầu tiên họ đọc được.
+         *
+         * Khoản đã miễn cũng không hiện: nó không còn là thứ khách phải trả.
+         */
         $bookings = Booking::query()
-            ->with(['tour', 'schedule.guides:id,name,phone', 'passengers'])
+            ->with([
+                'tour',
+                'schedule.guides:id,name,phone',
+                'passengers',
+                'surcharges' => fn ($q) => $q->coHieuLuc()->latest('id'),
+            ])
             ->where('customer_id', $request->user()->id)
             ->latest()
             ->get();
@@ -296,8 +309,15 @@ class BookingController extends Controller
 
     public function show(string $publicToken): JsonResponse
     {
+        // Cùng bộ lọc như myBookings: chỉ khoản đã có hiệu lực. Hai cửa vào một đơn phải nói
+        // giống nhau, nếu không thì tra cứu bằng mã lại thấy khác lúc đăng nhập xem.
         $booking = Booking::query()
-            ->with(['tour', 'schedule.guides:id,name,phone', 'passengers'])
+            ->with([
+                'tour',
+                'schedule.guides:id,name,phone',
+                'passengers',
+                'surcharges' => fn ($q) => $q->coHieuLuc()->latest('id'),
+            ])
             ->where('public_token', $publicToken)
             ->first();
 
