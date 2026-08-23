@@ -100,6 +100,8 @@ class AdminIncidentController extends Controller
             'charges' => ['present', 'array'],
             'charges.*.booking_id' => ['required', 'integer'],
             'charges.*.kind' => ['required', 'string', 'in:' . implode(',', SurchargeKind::values())],
+            // Người chịu của TỪNG khoản. Bỏ trống thì lùi về `who_bears` của phương án.
+            'charges.*.who_bears' => ['nullable', 'string', 'in:' . implode(',', CostBearer::values())],
             'charges.*.amount' => ['required', 'numeric', 'min:1'],
             'charges.*.reason' => ['required', 'string', 'max:500'],
         ], [
@@ -162,6 +164,60 @@ class AdminIncidentController extends Controller
         return $this->success($daMien, 'Đã miễn khoản này.');
     }
 
+    /**
+     * Ghi nhận khách đã đồng ý với khoản phải trả.
+     *
+     * Bước riêng, đứng trước bước thu. Khách nghe giải thích và đồng ý là một sự kiện có thật ở
+     * hiện trường; gộp nó vào lúc bấm "đã thu" thì mất luôn dấu vết ai nói với khách và lúc nào.
+     */
+    public function recordConsent(Request $request, int $surchargeId): JsonResponse
+    {
+        $validated = $request->validate([
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $surcharge = BookingSurcharge::query()->find($surchargeId);
+
+        if (!$surcharge) {
+            return $this->error('Không tìm thấy khoản này', 404);
+        }
+
+        $daGhi = $this->incidentService->recordConsent($surcharge, $validated['note'] ?? null);
+
+        return $this->success($daGhi, 'Đã ghi nhận khách đồng ý. Giờ có thể thu khoản này.');
+    }
+
+    /** Ghi nhận đã thu hoặc đã hoàn: đẩy một dòng vào sổ giao dịch và đóng khoản lại. */
+    public function settleSurcharge(Request $request, int $surchargeId): JsonResponse
+    {
+        $validated = $request->validate([
+            'method' => ['nullable', 'string', 'max:30'],
+            'reference' => ['nullable', 'string', 'max:100'],
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $surcharge = BookingSurcharge::query()->find($surchargeId);
+
+        if (!$surcharge) {
+            return $this->error('Không tìm thấy khoản này', 404);
+        }
+
+        $daTatToan = $this->incidentService->settleSurcharge(
+            $surcharge,
+            $request->user(),
+            $validated['method'] ?? null,
+            $validated['reference'] ?? null,
+            $validated['note'] ?? null,
+        );
+
+        return $this->success(
+            $daTatToan,
+            $daTatToan->kind === SurchargeKind::Surcharge
+                ? 'Đã ghi nhận thu tiền. Khoản này đã vào sổ giao dịch của đơn.'
+                : 'Đã ghi nhận hoàn tiền cho khách. Khoản này đã vào sổ giao dịch của đơn.',
+        );
+    }
+
     /** @return array<string, mixed> */
     private function dong(ScheduleIncident $sc): array
     {
@@ -197,12 +253,25 @@ class AdminIncidentController extends Controller
                 'customer_name' => $kh->booking?->customer_name,
                 'kind' => $kh->kind->value,
                 'kind_label' => $kh->kind->label(),
+                'who_bears' => $kh->who_bears?->value,
+                'who_bears_label' => $kh->who_bears?->label(),
                 'amount' => (float) $kh->amount,
                 'reason' => $kh->reason,
                 'status' => $kh->status->value,
                 'status_label' => $kh->status->label(),
                 'in_effect' => $kh->status->coHieuLuc(),
                 'customer_consent_at' => $kh->customer_consent_at?->toDateTimeString(),
+                'consent_note' => $kh->consent_note,
+                /*
+                 * Ba câu hỏi giao diện hay phải trả lời, tính ở đây một lần thay vì để mỗi màn
+                 * tự suy từ trạng thái - suy sai một chỗ là nút hiện sai ở chỗ đó.
+                 */
+                'needs_consent' => $kh->kind === SurchargeKind::Surcharge
+                    && $kh->customer_consent_at === null
+                    && $kh->status !== \App\Enums\SurchargeStatus::Waived,
+                'can_settle' => $kh->status === \App\Enums\SurchargeStatus::Approved
+                    && ($kh->kind !== SurchargeKind::Surcharge || $kh->customer_consent_at !== null),
+                'settled' => $kh->status === \App\Enums\SurchargeStatus::Paid,
             ])->values(),
         ];
     }
