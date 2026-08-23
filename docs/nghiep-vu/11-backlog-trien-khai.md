@@ -421,14 +421,38 @@ Tài liệu tham chiếu: 05 mục 1, 07 mục 3.3.
 
 **Tổng nhóm P: 10,25 ngày**
 
-## Nhóm Q - Hợp đồng và hồ sơ — CHƯA LÀM
+## Nhóm Q - Hợp đồng và hồ sơ — MỘT PHẦN: hợp đồng và danh sách đoàn xong, còn xếp phòng và hồ sơ bàn giao
+
+Đã cài đặt Q02, Q03, Q04, Q05, Q07, Q11 — tức là **hai thứ hội đồng hỏi thẳng**: hợp đồng du lịch
+và danh sách khách gửi nhà cung cấp. Q06, Q08, Q09, Q10 là phần tài liệu tự viết thêm, chưa làm.
+
+**Q01 (cài dompdf và laravel-excel) bỏ, thay bằng cách không cần thư viện:**
+
+- **Hợp đồng** là một trang HTML dựng bằng Blade, có `@media print`, tự gọi hộp thoại in khi mở.
+  Người dùng chọn "Lưu thành PDF" và được đúng tệp PDF. Lý do không dùng bộ dựng PDF: tiếng Việt
+  có dấu là chỗ chúng hay vỡ vì phải nhúng phông đủ Latin mở rộng, còn trình duyệt thì không gặp
+  vấn đề ấy bao giờ. Đổi lại, không thêm phụ thuộc nào để cài hay để hỏng trên máy chấm.
+- **Danh sách đoàn** là CSV có BOM UTF-8 và ngăn bằng dấu chấm phẩy. Excel mở như bảng tính bình
+  thường. Thiếu BOM thì Excel trên Windows đọc hỏng hết dấu; dùng dấu phẩy thì Excel bản tiếng
+  Việt dồn hết vào một cột — hai chi tiết ấy là toàn bộ khác biệt giữa tệp dùng được và tệp phải
+  gõ lại bằng tay.
+
+**Q05 (gửi liên kết cho khách) làm một nửa:** bản in mở bằng liên kết có chữ ký, hết hạn sau 24
+giờ, nên gửi thẳng cho khách được. Chưa có nút gửi thư tự động.
+
+**Q06 (giao diện) làm gọn:** nút "Cấp hợp đồng" nằm trong hộp thoại chi tiết đơn, nút "Tải danh
+sách đoàn" nằm trong hộp thoại danh sách đoàn. Không dựng màn hình quản lý hợp đồng riêng — hợp
+đồng là một thuộc tính của đơn, không phải một thực thể người dùng đi tìm.
+
+**Q08, Q09, Q10 chưa làm:** xếp phòng, hồ sơ bàn giao bảy mục, che số giấy tờ và nhật ký xuất tệp.
+Cả ba đều là phần tài liệu 05 tự viết thêm, **không nằm trong 18 góp ý của hội đồng**.
 
 Tài liệu tham chiếu: 05 mục 2 và 3, 07 mục 3.4.
 
 | ID | Công việc | Chạm tới | Phụ thuộc | Ngày |
 | --- | --- | --- | --- | --- |
-| Q01 | Cài `barryvdh/laravel-dompdf` và `maatwebsite/excel` | `composer.json` | | 0.25 |
-| Q02 | Migration `booking_contracts`, `contract_number_sequences`, `booking_rooms`, `booking_room_passenger`, `document_exports` | `database/migrations` | | 0.75 |
+| ~~Q01~~ | ~~Cài `barryvdh/laravel-dompdf` và `maatwebsite/excel`~~ — bỏ, xem giải thích ở trên | | | 0 |
+| Q02 | Migration `booking_contracts` (bảng đếm số gộp luôn vào đây; `booking_rooms` thuộc Q08 chưa làm) | `database/migrations` | | 0.75 |
 | Q03 | Sinh số hợp đồng an toàn khi có nhiều yêu cầu đồng thời, dùng khóa dòng trên bảng đếm | `app/Services` | Q02 | 0.75 |
 | Q04 | Mẫu hợp đồng dạng Blade với đủ mười một mục bắt buộc | `resources/views/contracts` | Q01 | 1.5 |
 | Q05 | Xuất hợp đồng PDF, lưu tệp, gửi liên kết cho khách | `Api/Admin`, `app/Services` | Q03, Q04 | 1 |
