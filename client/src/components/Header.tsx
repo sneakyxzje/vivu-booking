@@ -31,11 +31,27 @@ export const Header: React.FC = () => {
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20 gap-4">
 
-          {/* Logo */}
-          <Link to="/" className="flex items-center shrink-0">
-            <div className="text-2xl font-bold tracking-tight">
-              <span className="text-primary-600">Vivu Booking</span>
-            </div>
+          {/*
+            Logo: dấu hiệu nhận diện đi kèm chữ. Tệp dùng ở đây là `logo-mark.png` — bản đã cắt
+            sát nét của `logo.png`; bản gốc 5632×3072 có hơn nửa khung là khoảng trong suốt nên
+            đặt thẳng vào thanh 80px thì hình co lại bé xíu và lệch lên trên.
+
+            Chữ lấy `primary-500`, đúng bằng màu xanh trong logo. Các bậc còn lại của dải đậm hơn
+            để giữ tương phản cho nút và liên kết; riêng ở đây cần khớp tuyệt đối với hình.
+
+            Dưới màn hình nhỏ chỉ còn hình, vì thanh này đã chật.
+          */}
+          <Link to="/" className="flex items-center gap-2.5 shrink-0">
+            <img
+              src="/logo-mark.png"
+              alt="Vivu Booking"
+              width={57}
+              height={40}
+              className="h-10 w-auto"
+            />
+            <span className="hidden sm:inline text-2xl font-bold tracking-tight text-primary-500">
+              Vivu Booking
+            </span>
           </Link>
 
           {/*
