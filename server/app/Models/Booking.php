@@ -114,6 +114,21 @@ class Booking extends Model
         return $this->hasMany(BookingPayment::class);
     }
 
+    /**
+     * Các khoản phụ thu và hoàn sinh ra từ sự cố dọc đường.
+     *
+     * Không liên quan gì tới giá tour: khách trả 4,5 triệu là đã trả xong tour. Đây là những thứ
+     * xảy ra sau khi đoàn lên đường mà không ai lường trước - kẹt bão phải ở thêm đêm, hoặc ngược
+     * lại, buổi tham quan đã bán mà không đi được nên phải hoàn.
+     *
+     * Khách phải thấy được các dòng này trong đơn của mình, nếu không thì hệ thống lập một khoản
+     * phải trả rồi không nói với người phải trả nó.
+     */
+    public function surcharges()
+    {
+        return $this->hasMany(BookingSurcharge::class);
+    }
+
     /** Yêu cầu đoàn đã sinh ra đơn này, null với đơn lẻ. */
     public function groupRequest()
     {
