@@ -691,6 +691,35 @@ class IncidentTest extends TestCase
     }
 
     /**
+     * Cửa thứ hai vào cùng một đơn: trang hồ sơ của khách đã đăng nhập.
+     *
+     * Bài trên đi qua `show()` (tra cứu bằng mã), bài này đi qua `myBookings()`. Hai hàm khác
+     * nhau, và màn hình khách thực sự dùng là hàm thứ hai — thử một cửa rồi tin cả hai cửa đều
+     * đúng chính là kiểu lỗi dự án này đã gặp bảy lần.
+     */
+    public function test_khach_dang_nhap_cung_thay_khoan_trong_danh_sach_don(): void
+    {
+        $khach = User::create([
+            'name' => 'Khach dang nhap',
+            'email' => Str::random(8) . '@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'customer',
+            'status' => 'active',
+        ]);
+
+        $this->don->forceFill(['customer_id' => $khach->getKey()])->save();
+
+        $khoan = $this->taoKhoanDaDuyet();
+
+        Sanctum::actingAs($khach);
+
+        $this->getJson('/api/my-bookings')
+            ->assertOk()
+            ->assertJsonPath('data.0.surcharges.0.id', $khoan->id)
+            ->assertJsonPath('data.0.surcharges.0.kind_label', 'Khách trả thêm');
+    }
+
+    /**
      * Khoản chờ duyệt thì chưa hiện.
      *
      * Con số điều hành còn đang cân nhắc mà đã hiện ra thì thành một mức tiền đã nói với khách -
