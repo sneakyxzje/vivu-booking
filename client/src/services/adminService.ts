@@ -1176,7 +1176,7 @@ const adminService = {
     return response.data?.message ?? "Đã giảm số khách.";
   },
 
-  // --- EXTRA SERVICES (Dịch vụ phát sinh theo tour) ---
+  // --- SERVICES (Dịch vụ tour đã bao gồm trong giá bán, gán theo tour) ---
   getServices: async (page = 1): Promise<PaginatedResponse<Service> | null> => {
     const response = await api.get(`/admin/services?page=${page}`);
     return extractObject<PaginatedResponse<Service>>(response);
