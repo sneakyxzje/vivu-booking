@@ -49,10 +49,28 @@
                                 </tr>
                             </table>
 
+                            {{--
+                                Hãng hủy chuyến thì khác hẳn khách đổi ý, và thư phải nói khác.
+
+                                Lỗi không thuộc về khách nên không có phí hủy nào: hoàn đủ số đã
+                                thu. Nói thẳng con số ra đây, vì đó là câu hỏi đầu tiên của người
+                                vừa đọc tin chuyến đi bị hủy.
+                            --}}
+                            @if($booking->cancel_type === 'by_company' && (float) ($booking->refund_amount ?? 0) > 0)
+                                <p style="margin:14px 0 0;font-size:14px;color:#065f46;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;line-height:1.6;">
+                                    Đây là quyết định từ phía công ty, không phải lỗi của Quý khách,
+                                    nên <strong>không áp dụng phí hủy</strong>.<br>
+                                    Số tiền hoàn lại:
+                                    <strong style="font-size:17px;">{{ number_format((float) $booking->refund_amount, 0, ',', '.') }} VNĐ</strong>
+                                    &mdash; đủ 100% số tiền Quý khách đã thanh toán.
+                                </p>
+                            @endif
+
                             @if($booking->vnpay_transaction_no)
                                 <p style="margin:14px 0 0;font-size:13px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;">
                                     Đơn hàng đã thanh toán qua VNPay (mã giao dịch {{ $booking->vnpay_transaction_no }}).
-                                    Bộ phận chăm sóc khách hàng sẽ liên hệ Quý khách để hoàn tất thủ tục hoàn tiền.
+                                    Bộ phận chăm sóc khách hàng sẽ liên hệ Quý khách trong vòng 3 ngày làm việc
+                                    để hoàn tất thủ tục hoàn tiền.
                                 </p>
                             @endif
 
