@@ -344,17 +344,46 @@ Tài liệu tham chiếu: 02 mục 2.2 và 2.3, 07 mục 3.1.
 
 ## Nhóm O - Sự cố và chi phí phát sinh — ĐÃ LÀM
 
-Đã cài đặt O01, O02, O03, O05, O06, O09.
+Đã cài đặt O01, O02, O03, O05, O06, O07, O09.
 
 **O04 (thông báo đẩy cho điều hành) làm gọn hơn thiết kế:** sự cố mức nghiêm trọng chưa ai xử lý
 được đánh dấu `needs_attention` và đẩy lên đầu danh sách, thay vì dựng hệ thống thông báo riêng.
 Với quy mô một công ty lữ hành thì danh sách chờ xử lý có sắp thứ tự là đủ.
 
-**O07 (xác nhận của khách) làm một nửa:** bảng có `customer_consent_at` và `consent_note`, hướng
-dẫn viên tải được ảnh biên bản lên. Chưa có ký điện tử của từng khách.
+**O07 (xác nhận của khách) đã xong**, trừ phần ký điện tử của từng khách. `recordConsent()` có
+tuyến `PUT /admin/surcharges/{id}/consent`, và **đây là chốt chặn trước khi thu**: khoản khách phải
+trả mà chưa ghi nhận đồng ý thì `settleSurcharge()` từ chối. Hướng dẫn viên vẫn tải được ảnh biên
+bản. Khoản hoàn không cần bước này.
 
 **O08 (hoàn theo giá vốn) bỏ:** phụ thuộc R05, mà nhóm R đã ra khỏi phạm vi. Số tiền hoàn do điều
 hành nhập kèm diễn giải bắt buộc, hệ thống không tự tính. Ghi rõ chỗ này khi trình bày.
+
+### Ba việc bổ sung ngoài danh sách gốc
+
+Danh sách O01–O09 dừng ở chỗ "lập được khoản và duyệt được khoản". Ba việc dưới đây nối tiếp cho
+tới lúc tiền thật sự đổi tay, và cả ba đều phát hiện khi rà lại chứ không nằm trong thiết kế ban
+đầu:
+
+**O10 — người chịu chi phí tính theo từng khoản.** Trước đây `who_bears` nằm trên `schedule_incidents`,
+một giá trị cho cả sự cố, nên tình huống thật nhất của cả nhóm lại là tình huống không ghi được:
+bão làm tàu không chạy thì xe thuê chạy đường bộ là hãng chịu, còn đêm phòng ở thêm là khách chịu.
+Cột chuyển xuống `booking_surcharges`, cột trên sự cố giữ lại làm mặc định gợi ý. Migration
+`2026_08_23_000001`.
+
+**O11 — bước thu tiền.** `SurchargeStatus::Paid` có khai báo từ đầu nhưng **không dòng mã nào đặt
+được giá trị ấy**: khoản duyệt xong nằm mãi ở "đã duyệt" và sổ giao dịch không biết tới số tiền đó.
+`settleSurcharge()` ghi một dòng vào `booking_payments` và đóng khoản, đi cả hai chiều. Hai loại
+bút toán mới `surcharge` / `surcharge_refund`, cố ý tách khỏi `deposit`/`balance`/`refund` của giá
+tour để chính sách hủy không đọc nhầm tiền phụ thu thành tiền đã trả cho tour.
+
+**O12 — khách nhìn thấy khoản của mình.** `Booking` chưa có quan hệ tới `booking_surcharges` và
+không controller nào của khách trả nó về, nên hệ thống lập một khoản phải trả rồi không nói với
+người phải trả. Nay cả hai cửa (đăng nhập xem và tra cứu bằng mã) đều trả về, **chỉ khoản đã có
+hiệu lực** — con số còn đang cân nhắc thì chưa phải thứ nói với khách.
+
+Kèm theo là một lỗi thật do O11 tạo ra và đã chặn bằng test: `CancellationPolicyService::paidAmount()`
+chọn nguồn theo câu hỏi "sổ đã có dòng chưa". Ghi phụ thu vào sổ làm một đơn lẻ đã trả đủ qua cổng
+rơi vào nhánh sổ, cộng các loại tiền giá tour ra 0, và **báo đã thu 0 đồng** — hủy đơn thì hoàn 0.
 
 Tài liệu tham chiếu: 04 mục 6, 07 mục 3.2.
 
@@ -369,8 +398,11 @@ Tài liệu tham chiếu: 04 mục 6, 07 mục 3.2.
 | O07 | Xác nhận của khách với khoản phụ thu, tải ảnh biên bản | `Api/Guide`, `Api/Admin` | O05 | 1 |
 | O08 | Hoàn phần dịch vụ chưa sử dụng khi chương trình rút ngắn, tính theo giá vốn | `app/Services` | O05, R05 | 1 |
 | O09 | Kiểm thử: hướng dẫn viên không tạo được phụ thu, phụ thu cần duyệt mới có hiệu lực | `tests/Feature` | O02, O05 | 0.75 |
+| O10 | Người chịu chi phí chuyển xuống từng khoản, sự cố giữ lại làm mặc định | `database/migrations`, `app/Services` | O05 | 0.5 |
+| O11 | Ghi nhận đã thu / đã hoàn, đẩy vào sổ giao dịch, hai loại bút toán riêng | `app/Services`, `Api/Admin` | O05, N04 | 0.75 |
+| O12 | Khách đọc được khoản của mình trong đơn, chỉ khoản đã có hiệu lực | `Api/Customer`, `client/src/components/profile` | O05 | 0.5 |
 
-**Tổng nhóm O: 8,75 ngày**
+**Tổng nhóm O: 10,5 ngày** (8,75 theo thiết kế gốc, cộng 1,75 cho O10–O12)
 
 ## Nhóm P - Booking theo đoàn — MỘT PHẦN: đường ống xong, còn P06 nhập Excel
 
