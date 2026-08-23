@@ -33,7 +33,7 @@ hoạch. Cột cuối chỉ thẳng chỗ đặt luật để đối chiếu đ�
 | 15 | Xóa tour khi đã có người thanh toán | **Đã có** | Hai việc khác nhau: hủy **chuyến** đi `ScheduleCancellationService` (ba bước, mỗi đơn đã trả tiền phải có phương án); xóa **tour** đi `TourDeletionService` — xóa mềm, chứng từ giữ nguyên, khôi phục được, và cascade đã gỡ khỏi lược đồ. Xem ghi chú dưới bảng |
 | 16 | Ghép tour | **Đã có** | `ScheduleMergeService` — cùng tour, lệch không quá 2 ngày, cả hai chuyến phải còn trước hạn chốt |
 | 17 | Hướng dẫn viên phù hợp cho từng tour | **Đã có** | `GuideSuitabilityService` chấm và xếp hạng; `guide_profiles` + `guide_categories` giữ ngôn ngữ, tuyến quen, chuyên môn, sức dẫn. Hồ sơ **không chặn ai** — luật chặn duy nhất vẫn là trùng lịch. Xem ghi chú dưới bảng |
-| 18 | Hợp đồng, danh sách khách hàng | **Một phần** | Danh sách đoàn chia theo nhóm đã có. **Hợp đồng chưa có gì** |
+| 18 | Hợp đồng, danh sách khách hàng | **Đã có** | `ContractService` — số `HD-YYYY-NNNNN` cấp một lần rồi cố định, bản in tám điều đủ mười một mục tài liệu 05 đòi, mở bằng liên kết có chữ ký hết hạn 24 giờ. Không dùng thư viện dựng PDF, trình duyệt in ra — xem ghi chú dưới bảng. Danh sách đoàn xuất được ra tệp Excel mở thẳng |
 
 **Tổng kết: 15 điểm đã có mã chạy, 3 điểm còn một mảng thiếu (12, 14, 18), không còn điểm nào
 ở con số không.**
@@ -424,9 +424,25 @@ Phần còn thiếu của từng điểm:
 | --- | --- | --- |
 | 12 | Đặt cọc cho **khách lẻ** (cổng thanh toán thu một phần), nhắc nợ tự động | Thu một phần qua VNPay cần hợp đồng thương mại thật (cùng lý do hoàn tự động, doc 00 §3.3); nhắc nợ cần hàng đợi nền |
 | 14 | Nộp danh sách khách bằng **tệp Excel** có kiểm từng dòng; phát hành hóa đơn VAT (mới lưu MST, địa chỉ) | Danh sách vẫn nhập được từng người qua màn hành khách sẵn có — Excel là tiện, không phải nghiệp vụ mới. Hóa đơn điện tử ngoài phạm vi (doc 00 §3.2) |
-| 18 | Hợp đồng PDF từ mẫu, đánh số theo năm, lưu bản ký | Làm cùng đợt với hóa đơn — cả hai đều là sinh giấy tờ từ dữ liệu đã có đủ |
+| 18 | Tải lên **bản hợp đồng đã ký**; xếp phòng cho đoàn | Hệ thống đã ghi được mốc ký và ghi chú ai ký; lưu ảnh bản ký là tiện cho lưu trữ, không đổi nghiệp vụ. Xếp phòng là phần tài liệu 05 tự viết thêm, hội đồng không nhắc |
 
 Hai đầu thừa nhỏ hơn, nên nói nếu bị hỏi kỹ:
 
 - `AttendanceService::assertCheckpointCompletable` (quy tắc 8) chưa có thao tác nào gọi tới.
 - `IncidentType::thuongDoHangChiu()` đã viết nhưng chưa nối vào luồng quyết định phương án.
+
+### Điểm 18: vì sao hợp đồng không dùng thư viện dựng PDF
+
+Kế hoạch ban đầu là `barryvdh/laravel-dompdf`. Thay bằng một trang Blade có `@media print` tự gọi
+hộp thoại in, người dùng chọn "Lưu thành PDF" và được đúng tệp PDF.
+
+Lý do thật: **tiếng Việt có dấu là chỗ các bộ dựng PDF hay vỡ**, vì phải nhúng phông có đủ Latin
+mở rộng, còn trình duyệt thì không gặp vấn đề ấy bao giờ. Đổi lại không thêm phụ thuộc nào để cài
+hay để hỏng trên máy chấm. Cái mất là người dùng bấm thêm một lần Ctrl+P.
+
+Danh sách đoàn xuất CSV có BOM UTF-8 và ngăn bằng dấu chấm phẩy, cùng lý do: thiếu BOM thì Excel
+trên Windows đọc hỏng hết dấu, dùng dấu phẩy thì Excel bản tiếng Việt dồn cả hàng vào một ô.
+
+**Hai chỗ cần điền trước khi trình bày:** `config/company.php` đang là mã số thuế và số giấy phép
+lữ hành giả; và phần "Căn cứ" đầu hợp đồng mới ghi chung "Luật Du lịch hiện hành", chưa dẫn được
+số điều — đó là việc tra cứu còn treo ở tài liệu 00 mục 5.
