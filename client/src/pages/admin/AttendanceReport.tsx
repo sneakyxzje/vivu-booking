@@ -116,7 +116,7 @@ export default function AttendanceReport() {
             onClick={() => fetchReport(page, perPage)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-colors"
           >
-            🔄 Cập nhật số liệu
+            Cập nhật số liệu
           </button>
         </div>
       </div>
@@ -125,12 +125,9 @@ export default function AttendanceReport() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Card 1: Tỷ lệ có mặt */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-1 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-              Tỷ lệ có mặt trung bình
-            </span>
-            <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-base">📈</span>
-          </div>
+          <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
+            Tỷ lệ có mặt trung bình
+          </span>
           <p className="text-3xl font-extrabold text-emerald-600 font-jakarta">
             {kpis.overall_presence_rate}%
           </p>
@@ -141,12 +138,9 @@ export default function AttendanceReport() {
 
         {/* Card 2: Tổng lượt điểm danh */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-1 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-              Tổng lượt có mặt
-            </span>
-            <span className="p-1.5 rounded-lg bg-primary-50 text-primary-600 text-base">✅</span>
-          </div>
+          <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
+            Tổng lượt có mặt
+          </span>
           <p className="text-3xl font-extrabold text-primary-700 font-jakarta">
             {kpis.total_present}
           </p>
@@ -157,12 +151,9 @@ export default function AttendanceReport() {
 
         {/* Card 3: Lượt vắng mặt */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-1 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-              Lượt vắng mặt ghi nhận
-            </span>
-            <span className="p-1.5 rounded-lg bg-rose-50 text-rose-600 text-base">⚠️</span>
-          </div>
+          <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
+            Lượt vắng mặt ghi nhận
+          </span>
           <p className="text-3xl font-extrabold text-rose-600 font-jakarta">
             {kpis.total_absent}
           </p>
@@ -173,12 +164,9 @@ export default function AttendanceReport() {
 
         {/* Card 4: Cảnh báo thiếu ảnh */}
         <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm space-y-1 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-              Chuyến thiếu ảnh check-in
-            </span>
-            <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600 text-base">📸</span>
-          </div>
+          <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
+            Chuyến thiếu ảnh check-in
+          </span>
           <p className="text-3xl font-extrabold text-amber-600 font-jakarta">
             {kpis.missing_photos_count}
           </p>
@@ -224,7 +212,7 @@ export default function AttendanceReport() {
               {/* Lọc từ ngày */}
               <div className="md:col-span-3">
                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">
-                  📅 Từ ngày
+                  Từ ngày
                 </label>
                 <input
                   type="date"
@@ -237,7 +225,7 @@ export default function AttendanceReport() {
               {/* Lọc đến ngày */}
               <div className="md:col-span-3">
                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">
-                  📅 Đến ngày
+                  Đến ngày
                 </label>
                 <input
                   type="date"
@@ -250,7 +238,7 @@ export default function AttendanceReport() {
               {/* Lọc trạng thái */}
               <div className="md:col-span-3">
                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">
-                  📌 Trạng thái chuyến
+                  Trạng thái chuyến
                 </label>
                 <select
                   value={statusFilter}
@@ -285,10 +273,9 @@ export default function AttendanceReport() {
                   <button
                     type="button"
                     onClick={handleResetFilters}
-                    className="px-3 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-sm rounded-xl shrink-0 transition-colors"
-                    title="Xóa bộ lọc"
+                    className="px-3 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-sm rounded-xl shrink-0 whitespace-nowrap transition-colors"
                   >
-                    ✕
+                    Bỏ lọc
                   </button>
                 )}
               </div>
@@ -366,11 +353,11 @@ export default function AttendanceReport() {
                         <td className="py-4 px-4 text-center whitespace-nowrap">
                           {sch.photo_count > 0 ? (
                             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
-                              📸 {sch.photo_count} ảnh
+                              {sch.photo_count} ảnh
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold border border-amber-200">
-                              ⚠️ 0 ảnh
+                              Chưa có ảnh
                             </span>
                           )}
                         </td>
@@ -387,7 +374,7 @@ export default function AttendanceReport() {
                             to={`/admin/tour-schedules/${sch.id}/attendance`}
                             className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl bg-primary-50 text-primary-700 text-xs font-bold hover:bg-primary-100 transition-colors"
                           >
-                            Chi tiết →
+                            Chi tiết
                           </Link>
                         </td>
                       </tr>
@@ -441,7 +428,7 @@ export default function AttendanceReport() {
                             Người đứng đơn chỉ là đầu mối liên hệ. */}
                         <p className="font-bold text-gray-900 text-base">{log.passenger_name}</p>
                         <p className="text-sm text-gray-500">
-                          Đơn của {log.customer_name} · 📞 {log.customer_phone}
+                          Đơn của {log.customer_name} · {log.customer_phone}
                         </p>
                         <span className="inline-flex mt-1 px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold">
                           {log.status_label}
