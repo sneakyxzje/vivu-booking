@@ -12,41 +12,44 @@ export interface CheckpointItem {
   note?: string;
 }
 
+/*
+ * Năm loại điểm dừng, phân biệt bằng nhãn và màu chứ không bằng biểu tượng.
+ *
+ * Trường `icon` cũ hiện ở hai chỗ, và một trong hai chỗ đó là bên trong <option> của thẻ <select>.
+ * Trình duyệt vẽ danh sách thả xuống bằng bộ vẽ của hệ điều hành, nên emoji ở đấy mỗi máy một
+ * dáng và không thể chỉnh — chưa kể "hòn đảo" cho tham quan hay "lá cờ ô vuông" cho điểm trả thì
+ * cũng phải được kể mới đoán ra.
+ */
 export const CHECKPOINT_TYPE_CONFIG: Record<
   CheckpointType,
-  { label: string; icon: string; bgClass: string; textClass: string; borderClass: string }
+  { label: string; bgClass: string; textClass: string; borderClass: string }
 > = {
   pickup: {
     label: "Điểm đón",
-    icon: "📍",
     bgClass: "bg-emerald-50",
     textClass: "text-emerald-700",
     borderClass: "border-emerald-200",
   },
   sightseeing: {
     label: "Tham quan",
-    icon: "🏝️",
     bgClass: "bg-blue-50",
     textClass: "text-blue-700",
     borderClass: "border-blue-200",
   },
   meal: {
     label: "Ăn uống",
-    icon: "🍽️",
     bgClass: "bg-amber-50",
     textClass: "text-amber-700",
     borderClass: "border-amber-200",
   },
   hotel: {
     label: "Khách sạn",
-    icon: "🏨",
     bgClass: "bg-purple-50",
     textClass: "text-purple-700",
     borderClass: "border-purple-200",
   },
   dropoff: {
     label: "Điểm trả",
-    icon: "🏁",
     bgClass: "bg-rose-50",
     textClass: "text-rose-700",
     borderClass: "border-rose-200",
@@ -144,7 +147,7 @@ export const CheckpointManager: React.FC<Props> = ({
             onClick={handleAdd}
             className="mt-2 text-xs font-semibold text-primary-600 hover:underline"
           >
-            + Bấm để thêm điểm dừng đầu tiên
+            Bấm để thêm điểm dừng đầu tiên
           </button>
         </div>
       ) : (
@@ -188,7 +191,7 @@ export const CheckpointManager: React.FC<Props> = ({
                     >
                       {Object.entries(CHECKPOINT_TYPE_CONFIG).map(([typeKey, cfg]) => (
                         <option key={typeKey} value={typeKey}>
-                          {cfg.icon} {cfg.label}
+                          {cfg.label}
                         </option>
                       ))}
                     </select>
@@ -207,44 +210,44 @@ export const CheckpointManager: React.FC<Props> = ({
                     />
                   </div>
 
-                  {/* Action buttons (Move & Delete) */}
+                  {/*
+                    Ba nút thao tác, cả ba mang chữ.
+
+                    Trước đây là hai mũi tên ký tự và một hình thùng rác, tức ba nút không nhãn
+                    nằm cạnh nhau, ai đọc màn hình cũng chỉ nghe được thuộc tính `title`. Chữ
+                    ngắn vừa đủ chỗ trong ba phần mười hàng, nên không phải đánh đổi gì.
+                  */}
                   <div className="md:col-span-3 flex items-center justify-end gap-1.5 pt-4 md:pt-0">
                     <button
                       type="button"
                       onClick={() => handleMove(idx, "up")}
                       disabled={idx === 0}
-                      className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
-                      title="Di chuyển lên"
+                      className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 text-[11px] font-semibold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
-                      ↑
+                      Lên
                     </button>
                     <button
                       type="button"
                       onClick={() => handleMove(idx, "down")}
                       disabled={idx === checkpoints.length - 1}
-                      className="p-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
-                      title="Di chuyển xuống"
+                      className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 text-[11px] font-semibold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
-                      ↓
+                      Xuống
                     </button>
                     <button
                       type="button"
                       onClick={() => handleRemove(idx)}
-                      className="p-1.5 rounded-lg border border-rose-200 text-rose-600 bg-rose-50/50 hover:bg-rose-100 transition-colors"
-                      title="Xóa điểm dừng"
+                      className="px-2.5 py-1.5 rounded-lg border border-rose-200 text-rose-600 bg-rose-50/50 text-[11px] font-semibold hover:bg-rose-100 transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
+                      Xóa
                     </button>
                   </div>
                 </div>
 
                 {/* Tùy chọn thuộc tính (Requires Attendance / Photo) */}
                 <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex flex-wrap items-center gap-4 text-xs">
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-medium text-[11px] border ${config.bgClass} ${config.textClass} ${config.borderClass}`}>
-                    <span>{config.icon}</span>
-                    <span>{config.label}</span>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium text-[11px] border ${config.bgClass} ${config.textClass} ${config.borderClass}`}>
+                    {config.label}
                   </span>
 
                   <label className="inline-flex items-center gap-2 cursor-pointer text-gray-700 select-none">
