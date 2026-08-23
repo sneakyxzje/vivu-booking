@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 /*
- * Hệ thiết kế — áp theo DESIGN.md (phân tích hệ thống Airbnb), giữ nguyên tone màu của dự án.
+ * Hệ thiết kế — áp theo DESIGN.md (phân tích hệ thống Airbnb), màu thương hiệu lấy từ logo.
  *
  * Cái được mượn từ DESIGN.md là **ngữ pháp**: thang chữ, ngôn ngữ hình khối, nhịp khoảng cách,
  * một tầng đổ bóng duy nhất, và quy cách từng thành phần. Cái KHÔNG mượn là bảng màu — Rausch
- * (#ff385c) không xuất hiện ở đâu; dải primary xanh navy của dự án giữ nguyên từng mã một và
- * vẫn là điện áp thương hiệu duy nhất.
+ * (#ff385c) không xuất hiện ở đâu; dải primary dựng quanh màu xanh ngọc của logo và vẫn là
+ * điện áp thương hiệu duy nhất.
  *
  * Ánh xạ bo góc cố ý đặt lại các mốc sẵn có của Tailwind thay vì đẻ ra tên mới, để ~740 chỗ đang
  * dùng `rounded-md` / `rounded-xl` tự rơi đúng vào giá trị của hệ mà không phải sửa tay:
@@ -19,17 +19,42 @@
  */
 
 @theme {
-  /* --- Màu thương hiệu: GIỮ NGUYÊN, không đụng vào --- */
-  --color-primary-50: #eef2f9;
-  --color-primary-100: #d9e2f0;
-  --color-primary-200: #b6c6e0;
-  --color-primary-300: #8da5cc;
-  --color-primary-400: #5c7cb4;
-  --color-primary-500: #2b4b9a;
-  --color-primary-600: #1e3a8a;
-  --color-primary-700: #18306f;
-  --color-primary-800: #132557;
-  --color-primary-900: #0e1b40;
+  /*
+   * --- Màu thương hiệu: lấy thẳng từ logo ---
+   *
+   * Dải cũ là xanh navy, có trước khi có logo. Logo mới chỉ gồm hai màu — xanh ngọc #0ea49b và
+   * cam #f4a560 — nên để nguyên navy thì ngay trên thanh điều hướng hình một màu, chữ một màu
+   * khác, cùng trong 80px.
+   *
+   * Đổi được gọn vì toàn bộ mã dùng lớp `primary-*` (629 chỗ) chứ không ghi thẳng mã màu:
+   * ngoài mười dòng dưới đây, không tệp nào trong client chứa mã hex navy.
+   *
+   * Bậc 500 ĐÚNG BẰNG màu logo. Không đặt nó ở 600 vì #0ea49b chỉ đạt tương phản 3,09:1 trên
+   * nền trắng — chữ trắng trên nút sẽ khó đọc, dưới ngưỡng 4,5:1 của WCAG AA. Nên 600 là bậc
+   * đậm hơn (4,73:1), dùng cho nút, liên kết, viền tiêu điểm; 500 dành cho mảng lớn, chip, nền
+   * nhạt và những chỗ cần khớp tuyệt đối với hình.
+   *
+   * Hệ quả cần biết: navy cũ đạt 10,36:1, tức rất tối. Xanh ngọc nhạt hơn hẳn, cả giao diện sẽ
+   * sáng và nhẹ hơn trước.
+   */
+  --color-primary-50: #edfaf9;
+  --color-primary-100: #d4f4f2;
+  --color-primary-200: #a6e5e1;
+  --color-primary-300: #6ccec8;
+  --color-primary-400: #27c1b7;
+  --color-primary-500: #0ea49b;
+  --color-primary-600: #0b817a;
+  --color-primary-700: #0a6863;
+  --color-primary-800: #0a4f4b;
+  --color-primary-900: #093734;
+
+  /*
+   * Cam trong logo, giữ đúng mã. CỐ Ý không gán vào thành phần nào: cam và hổ phách đang mang
+   * nghĩa "chờ xử lý / cần chú ý" ở 138 chỗ trong giao diện quản trị. Cho nó thêm nghĩa "thương
+   * hiệu" thì hai nghĩa lẫn vào nhau. Token này để dành cho phần trang trí thuần túy.
+   */
+  --color-accent-500: #f4a560;
+
   --color-background: #f8f9fa;
 
   /*
@@ -406,13 +431,14 @@
   height: 8px;
 }
 
+/* Con trượt để trung tính. Hai mã cũ ngả xanh lam — dấu vết còn lại của dải navy. */
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--color-border-strong);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--color-muted-soft);
 }
 
 /* Chuyển động: nhẹ và ngắn. Ai tắt hiệu ứng thì tôn trọng lựa chọn đó. */
