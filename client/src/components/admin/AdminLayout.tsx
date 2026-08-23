@@ -47,7 +47,16 @@ const navEntries: NavEntry[] = [
     items: [
       { to: "/admin/tours", label: "Quản lý tour" },
       { to: "/admin/categories", label: "Danh mục tour" },
-      { to: "/admin/services", label: "Dịch vụ phát sinh" },
+      /*
+       * "Dịch vụ đi kèm", không phải "Dịch vụ phát sinh".
+       *
+       * Màn này quản lý những thứ tour ĐÃ bao gồm trong giá bán — xe đưa đón, bảo hiểm, vé tham
+       * quan. Chi phí phát sinh thật, tức khoản sinh ra ngoài ý muốn khi có bão hay xe hỏng, nằm
+       * ở "Sự cố dọc đường" và đi qua bảng `booking_surcharges`.
+       *
+       * Hai chuyện ngược nhau mà tên cũ dùng chung một chữ.
+       */
+      { to: "/admin/services", label: "Dịch vụ đi kèm" },
       { to: "/admin/discount-codes", label: "Mã giảm giá" },
     ],
   },
