@@ -172,10 +172,23 @@ class CancellationPolicyService
      *
      * Phân nhánh theo "sổ có dòng hay không" chứ không theo "đơn có phải đơn đoàn không", để nếu
      * mai kia đơn lẻ cũng chuyển sang sổ thì hàm này không phải sửa.
+     *
+     * **Chỉ đếm dòng của giá tour.** Từ khi phụ thu sự cố cũng ghi vào sổ, một đơn lẻ đã trả đủ
+     * qua cổng vẫn có thể có dòng trong sổ - dòng thu tiền một đêm phòng chạy bão. Nếu câu hỏi
+     * "sổ có dòng chưa" đếm cả dòng ấy thì nhánh trên nhận đơn lẻ, cộng các loại THU ra 0, và
+     * một đơn đã trả đủ bỗng báo đã thu 0 đồng - hủy đơn thì hoàn 0.
+     *
+     * Nên cả câu hỏi lẫn phép cộng đều lọc theo cùng một tập loại. Hai chỗ lệch nhau chính là
+     * cách lỗi này sinh ra.
      */
     private function paidAmount(Booking $booking): float
     {
-        if ($booking->payments()->exists()) {
+        $giaTour = $booking->payments()->whereIn('kind', array_merge(
+            \App\Models\BookingPayment::THU,
+            [\App\Models\BookingPayment::HOAN],
+        ));
+
+        if ((clone $giaTour)->exists()) {
             $thu = (float) $booking->payments()
                 ->whereIn('kind', \App\Models\BookingPayment::THU)
                 ->sum('amount');
