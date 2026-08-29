@@ -66,8 +66,11 @@ class AdminGuideHandoverController extends Controller
                 'phone' => $g->phone,
             ])->values(),
 
-            // Đoàn đang trên đường mà chỉ còn một người thì chỉ nhờ được người đang dẫn đoàn khác.
-            'needs_emergency_cover' => $this->lifecycle->effectiveStatus($schedule) === ScheduleStatus::InProgress
+            /*
+             * Đoàn đang trên đường mà chỉ còn một người thì chưa bàn giao được: phải phân công
+             * thêm một người cho chuyến trước, để sau khi một người rời đi vẫn còn ai đó bên đoàn.
+             */
+            'blocked_needs_second_guide' => $this->lifecycle->effectiveStatus($schedule) === ScheduleStatus::InProgress
                 && count($dangPhuTrach) < 2,
 
             /*
@@ -150,14 +153,13 @@ class AdminGuideHandoverController extends Controller
      * Lịch sử bàn giao của toàn công ty, mới trước cũ sau.
      *
      * Khác `index()` ở chỗ không giới hạn theo một chuyến: dùng cho màn theo dõi chung, nơi câu
-     * hỏi là "gần đây có bao nhiêu lần đổi người, còn ai đang phải trông hai đoàn".
+     * hỏi là "gần đây có bao nhiêu lần đổi người".
+     *
+     * Bỏ bộ lọc "nhờ đoàn khác trông hộ": lối thoát ấy đã gỡ khỏi luồng bàn giao, nên không còn
+     * bản ghi mới nào mang cờ đó nữa.
      */
-    public function history(Request $request): JsonResponse
+    public function history(): JsonResponse
     {
-        $validated = $request->validate([
-            'emergency_only' => ['nullable', 'boolean'],
-        ]);
-
         $ds = GuideHandover::query()
             ->with([
                 'schedule:id,start_date,tour_id',
@@ -166,10 +168,6 @@ class AdminGuideHandoverController extends Controller
                 'toGuide:id,name,phone',
                 'creator:id,name',
             ])
-            ->when(
-                (bool) ($validated['emergency_only'] ?? false),
-                fn ($query) => $query->where('is_emergency_cover', true),
-            )
             ->latest('handed_over_at')
             ->limit(100)
             ->get()
@@ -178,14 +176,10 @@ class AdminGuideHandoverController extends Controller
                 'start_date' => $bg->schedule?->start_date,
             ]);
 
-        return $this->success([
-            'handovers' => $ds,
-            // Người đang phải trông hai đoàn là việc dở, đếm riêng để không ai quên.
-            'emergency_count' => GuideHandover::query()->where('is_emergency_cover', true)->count(),
-        ], 'Lấy lịch sử bàn giao thành công');
+        return $this->success(['handovers' => $ds], 'Lấy lịch sử bàn giao thành công');
     }
 
-    /** Các yêu cầu bàn giao hướng dẫn viên gửi lên, chờ điều hành chọn người thay. */
+    /** Các phiếu bàn giao hướng dẫn viên gửi lên, chờ điều hành chọn người thay. */
     public function pendingRequests(): JsonResponse
     {
         $ds = GuideHandoverRequest::query()
@@ -213,22 +207,28 @@ class AdminGuideHandoverController extends Controller
         return $this->success($ds, 'Lấy yêu cầu bàn giao đang chờ thành công');
     }
 
-    public function approveRequest(Request $request, int $id): JsonResponse
+    /**
+     * Xử lý phiếu bằng cách chỉ định người mới.
+     *
+     * Không còn là "duyệt": phiếu chỉ có hai trạng thái, và cách xử lý duy nhất có ý nghĩa là
+     * chọn ai thay. Điều hành không muốn thay thì đóng phiếu — xem `closeRequest`.
+     */
+    public function resolveRequest(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
             'to_guide_id' => ['required', 'integer'],
             'review_note' => ['nullable', 'string', 'max:500'],
         ], [
-            'to_guide_id.required' => 'Phải chọn người thay trước khi duyệt.',
+            'to_guide_id.required' => 'Phải chọn người thay.',
         ]);
 
         $yeuCau = GuideHandoverRequest::query()->find($id);
 
         if (!$yeuCau) {
-            return $this->error('Không tìm thấy yêu cầu bàn giao', 404);
+            return $this->error('Không tìm thấy phiếu bàn giao', 404);
         }
 
-        $bienBan = $this->handoverService->approveRequest(
+        $bienBan = $this->handoverService->resolveWithHandover(
             $yeuCau,
             (int) $validated['to_guide_id'],
             $validated['review_note'] ?? null,
@@ -236,34 +236,35 @@ class AdminGuideHandoverController extends Controller
         );
 
         return $this->success($this->dong($bienBan), sprintf(
-            'Đã duyệt và bàn giao đoàn cho %s.',
+            'Đã bàn giao đoàn cho %s.',
             $bienBan->toGuide?->name ?? 'hướng dẫn viên mới',
         ));
     }
 
-    public function rejectRequest(Request $request, int $id): JsonResponse
+    /** Đóng phiếu mà không đổi người. Người gửi giữ nguyên quyền phụ trách. */
+    public function closeRequest(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
             'review_note' => ['required', 'string', 'min:10', 'max:500'],
         ], [
-            'review_note.required' => 'Từ chối thì phải ghi lý do, hướng dẫn viên sẽ đọc được.',
+            'review_note.required' => 'Đóng phiếu thì phải ghi lý do, hướng dẫn viên sẽ đọc được.',
         ]);
 
         $yeuCau = GuideHandoverRequest::query()->find($id);
 
         if (!$yeuCau) {
-            return $this->error('Không tìm thấy yêu cầu bàn giao', 404);
+            return $this->error('Không tìm thấy phiếu bàn giao', 404);
         }
 
-        $daTuChoi = $this->handoverService->rejectRequest(
+        $daDong = $this->handoverService->close(
             $yeuCau,
             $validated['review_note'],
             $request->user(),
         );
 
         return $this->success(
-            ['id' => $daTuChoi->id, 'status' => $daTuChoi->status->value],
-            'Đã từ chối. Hướng dẫn viên cũ vẫn giữ nguyên quyền phụ trách.',
+            ['id' => $daDong->id, 'status' => $daDong->status->value],
+            'Đã đóng phiếu. Hướng dẫn viên cũ vẫn giữ nguyên quyền phụ trách.',
         );
     }
 
@@ -278,19 +279,6 @@ class AdminGuideHandoverController extends Controller
             'handed_over_at' => $bg->handed_over_at?->toDateTimeString(),
             'reason' => $bg->reason,
             'handover_note' => $bg->handover_note,
-            // Nhờ người của đoàn khác trông hộ: người nhận đang giữ hai đoàn, còn việc dở.
-            'is_emergency_cover' => (bool) $bg->is_emergency_cover,
-
-            /*
-             * Người nhận đã đọc biên bản chưa, và bao lâu rồi.
-             *
-             * Không chặn gì cả. Nó chỉ trả lời câu hỏi "nó biết chưa nhỉ" — thứ mà trước đó chỉ
-             * hỏi được bằng cách gọi điện. Chưa đọc lâu thì gọi.
-             */
-            'acknowledged_at' => $bg->acknowledged_at?->toDateTimeString(),
-            'minutes_waiting' => $bg->acknowledged_at
-                ? null
-                : (int) $bg->handed_over_at?->diffInMinutes(GioVietNam::bayGio(), true),
             'created_by_name' => $bg->creator?->name,
             'created_at' => $bg->created_at?->toDateTimeString(),
             // Ghi vào máy muộn hơn lúc bàn giao thật: bàn giao xảy ra trên đường.
