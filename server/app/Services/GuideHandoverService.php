@@ -8,6 +8,7 @@ use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Models\GuideHandover;
 use App\Models\GuideHandoverRequest;
+use App\Notifications\Alert;
 use App\Models\TourSchedule;
 use App\Models\User;
 use App\Support\GioVietNam;
@@ -48,6 +49,7 @@ class GuideHandoverService
         private readonly ScheduleLifecycleService $lifecycle,
         private readonly ScheduleGuideService $guideService,
         private readonly ScheduleAuditLogger $auditLogger,
+        private readonly Notifier $notifier,
     ) {
     }
 
@@ -63,7 +65,7 @@ class GuideHandoverService
         ?Carbon $luc = null,
         ?User $actor = null,
     ): GuideHandover {
-        return DB::transaction(function () use ($schedule, $fromGuideId, $toGuideId, $reason, $note, $luc, $actor) {
+        $bienBan = DB::transaction(function () use ($schedule, $fromGuideId, $toGuideId, $reason, $note, $luc, $actor) {
             $khoa = TourSchedule::query()
                 ->whereKey($schedule->getKey())
                 ->with('tour')
@@ -141,6 +143,33 @@ class GuideHandoverService
 
             return $bienBan->fresh(['fromGuide:id,name,phone', 'toGuide:id,name,phone']);
         });
+
+        /*
+         * Báo người nhận, sau khi giao dịch đã chốt.
+         *
+         * Đây là thông báo gấp nhất phía hướng dẫn viên: họ vừa nhận một đoàn có thể đang trên
+         * đường, và cho tới lúc mở màn hình ra thì không biết gì cả. Đoạn "tình trạng đoàn" đi
+         * kèm chính là thứ họ cần để bắt nhịp.
+         *
+         * Ngoài giao dịch, cùng lý do đang áp ở `ScheduleCancellationService`: thông báo đã gửi
+         * thì không gọi về được, còn giao dịch thì vẫn có thể quay lại.
+         */
+        $schedule->loadMissing('tour:id,title');
+
+        $this->notifier->toiNguoiDung(
+            $bienBan->toGuide,
+            Alert::NHAN_BAN_GIAO,
+            sprintf('Bạn vừa nhận đoàn của chuyến #%d', $schedule->getKey()),
+            sprintf(
+                '%s · từ %s · %s',
+                $schedule->tour?->title ?? 'Tour',
+                $bienBan->fromGuide?->name ?? 'hướng dẫn viên trước',
+                $bienBan->handover_note,
+            ),
+            '/guide/handovers',
+        );
+
+        return $bienBan;
     }
 
     /**
@@ -311,6 +340,31 @@ class GuideHandoverService
             'review_note' => $note ? trim($note) : null,
             'guide_handover_id' => $handoverId,
         ])->save();
+
+        /*
+         * Báo người gửi phiếu.
+         *
+         * Họ xin được giúp và đang chờ câu trả lời. Không đổi người thì càng phải báo — im lặng
+         * để họ tự đoán là kiểu tệ nhất, vì đoàn vẫn đang là của họ mà không ai nói ra.
+         *
+         * Không gửi khi chính họ là người xử lý: điều hành tự bàn giao thẳng thì phiếu đóng theo,
+         * và báo cho chính người vừa bấm là thừa.
+         */
+        if ((int) $request->requested_by === (int) $actor->getKey()) {
+            return;
+        }
+
+        $this->notifier->toiNguoiDung(
+            $request->requester,
+            Alert::PHIEU_DA_XU_LY,
+            $handoverId
+                ? sprintf('Chuyến #%d đã có người thay', $request->tour_schedule_id)
+                : sprintf('Phiếu bàn giao chuyến #%d đã đóng', $request->tour_schedule_id),
+            $note
+                ? trim($note)
+                : 'Điều hành đã xử lý phiếu của bạn.',
+            '/guide/handovers',
+        );
     }
 
     private function assertConDangCho(?GuideHandoverRequest $request): void
