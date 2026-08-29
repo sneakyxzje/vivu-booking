@@ -602,6 +602,59 @@ export interface TransferOptionsResponse {
   options: TransferOption[];
 }
 
+/**
+ * Nhóm căn cứ của một lần chuyển chuyến.
+ *
+ * Ba nhóm đầu là bất khả kháng nên không thu phí đổi lịch của khách; chỉ nhóm cuối chịu quy tắc
+ * phí. Phía máy chủ quyết con số, đây chỉ là danh sách để chọn.
+ */
+export const NHOM_LY_DO_CHUYEN = [
+  { value: "force_majeure", label: "Thiên tai, thời tiết" },
+  { value: "authority", label: "Quyết định của cơ quan nhà nước" },
+  { value: "supplier", label: "Nhà cung cấp không thực hiện được" },
+  { value: "customer_request", label: "Khách xin đổi vì việc riêng" },
+] as const;
+
+export type TransferReasonCategory = (typeof NHOM_LY_DO_CHUYEN)[number]["value"];
+
+export const KENH_LIEN_HE = [
+  { value: "phone", label: "Gọi điện" },
+  { value: "zalo", label: "Nhắn Zalo" },
+  { value: "email", label: "Gửi email" },
+  { value: "in_person", label: "Gặp trực tiếp" },
+] as const;
+
+export const KET_QUA_LIEN_HE = [
+  { value: "agreed", label: "Khách đồng ý" },
+  { value: "refused", label: "Khách không đồng ý" },
+  { value: "unreachable", label: "Không liên lạc được" },
+] as const;
+
+/** Một lần công ty liên hệ khách về một đơn. Ghi rồi thì không sửa, không xóa. */
+export interface ContactLog {
+  id: number;
+  channel: string;
+  channel_label: string;
+  purpose: string;
+  purpose_label: string;
+  outcome: string;
+  outcome_label: string;
+  note: string;
+  contacted_at: string;
+  contacted_by: string | null;
+  /** Đã tiêu vào một lần chuyển chuyến rồi. */
+  da_dung_lam_can_cu: boolean;
+  /** Khách đồng ý, đúng mục đích, và chưa dùng lần nào — tức chọn làm căn cứ được. */
+  dung_lam_can_cu_duoc: boolean;
+}
+
+export interface ContactLogPayload {
+  channel: string;
+  purpose: string;
+  outcome: string;
+  note: string;
+}
+
 /** Một mục trong dòng thời gian thay đổi của đơn. */
 export interface BookingAuditEntry {
   id: number;
@@ -1011,10 +1064,12 @@ const adminService = {
     bookingId: number,
     sameTour = true,
     initiatedBy: "customer" | "company" = "customer",
+    reasonCategory?: TransferReasonCategory,
   ): Promise<TransferOptionsResponse | null> => {
     const response = await api.get(
       `/admin/bookings/${bookingId}/transfer-options?same_tour=${sameTour ? 1 : 0}`
-        + `&initiated_by=${initiatedBy}`,
+        + `&initiated_by=${initiatedBy}`
+        + (reasonCategory ? `&reason_category=${reasonCategory}` : ""),
     );
     return extractObject<TransferOptionsResponse>(response);
   },
@@ -1024,19 +1079,37 @@ const adminService = {
    *
    * Khách gọi lên xin đổi thì vẫn là `customer`, dù người bấm nút là điều hành. Gửi `company`
    * cho mọi trường hợp là nói dối hệ thống để lách hai luật đó.
+   *
+   * `contactLogId` là cuộc trao đổi với khách làm căn cứ — máy chủ từ chối nếu thiếu, nếu bản ghi
+   * không phải "khách đồng ý", hoặc nếu nó đã dùng cho một lần chuyển trước.
    */
   transferBooking: async (
     bookingId: number,
     toScheduleId: number,
     reason: string,
+    contactLogId: number,
+    reasonCategory: TransferReasonCategory,
     initiatedBy: "customer" | "company" = "customer",
   ) => {
     const response = await api.post(`/admin/bookings/${bookingId}/transfer`, {
       to_schedule_id: toScheduleId,
+      contact_log_id: contactLogId,
+      reason_category: reasonCategory,
       reason,
       initiated_by: initiatedBy,
     });
     return response.data?.message ?? "Đã chuyển chuyến.";
+  },
+
+  /** Nhật ký liên hệ của một đơn, mới trước cũ sau. */
+  getContactLogs: async (bookingId: number): Promise<ContactLog[]> => {
+    const response = await api.get(`/admin/bookings/${bookingId}/contact-logs`);
+    return extractArray<ContactLog>(response);
+  },
+
+  createContactLog: async (bookingId: number, payload: ContactLogPayload) => {
+    const response = await api.post(`/admin/bookings/${bookingId}/contact-logs`, payload);
+    return response.data?.message ?? "Đã ghi nhận cuộc liên hệ.";
   },
 
   /** E04 - Dòng thời gian thay đổi của một đơn: ai làm gì, lúc nào, vì sao. */

@@ -5,7 +5,14 @@ import type {
   BookingAuditEntry,
   BookingContractInfo,
   CancelPreview,
+  ContactLog,
   TransferOption,
+  TransferReasonCategory,
+} from "@/services/adminService";
+import {
+  KENH_LIEN_HE,
+  KET_QUA_LIEN_HE,
+  NHOM_LY_DO_CHUYEN,
 } from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
 import { formatDateTime, formatPrice } from "@/utils/format";
@@ -58,6 +65,24 @@ export default function BookingManagement() {
   // Khách gọi lên xin đổi thì vẫn là "customer", dù người bấm nút là điều hành. Chỉ chọn
   // "company" khi công ty tự chuyển vì lý do vận hành.
   const [initiatedBy, setInitiatedBy] = useState<"customer" | "company">("customer");
+
+  /*
+   * Chuyển chuyến phải dựa vào một cuộc trao đổi với khách.
+   *
+   * `canCuId` là bản ghi được chọn làm căn cứ. Máy chủ mới là chỗ quyết - nó từ chối nếu thiếu,
+   * nếu bản ghi không phải "khách đồng ý", hoặc nếu nó đã dùng cho một lần chuyển trước. Ở đây chỉ
+   * là để người dùng thấy trước, khỏi bấm rồi mới biết.
+   */
+  const [contactLogs, setContactLogs] = useState<ContactLog[]>([]);
+  const [canCuId, setCanCuId] = useState<number | null>(null);
+  const [nhomLyDo, setNhomLyDo] = useState<TransferReasonCategory>("customer_request");
+
+  // Khung ghi nhanh một cuộc liên hệ, mở ngay trong bước chuyển chuyến.
+  const [ghiLienHe, setGhiLienHe] = useState(false);
+  const [kenhLienHe, setKenhLienHe] = useState<string>("phone");
+  const [ketQuaLienHe, setKetQuaLienHe] = useState<string>("agreed");
+  const [noiDungLienHe, setNoiDungLienHe] = useState("");
+
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
 
@@ -322,6 +347,7 @@ export default function BookingManagement() {
   const openTransferForm = async (
     sameTour = sameTourOnly,
     khoiXuong: "customer" | "company" = initiatedBy,
+    nhom: TransferReasonCategory = nhomLyDo,
   ) => {
     if (!selectedBooking) return;
 
@@ -332,10 +358,20 @@ export default function BookingManagement() {
     setTransferLoading(true);
     setSameTourOnly(sameTour);
     setInitiatedBy(khoiXuong);
+    setNhomLyDo(nhom);
 
     try {
-      const result = await adminService.getTransferOptions(selectedBooking.id, sameTour, khoiXuong);
+      const [result, logs] = await Promise.all([
+        adminService.getTransferOptions(selectedBooking.id, sameTour, khoiXuong, nhom),
+        adminService.getContactLogs(selectedBooking.id),
+      ]);
+
       setTransferOptions(result?.options ?? []);
+      setContactLogs(logs);
+
+      // Chỉ có đúng một căn cứ dùng được thì chọn sẵn: không có gì để cân nhắc.
+      const dungDuoc = logs.filter((l) => l.dung_lam_can_cu_duoc);
+      setCanCuId(dungDuoc.length === 1 ? dungDuoc[0].id : null);
     } catch (err) {
       setActionError(extractApiError(err, "Không lấy được danh sách chuyến có thể chuyển."));
     } finally {
@@ -348,10 +384,49 @@ export default function BookingManagement() {
     setTransferOptions([]);
     setTransferTargetId(null);
     setTransferReason("");
+    setContactLogs([]);
+    setCanCuId(null);
+    setGhiLienHe(false);
+    setNoiDungLienHe("");
+  };
+
+  /**
+   * Ghi nhận một cuộc liên hệ, rồi nạp lại danh sách căn cứ.
+   *
+   * Đặt ngay trong khung chuyển chuyến chứ không bắt điều hành sang màn khác: cuộc gọi vừa xong,
+   * họ đang cầm điện thoại, và bắt họ đi tìm chỗ ghi là cách nhanh nhất để không ai ghi.
+   */
+  const ghiNhanLienHe = async () => {
+    if (!selectedBooking || noiDungLienHe.trim().length < 10) return;
+
+    setActionLoading(true);
+    setActionError("");
+
+    try {
+      await adminService.createContactLog(selectedBooking.id, {
+        channel: kenhLienHe,
+        purpose: "transfer",
+        outcome: ketQuaLienHe,
+        note: noiDungLienHe.trim(),
+      });
+
+      const logs = await adminService.getContactLogs(selectedBooking.id);
+      setContactLogs(logs);
+
+      const dungDuoc = logs.filter((l) => l.dung_lam_can_cu_duoc);
+      if (dungDuoc.length > 0) setCanCuId(dungDuoc[0].id);
+
+      setGhiLienHe(false);
+      setNoiDungLienHe("");
+    } catch (err) {
+      setActionError(extractApiError(err, "Không ghi được cuộc liên hệ."));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleTransfer = async () => {
-    if (!selectedBooking || !transferTargetId || transferReason.trim().length < 10) return;
+    if (!selectedBooking || !transferTargetId || !canCuId || transferReason.trim().length < 10) return;
 
     setActionLoading(true);
     setActionError("");
@@ -361,6 +436,8 @@ export default function BookingManagement() {
         selectedBooking.id,
         transferTargetId,
         transferReason.trim(),
+        canCuId,
+        nhomLyDo,
         initiatedBy,
       );
 
@@ -1197,6 +1274,161 @@ export default function BookingManagement() {
                     : "Công ty chuyển: miễn hạn báo trước và miễn phí đổi lịch. Vẫn không chuyển được sau hạn chốt danh sách."}
                 </p>
 
+                {/*
+                  Bước 1 — đã trao đổi với khách chưa.
+
+                  Đứng trước phần chọn chuyến, vì đó là thứ tự việc thật: gọi cho khách, thống nhất
+                  phương án, rồi mới đụng vào đơn. Không có căn cứ thì máy chủ từ chối, nên bày ra
+                  sau cùng chỉ khiến người ta điền xong hết mới biết mình thiếu.
+                */}
+                <div className="rounded-md border border-gray-200 bg-white p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-gray-800">
+                      1. Trao đổi với khách
+                    </span>
+                    {!ghiLienHe && (
+                      <button
+                        type="button"
+                        onClick={() => setGhiLienHe(true)}
+                        className="rounded border border-gray-200 px-2.5 py-1 text-[11px] font-semibold text-primary-600 hover:bg-primary-50"
+                      >
+                        Ghi nhận cuộc liên hệ
+                      </button>
+                    )}
+                  </div>
+
+                  {contactLogs.length === 0 && !ghiLienHe && (
+                    <p className="text-[11px] text-gray-500">
+                      Chưa có cuộc liên hệ nào được ghi nhận cho đơn này. Chuyển chuyến là đổi ngày
+                      đi của khách, nên phải hỏi họ trước.
+                    </p>
+                  )}
+
+                  {contactLogs.length > 0 && (
+                    <div className="space-y-1.5">
+                      {contactLogs.map((log) => (
+                        <label
+                          key={log.id}
+                          className={`flex gap-2 rounded border p-2 text-[11px] ${
+                            log.dung_lam_can_cu_duoc
+                              ? "cursor-pointer border-gray-200 hover:border-primary-400"
+                              : "border-gray-100 bg-gray-50 text-gray-400"
+                          } ${canCuId === log.id ? "border-primary-500 bg-primary-50/50" : ""}`}
+                        >
+                          <input
+                            type="radio"
+                            name="can-cu-chuyen-chuyen"
+                            className="mt-0.5"
+                            disabled={!log.dung_lam_can_cu_duoc}
+                            checked={canCuId === log.id}
+                            onChange={() => setCanCuId(log.id)}
+                          />
+                          <span className="min-w-0">
+                            <span className="font-semibold">
+                              {log.channel_label} · {log.outcome_label}
+                            </span>
+                            <span className="text-gray-400">
+                              {" "}· {formatDateTime(log.contacted_at)}
+                              {log.contacted_by ? ` · ${log.contacted_by}` : ""}
+                            </span>
+                            <span className="block text-gray-600">{log.note}</span>
+                            {log.da_dung_lam_can_cu && (
+                              <span className="block italic text-gray-400">
+                                Đã dùng làm căn cứ cho một lần chuyển trước.
+                              </span>
+                            )}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  {ghiLienHe && (
+                    <div className="space-y-2 rounded border border-gray-200 bg-gray-50 p-2.5">
+                      <div className="flex gap-2">
+                        <select
+                          value={kenhLienHe}
+                          onChange={(e) => setKenhLienHe(e.target.value)}
+                          className="flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs"
+                        >
+                          {KENH_LIEN_HE.map((k) => (
+                            <option key={k.value} value={k.value}>{k.label}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={ketQuaLienHe}
+                          onChange={(e) => setKetQuaLienHe(e.target.value)}
+                          className="flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs"
+                        >
+                          {KET_QUA_LIEN_HE.map((k) => (
+                            <option key={k.value} value={k.value}>{k.label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <textarea
+                        rows={2}
+                        value={noiDungLienHe}
+                        onChange={(e) => setNoiDungLienHe(e.target.value)}
+                        placeholder="Khách nói gì? VD: Đã gọi, khách đồng ý dời sang chuyến ngày 20/09."
+                        className="w-full rounded border border-gray-200 px-2 py-1.5 text-xs"
+                      />
+
+                      <p className="text-[10px] text-gray-500">
+                        Ghi rồi thì không sửa và không xóa được. Ghi cả những lần khách từ chối hoặc
+                        không bắt máy — đó mới là thứ cần đến khi có tranh cãi.
+                      </p>
+
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setGhiLienHe(false); setNoiDungLienHe(""); }}
+                          className="rounded px-2.5 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-100"
+                        >
+                          Bỏ qua
+                        </button>
+                        <button
+                          type="button"
+                          onClick={ghiNhanLienHe}
+                          disabled={actionLoading || noiDungLienHe.trim().length < 10}
+                          className="rounded bg-primary-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                        >
+                          Lưu cuộc liên hệ
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/*
+                  Bước 2 — nhóm căn cứ.
+
+                  Không phải để phân loại cho đẹp báo cáo: ba nhóm đầu là bất khả kháng nên không
+                  thu phí đổi lịch, còn nhóm cuối thì có. Đổi lựa chọn ở đây là gọi lại máy chủ để
+                  con số phí hiện ra đúng thứ sẽ thu thật.
+                */}
+                <div className="space-y-1">
+                  <span className="text-xs font-bold text-gray-800">2. Nhóm lý do</span>
+                  <select
+                    value={nhomLyDo}
+                    onChange={(e) =>
+                      openTransferForm(sameTourOnly, initiatedBy, e.target.value as TransferReasonCategory)
+                    }
+                    className="w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-xs"
+                  >
+                    {NHOM_LY_DO_CHUYEN.map((n) => (
+                      <option key={n.value} value={n.value}>{n.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-gray-500">
+                    {nhomLyDo === "customer_request"
+                      ? "Việc riêng của khách: áp quy tắc phí đổi lịch như thường."
+                      : "Bất khả kháng: không thu phí đổi lịch của khách, dù đây là lần chuyển thứ mấy."}
+                  </p>
+                </div>
+
+                <span className="block text-xs font-bold text-gray-800">3. Chọn chuyến đích</span>
+
                 {transferLoading && (
                   <p className="text-xs text-gray-500">Đang tìm chuyến phù hợp...</p>
                 )}
@@ -1259,16 +1491,27 @@ export default function BookingManagement() {
 
                 <div>
                   <label className="block text-xs font-semibold text-blue-800 mb-1">
-                    Lý do chuyển <span className="text-rose-500">*</span>
+                    4. Chuyện gì đã xảy ra <span className="text-rose-500">*</span>
                   </label>
                   <textarea
                     rows={2}
                     value={transferReason}
                     onChange={(e) => setTransferReason(e.target.value)}
-                    placeholder="VD: Khách xin đổi sang ngày khác vì bận việc đột xuất..."
+                    placeholder="VD: Bão số 9, cấm biển từ 12/09, không chạy tàu ra đảo."
                     className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
                   />
+                  <p className="mt-0.5 text-[11px] text-gray-500">
+                    Nhóm ở trên nói loại căn cứ, ô này nói việc cụ thể. Câu này vào nhật ký của đơn
+                    và là thứ người sau đọc lại để hiểu vì sao đơn bị dời.
+                  </p>
                 </div>
+
+                {!canCuId && (
+                  <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                    Chưa chọn được căn cứ: cần một cuộc liên hệ có kết quả <b>khách đồng ý</b> và
+                    chưa dùng cho lần chuyển nào.
+                  </p>
+                )}
 
                 <div className="flex justify-end gap-2">
                   <button
@@ -1281,7 +1524,7 @@ export default function BookingManagement() {
                   <button
                     onClick={handleTransfer}
                     disabled={
-                      actionLoading || !transferTargetId || transferReason.trim().length < 10
+                      actionLoading || !transferTargetId || !canCuId || transferReason.trim().length < 10
                     }
                     className="px-3.5 py-2 bg-blue-600 text-xs font-semibold rounded-md text-white hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
                   >
