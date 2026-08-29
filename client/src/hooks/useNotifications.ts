@@ -16,8 +16,13 @@ import { useAuth } from "@/hooks/useAuth";
  * WebSocket là đường nhanh. Nếu mở được kênh thì thông báo mới **chèn thẳng vào đầu danh sách**,
  * không cần gọi lại máy chủ — đó là toàn bộ lợi ích của nó.
  *
- * Nếu không mở được — chưa bật `reverb:start`, tường lửa chặn, chưa cấu hình khoá — thì hook
+ * Nếu không nối được — chưa bật `reverb:start`, tường lửa chặn, chưa cấu hình khoá — thì hook
  * chuyển sang **hỏi lại mỗi 30 giây**. Chậm hơn, nhưng không mất gì.
+ *
+ * Ranh giới giữa hai đường là `live`, và nó phải là **trạng thái kết nối thật** chứ không phải
+ * "đã dựng xong đối tượng Echo". Hai thứ đó khác nhau: pusher-js nhận lệnh, thử lại ngầm mãi mãi
+ * và không ném lỗi cho ai, nên lấy mốc "dựng xong" thì Reverb tắt vẫn báo xanh và đường dự phòng
+ * không bao giờ bật. Nhờ vậy Reverb chết giữa chừng cũng tự rơi xuống hỏi định kỳ.
  *
  * Điều cố ý KHÔNG làm: chạy cả hai cùng lúc. Vừa nghe kênh vừa hỏi định kỳ thì mỗi thông báo về
  * hai lần và danh sách nhân đôi.
@@ -30,12 +35,21 @@ const NHIP_HOI_LAI = 30_000;
 const CO_HOP_THONG_BAO = ["admin", "guide"];
 
 export const useNotifications = () => {
-  const { user } = useAuth();
+  /*
+   * Token lấy từ ngữ cảnh xác thực, không tự đọc localStorage.
+   *
+   * Bản đầu đọc thẳng `localStorage.getItem("token")` — sai khoá, chỗ lưu thật là `access_token`.
+   * Không có gì báo lỗi: hàm trả về null, hiệu ứng thoát sớm, và mất luôn cả WebSocket lẫn nhịp
+   * hỏi lại. Màn hình chỉ hiện đúng một dòng "chưa kết nối được".
+   *
+   * Đọc từ `useAuth()` thì không còn tên khoá nào lặp lại ở đây để mà gõ sai.
+   */
+  const { user, token } = useAuth();
 
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
-  /** true = đang nghe WebSocket. false = đang hỏi định kỳ. Hiện lên giao diện để biết đường gỡ. */
+  /** true = đường dây đang nối. false = đang hỏi định kỳ. Hiện lên giao diện để biết đường gỡ. */
   const [live, setLive] = useState(false);
 
   // Giữ trong ref để hàm nghe kênh không phải khai lại mỗi lần danh sách đổi.
@@ -71,32 +85,50 @@ export const useNotifications = () => {
   useEffect(() => {
     if (!user || !coHop) return;
 
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    const dungNghe = onNotification(token, user.id, (payload) => {
-      const tb = payload as AppNotification;
-
-      // Máy chủ có thể gửi lại cùng một thông báo khi kết nối chập chờn.
-      if (!tb?.id || daNhan.current.has(tb.id)) return;
-
-      daNhan.current.add(tb.id);
-      setItems((truoc) => [tb, ...truoc]);
-      setUnread((truoc) => truoc + 1);
-    });
-
-    if (dungNghe) {
-      setLive(true);
-      return dungNghe;
-    }
-
     /*
-     * Không mở được kênh: hỏi lại định kỳ.
+     * Thiếu token thì bỏ qua WebSocket nhưng **vẫn hỏi định kỳ**.
      *
-     * Chỉ hỏi số chưa đọc chứ không kéo cả danh sách — nhẹ hơn nhiều, và khi số đó nhích lên thì
-     * mới đi lấy danh sách thật.
+     * Bản đầu thoát hẳn ở đây, tức là một trục trặc của đường nhanh kéo đổ luôn đường dự phòng —
+     * đúng thứ mà cả tệp này được viết ra để tránh. Mọi lối rẽ hỏng đều phải rơi xuống nhịp hỏi
+     * lại, không lối nào được rơi ra ngoài.
      */
-    setLive(false);
+    const dungNghe = token
+      ? onNotification(
+          token,
+          user.id,
+          (payload) => {
+            const tb = payload as AppNotification;
+
+            // Máy chủ có thể gửi lại cùng một thông báo khi kết nối chập chờn.
+            if (!tb?.id || daNhan.current.has(tb.id)) return;
+
+            daNhan.current.add(tb.id);
+            setItems((truoc) => [tb, ...truoc]);
+            setUnread((truoc) => truoc + 1);
+          },
+          setLive,
+        )
+      : null;
+
+    if (!dungNghe) setLive(false);
+
+    return dungNghe ?? undefined;
+  }, [user, token, coHop, taiLai]);
+
+  /*
+   * Nhịp hỏi lại, bật đúng khi đường dây không nối được.
+   *
+   * Tách khỏi hiệu ứng trên vì hai việc này đổi theo hai nhịp khác nhau. Trước đây quyết định
+   * "nghe hay hỏi" chốt đúng một lần lúc dựng đối tượng Echo — mà dựng được đối tượng không có
+   * nghĩa là nối được. Chưa chạy `reverb:start` thì pusher-js cứ thử lại ngầm, không thông báo
+   * nào tới, mà nhịp hỏi lại cũng không bao giờ bật. Giờ `live` phản ánh trạng thái thật, nên
+   * Reverb chết giữa chừng là chỗ này tự chạy, và Reverb sống lại là nó tự tắt.
+   *
+   * Chỉ hỏi số chưa đọc chứ không kéo cả danh sách — nhẹ hơn nhiều, và khi số đó nhích lên thì
+   * mới đi lấy danh sách thật.
+   */
+  useEffect(() => {
+    if (!coHop || live) return;
 
     const dinhKy = window.setInterval(async () => {
       try {
@@ -113,7 +145,7 @@ export const useNotifications = () => {
     }, NHIP_HOI_LAI);
 
     return () => window.clearInterval(dinhKy);
-  }, [user, coHop, taiLai]);
+  }, [coHop, live, taiLai]);
 
   const danhDauDaDoc = useCallback(async (id: string) => {
     // Đổi giao diện trước rồi mới gọi máy chủ: bấm vào một dòng thì nó phải mờ đi ngay.
