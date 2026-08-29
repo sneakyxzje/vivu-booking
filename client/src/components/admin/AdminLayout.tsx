@@ -145,6 +145,14 @@ const navEntries: NavEntry[] = [
   },
   {
     kind: "link",
+    to: "/admin/contact-messages",
+    label: "Liên hệ & bản tin",
+    icon: icon(
+      "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
+    ),
+  },
+  {
+    kind: "link",
     to: "/admin/audit-logs",
     label: "Nhật ký hệ thống",
     icon: icon("M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"),

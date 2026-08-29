@@ -107,7 +107,7 @@ class BookingGuardRulesTest extends TestCase
             'email' => 'khach@example.com',
         ])->assertOk();
 
-        Mail::assertSent(ResendLookupCodeMail::class);
+        Mail::assertQueued(ResendLookupCodeMail::class);
     }
 
     /**
@@ -127,7 +127,7 @@ class BookingGuardRulesTest extends TestCase
 
         $this->assertSame($coDon->json('message'), $khongCoDon->json('message'));
 
-        Mail::assertNotSent(
+        Mail::assertNotQueued(
             ResendLookupCodeMail::class,
             fn (ResendLookupCodeMail $mail) => $mail->hasTo('nguoila@example.com'),
         );
@@ -145,7 +145,7 @@ class BookingGuardRulesTest extends TestCase
             'email' => 'khach@example.com',
         ])->assertOk();
 
-        Mail::assertNotSent(ResendLookupCodeMail::class);
+        Mail::assertNotQueued(ResendLookupCodeMail::class);
     }
 
     public function test_email_sai_dinh_dang_bi_tu_choi(): void
@@ -167,7 +167,7 @@ class BookingGuardRulesTest extends TestCase
             'phone' => '0900000000',
         ])->assertOk();
 
-        Mail::assertNotSent(ResendLookupCodeMail::class);
+        Mail::assertNotQueued(ResendLookupCodeMail::class);
     }
 
     public function test_ma_tra_cuu_gui_di_la_ma_that_cua_don(): void

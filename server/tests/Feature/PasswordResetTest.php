@@ -32,7 +32,7 @@ class PasswordResetTest extends TestCase
 
         $this->postJson('/api/forgot-password', ['email' => $khach->email])->assertOk();
 
-        Mail::assertSent(
+        Mail::assertQueued(
             PasswordResetMail::class,
             fn (PasswordResetMail $thu) => $thu->hasTo($khach->email),
         );
@@ -52,7 +52,7 @@ class PasswordResetTest extends TestCase
         $khongCo->assertOk();
         $this->assertSame($coThat->json('message'), $khongCo->json('message'));
 
-        Mail::assertSentCount(1);
+        Mail::assertQueuedCount(1);
     }
 
     public function test_tai_khoan_bi_khoa_khong_nhan_duoc_lien_ket(): void
@@ -62,7 +62,7 @@ class PasswordResetTest extends TestCase
 
         $this->postJson('/api/forgot-password', ['email' => 'bi-khoa@example.com'])->assertOk();
 
-        Mail::assertNothingSent();
+        Mail::assertNothingQueued();
     }
 
     public function test_dat_lai_mat_khau_thanh_cong_va_dang_nhap_duoc_bang_mat_khau_moi(): void

@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Model;
     'total_amount',
     'deposit_amount',
     'balance_due_at',
+    'departure_reminder_sent_at',
     'discount_code_id',
     'discount_code',
     'discount_amount',
@@ -54,6 +55,7 @@ class Booking extends Model
         return [
             'expires_at' => 'datetime',
             'balance_due_at' => 'datetime',
+            'departure_reminder_sent_at' => 'datetime',
             'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'seats_released_at' => 'datetime',

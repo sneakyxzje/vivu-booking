@@ -55,4 +55,19 @@ return [
 
     'transfer_fee' => (int) env('BOOKING_TRANSFER_FEE', 200000),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Nhắc trước ngày khởi hành
+    |--------------------------------------------------------------------------
+    |
+    | Gửi thư nhắc trước bao nhiêu ngày. Ba ngày là khoảng đủ để khách còn kịp
+    | thu xếp công việc và hỏi lại nếu có gì chưa rõ, nhưng chưa xa tới mức đọc
+    | xong lại quên.
+    |
+    | Mỗi đơn chỉ nhận đúng một thư, xem cột `departure_reminder_sent_at`.
+    |
+    */
+
+    'departure_reminder_days' => (int) env('BOOKING_DEPARTURE_REMINDER_DAYS', 3),
+
 ];

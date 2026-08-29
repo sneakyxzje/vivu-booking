@@ -366,14 +366,14 @@ class ScheduleCancellationTest extends TestCase
             ],
         ])->assertOk();
 
-        Mail::assertSent(BookingCancelledMail::class, 2);
+        Mail::assertQueued(BookingCancelledMail::class, 2);
 
-        Mail::assertSent(
+        Mail::assertQueued(
             BookingCancelledMail::class,
             fn (BookingCancelledMail $thu) => $thu->booking->id === $daTra->id,
         );
 
-        Mail::assertSent(
+        Mail::assertQueued(
             BookingCancelledMail::class,
             fn (BookingCancelledMail $thu) => $thu->booking->id === $chuaTra->id,
         );
@@ -396,8 +396,8 @@ class ScheduleCancellationTest extends TestCase
             ],
         ])->assertOk();
 
-        Mail::assertNotSent(BookingCancelledMail::class);
-        Mail::assertSent(BookingConfirmedMail::class, 1);
+        Mail::assertNotQueued(BookingCancelledMail::class);
+        Mail::assertQueued(BookingConfirmedMail::class, 1);
     }
 
     /** Số tiền hoàn phải nằm trên chính đơn, để thư và kế toán đọc được mà không mở bảng khác. */

@@ -124,7 +124,7 @@ class DuplicateBookingGuardTest extends TestCase
 
         $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
 
-        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\BookingCreatedMail::class, 1);
+        \Illuminate\Support\Facades\Mail::assertQueued(\App\Mail\BookingCreatedMail::class, 1);
     }
 
     /**

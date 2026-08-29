@@ -27,6 +27,7 @@ import CategoryManagement from "@/pages/admin/CategoryManagement";
 import ReviewManagement from "@/pages/admin/ReviewManagement";
 import UserManagement from "@/pages/admin/UserManagement";
 import RefundManagement from "@/pages/admin/RefundManagement";
+import ContactMessages from "@/pages/admin/ContactMessages";
 import ScheduleAttendance from "@/pages/admin/ScheduleAttendance";
 import AttendanceReport from "@/pages/admin/AttendanceReport";
 import ScheduleManagement from "@/pages/admin/ScheduleManagement";
@@ -50,6 +51,7 @@ import BookingTour from "@/pages/BookingTour";
 import BookingSuccess from "@/pages/BookingSuccess";
 import { Profile } from "@/pages/Profile";
 import InfoPage from "@/pages/InfoPage";
+import ContactPage from "@/pages/ContactPage";
 import { BookingLookup } from "@/pages/BookingLookup";
 import GroupBooking from "@/pages/GroupBooking";
 import PassengerDeclaration from "@/pages/PassengerDeclaration";
@@ -125,8 +127,9 @@ const router = createBrowserRouter([
         element: <Navigate to="/chinh-sach#bao-mat" replace />,
       },
       {
+        // Trước đây trỏ vào `InfoPage` — cùng một trang chữ tĩnh với `/about`, không ô nào để gõ.
         path: "/contact",
-        element: <InfoPage />,
+        element: <ContactPage />,
       },
       {
         /*
@@ -325,6 +328,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/refunds",
             element: <RefundManagement />,
+          },
+          {
+            path: "/admin/contact-messages",
+            element: <ContactMessages />,
           },
         ],
       },

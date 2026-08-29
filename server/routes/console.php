@@ -49,3 +49,33 @@ Schedule::command('bookings:expire-stale-holds')
 Schedule::command('bookings:check-seat-consistency')
     ->hourly()
     ->withoutOverlapping();
+
+/*
+ * Nhắc khách trước ngày khởi hành.
+ *
+ * Chạy 8 giờ sáng, một lần mỗi ngày: thư nhắc gửi lúc 3 giờ sáng thì nằm dưới cùng hộp thư khi
+ * người ta mở máy. Cửa sổ quét trải cả khoảng ngày nên một lần lỡ chạy vẫn bắt lại được, xem
+ * SendDepartureReminders.
+ */
+Schedule::command('bookings:send-departure-reminders')
+    ->dailyAt('08:00')
+    ->withoutOverlapping();
+
+/*
+ * Đẩy hàng đợi.
+ *
+ * Thư gửi đi đều là `ShouldQueue`, nên với `QUEUE_CONNECTION=database` chúng nằm trong bảng `jobs`
+ * cho tới khi có ai đó chạy. Bảy lệnh ở trên đã buộc phải có `schedule:run` mỗi phút rồi, nên gắn
+ * việc đẩy hàng đợi vào đó là không phải nhớ bật thêm một tiến trình nữa — và quên bật tiến trình
+ * ấy nghĩa là thư im lặng không bao giờ tới, kiểu hỏng khó nhận ra nhất.
+ *
+ * `--stop-when-empty` để tiến trình tự thoát thay vì chạy mãi; `--max-time=50` để nó không lấn
+ * sang phút sau, vì `withoutOverlapping` chỉ chặn được lần chạy chồng chứ không rút ngắn lần đang
+ * chạy.
+ *
+ * Khi lượng thư lớn hơn, chạy `php artisan queue:work` như một dịch vụ riêng vẫn tốt hơn: ở đây
+ * thư chỉ được gửi mỗi phút một đợt.
+ */
+Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=3')
+    ->everyMinute()
+    ->withoutOverlapping();

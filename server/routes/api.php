@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 
 // Controllers
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\TourController;
@@ -56,6 +57,7 @@ use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
 use App\Http\Controllers\Api\Admin\AdminAttendanceController;
 use App\Http\Controllers\Api\Admin\AdminCancellationPolicyController;
 use App\Http\Controllers\Api\Admin\AdminCategoryController;
+use App\Http\Controllers\Api\Admin\AdminContactMessageController;
 use App\Http\Controllers\Api\Admin\AdminReviewController;
 use App\Http\Controllers\Api\Admin\AdminServiceController;
 
@@ -128,6 +130,14 @@ Route::get('/vnpay/return', [CustomerBookingController::class, 'vnpayReturn']);
 // Đánh giá của một tour. Có phân trang, và người đang đăng nhập thấy thêm bài của chính mình
 // dù bài đó còn chờ duyệt — nên tuyến này đọc `auth('sanctum')` dù không bắt buộc đăng nhập.
 Route::get('/reviews/{tour}', [ReviewController::class, 'index']);
+/*
+ * Form liên hệ. Không cần đăng nhập — phần lớn người viết vào đây là người chưa đặt gì.
+ *
+ * Hạn mức riêng vì đây là một ô nhập chữ tự do mở cho mọi người: không giới hạn thì nó là chỗ để
+ * gửi thư rác hàng loạt vào hộp thư của điều hành.
+ */
+Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,10');
+
 Route::post('/newsletter', function (\Illuminate\Http\Request $request) {
     $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
 
@@ -421,6 +431,18 @@ Route::middleware('auth:sanctum')->group(function () {
          * Từ chối không xóa bản ghi — xóa hẳn là quyền của chính người viết, qua tuyến
          * `DELETE /reviews/{id}` ở nhóm khách hàng.
          */
+        /*
+         * Hộp thư liên hệ và danh sách nhận bản tin.
+         *
+         * Trước đây ô "đăng ký nhận bản tin" ở trang chủ ghi vào `newsletter_subscribers` mà không
+         * màn hình nào đọc bảng ấy — một nút bấm không dẫn tới đâu. Xuất CSV là cách giao danh
+         * sách cho công cụ gửi thư hàng loạt; hệ thống này cố ý không tự gửi bản tin.
+         */
+        Route::get('contact-messages', [AdminContactMessageController::class, 'index']);
+        Route::put('contact-messages/{id}/handled', [AdminContactMessageController::class, 'toggleHandled']);
+        Route::get('newsletter-subscribers', [AdminContactMessageController::class, 'subscribers']);
+        Route::get('newsletter-subscribers/export', [AdminContactMessageController::class, 'exportSubscribers']);
+
         Route::get('reviews', [AdminReviewController::class, 'index']);
         Route::put('reviews/{id}/approve', [AdminReviewController::class, 'approve']);
         Route::put('reviews/{id}/reject', [AdminReviewController::class, 'reject']);

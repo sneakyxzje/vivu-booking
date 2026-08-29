@@ -100,7 +100,7 @@ class ScheduleAutomationTest extends TestCase
         ]);
         $this->assertNotNull($schedule->fresh()->confirmed_at);
 
-        Mail::assertSent(
+        Mail::assertQueued(
             BookingConfirmedMail::class,
             fn (BookingConfirmedMail $mail) => $mail->hasTo($booking->customer_email),
         );
@@ -162,7 +162,7 @@ class ScheduleAutomationTest extends TestCase
         $this->artisan('schedules:confirm-ready')->assertSuccessful();
 
         $this->assertSame(ScheduleStatus::Closed, $schedule->fresh()->status);
-        Mail::assertNothingSent();
+        Mail::assertNothingQueued();
     }
 
     private function taoDonDaThanhToan(

@@ -87,7 +87,7 @@ class AdminBookingActionsTest extends TestCase
         $this->assertNull($don->expires_at);
         $this->assertNotNull($don->confirmed_at);
 
-        Mail::assertSent(
+        Mail::assertQueued(
             \App\Mail\BookingConfirmedMail::class,
             fn (\App\Mail\BookingConfirmedMail $mail) => $mail->hasTo($don->customer_email)
         );
@@ -117,7 +117,7 @@ class AdminBookingActionsTest extends TestCase
             'cancel_reason' => 'Tour bi hoan do thoi tiet',
         ])->assertOk();
 
-        Mail::assertSent(BookingCancelledMail::class, function (BookingCancelledMail $mail) use ($don) {
+        Mail::assertQueued(BookingCancelledMail::class, function (BookingCancelledMail $mail) use ($don) {
             return $mail->hasTo($don->customer_email)
                 && $mail->booking->id === $don->id;
         });

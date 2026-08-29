@@ -277,6 +277,26 @@ export interface RefundQueueResponse {
   outstanding_total: number;
 }
 
+export type ContactMessageStatus = "new" | "handled";
+
+export interface ContactMessage {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  subject: string | null;
+  message: string;
+  status: ContactMessageStatus;
+  handled_at: string | null;
+  handled_by: string | null;
+  handling_note: string | null;
+  created_at: string | null;
+}
+
+export interface ContactMessageListResponse extends PaginatedResponse<ContactMessage> {
+  new_count: number;
+}
+
 export type AdminUserRole = "admin" | "guide" | "customer";
 export type AdminUserStatus = "active" | "inactive" | "blocked";
 
@@ -924,6 +944,57 @@ const adminService = {
   getRefundQueue: async (settled = false): Promise<RefundQueueResponse | null> => {
     const response = await api.get("/admin/refunds", { params: { settled: settled ? 1 : 0 } });
     return extractObject<RefundQueueResponse>(response);
+  },
+
+  // --- Hộp thư liên hệ và bản tin --------------------------------------------------------------
+
+  getContactMessages: async (
+    status = "",
+    page = 1,
+  ): Promise<ContactMessageListResponse | null> => {
+    const response = await api.get("/admin/contact-messages", { params: { status, page } });
+    return extractObject<ContactMessageListResponse>(response);
+  },
+
+  /** Đảo trạng thái: chưa xử lý ↔ đã xử lý. Máy chủ quyết chiều. */
+  toggleContactHandled: async (id: number, note?: string) => {
+    const response = await api.put(`/admin/contact-messages/${id}/handled`, { note });
+    return response.data?.message ?? "Đã cập nhật.";
+  },
+
+  getNewsletterSubscribers: async (page = 1) => {
+    const response = await api.get("/admin/newsletter-subscribers", { params: { page } });
+    return extractObject<{
+      data: { id: number; email: string; created_at: string }[];
+      total: number;
+      current_page: number;
+      last_page: number;
+    }>(response);
+  },
+
+  /**
+   * Tải danh sách email ra CSV.
+   *
+   * Đi qua axios rồi dựng liên kết blob, không đặt `href` thẳng tới điểm cuối: thẻ `<a>` không
+   * mang được tiêu đề Authorization, nên đường ấy sẽ trả 401. Cùng cách với xuất danh sách đoàn.
+   */
+  exportNewsletterSubscribers: async (): Promise<void> => {
+    const response = await api.get("/admin/newsletter-subscribers/export", {
+      responseType: "blob",
+    });
+
+    const disposition = String(response.headers?.["content-disposition"] ?? "");
+    const khop = disposition.match(/filename="?([^"]+)"?/);
+
+    const url = URL.createObjectURL(response.data as Blob);
+    const the = document.createElement("a");
+    the.href = url;
+    the.download = khop?.[1] ?? "nguoi-dang-ky-nhan-tin.csv";
+    document.body.appendChild(the);
+    the.click();
+
+    document.body.removeChild(the);
+    URL.revokeObjectURL(url);
   },
 
   // --- Tài khoản ------------------------------------------------------------------------------

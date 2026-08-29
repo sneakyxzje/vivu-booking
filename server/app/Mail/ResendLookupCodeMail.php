@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
@@ -13,7 +14,7 @@ use Illuminate\Support\Collection;
  * Task X06a - Mailable gửi lại danh sách mã tra cứu cho khách vãng lai (Edge Case A16).
  * Gửi email liệt kê toàn bộ các mã tra cứu đơn hàng tương ứng với Email khách hàng đã đặt tour.
  */
-class ResendLookupCodeMail extends Mailable
+class ResendLookupCodeMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
