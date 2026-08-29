@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TransferReasonCategory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -14,6 +15,8 @@ class BookingTransfer extends Model
         'from_tour_id',
         'to_tour_id',
         'initiated_by',
+        'contact_log_id',
+        'reason_category',
         'price_difference',
         'fee',
         'reason',
@@ -24,10 +27,17 @@ class BookingTransfer extends Model
     protected function casts(): array
     {
         return [
+            'reason_category' => TransferReasonCategory::class,
             'price_difference' => 'decimal:2',
             'fee' => 'decimal:2',
             'approved_at' => 'datetime',
         ];
+    }
+
+    /** Cuộc trao đổi với khách làm căn cứ cho lần chuyển này. */
+    public function contactLog(): BelongsTo
+    {
+        return $this->belongsTo(CustomerContactLog::class, 'contact_log_id');
     }
 
     public function booking(): BelongsTo
