@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\Guide;
 use App\Http\Controllers\Controller;
 use App\Models\GuideAssignmentDecline;
 use App\Models\TourSchedule;
-use App\Notifications\AdminAlert;
-use App\Services\AdminNotifier;
+use App\Notifications\Alert;
+use App\Services\Notifier;
 use App\Services\ScheduleGuideService;
 use App\Services\ScheduleLifecycleService;
 use Illuminate\Http\JsonResponse;
@@ -26,7 +26,7 @@ class AssignmentController extends Controller
     public function __construct(
         private ScheduleGuideService $guideService,
         private ScheduleLifecycleService $lifecycle,
-        private AdminNotifier $notifier,
+        private Notifier $notifier,
     ) {
     }
 
@@ -111,8 +111,8 @@ class AssignmentController extends Controller
          */
         $schedule->loadMissing('tour:id,title');
 
-        $this->notifier->guiToiDieuHanh(
-            AdminAlert::TU_CHOI_CHUYEN,
+        $this->notifier->toiDieuHanh(
+            Alert::TU_CHOI_CHUYEN,
             sprintf('%s từ chối chuyến #%d', $request->user()->name, $schedule->id),
             sprintf(
                 '%s · khởi hành %s · lý do: %s',

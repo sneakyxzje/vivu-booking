@@ -8,8 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Models\IncidentPhoto;
 use App\Models\ScheduleIncident;
 use App\Models\TourSchedule;
-use App\Notifications\AdminAlert;
-use App\Services\AdminNotifier;
+use App\Notifications\Alert;
+use App\Services\Notifier;
 use App\Services\CloudinaryService;
 use App\Services\GuideHandoverService;
 use App\Services\IncidentService;
@@ -29,7 +29,7 @@ class IncidentController extends Controller
     public function __construct(
         private IncidentService $incidentService,
         private CloudinaryService $cloudinaryService,
-        private AdminNotifier $notifier,
+        private Notifier $notifier,
     ) {
     }
 
@@ -63,8 +63,8 @@ class IncidentController extends Controller
             $validated['group_state'],
         );
 
-        $this->notifier->guiToiDieuHanh(
-            AdminAlert::XIN_BAN_GIAO,
+        $this->notifier->toiDieuHanh(
+            Alert::XIN_BAN_GIAO,
             sprintf('%s xin bàn giao chuyến #%d', $request->user()->name, $schedule->id),
             sprintf('%s · %s', $schedule->tour?->title ?? 'Tour', $validated['reason']),
             '/admin/handovers',
@@ -195,8 +195,8 @@ class IncidentController extends Controller
         if ($incident->severity->canXuLyNgay()) {
             $schedule->loadMissing('tour:id,title');
 
-            $this->notifier->guiToiDieuHanh(
-                AdminAlert::SU_CO,
+            $this->notifier->toiDieuHanh(
+                Alert::SU_CO,
                 sprintf('Sự cố nghiêm trọng ở chuyến #%d', $schedule->id),
                 sprintf(
                     '%s · %s · %s',
