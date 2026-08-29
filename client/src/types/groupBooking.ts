@@ -87,10 +87,29 @@ export interface PaymentEntry {
   recorded_by: string | null;
 }
 
-/** Sổ giao dịch của một đơn: số đã thu là TỔNG của sổ, không phải một cột bị ghi đè. */
+/** Tài khoản khách khai lúc gửi yêu cầu hủy. null khi đơn hủy qua đường khác. */
+export interface RefundBankInfo {
+  account_number: string;
+  bank_name: string | null;
+  account_holder: string | null;
+}
+
+/**
+ * Sổ giao dịch của một đơn: số đã thu là TỔNG của sổ, không phải một cột bị ghi đè.
+ *
+ * Sổ này ra đời cùng booking đoàn nên kiểu vẫn nằm ở tệp này, nhưng từ khi đơn lẻ cũng trả nhiều
+ * đợt thì nó áp cho mọi đơn.
+ */
 export interface BookingLedger {
   total_amount: number;
   net_paid: number;
+  /** Còn thiếu bao nhiêu so với giá trị đơn. */
+  balance_due: number;
   paid_in_full: boolean;
+  /** Nghĩa vụ hoàn chốt tại thời điểm hủy; 0 khi đơn chưa hủy. */
+  refund_due: number;
+  refunded: number;
+  refund_outstanding: number;
+  refund_bank: RefundBankInfo | null;
   entries: PaymentEntry[];
 }

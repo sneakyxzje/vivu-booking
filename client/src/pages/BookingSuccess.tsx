@@ -19,6 +19,12 @@ type Booking = {
   child_count?: number;
   infant_count?: number;
   total_amount: number;
+  /** Tiền cọc chốt lúc đặt. null nghĩa là tour thu đủ ngay. */
+  deposit_amount?: number | null;
+  balance_due_at?: string | null;
+  /** Tổng đã thu thực, tính từ sổ giao dịch. Vắng mặt ở các đơn tạo trước khi có sổ. */
+  net_paid?: number;
+  balance_due?: number;
   discount_code?: string | null;
   discount_amount?: number;
   status: string;
@@ -196,8 +202,19 @@ export default function BookingSuccess() {
   const paid = isPaidStatus(booking.status);
   const pending = isPendingStatus(booking.status);
   const cancelled = isCancelledStatus(booking.status);
-  const paidAmount = paid ? Number(booking.total_amount) : 0;
-  const remainingAmount = pending ? Number(booking.total_amount) : 0;
+  /*
+   * Số đã thu và số còn thiếu đọc từ máy chủ, không suy ra từ trạng thái đơn.
+   *
+   * Suy từ trạng thái được khi mọi đơn trả một lần: `confirmed` là đã trả đủ. Từ khi có đặt cọc
+   * thì không: một đơn `confirmed` có thể mới trả 30%, và cách tính cũ sẽ hiện "đã thanh toán
+   * 5.000.000, còn thiếu 0" cho người mới đóng 1.500.000.
+   *
+   * `?? ` giữ lại lối cũ cho các đơn tạo trước khi có sổ giao dịch.
+   */
+  const paidAmount = Number(booking.net_paid ?? (paid ? booking.total_amount : 0));
+  const remainingAmount = Number(
+    booking.balance_due ?? (pending ? booking.total_amount : 0),
+  );
   const discountAmount = Number(booking.discount_amount ?? 0);
   const subtotalAmount = Number(booking.total_amount) + discountAmount;
   const guestBreakdown = `${booking.adult_count ?? 0} người lớn, ${booking.child_count ?? 0} trẻ em, ${booking.infant_count ?? 0} em bé`;
@@ -304,16 +321,29 @@ export default function BookingSuccess() {
                 <div className="flex justify-between py-4 items-center"><span className="text-gray-500 font-medium">Trạng thái đặt chỗ</span><span>{getStatusBadge(booking.status)}</span></div>
               </div>
 
-              {booking.payment_url && pending && (
+              {/*
+                Khối thanh toán hiện cả khi đơn ĐÃ xác nhận mà còn nợ phần còn lại.
+                Chỉ hiện lúc `pending` thì khách đã đóng cọc không còn đường nào tự trả nốt.
+              */}
+              {booking.payment_url && (pending || remainingAmount > 0) && (
                 <div className="mt-8 p-5 bg-emerald-50 border border-emerald-100 rounded-lg space-y-4">
                   <div className="flex items-start gap-3.5">
                     <div className="p-2.5 bg-emerald-500 rounded-xl text-white shrink-0"><CreditCardIcon className="w-5 h-5" /></div>
                     <div>
-                      <h4 className="font-bold text-emerald-900 text-sm">Thanh toán trực tuyến VNPay an toàn</h4>
-                      <p className="text-xs text-emerald-700 leading-relaxed mt-0.5">Để hoàn tất đặt tour và giữ chỗ chính thức, vui lòng thanh toán qua cổng VNPay.</p>
+                      <h4 className="font-bold text-emerald-900 text-sm">
+                        {pending ? "Thanh toán trực tuyến VNPay an toàn" : "Thanh toán phần còn lại"}
+                      </h4>
+                      <p className="text-xs text-emerald-700 leading-relaxed mt-0.5">
+                        {pending
+                          ? "Để hoàn tất đặt tour và giữ chỗ chính thức, vui lòng thanh toán qua cổng VNPay."
+                          : `Chỗ của bạn đã được giữ. Còn ${formatCurrency(remainingAmount)} cần thanh toán` +
+                            (booking.balance_due_at
+                              ? ` trước ${formatDateTime(booking.balance_due_at)}.`
+                              : ".")}
+                      </p>
                     </div>
                   </div>
-                  {remainingSeconds !== null && (
+                  {pending && remainingSeconds !== null && (
                     <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${remainingSeconds <= 120 ? "bg-rose-50 border-rose-200" : "bg-amber-50 border-amber-200"}`}>
                       <span className={`text-xs font-semibold ${remainingSeconds <= 120 ? "text-rose-700" : "text-amber-700"}`}>
                         Chỗ của bạn đang được giữ. Quá hạn đơn sẽ tự hủy để nhường chỗ.
@@ -324,7 +354,9 @@ export default function BookingSuccess() {
                     </div>
                   )}
                   <a href={booking.payment_url} className="block w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 text-center rounded-xl shadow-md hover:shadow-lg transition-all duration-300 text-sm cursor-pointer">
-                    Thanh toán trực tuyến ngay
+                    {pending
+                      ? `Thanh toán ${formatCurrency(remainingAmount)} ngay`
+                      : `Thanh toán nốt ${formatCurrency(remainingAmount)}`}
                   </a>
                 </div>
               )}

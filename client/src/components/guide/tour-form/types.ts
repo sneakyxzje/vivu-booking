@@ -36,6 +36,8 @@ export interface TourFormState {
   adult_price: string;
   child_price: string;
   infant_price: string;
+  /** Chuỗi rỗng nghĩa là thu đủ 100% ngay khi đặt. */
+  deposit_percent: string;
   thumbnail: string;
   number_of_days: string;
   number_of_nights: string;

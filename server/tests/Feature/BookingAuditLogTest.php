@@ -160,6 +160,9 @@ class BookingAuditLogTest extends TestCase
         Sanctum::actingAs($this->khach);
         $this->postJson("/api/my-bookings/{$don->id}/cancel-request", [
             'reason' => 'Gia dinh co viec dot xuat khong di duoc.',
+            'refund_bank_account' => '0123456789',
+            'refund_bank_name' => 'Vietcombank',
+            'refund_account_holder' => 'NGUYEN VAN A',
         ])->assertStatus(201);
 
         $yeuCau = BookingChangeRequest::query()->first();
@@ -188,6 +191,9 @@ class BookingAuditLogTest extends TestCase
         Sanctum::actingAs($this->khach);
         $this->postJson("/api/my-bookings/{$don->id}/cancel-request", [
             'reason' => 'Gia dinh co viec dot xuat khong di duoc.',
+            'refund_bank_account' => '0123456789',
+            'refund_bank_name' => 'Vietcombank',
+            'refund_account_holder' => 'NGUYEN VAN A',
         ])->assertStatus(201);
 
         $yeuCau = BookingChangeRequest::query()->first();

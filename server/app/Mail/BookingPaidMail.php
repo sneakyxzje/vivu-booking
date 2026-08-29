@@ -13,7 +13,14 @@ class BookingPaidMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public Booking $booking)
+    /**
+     * @param  float  $balanceDue  Số còn phải trả sau lần thu này. 0 nghĩa là đã trả đủ.
+     *
+     * Truyền vào thay vì để mẫu thư tự tính: thư gửi đi bằng hàng đợi, và tới lúc worker dựng nội
+     * dung thì đơn có thể đã nhận thêm một khoản khác. Con số trong thư phải là con số tại thời
+     * điểm khoản tiền này về, chứ không phải lúc thư được gửi.
+     */
+    public function __construct(public Booking $booking, public float $balanceDue = 0.0)
     {
         $this->booking->loadMissing(['tour', 'schedule']);
     }
@@ -21,7 +28,9 @@ class BookingPaidMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Thanh toán thành công đơn đặt tour #' . $this->booking->id . ' - Vivu Booking',
+            subject: $this->balanceDue > 0
+                ? 'Đã nhận tiền cọc đơn đặt tour #' . $this->booking->id . ' - Vivu Booking'
+                : 'Thanh toán thành công đơn đặt tour #' . $this->booking->id . ' - Vivu Booking',
         );
     }
 
@@ -31,6 +40,7 @@ class BookingPaidMail extends Mailable
             view: 'emails.bookings.paid',
             with: [
                 'booking' => $this->booking,
+                'balanceDue' => $this->balanceDue,
                 'frontendBookingUrl' => rtrim(config('app.frontend_url'), '/')
                     . '/booking-success/' . $this->booking->public_token,
                 /*

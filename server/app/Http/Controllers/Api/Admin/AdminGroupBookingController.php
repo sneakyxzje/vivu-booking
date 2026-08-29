@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
-use App\Models\BookingPayment;
 use App\Models\GroupBookingRequest;
 use App\Services\GroupBookingService;
 use Illuminate\Http\JsonResponse;
@@ -113,65 +112,14 @@ class AdminGroupBookingController extends Controller
         return $this->success(null, 'Đã từ chối yêu cầu.');
     }
 
-    // --- Sổ giao dịch của đơn đoàn ------------------------------------------------------------
-
-    public function payments(int $bookingId): JsonResponse
-    {
-        $booking = Booking::query()->with('payments.recordedBy:id,name')->find($bookingId);
-
-        if (!$booking) {
-            return $this->error('Không tìm thấy đơn hàng', 404);
-        }
-
-        return $this->success([
-            'total_amount' => round((float) $booking->total_amount),
-            'net_paid' => $this->service->netPaid($booking),
-            'paid_in_full' => $booking->paid_at !== null,
-            'entries' => $booking->payments->map(fn (BookingPayment $bt) => [
-                'id' => $bt->id,
-                'kind' => $bt->kind,
-                'kind_label' => $bt->kindLabel(),
-                'amount' => (float) $bt->amount,
-                'method' => $bt->method,
-                'reference' => $bt->reference,
-                'note' => $bt->note,
-                'paid_at' => $bt->paid_at,
-                'recorded_by' => $bt->recordedBy?->name,
-            ])->values(),
-        ], 'Lấy sổ giao dịch thành công');
-    }
-
-    public function storePayment(Request $request, int $bookingId): JsonResponse
-    {
-        $data = $request->validate([
-            'kind' => ['required', 'in:deposit,balance,refund'],
-            'amount' => ['required', 'numeric', 'min:1'],
-            'method' => ['nullable', 'in:bank_transfer,cash,gateway'],
-            'reference' => ['nullable', 'string', 'max:100'],
-            'note' => ['nullable', 'string', 'max:500'],
-        ]);
-
-        $booking = Booking::query()->find($bookingId);
-
-        if (!$booking) {
-            return $this->error('Không tìm thấy đơn hàng', 404);
-        }
-
-        $this->service->recordPayment(
-            $booking,
-            $data['kind'],
-            (float) $data['amount'],
-            $data['method'] ?? null,
-            $data['reference'] ?? null,
-            $data['note'] ?? null,
-            $request->user(),
-        );
-
-        return $this->success([
-            'net_paid' => $this->service->netPaid($booking),
-            'paid_in_full' => $booking->fresh()->paid_at !== null,
-        ], 'Đã ghi vào sổ giao dịch.');
-    }
+    /*
+     * ĐÃ CHUYỂN: sổ giao dịch (`payments`, `storePayment`).
+     *
+     * Nay ở `AdminBookingPaymentController`, cùng đường dẫn cũ. Sổ ra đời cùng booking đoàn nên
+     * từng nằm ở đây, nhưng từ khi đơn lẻ cũng trả nhiều đợt thì nó không còn là chuyện riêng
+     * của đoàn. Cái còn lại đúng chỗ ở đây là `reduceGuests` bên dưới: giảm số khách là luật chỉ
+     * đoàn mới có.
+     */
 
     public function reduceGuests(Request $request, int $bookingId): JsonResponse
     {

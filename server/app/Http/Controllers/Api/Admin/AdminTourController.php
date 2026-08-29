@@ -224,6 +224,8 @@ class AdminTourController extends Controller
             'adult_price' => ['required', 'numeric', 'min:0'],
             'child_price' => ['required', 'numeric', 'min:0'],
             'infant_price' => ['required', 'numeric', 'min:0'],
+            // Tỷ lệ cọc. Bỏ trống hoặc 0 nghĩa là thu đủ ngay; 100 cũng vậy nên chặn ở 99.
+            'deposit_percent' => ['nullable', 'integer', 'min:1', 'max:99'],
             'thumbnail' => ['nullable', 'string'],
             'thumbnail_file' => ['nullable', 'image', 'max:5120'],
             'images' => ['nullable', 'array'],
@@ -407,6 +409,8 @@ class AdminTourController extends Controller
             'adult_price' => ['required', 'numeric', 'min:0'],
             'child_price' => ['required', 'numeric', 'min:0'],
             'infant_price' => ['required', 'numeric', 'min:0'],
+            // Tỷ lệ cọc. Bỏ trống hoặc 0 nghĩa là thu đủ ngay; 100 cũng vậy nên chặn ở 99.
+            'deposit_percent' => ['nullable', 'integer', 'min:1', 'max:99'],
             'thumbnail' => ['nullable', 'string'],
             'thumbnail_file' => ['nullable', 'image', 'max:5120'],
             'images' => ['nullable', 'array'],

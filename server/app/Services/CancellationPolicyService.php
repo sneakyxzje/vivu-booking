@@ -171,13 +171,14 @@ class CancellationPolicyService
      *
      * Hai nguồn, chọn theo đơn:
      *
-     *   - Đơn có sổ giao dịch (đơn đoàn, trả nhiều đợt): tổng thu trừ tổng hoàn. Đây là chỗ làm
-     *     cho phép tính "mất cọc" chạy đúng - đoàn mới đóng cọc 30% mà hủy sát ngày thì tiền
-     *     hoàn trừ trên số cọc đã thu, không phải trên tổng giá trị đơn.
-     *   - Đơn lẻ: trả một lần qua cổng, đã trả là trả đủ, đọc theo mốc paid_at như cũ.
+     *   - Đơn có sổ giao dịch (trả nhiều đợt): tổng thu trừ tổng hoàn. Đây là chỗ làm cho phép
+     *     tính "mất cọc" chạy đúng - khách mới đóng cọc 30% mà hủy sát ngày thì tiền hoàn trừ
+     *     trên số cọc đã thu, không phải trên tổng giá trị đơn.
+     *   - Đơn không có dòng nào trong sổ: đọc theo mốc paid_at như cũ. Nhánh này còn dùng cho các
+     *     đơn tạo trước khi sổ mở cho đơn lẻ.
      *
-     * Phân nhánh theo "sổ có dòng hay không" chứ không theo "đơn có phải đơn đoàn không", để nếu
-     * mai kia đơn lẻ cũng chuyển sang sổ thì hàm này không phải sửa.
+     * Phân nhánh theo "sổ có dòng hay không" chứ không theo loại đơn — đúng như ghi chú cũ dự
+     * liệu, và nhờ vậy việc mở sổ cho đơn lẻ không phải sửa gì ở đây.
      *
      * **Chỉ đếm dòng của giá tour.** Từ khi phụ thu sự cố cũng ghi vào sổ, một đơn lẻ đã trả đủ
      * qua cổng vẫn có thể có dòng trong sổ - dòng thu tiền một đêm phòng chạy bão. Nếu câu hỏi

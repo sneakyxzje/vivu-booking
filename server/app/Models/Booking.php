@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\Model;
     'child_count',
     'infant_count',
     'total_amount',
+    'deposit_amount',
+    'balance_due_at',
     'discount_code_id',
     'discount_code',
     'discount_amount',
@@ -35,6 +37,9 @@ use Illuminate\Database\Eloquent\Model;
     'seats_released_at',
     'seats_released_by',
     'refund_amount',
+    'refund_bank_account',
+    'refund_bank_name',
+    'refund_account_holder',
     'cancellation_plan',
     'cancellation_policy_id',
     'vnpay_transaction_no',
@@ -48,6 +53,7 @@ class Booking extends Model
     {
         return [
             'expires_at' => 'datetime',
+            'balance_due_at' => 'datetime',
             'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'seats_released_at' => 'datetime',

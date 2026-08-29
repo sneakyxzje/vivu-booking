@@ -203,10 +203,22 @@ const bookingService = {
       `/my-bookings/${bookingId}/cancel-preview`,
     ),
 
-  requestCancellation: (bookingId: number, reason: string) =>
+  /**
+   * `bank` bắt buộc khi đơn đã trả tiền — máy chủ từ chối nếu thiếu. Đơn chưa trả đồng nào thì
+   * không có gì để hoàn, và khi đó ba trường ấy để trống.
+   */
+  requestCancellation: (
+    bookingId: number,
+    reason: string,
+    bank?: {
+      refund_bank_account: string;
+      refund_bank_name: string;
+      refund_account_holder: string;
+    },
+  ) =>
     api.post<{ success: boolean; message: string; data: BookingChangeRequest }>(
       `/my-bookings/${bookingId}/cancel-request`,
-      { reason },
+      { reason, ...(bank ?? {}) },
     ),
 
   withdrawChangeRequest: (id: number) =>

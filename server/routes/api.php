@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Admin\AdminTourController;
 use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
+use App\Http\Controllers\Api\Admin\AdminBookingPaymentController;
 use App\Http\Controllers\Api\Admin\AdminChangeRequestController;
 use App\Http\Controllers\Api\Admin\AdminContractController;
 use App\Http\Controllers\Api\Admin\AdminPassengerController;
@@ -306,14 +307,26 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/surcharges/{id}/settle', [AdminIncidentController::class, 'settleSurcharge']);
         Route::put('/surcharges/{id}/waive', [AdminIncidentController::class, 'waiveSurcharge']);
 
-        // 14 - Booking đoàn: báo giá, chốt thành đơn, sổ thu tiền nhiều đợt, giảm số khách.
+        // 14 - Booking đoàn: báo giá, chốt thành đơn, giảm số khách.
         Route::get('/group-bookings', [AdminGroupBookingController::class, 'index']);
         Route::put('/group-bookings/{id}/quote', [AdminGroupBookingController::class, 'quote']);
         Route::put('/group-bookings/{id}/confirm', [AdminGroupBookingController::class, 'confirm']);
         Route::put('/group-bookings/{id}/reject', [AdminGroupBookingController::class, 'reject']);
-        Route::get('/bookings/{id}/payments', [AdminGroupBookingController::class, 'payments']);
-        Route::post('/bookings/{id}/payments', [AdminGroupBookingController::class, 'storePayment']);
         Route::put('/bookings/{id}/reduce-guests', [AdminGroupBookingController::class, 'reduceGuests']);
+
+        /*
+         * Sổ giao dịch — MỌI đơn, không riêng đơn đoàn.
+         *
+         * Hai tuyến đầu giữ nguyên đường dẫn cũ, chỉ đổi controller: từ khi đơn lẻ cũng trả nhiều
+         * đợt (cọc trước, phần còn lại sau, có thể bằng chuyển khoản hoặc tiền mặt), sổ không còn
+         * là chuyện riêng của đoàn.
+         *
+         * `/refunds` khai TRƯỚC `/bookings/{id}` không cần thiết vì khác tiền tố, nhưng để cạnh
+         * nhau cho thấy chúng đọc cùng một nguồn: khoản hoàn là một dòng trong chính sổ này.
+         */
+        Route::get('/refunds', [AdminBookingPaymentController::class, 'refundQueue']);
+        Route::get('/bookings/{id}/payments', [AdminBookingPaymentController::class, 'index']);
+        Route::post('/bookings/{id}/payments', [AdminBookingPaymentController::class, 'store']);
 
         // K - Hủy cả chuyến. Đi đường riêng vì phải gán phương án cho từng đơn đã thanh toán.
         Route::get('/schedules/{id}/cancel-preview', [AdminScheduleCancellationController::class, 'preview']);

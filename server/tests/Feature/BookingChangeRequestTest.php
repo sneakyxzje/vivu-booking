@@ -111,6 +111,9 @@ class BookingChangeRequestTest extends TestCase
 
         $this->postJson("/api/my-bookings/{$don->id}/cancel-request", [
             'reason' => 'Gia dinh co viec dot xuat khong di duoc.',
+            'refund_bank_account' => '0123456789',
+            'refund_bank_name' => 'Vietcombank',
+            'refund_account_holder' => 'NGUYEN VAN A',
         ])->assertStatus(201);
 
         $this->assertSame('confirmed', $don->fresh()->status);
@@ -155,7 +158,12 @@ class BookingChangeRequestTest extends TestCase
         $don = $this->taoDon();
         Sanctum::actingAs($this->khach);
 
-        $payload = ['reason' => 'Gia dinh co viec dot xuat khong di duoc.'];
+        $payload = [
+            'reason' => 'Gia dinh co viec dot xuat khong di duoc.',
+            'refund_bank_account' => '0123456789',
+            'refund_bank_name' => 'Vietcombank',
+            'refund_account_holder' => 'NGUYEN VAN A',
+        ];
 
         $this->postJson("/api/my-bookings/{$don->id}/cancel-request", $payload)->assertStatus(201);
         $this->postJson("/api/my-bookings/{$don->id}/cancel-request", $payload)->assertStatus(422);
@@ -178,7 +186,12 @@ class BookingChangeRequestTest extends TestCase
         $don = $this->taoDon();
         Sanctum::actingAs($this->khach);
 
-        $payload = ['reason' => 'Gia dinh co viec dot xuat khong di duoc.'];
+        $payload = [
+            'reason' => 'Gia dinh co viec dot xuat khong di duoc.',
+            'refund_bank_account' => '0123456789',
+            'refund_bank_name' => 'Vietcombank',
+            'refund_account_holder' => 'NGUYEN VAN A',
+        ];
 
         $this->postJson("/api/my-bookings/{$don->id}/cancel-request", $payload)->assertStatus(201);
 
@@ -393,6 +406,9 @@ class BookingChangeRequestTest extends TestCase
 
         $this->postJson("/api/my-bookings/{$don->id}/cancel-request", [
             'reason' => 'Gia dinh co viec dot xuat khong di duoc.',
+            'refund_bank_account' => '0123456789',
+            'refund_bank_name' => 'Vietcombank',
+            'refund_account_holder' => 'NGUYEN VAN A',
         ])->assertStatus(201);
 
         return BookingChangeRequest::query()

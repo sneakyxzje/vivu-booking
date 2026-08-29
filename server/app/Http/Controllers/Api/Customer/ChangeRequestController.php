@@ -52,17 +52,44 @@ class ChangeRequestController extends Controller
     /** Gửi yêu cầu hủy. Đơn không đổi trạng thái cho tới khi điều hành duyệt. */
     public function store(Request $request, int $bookingId): JsonResponse
     {
-        $validated = $request->validate([
-            'reason' => ['required', 'string', 'min:10', 'max:500'],
-        ], [
-            'reason.required' => 'Vui lòng cho biết lý do bạn muốn hủy.',
-            'reason.min' => 'Lý do cần ít nhất 10 ký tự để chúng tôi hiểu và xử lý nhanh hơn.',
-        ]);
-
+        /*
+         * Tài khoản nhận tiền hoàn, hỏi ngay tại đây.
+         *
+         * Đây là lúc duy nhất khách đang ngồi trước màn hình và có động lực khai đúng. Hỏi sau —
+         * lúc kế toán chuẩn bị chuyển tiền — nghĩa là gọi điện cho từng người, và mỗi cuộc gọi
+         * không nghe máy là một khoản treo thêm vài ngày.
+         *
+         * Bắt buộc khi đơn đã trả tiền, để trống khi chưa: không có gì để hoàn thì hỏi số tài
+         * khoản là bắt người ta khai một thứ vô ích.
+         */
         $booking = $this->timDonCuaKhach($request, $bookingId);
 
         if (!$booking) {
             return $this->error('Không tìm thấy đơn đặt tour của bạn.', 404);
+        }
+
+        $daTraTien = $this->cancellationPolicy->quote($booking, $booking->schedule)['paid_amount'] > 0;
+        $batBuoc = $daTraTien ? 'required' : 'nullable';
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:10', 'max:500'],
+            'refund_bank_account' => [$batBuoc, 'string', 'max:50'],
+            'refund_bank_name' => [$batBuoc, 'string', 'max:120'],
+            'refund_account_holder' => [$batBuoc, 'string', 'max:120'],
+        ], [
+            'reason.required' => 'Vui lòng cho biết lý do bạn muốn hủy.',
+            'reason.min' => 'Lý do cần ít nhất 10 ký tự để chúng tôi hiểu và xử lý nhanh hơn.',
+            'refund_bank_account.required' => 'Vui lòng nhập số tài khoản để chúng tôi chuyển tiền hoàn.',
+            'refund_bank_name.required' => 'Vui lòng nhập tên ngân hàng.',
+            'refund_account_holder.required' => 'Vui lòng nhập tên chủ tài khoản, đúng như trên thẻ.',
+        ]);
+
+        if ($daTraTien) {
+            $booking->forceFill([
+                'refund_bank_account' => trim($validated['refund_bank_account']),
+                'refund_bank_name' => trim($validated['refund_bank_name']),
+                'refund_account_holder' => trim($validated['refund_account_holder']),
+            ])->save();
         }
 
         $yeuCau = $this->changeRequests->requestCancellation(

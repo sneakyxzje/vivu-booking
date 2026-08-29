@@ -248,7 +248,15 @@ class GroupBookingTest extends TestCase
         $this->service->recordPayment($booking, 'refund', 15_000_000, 'bank_transfer', null, null, $this->admin);
     }
 
-    public function test_don_le_khong_duoc_ghi_so_nhieu_dot(): void
+    /**
+     * Đơn lẻ GIỜ CŨNG ghi sổ được — luật cũ đã gỡ.
+     *
+     * Câu chặn trước đây có lý do đúng vào lúc nó được viết: đơn lẻ trả một lần qua cổng, mở sổ
+     * cho nó là hai nguồn sự thật về cùng một khoản tiền. Lý do ấy hết hiệu lực từ khi đơn lẻ
+     * cũng trả cọc trước rồi trả nốt sau, và có thể trả bằng tiền mặt tại văn phòng — lúc đó
+     * "đơn này đã thu bao nhiêu" không còn trả lời được bằng một cột `paid_at`.
+     */
+    public function test_don_le_cung_ghi_so_duoc(): void
     {
         $donLe = Booking::create([
             'public_token' => (string) Str::uuid(),
@@ -263,9 +271,14 @@ class GroupBookingTest extends TestCase
             'status' => 'confirmed',
         ]);
 
-        $this->expectException(BusinessRuleException::class);
+        $this->service->recordPayment($donLe, 'deposit', 1_000_000, 'cash', null, 'Cọc tại quầy', $this->admin);
 
-        $this->service->recordPayment($donLe, 'deposit', 1_000_000, 'cash', null, null, $this->admin);
+        $this->assertSame(1_000_000.0, $this->service->netPaid($donLe));
+        $this->assertNull($donLe->fresh()->paid_at, 'Mới cọc thì chưa phải đã thu đủ.');
+
+        $this->service->recordPayment($donLe, 'balance', 3_000_000, 'bank_transfer', null, null, $this->admin);
+
+        $this->assertNotNull($donLe->fresh()->paid_at);
     }
 
     /**

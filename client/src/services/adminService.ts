@@ -1,6 +1,6 @@
 import api from "./api";
 import { extractArray, extractObject } from "@/utils/apiHelpers";
-import type { Booking, BookingLedger, GroupBookingRequestRow, Guide, GuideDecline, GuideProfilePayload, GuideSuitability, Tour, TourSchedule, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
+import type { Booking, BookingLedger, RefundBankInfo, GroupBookingRequestRow, Guide, GuideDecline, GuideProfilePayload, GuideSuitability, Tour, TourSchedule, DiscountCode, DiscountCodePayload, Service, ServicePayload, Category, CategoryPayload } from "@/types";
 import { buildTourPayload } from "@/services/guideService";
 
 /**
@@ -249,6 +249,32 @@ export interface ChangeRequest {
 export interface ChangeRequestListResponse {
   requests: PaginatedResponse<ChangeRequest>;
   pending_count: number;
+}
+
+export interface RefundQueueRow {
+  id: number;
+  public_token: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string | null;
+  tour_title: string | null;
+  start_date: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+  /** Nghĩa vụ chốt tại thời điểm hủy. */
+  refund_due: number;
+  /** Phần trong nghĩa vụ đó đã thực trả. */
+  refunded: number;
+  refund_outstanding: number;
+  refund_bank: RefundBankInfo | null;
+}
+
+export interface RefundQueueResponse {
+  data: RefundQueueRow[];
+  current_page: number;
+  last_page: number;
+  /** Tổng còn nợ khách trên toàn bộ, không riêng trang đang xem. */
+  outstanding_total: number;
 }
 
 export type AdminUserRole = "admin" | "guide" | "customer";
@@ -893,6 +919,13 @@ const adminService = {
   },
 
   // --- YÊU CẦU THAY ĐỔI CỦA KHÁCH ---
+  // --- Sổ giao dịch và hoàn tiền ---------------------------------------------------------------
+
+  getRefundQueue: async (settled = false): Promise<RefundQueueResponse | null> => {
+    const response = await api.get("/admin/refunds", { params: { settled: settled ? 1 : 0 } });
+    return extractObject<RefundQueueResponse>(response);
+  },
+
   // --- Tài khoản ------------------------------------------------------------------------------
 
   getUsers: async (params: {

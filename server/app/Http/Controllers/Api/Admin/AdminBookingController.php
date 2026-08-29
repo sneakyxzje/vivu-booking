@@ -262,6 +262,18 @@ class AdminBookingController extends Controller
                 'cancel_type' => 'by_company',
                 'cancelled_at' => now(),
                 'cancelled_by' => $request->user()?->id,
+                /*
+                 * Ghi số tiền hoàn lên chính đơn, không chỉ vào nhật ký.
+                 *
+                 * Nhật ký là nơi đọc lại chuyện đã xảy ra; nghĩa vụ trả tiền thì phải nằm ở chỗ
+                 * truy vấn được. Thiếu dòng này, đường quản trị hủy thẳng - đúng đường chạm tiền
+                 * mà không qua bước duyệt nào - không để lại nghĩa vụ nào cho kế toán, và đơn đó
+                 * không bao giờ xuất hiện trong danh sách chờ hoàn.
+                 *
+                 * Hai đường hủy kia đã ghi từ trước: yêu cầu hủy của khách (BookingChangeRequest-
+                 * Service) và hủy cả chuyến (ScheduleCancellationService).
+                 */
+                'refund_amount' => $duBao['refund_amount'],
             ]);
 
             $this->holdService->releaseHold($booking, $schedule);

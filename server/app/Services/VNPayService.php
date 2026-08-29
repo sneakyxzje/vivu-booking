@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Booking;
 use Illuminate\Support\Carbon;
 
 class VNPayService
@@ -9,22 +10,28 @@ class VNPayService
     // VNPay yêu cầu vnp_CreateDate / vnp_ExpireDate theo giờ Việt Nam (GMT+7)
     private const VNPAY_TIMEZONE = 'Asia/Ho_Chi_Minh';
 
-    public function createPayment($order)
+    /**
+     * Dựng liên kết thanh toán cho MỘT LẦN trả tiền của một đơn.
+     *
+     * `$amount` là số tiền của lần này, không phải giá trị đơn: một đơn có đặt cọc trả hai lần,
+     * lần đầu là tiền cọc, lần sau là phần còn lại. Truyền null thì lấy toàn bộ giá trị đơn.
+     */
+    public function createPayment(Booking $booking, ?float $amount = null): string
     {
-        $vnp_TmnCode = env('VNPAY_TMN_CODE');
-        $vnp_HashSecret = env('VNPAY_HASH_SECRET');
+        $vnp_TmnCode = config('services.vnpay.tmn_code');
+        $vnp_HashSecret = config('services.vnpay.hash_secret');
 
-        $vnp_Url = env('VNPAY_URL');
-        $vnp_ReturnUrl = env('VNPAY_RETURN_URL');
+        $vnp_Url = config('services.vnpay.url');
+        $vnp_ReturnUrl = config('services.vnpay.return_url');
 
-        $vnp_TxnRef = $order->id;
-        $vnp_OrderInfo = "Payment for order #" . $order->id;
-        $vnp_Amount = ($order->total_price ?? $order->total_amount) * 100;
+        $vnp_TxnRef = $this->txnRef($booking);
+        $vnp_OrderInfo = "Thanh toan don hang #" . $booking->id;
+        $vnp_Amount = round($amount ?? (float) $booking->total_amount) * 100;
         $vnp_Locale = 'vn';
         $vnp_IpAddr = request()->ip();
 
-        $expiresAt = $order->expires_at
-            ? Carbon::parse($order->expires_at)
+        $expiresAt = $booking->expires_at
+            ? Carbon::parse($booking->expires_at)
             : now()->addMinutes((int) config('booking.payment_ttl_minutes', 10));
 
         $inputData = [
@@ -64,5 +71,38 @@ class VNPayService
         }
 
         return $vnp_Url;
+    }
+
+    /**
+     * Mã tham chiếu giao dịch: `{id đơn}-{dấu thời gian}`.
+     *
+     * VNPay coi `vnp_TxnRef` là mã DUY NHẤT của một giao dịch, không phải mã của đơn hàng. Trước
+     * đây trường này là đúng id đơn, nên hai lần trả tiền cho cùng một đơn — trả cọc rồi trả nốt,
+     * hoặc bấm lại sau một lần thất bại — gửi lên cùng một mã. Bản chạy thử bỏ qua, bản thật từ
+     * chối với lỗi "giao dịch đã tồn tại", và triệu chứng là khách không sang được trang thanh
+     * toán mà không hiểu vì sao.
+     *
+     * Phần trước dấu gạch vẫn là id đơn, để lượt quay về đọc ngược ra được — xem `bookingIdFrom`.
+     */
+    public function txnRef(Booking $booking): string
+    {
+        return $booking->id . '-' . now()->timestamp;
+    }
+
+    /**
+     * Đọc id đơn từ `vnp_TxnRef` gửi về.
+     *
+     * Nhận cả dạng cũ (chỉ có id, không có dấu gạch) vì các giao dịch tạo trước thay đổi này vẫn
+     * có thể đang trên đường quay về.
+     */
+    public function bookingIdFrom(?string $txnRef): ?int
+    {
+        if (!$txnRef) {
+            return null;
+        }
+
+        $phanDau = explode('-', $txnRef)[0];
+
+        return ctype_digit($phanDau) ? (int) $phanDau : null;
     }
 }

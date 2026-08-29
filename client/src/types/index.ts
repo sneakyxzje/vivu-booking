@@ -39,5 +39,6 @@ export type {
   GroupBookingPublicView,
   PaymentEntry,
   BookingLedger,
+  RefundBankInfo,
 } from "./groupBooking";
 

@@ -99,6 +99,12 @@ const navEntries: NavEntry[] = [
       { to: "/admin/bookings", label: "Đơn đặt tour" },
       { to: "/admin/group-bookings", label: "Booking theo đoàn" },
       { to: "/admin/change-requests", label: "Yêu cầu huỷ" },
+      /*
+       * "Hoàn tiền" đứng ngay sau "Yêu cầu huỷ" vì đó là bước tiếp theo của cùng một câu chuyện:
+       * duyệt hủy xong thì còn một nghĩa vụ trả tiền, và trước đây nghĩa vụ ấy không có màn hình
+       * nào để nhìn thấy.
+       */
+      { to: "/admin/refunds", label: "Hoàn tiền" },
       { to: "/admin/cancellation-policies", label: "Chính sách hủy" },
     ],
   },

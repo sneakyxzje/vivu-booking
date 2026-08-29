@@ -25,6 +25,7 @@ const emptyForm: TourFormState = {
   adult_price: "",
   child_price: "",
   infant_price: "0",
+  deposit_percent: "",
   thumbnail: "",
   number_of_days: "1",
   number_of_nights: "0",
@@ -199,6 +200,7 @@ export const CreateTourForm: React.FC = () => {
           adult_price: String(tour.adult_price ?? ""),
           child_price: String(tour.child_price ?? ""),
           infant_price: String(tour.infant_price ?? 0),
+          deposit_percent: tour.deposit_percent ? String(tour.deposit_percent) : "",
           thumbnail: tour.thumbnail ?? "",
           number_of_days: String(tour.number_of_days),
           number_of_nights: String(tour.number_of_nights),
@@ -609,6 +611,7 @@ export const CreateTourForm: React.FC = () => {
               adultPrice={form.adult_price}
               childPrice={form.child_price}
               infantPrice={form.infant_price}
+              depositPercent={form.deposit_percent}
               numberOfDays={form.number_of_days}
               numberOfNights={form.number_of_nights}
               startLocation={form.start_location}

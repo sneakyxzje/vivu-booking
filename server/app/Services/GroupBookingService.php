@@ -45,6 +45,7 @@ class GroupBookingService
     public function __construct(
         private readonly BookingHoldService $holdService,
         private readonly BookingAuditLogger $auditLogger,
+        private readonly BookingPaymentService $paymentService,
     ) {
     }
 
@@ -281,11 +282,9 @@ class GroupBookingService
     /**
      * Ghi một khoản thu hoặc hoàn vào sổ giao dịch.
      *
-     * Chỉ đơn đoàn: đơn lẻ trả một lần qua cổng và đã có nhật ký cổng thanh toán riêng, mở sổ
-     * cho cả đơn lẻ lúc này là hai nguồn sự thật về cùng một khoản tiền.
-     *
-     * Thu thì đơn phải còn sống; hoàn thì được cả sau khi hủy - hoàn sau hủy chính là tình huống
-     * thường gặp nhất. Không bao giờ hoàn quá số đã thu.
+     * Toàn bộ luật đã chuyển sang `BookingPaymentService` khi sổ mở cho cả đơn lẻ. Hai hàm này
+     * giữ lại làm lối vào cũ để những nơi đang gọi không phải sửa cùng lúc — chúng chỉ chuyển
+     * tiếp, không có luật riêng nào ở đây.
      */
     public function recordPayment(
         Booking $booking,
@@ -296,80 +295,13 @@ class GroupBookingService
         ?string $note,
         User $actor,
     ): BookingPayment {
-        if (!$booking->isGroup()) {
-            throw new BusinessRuleException(
-                'Sổ giao dịch nhiều đợt hiện chỉ dùng cho đơn đoàn. Đơn lẻ thanh toán một lần qua cổng.',
-            );
-        }
-
-        if (!in_array($kind, [...BookingPayment::THU, BookingPayment::HOAN], true)) {
-            throw new BusinessRuleException('Loại bút toán không hợp lệ.');
-        }
-
-        if ($amount <= 0) {
-            throw new BusinessRuleException(
-                'Số tiền phải lớn hơn 0. Muốn ghi hoàn thì chọn loại "hoàn tiền", không ghi số âm.',
-            );
-        }
-
-        return DB::transaction(function () use ($booking, $kind, $amount, $method, $reference, $note, $actor) {
-            $fresh = Booking::query()->whereKey($booking->getKey())->lockForUpdate()->first();
-
-            if (in_array($kind, BookingPayment::THU, true)
-                && in_array($fresh->status, ['cancelled', 'transferred'], true)) {
-                throw new BusinessRuleException(
-                    'Đơn đã ' . ($fresh->status === 'cancelled' ? 'hủy' : 'chuyển đi')
-                    . ', không ghi thêm khoản thu được nữa. Ghi hoàn thì vẫn được.',
-                );
-            }
-
-            $daThu = $this->netPaid($fresh);
-
-            if ($kind === BookingPayment::HOAN && round($amount) > $daThu) {
-                throw new BusinessRuleException(sprintf(
-                    'Không hoàn quá số đã thu: đơn này mới thu thực %s đ.',
-                    number_format($daThu, 0, ',', '.'),
-                ));
-            }
-
-            $payment = BookingPayment::query()->create([
-                'booking_id' => $fresh->getKey(),
-                'kind' => $kind,
-                'amount' => round($amount, 2),
-                'method' => $method,
-                'reference' => $reference,
-                'note' => $note,
-                'paid_at' => now(),
-                'recorded_by' => $actor->getKey(),
-            ]);
-
-            /*
-             * Thu đủ thì đóng mốc paid_at - một lần, không lùi. Mốc này nghĩa là "đã từng thu
-             * đủ", các luồng sẵn có (chặn hủy tự do, yêu cầu hủy phải duyệt...) đọc nó như với
-             * đơn lẻ. Hoàn tiền về sau không xóa mốc: số thực còn giữ nằm ở sổ.
-             */
-            if ($fresh->paid_at === null && $this->netPaid($fresh) >= round((float) $fresh->total_amount)) {
-                $fresh->forceFill(['paid_at' => now()])->save();
-            }
-
-            $this->auditLogger->log($fresh, BookingAuditAction::PaymentRecorded, null, [
-                'kind' => $kind,
-                'amount' => round($amount),
-                'method' => $method,
-                'net_paid_after' => $this->netPaid($fresh),
-            ], $note);
-
-            return $payment;
-        });
+        return $this->paymentService->record($booking, $kind, $amount, $method, $reference, $note, $actor);
     }
 
     /** Số đã thu thực: tổng các khoản thu trừ tổng các khoản hoàn. */
     public function netPaid(Booking $booking): float
     {
-        $thu = (float) $booking->payments()->whereIn('kind', BookingPayment::THU)->sum('amount');
-        $hoan = (float) $booking->payments()->where('kind', BookingPayment::HOAN)->sum('amount');
-
-        return round($thu - $hoan);
+        return $this->paymentService->netPaid($booking);
     }
 
     /**

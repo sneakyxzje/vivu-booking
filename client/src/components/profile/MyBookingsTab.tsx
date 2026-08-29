@@ -73,6 +73,8 @@ export const MyBookingsTab: React.FC = () => {
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestError, setRequestError] = useState("");
   const [requestSent, setRequestSent] = useState(false);
+  // Tài khoản nhận tiền hoàn. Chỉ hỏi khi đơn đã trả tiền — xem `canKhaiTaiKhoan` bên dưới.
+  const [refundBank, setRefundBank] = useState({ account: "", bank: "", holder: "" });
 
   // Sửa danh sách hành khách
   const [paxTarget, setPaxTarget] = useState<ExtendedBooking | null>(null);
@@ -307,8 +309,17 @@ export const MyBookingsTab: React.FC = () => {
     }
   };
 
+  /** Đơn đã trả tiền thì phải có tài khoản nhận hoàn; chưa trả đồng nào thì không cần. */
+  const canKhaiTaiKhoan = Number(requestPreview?.paid_amount ?? 0) > 0;
+
+  const dayDuTaiKhoan =
+    !canKhaiTaiKhoan ||
+    (refundBank.account.trim() !== "" &&
+      refundBank.bank.trim() !== "" &&
+      refundBank.holder.trim() !== "");
+
   const guiYeuCauHuy = async () => {
-    if (!requestTarget || requestReason.trim().length < 10) return;
+    if (!requestTarget || requestReason.trim().length < 10 || !dayDuTaiKhoan) return;
 
     setRequestLoading(true);
     setRequestError("");
@@ -317,6 +328,13 @@ export const MyBookingsTab: React.FC = () => {
       await bookingService.requestCancellation(
         requestTarget.id,
         requestReason.trim(),
+        canKhaiTaiKhoan
+          ? {
+              refund_bank_account: refundBank.account.trim(),
+              refund_bank_name: refundBank.bank.trim(),
+              refund_account_holder: refundBank.holder.trim(),
+            }
+          : undefined,
       );
       setRequestSent(true);
     } catch (err) {
@@ -1329,6 +1347,62 @@ export const MyBookingsTab: React.FC = () => {
                   </div>
                 )}
 
+                {/*
+                  Tài khoản nhận tiền hoàn.
+                  Chỉ hỏi khi thật sự có tiền để hoàn — đơn chưa trả đồng nào thì bắt khai số
+                  tài khoản là bắt người ta điền một thứ vô ích. Hỏi ngay tại đây thay vì để
+                  kế toán gọi điện sau: đây là lúc duy nhất khách đang ngồi trước màn hình.
+                */}
+                {requestPreview &&
+                  !requestPreview.pending_request &&
+                  Number(requestPreview.paid_amount) > 0 && (
+                    <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+                      <p className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                        Tài khoản nhận tiền hoàn <span className="text-rose-500">*</span>
+                      </p>
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="text-[11px] font-semibold text-gray-500">Số tài khoản</span>
+                          <input
+                            value={refundBank.account}
+                            onChange={(e) =>
+                              setRefundBank((cu) => ({ ...cu, account: e.target.value }))
+                            }
+                            placeholder="0123456789"
+                            className="mt-1 w-full rounded-xl border border-gray-200 bg-white p-3 text-xs focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-[11px] font-semibold text-gray-500">Ngân hàng</span>
+                          <input
+                            value={refundBank.bank}
+                            onChange={(e) => setRefundBank((cu) => ({ ...cu, bank: e.target.value }))}
+                            placeholder="Vietcombank"
+                            className="mt-1 w-full rounded-xl border border-gray-200 bg-white p-3 text-xs focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                          />
+                        </label>
+                      </div>
+
+                      <label className="block">
+                        <span className="text-[11px] font-semibold text-gray-500">
+                          Tên chủ tài khoản
+                        </span>
+                        <input
+                          value={refundBank.holder}
+                          onChange={(e) => setRefundBank((cu) => ({ ...cu, holder: e.target.value }))}
+                          placeholder="NGUYEN VAN A"
+                          className="mt-1 w-full rounded-xl border border-gray-200 bg-white p-3 text-xs uppercase focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+                        />
+                      </label>
+
+                      <p className="text-[11px] text-gray-500">
+                        Ghi đúng như trên thẻ hoặc trong ứng dụng ngân hàng. Sai một chữ là khoản
+                        chuyển bị trả về và phải làm lại từ đầu.
+                      </p>
+                    </div>
+                  )}
+
                 {requestError && (
                   <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700">
                     {requestError}
@@ -1352,7 +1426,8 @@ export const MyBookingsTab: React.FC = () => {
                       previewLoading ||
                       !requestPreview ||
                       !!requestPreview.pending_request ||
-                      requestReason.trim().length < 10
+                      requestReason.trim().length < 10 ||
+                      !dayDuTaiKhoan
                     }
                     className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-sm disabled:opacity-50"
                   >
