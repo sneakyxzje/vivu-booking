@@ -96,13 +96,21 @@ const router = createBrowserRouter([
         path: "/about",
         element: <InfoPage />,
       },
+      /*
+       * Hai đường dẫn cũ chuyển hướng chứ không xóa hẳn.
+       *
+       * Chúng đã nằm trong thư gửi khách và trong ô đồng ý điều khoản ở trang đăng ký. Xóa thì
+       * người bấm vào rơi vào trang 404 và mất niềm tin đúng lúc họ đang định đăng ký.
+       *
+       * `replace` để nút Quay lại của trình duyệt không kẹt giữa hai lần chuyển hướng.
+       */
       {
         path: "/terms",
-        element: <InfoPage />,
+        element: <Navigate to="/chinh-sach#dieu-khoan" replace />,
       },
       {
         path: "/privacy",
-        element: <InfoPage />,
+        element: <Navigate to="/chinh-sach#bao-mat" replace />,
       },
       {
         path: "/contact",

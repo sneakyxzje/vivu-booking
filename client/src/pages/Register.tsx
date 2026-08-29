@@ -272,15 +272,24 @@ export const Register: React.FC = () => {
               />
               <label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
                 Tôi đồng ý với{" "}
+                {/*
+                  Mở tab mới: người dùng đang điền dở biểu mẫu, và điều hướng đi là mất hết những
+                  gì họ vừa gõ. Trỏ thẳng tới mục thay vì qua đường dẫn cũ để khỏi thêm một lần
+                  chuyển hướng.
+                */}
                 <Link
-                  to="/terms"
+                  to="/chinh-sach#dieu-khoan"
+                  target="_blank"
+                  rel="noreferrer"
                   className="font-bold text-primary-600 hover:text-primary-700 hover:underline transition-colors"
                 >
                   Điều khoản dịch vụ
                 </Link>{" "}
                 và{" "}
                 <Link
-                  to="/privacy"
+                  to="/chinh-sach#bao-mat"
+                  target="_blank"
+                  rel="noreferrer"
                   className="font-bold text-primary-600 hover:text-primary-700 hover:underline transition-colors"
                 >
                   Chính sách bảo mật

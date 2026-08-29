@@ -22,30 +22,13 @@ const sections = [
       </>
     ),
   },
-  {
-    id: "dieu-khoan",
-    title: "Điều khoản sử dụng",
-    body: (
-      <ul className="list-disc pl-5 space-y-2">
-        <li>Khách hàng chịu trách nhiệm về tính chính xác của thông tin cung cấp khi đặt tour (họ tên, giấy tờ tùy thân, thông tin liên hệ).</li>
-        <li>Đơn đặt tour chỉ được giữ chỗ trong 10 phút kể từ khi khởi tạo; quá thời hạn chưa thanh toán, hệ thống tự hủy và nhường chỗ cho khách khác.</li>
-        <li>Đơn đã xác nhận là cam kết giữ chỗ chính thức giữa Vivu Booking và khách hàng.</li>
-        <li>Vivu Booking có quyền từ chối hoặc hủy các đơn có dấu hiệu gian lận, kèm hoàn tiền theo quy định.</li>
-      </ul>
-    ),
-  },
-  {
-    id: "chinh-sach",
-    title: "Chính sách bảo mật",
-    body: (
-      <ul className="list-disc pl-5 space-y-2">
-        <li>Thông tin cá nhân của khách hàng chỉ được dùng cho mục đích xử lý đơn đặt tour, làm bảo hiểm du lịch và chăm sóc khách hàng.</li>
-        <li>Mật khẩu được mã hóa một chiều; giao dịch thanh toán được xử lý qua cổng VNPay với chữ ký bảo mật, Vivu Booking không lưu thông tin thẻ.</li>
-        <li>Chúng tôi không chia sẻ dữ liệu khách hàng cho bên thứ ba ngoài phạm vi phục vụ chuyến đi (đơn vị vận chuyển, lưu trú).</li>
-        <li>Khách hàng có thể yêu cầu chỉnh sửa hoặc xóa thông tin cá nhân qua email hỗ trợ.</li>
-      </ul>
-    ),
-  },
+  /*
+   * "Điều khoản sử dụng" và "Chính sách bảo mật" đã chuyển sang trang /chinh-sach.
+   *
+   * Ba văn bản ấy trả lời cùng một câu hỏi - "tôi đang đồng ý với cái gì" - và trước đây nằm rải
+   * ở ba đường dẫn, trong đó hai đường dẫn hiện ra cùng một trang. Gộp lại thì khách đọc một mạch
+   * thay vì phải tự ghép ba mảnh.
+   */
   {
     id: "lien-he",
     title: "Liên hệ",

@@ -34,9 +34,7 @@ export const Footer: React.FC = () => {
             <ul className="space-y-4 text-[15px]">
               {[
                 { to: "/about", label: "Giới thiệu chung" },
-                { to: "/chinh-sach", label: "Chính sách hủy & hoàn tiền" },
-                { to: "/terms", label: "Điều khoản sử dụng" },
-                { to: "/privacy", label: "Chính sách bảo mật" },
+                { to: "/chinh-sach", label: "Chính sách & Điều khoản" },
                 { to: "/contact", label: "Liên hệ" },
               ].map((link) => (
                 <li key={link.to}>
