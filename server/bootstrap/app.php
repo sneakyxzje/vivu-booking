@@ -14,6 +14,18 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
+    /*
+     * Điểm xác thực kênh WebSocket.
+     *
+     * Đặt dưới tiền tố `api` và middleware `auth:sanctum` vì giao diện là ứng dụng tách rời, đăng
+     * nhập bằng token Bearer chứ không bằng phiên. Để nguyên mặc định `/broadcasting/auth` với
+     * middleware `web` thì mọi lượt đăng ký kênh đều trả 401 — trình duyệt không gửi cookie phiên
+     * nào cả, và lỗi ấy chỉ hiện trong console chứ không làm gì vỡ, nên rất khó lần ra.
+     */
+    ->withBroadcasting(
+        __DIR__ . '/../routes/channels.php',
+        ['prefix' => 'api', 'middleware' => ['api', 'auth:sanctum']],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         // Giới hạn tần suất gọi API (chống dò mật khẩu ở /api/login).
         $middleware->throttleApi('60,1');
