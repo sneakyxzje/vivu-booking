@@ -7,36 +7,51 @@ use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
 
 /**
- * Một việc điều hành cần biết ngay.
+ * Một việc ai đó cần biết ngay — điều hành hoặc hướng dẫn viên.
  *
- * ## Vì sao chỉ có MỘT lớp cho mọi loại việc
+ * ## Vì sao chỉ có MỘT lớp cho mọi loại việc, và cho cả hai vai
  *
- * Hướng dẫn viên từ chối chuyến, xin bàn giao, báo sự cố nghiêm trọng — ba chuyện khác nhau,
- * nhưng với người nhận thì chúng giống hệt: một dòng nói *chuyện gì, ai, ở chuyến nào*, bấm vào
- * thì mở đúng màn hình xử lý. Dựng ba lớp thông báo cho ba việc chỉ để rồi cả ba trả về cùng một
- * hình dạng là đúng kiểu bộ máy dự án này vừa bỏ bớt.
+ * Bảy loại việc dưới đây khác nhau về nghiệp vụ nhưng với người nhận thì giống hệt: một dòng nói
+ * *chuyện gì, ai, ở chuyến nào*, bấm vào thì mở đúng màn hình xử lý. Dựng bảy lớp thông báo để
+ * rồi cả bảy trả về cùng một hình dạng là đúng kiểu bộ máy dự án này đã bỏ bớt.
  *
- * Khác biệt duy nhất có ý nghĩa là `kind`, và nó chỉ dùng để chọn màu và biểu tượng.
+ * Khác biệt duy nhất có ý nghĩa là `kind`, và nó chỉ dùng để chọn màu.
  *
  * ## Hai đường giao, cùng một nội dung
  *
  *   - `database` — luôn ghi. Đây là **nguồn sự thật**: mở màn thông báo lúc nào cũng thấy đủ.
  *   - `broadcast` — đẩy tức thì qua WebSocket, nếu tiến trình Reverb đang chạy.
  *
- * Thứ tự ấy là chủ ý. Không có Reverb thì thông báo **vẫn tới**, chỉ mất tính tức thời — màn
- * hình tự hỏi lại định kỳ. Một tính năng chết hẳn khi quên bật một tiến trình là thứ không nên
- * mang đi trình bày.
+ * Thứ tự ấy là chủ ý. Không có Reverb thì thông báo **vẫn tới**, chỉ mất tính tức thời — màn hình
+ * tự hỏi lại định kỳ. Một tính năng chết hẳn khi quên bật một tiến trình là thứ không nên mang đi
+ * trình bày.
  */
-class AdminAlert extends Notification
+class Alert extends Notification
 {
-    use Queueable;
+    /* --- Việc điều hành cần biết --------------------------------------------------------- */
 
     public const TU_CHOI_CHUYEN = 'guide_declined';
     public const XIN_BAN_GIAO = 'handover_requested';
     public const SU_CO = 'incident_reported';
 
+    /* --- Việc hướng dẫn viên cần biết ---------------------------------------------------- */
+
+    /** Được phân công một chuyến mới. */
+    public const PHAN_CONG = 'assigned';
+
+    /** Vừa nhận một đoàn từ người khác — gấp nhất phía hướng dẫn viên, đoàn đang trên đường. */
+    public const NHAN_BAN_GIAO = 'handover_received';
+
+    /** Phiếu xin bàn giao của mình đã được xử lý, dù theo hướng nào. */
+    public const PHIEU_DA_XU_LY = 'handover_closed';
+
+    /** Điều hành đã quyết phương án cho sự cố mình báo — thứ mình đọc lại cho khách. */
+    public const SU_CO_DA_QUYET = 'incident_resolved';
+
+    use Queueable;
+
     /**
-     * @param  string  $kind  Một trong ba hằng số ở trên. Chỉ quyết định màu và biểu tượng.
+     * @param  string  $kind  Một trong các hằng số ở trên. Chỉ quyết định màu.
      * @param  string  $title  Một dòng, đọc là hiểu chuyện gì. Không cần mở ra mới biết.
      * @param  string  $body  Chi tiết: ai, chuyến nào, lý do họ viết.
      * @param  string|null  $url  Đường dẫn tới màn hình xử lý việc này.
@@ -80,11 +95,5 @@ class AdminAlert extends Notification
             'created_at' => now()->toDateTimeString(),
             'read_at' => null,
         ]);
-    }
-
-    /** Tên sự kiện phía client lắng nghe. Đặt tên gọn để bên kia khỏi phải viết tên lớp đầy đủ. */
-    public function broadcastType(): string
-    {
-        return 'admin.alert';
     }
 }
