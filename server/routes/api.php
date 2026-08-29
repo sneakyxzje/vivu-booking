@@ -36,8 +36,8 @@ use App\Http\Controllers\Api\Admin\AdminGuideController;
 use App\Http\Controllers\Api\Admin\AdminBookingController;
 use App\Http\Controllers\Api\Admin\AdminChangeRequestController;
 use App\Http\Controllers\Api\Admin\AdminContractController;
-use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminPassengerController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\Admin\AdminAuditLogController;
 use App\Http\Controllers\Api\Admin\AdminGroupBookingController;
 use App\Http\Controllers\Api\Admin\AdminGuideHandoverController;
@@ -124,6 +124,26 @@ Route::middleware('auth:sanctum')->group(function () {
     // Đánh giá tour (mọi user đã đăng nhập)
     Route::post('/reviews', [ReviewController::class, 'store']);
     Route::delete('/reviews/{id}', [ReviewController::class, 'destroy']);
+
+    /*
+     * Hộp thông báo — dùng chung cho điều hành và hướng dẫn viên.
+     *
+     * Một bộ điểm cuối cho hai vai, vì controller đã tự giới hạn theo `$request->user()`: bạn chỉ
+     * bao giờ thấy hộp của chính bạn. Chép ra hai bản dưới hai nhóm route là hai bản của cùng một
+     * logic, kiểu lỗi dự án này đã gặp nhiều lần.
+     *
+     * Khách chưa nhận thông báo nào nên chưa mở cho vai đó — mở ra thì phải trả lời câu "khách
+     * được báo những gì", mà đó là một tính năng khác.
+     *
+     * `unread-count` tách riêng vì màn hình hỏi nó định kỳ khi không có WebSocket — kéo cả danh
+     * sách về chỉ để đếm là lãng phí đúng vào lúc dễ thấy nhất.
+     */
+    Route::middleware('role:admin,guide')->group(function () {
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::put('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+        Route::put('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -242,17 +262,6 @@ Route::middleware('auth:sanctum')->group(function () {
         // Phiếu bàn giao: hai cách xử lý, không có luồng duyệt nhiều bước.
         Route::put('/handover-requests/{id}/resolve', [AdminGuideHandoverController::class, 'resolveRequest']);
         Route::put('/handover-requests/{id}/close', [AdminGuideHandoverController::class, 'closeRequest']);
-
-        /*
-         * Hộp thông báo của điều hành.
-         *
-         * `unread-count` tách riêng vì màn hình hỏi nó định kỳ khi không có WebSocket — kéo cả
-         * danh sách về chỉ để đếm là lãng phí đúng vào lúc dễ thấy nhất.
-         */
-        Route::get('/notifications', [AdminNotificationController::class, 'index']);
-        Route::get('/notifications/unread-count', [AdminNotificationController::class, 'unreadCount']);
-        Route::put('/notifications/read-all', [AdminNotificationController::class, 'markAllRead']);
-        Route::put('/notifications/{id}/read', [AdminNotificationController::class, 'markRead']);
 
         // O - Sự cố dọc đường. Chỉ ở đây mới quyết được tiền; hướng dẫn viên chỉ báo cáo.
         Route::get('/incidents', [AdminIncidentController::class, 'index']);
