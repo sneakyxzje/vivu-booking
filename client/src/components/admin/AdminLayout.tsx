@@ -93,7 +93,7 @@ const navEntries: NavEntry[] = [
     items: [
       { to: "/admin/bookings", label: "Đơn đặt tour" },
       { to: "/admin/group-bookings", label: "Booking theo đoàn" },
-      { to: "/admin/change-requests", label: "Yêu cầu hủy của khách" },
+      { to: "/admin/change-requests", label: "Yêu cầu huỷ" },
       { to: "/admin/cancellation-policies", label: "Chính sách hủy" },
     ],
   },

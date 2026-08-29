@@ -25,17 +25,30 @@ const STATUS_TABS: { key: string; label: string }[] = [
   { key: "all", label: "Tất cả" },
 ];
 
-const STATUS_BADGE: Record<ChangeRequestStatus, { label: string; className: string }> = {
-  pending: { label: "Chờ duyệt", className: "bg-amber-50 text-amber-700 border-amber-200" },
-  approved: { label: "Đã duyệt", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  rejected: { label: "Đã từ chối", className: "bg-rose-50 text-rose-700 border-rose-200" },
+const STATUS_BADGE: Record<
+  ChangeRequestStatus,
+  { label: string; className: string }
+> = {
+  pending: {
+    label: "Chờ duyệt",
+    className: "bg-amber-50 text-amber-700 border-amber-200",
+  },
+  approved: {
+    label: "Đã duyệt",
+    className: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
+  rejected: {
+    label: "Đã từ chối",
+    className: "bg-rose-50 text-rose-700 border-rose-200",
+  },
   cancelled_by_customer: {
     label: "Khách đã rút",
     className: "bg-gray-100 text-gray-600 border-gray-200",
   },
 };
 
-const soTien = (value: string | number | null | undefined) => formatPrice(Number(value ?? 0));
+const soTien = (value: string | number | null | undefined) =>
+  formatPrice(Number(value ?? 0));
 
 export default function ChangeRequestManagement() {
   const [requests, setRequests] = useState<ChangeRequest[]>([]);
@@ -97,7 +110,8 @@ export default function ChangeRequestManagement() {
   };
 
   const layLoi = (err: unknown, macDinh: string) =>
-    (err as { response?: { data?: { message?: string } } })?.response?.data?.message || macDinh;
+    (err as { response?: { data?: { message?: string } } })?.response?.data
+      ?.message || macDinh;
 
   const duyet = async () => {
     if (!detail) return;
@@ -106,7 +120,12 @@ export default function ChangeRequestManagement() {
     setActionError("");
 
     try {
-      setToast(await adminService.approveChangeRequest(detail.request.id, reviewNote.trim()));
+      setToast(
+        await adminService.approveChangeRequest(
+          detail.request.id,
+          reviewNote.trim(),
+        ),
+      );
       dongChiTiet();
       taiDanhSach();
     } catch (err) {
@@ -123,7 +142,12 @@ export default function ChangeRequestManagement() {
     setActionError("");
 
     try {
-      setToast(await adminService.rejectChangeRequest(detail.request.id, reviewNote.trim()));
+      setToast(
+        await adminService.rejectChangeRequest(
+          detail.request.id,
+          reviewNote.trim(),
+        ),
+      );
       dongChiTiet();
       taiDanhSach();
     } catch (err) {
@@ -143,11 +167,10 @@ export default function ChangeRequestManagement() {
 
       <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
         <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 font-jakarta">
-          Yêu cầu hủy của khách
+          Yêu cầu huỷ
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Khách đã thanh toán không tự hủy được. Họ gửi yêu cầu, điều hành xem xét rồi hệ thống mới
-          thực thi và ghi nhận khoản hoàn.
+          Danh sách các yêu cầu huỷ đơn đặt tour của khách.
         </p>
         {pendingCount > 0 && (
           <p className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800">
@@ -177,7 +200,9 @@ export default function ChangeRequestManagement() {
         {loading ? (
           <div className="p-12 text-center space-y-3">
             <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto" />
-            <p className="text-xs text-gray-500">Đang tải danh sách yêu cầu...</p>
+            <p className="text-xs text-gray-500">
+              Đang tải danh sách yêu cầu...
+            </p>
           </div>
         ) : requests.length === 0 ? (
           <p className="p-12 text-center text-sm text-gray-500">
@@ -201,7 +226,10 @@ export default function ChangeRequestManagement() {
                   const badge = STATUS_BADGE[item.status];
 
                   return (
-                    <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
+                    <tr
+                      key={item.id}
+                      className="hover:bg-gray-50/50 transition-colors"
+                    >
                       <td className="px-6 py-4 font-mono text-xs font-bold text-gray-900">
                         BK-{item.booking_id}
                         <span className="block font-sans font-normal text-gray-500 mt-0.5">
@@ -259,26 +287,36 @@ export default function ChangeRequestManagement() {
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs text-gray-700 space-y-1.5">
               <p>
                 <span className="text-gray-500">Tour:</span>{" "}
-                <strong className="text-gray-900">{detail.request.booking?.tour?.title}</strong>
+                <strong className="text-gray-900">
+                  {detail.request.booking?.tour?.title}
+                </strong>
               </p>
               <p>
                 <span className="text-gray-500">Khách:</span>{" "}
-                <strong className="text-gray-900">{detail.request.booking?.customer_name}</strong>
+                <strong className="text-gray-900">
+                  {detail.request.booking?.customer_name}
+                </strong>
                 {detail.request.booking?.customer_email
                   ? ` — ${detail.request.booking.customer_email}`
                   : ""}
               </p>
               <p>
                 <span className="text-gray-500">Lý do khách nêu:</span>{" "}
-                <strong className="text-gray-900">{detail.request.request_note}</strong>
+                <strong className="text-gray-900">
+                  {detail.request.request_note}
+                </strong>
               </p>
             </div>
 
             {/* Chuyến khởi hành trong lúc yêu cầu nằm chờ thì không duyệt được nữa. */}
             {!detail.can_approve && detail.blocked_reason && (
               <div className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3">
-                <p className="text-sm font-bold text-rose-700">Không duyệt được yêu cầu này</p>
-                <p className="text-xs text-rose-700 mt-0.5">{detail.blocked_reason}</p>
+                <p className="text-sm font-bold text-rose-700">
+                  Không duyệt được yêu cầu này
+                </p>
+                <p className="text-xs text-rose-700 mt-0.5">
+                  {detail.blocked_reason}
+                </p>
               </div>
             )}
 
@@ -296,8 +334,8 @@ export default function ChangeRequestManagement() {
                 {soTien(detail.request.estimated_refund)}
               </p>
               <p className="text-[11px] text-emerald-700 mt-1">
-                {detail.request.estimated_refund_percent}% giá trị đơn, chốt lúc khách gửi ngày{" "}
-                {formatDateTime(detail.request.created_at)}
+                {detail.request.estimated_refund_percent}% giá trị đơn, chốt lúc
+                khách gửi ngày {formatDateTime(detail.request.created_at)}
               </p>
             </div>
 
@@ -307,8 +345,9 @@ export default function ChangeRequestManagement() {
               </p>
             ) : (
               <p className="rounded-lg bg-rose-100 px-4 py-3 text-xs font-semibold text-rose-800">
-                Đơn này đã qua hạn chốt danh sách. Duyệt xong <strong>chỗ không quay lại kho</strong>,
-                nó thành ghế chết và chỉ mở bán lại được bằng tay.
+                Đơn này đã qua hạn chốt danh sách. Duyệt xong{" "}
+                <strong>chỗ không quay lại kho</strong>, nó thành ghế chết và
+                chỉ mở bán lại được bằng tay.
               </p>
             )}
 
@@ -316,7 +355,8 @@ export default function ChangeRequestManagement() {
               <>
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                    Ghi chú xử lý {rejectMode && <span className="text-rose-500">*</span>}
+                    Ghi chú xử lý{" "}
+                    {rejectMode && <span className="text-rose-500">*</span>}
                   </label>
                   <textarea
                     rows={2}
@@ -351,7 +391,9 @@ export default function ChangeRequestManagement() {
                       <button
                         type="button"
                         onClick={tuChoi}
-                        disabled={actionLoading || reviewNote.trim().length < 10}
+                        disabled={
+                          actionLoading || reviewNote.trim().length < 10
+                        }
                         className="px-4 py-2 bg-rose-600 text-xs font-semibold rounded-md text-white hover:bg-rose-700 disabled:opacity-50"
                       >
                         {actionLoading ? "Đang xử lý..." : "Xác nhận từ chối"}
@@ -383,9 +425,13 @@ export default function ChangeRequestManagement() {
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs text-gray-700 space-y-1">
                 <p className="font-bold text-gray-900">
                   {STATUS_BADGE[detail.request.status].label}
-                  {detail.request.reviewed_at ? ` lúc ${formatDateTime(detail.request.reviewed_at)}` : ""}
+                  {detail.request.reviewed_at
+                    ? ` lúc ${formatDateTime(detail.request.reviewed_at)}`
+                    : ""}
                 </p>
-                {detail.request.review_note && <p>{detail.request.review_note}</p>}
+                {detail.request.review_note && (
+                  <p>{detail.request.review_note}</p>
+                )}
               </div>
             )}
           </div>
