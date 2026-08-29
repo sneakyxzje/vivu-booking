@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useAdminNotifications } from "@/hooks/useAdminNotifications";
+import { useNotifications } from "@/hooks/useNotifications";
 
 /*
  * Menu quản trị: bốn nhóm có menu con, kẹp giữa hai mục đứng riêng.
@@ -129,7 +129,7 @@ export const AdminLayout: React.FC = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   // Chuông chỉ cần con số; danh sách nằm ở màn riêng.
-  const { unread } = useAdminNotifications();
+  const { unread } = useNotifications();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
