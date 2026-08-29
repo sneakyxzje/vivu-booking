@@ -83,7 +83,7 @@ class BusinessScenarioSeeder extends Seeder
         $this->admin = User::query()->where('role', 'admin')->first();
         $this->guides = User::query()->where('role', 'guide')->where('status', 'active')->orderBy('id')->get();
         $this->guide = $this->guides->first();
-        $this->policy = CancellationPolicy::query()->where('is_default', true)->first();
+        $this->policy = CancellationPolicy::dangApDung();
 
         if (!$this->admin) {
             $this->command?->warn('Chưa có tài khoản admin, bỏ qua BusinessScenarioSeeder.');
