@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\Admin;
+namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -8,12 +8,12 @@ use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
 
 /**
- * Hộp thông báo của điều hành.
+ * Hộp thông báo, dùng chung cho điều hành và hướng dẫn viên.
  *
  * Đọc từ bảng `notifications`, không đọc từ WebSocket. WebSocket chỉ là đường đẩy nhanh; **nguồn
  * sự thật vẫn là cơ sở dữ liệu**. Nhờ vậy tắt Reverb thì màn hình vẫn đầy đủ, chỉ chậm hơn.
  */
-class AdminNotificationController extends Controller
+class NotificationController extends Controller
 {
     /** Bao nhiêu thông báo trả về mỗi lần. Đủ để cuộn, không đủ để thành một trang tải nặng. */
     private const GIOI_HAN = 50;
