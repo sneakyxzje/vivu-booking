@@ -3,12 +3,14 @@ import type { Tour, TourImage, TourSchedule } from "@/types";
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { StarIcon, ChevronRightIcon } from "@/components/Icons";
+import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 import { isScheduleBookable } from "@/utils/schedule";
 import { TourLeftDetails } from "./TourLeftDetails";
 import { TourRightSidebar } from "./TourRightSidebar";
 
 export default function TourDetail() {
-  const { id } = useParams();
+  // Slug của tour. Máy chủ cũng nhận id, nên liên kết cũ dạng `/tours/17` vẫn mở được.
+  const { slug } = useParams();
   const [tour, setTour] = useState<Tour | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSchedule, setSelectedSchedule] = useState<TourSchedule | null>(null);
@@ -16,8 +18,8 @@ export default function TourDetail() {
   useEffect(() => {
     const load = async () => {
       try {
-        if (!id) return;
-        const res = await tourService.getById(id);
+        if (!slug) return;
+        const res = await tourService.getById(slug);
         setTour(res.data);
       } finally {
         setLoading(false);
@@ -25,7 +27,22 @@ export default function TourDetail() {
     };
 
     load();
-  }, [id]);
+  }, [slug]);
+
+  /*
+   * Tiêu đề và thẻ chia sẻ của trang.
+   *
+   * Gọi vô điều kiện, trước mọi nhánh `return` sớm bên dưới: hook không được đứng sau một câu
+   * lệnh trả về, nếu không thì lần render đang tải và lần render đã có dữ liệu gọi số hook khác
+   * nhau và React ném lỗi.
+   */
+  useDocumentMeta({
+    title: tour?.title ?? (loading ? "Đang tải tour..." : "Không tìm thấy tour"),
+    description: tour
+      ? `${tour.title} - khởi hành từ ${tour.start_location}, ${tour.number_of_days} ngày ${tour.number_of_nights} đêm. Giá từ ${Number(tour.adult_price).toLocaleString("vi-VN")}đ/khách.`
+      : undefined,
+    image: tour?.thumbnail ?? null,
+  });
 
   useEffect(() => {
     if (tour && tour.schedules && tour.schedules.length > 0) {

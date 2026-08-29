@@ -58,7 +58,7 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
       schedule_id: String(selectedSchedule.id),
     });
 
-    navigate(`/tours/${tour.id}/booking?${params.toString()}`);
+    navigate(`/tours/${tour.slug}/booking?${params.toString()}`);
   };
 
   return (

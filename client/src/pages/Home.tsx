@@ -4,6 +4,7 @@ import tourService from "@/services/tourService";
 import api from "@/services/api";
 import type { Tour } from "@/types";
 import { TourCard } from "@/components/TourCard";
+import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
 import {
   MapPinIcon,
@@ -164,6 +165,12 @@ const TourGridEmpty: React.FC<TourGridEmptyProps> = ({ onClearFilters }) => (
 // ── HOME PAGE ───────────────────────────────────────────────────────────────────
 
 export const Home: React.FC = () => {
+  useDocumentMeta({
+    title: "Vivu Booking",
+    description:
+      "Đặt tour du lịch trong nước: lịch khởi hành rõ ràng, giá theo từng loại khách, chính sách hủy công khai trước khi đặt.",
+  });
+
   const navigate = useNavigate();
   const [tours, setTours] = useState<Tour[]>([]);
   const [loading, setLoading] = useState<boolean>(true);

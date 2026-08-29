@@ -103,7 +103,7 @@ export const TourCard: React.FC<TourCardProps> = ({ tour }) => {
       <div className="p-5 flex flex-col flex-1">
         <span className="tag-upper text-primary-600 px-0 mb-2">{categoryName}</span>
 
-        <Link to={`/tours/${tour.id}`} className="block mb-2">
+        <Link to={`/tours/${tour.slug}`} className="block mb-2">
           <h3 className="text-title-md text-ink line-clamp-2 group-hover:text-primary-600 transition-colors h-[42px]">
             {tour.title}
           </h3>
@@ -141,7 +141,7 @@ export const TourCard: React.FC<TourCardProps> = ({ tour }) => {
           <PriceDisplay price={adultPrice} />
 
           <Link
-            to={`/tours/${tour.id}`}
+            to={`/tours/${tour.slug}`}
             className="btn-pill bg-primary-50 text-primary-600 hover:bg-primary-600 hover:text-white shrink-0"
           >
             Đặt ngay

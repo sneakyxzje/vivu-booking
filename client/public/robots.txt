@@ -1,0 +1,22 @@
+# Vivu Booking
+#
+# Khu vực điều hành và hướng dẫn viên không có gì để lập chỉ mục, và trang đơn hàng thì mở bằng
+# mã tra cứu ngẫu nhiên — không nên nằm trong kết quả tìm kiếm của bất kỳ ai.
+#
+# Sơ đồ trang do máy chủ dựng từ dữ liệu thật, xem App\Http\Controllers\SitemapController.
+# Đổi tên miền khi triển khai thì sửa dòng Sitemap bên dưới cho khớp.
+
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /guide
+Disallow: /booking-success
+Disallow: /booking-lookup
+Disallow: /bookings
+Disallow: /profile
+Disallow: /my-bookings
+Disallow: /reset-password
+Disallow: /forgot-password
+
+Sitemap: http://localhost:8000/sitemap.xml

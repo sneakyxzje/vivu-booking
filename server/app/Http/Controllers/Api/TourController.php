@@ -197,13 +197,28 @@ class TourController extends Controller
     }
 
     /**
-     * Chi tiết tour
+     * Chi tiết tour, tra được bằng id hoặc bằng slug.
+     *
+     * Slug là dạng dùng trên đường dẫn kể từ khi trang chi tiết đổi sang `/tours/tour-ha-long-3n2d`
+     * — địa chỉ đọc được là thứ người ta dán cho nhau và là thứ Google xếp hạng, còn `/tours/17`
+     * thì không nói gì về nội dung trang.
+     *
+     * Vẫn nhận id vì hai lý do: mọi liên kết đã gửi đi trước đây đều ở dạng số, và các màn hình
+     * nội bộ (điều hành, hướng dẫn viên) chỉ cầm id trong tay.
      */
-    public function show(int $id): JsonResponse
+    public function show(string $idOrSlug): JsonResponse
     {
+        $laSo = ctype_digit($idOrSlug);
+
         // Nhả chỗ của các đơn quá hạn trước khi trả dữ liệu, để số
         // "còn lại X chỗ" khách nhìn thấy luôn là số thật.
-        $this->holdService->releaseOverdueForTour($id);
+        $tourId = $laSo
+            ? (int) $idOrSlug
+            : (int) Tour::query()->where('slug', $idOrSlug)->value('id');
+
+        if ($tourId) {
+            $this->holdService->releaseOverdueForTour($tourId);
+        }
 
         $tour = Tour::with([
             'categories',
@@ -217,7 +232,10 @@ class TourController extends Controller
         ])
             ->withAvg('reviews as rating', 'rating')
             ->withCount('reviews')
-            ->whereIn('status', ['active', 'full'])->find($id);
+            ->whereIn('status', ['active', 'full'])
+            ->when($laSo, fn ($q) => $q->whereKey((int) $idOrSlug))
+            ->when(!$laSo, fn ($q) => $q->where('slug', $idOrSlug))
+            ->first();
 
         if (!$tour) {
             return response()->json([

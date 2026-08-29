@@ -11,6 +11,7 @@ import {
 } from "@/components/Icons";
 
 import { TourFilters } from "@/components/TourFilters";
+import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
 const DEFAULT_MAX_PRICE = 20000000;
 
@@ -18,6 +19,12 @@ const DEFAULT_MAX_PRICE = 20000000;
 const PER_PAGE = 12;
 
 export const Tours: React.FC = () => {
+  useDocumentMeta({
+    title: "Tour du lịch trọn gói",
+    description:
+      "Danh sách tour trọn gói: lọc theo ngày khởi hành, điểm đi, mức giá và số ngày. Chỉ hiện chuyến còn chỗ và chưa qua hạn chốt.",
+  });
+
   const [searchParams, setSearchParams] = useSearchParams();
   const urlKeyword = searchParams.get("q") ?? "";
   const urlStartLocation = searchParams.get("start_location") ?? "";

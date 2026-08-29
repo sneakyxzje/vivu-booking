@@ -500,7 +500,8 @@ const BookingSidebar = ({ tour, selectedScheduleId }: BookingSidebarProps & { se
 };
 
 export const BookingTour = () => {
-  const { id } = useParams();
+  // Slug của tour trên đường dẫn. Máy chủ cũng nhận id, nên liên kết cũ dạng số vẫn mở được.
+  const { slug } = useParams();
   const [searchParams] = useSearchParams();
   const [tour, setTour] = useState<Tour | null>(null);
   const [form, setForm] = useState<BookingFormState>(initialForm);
@@ -515,9 +516,9 @@ export const BookingTour = () => {
   useEffect(() => {
     const loadTour = async () => {
       try {
-        if (!id) return;
+        if (!slug) return;
 
-        const response = await tourService.getById(id);
+        const response = await tourService.getById(slug);
         const schedules = response.data.schedules ?? [];
         const scheduleIdFromQuery = searchParams.get("schedule_id");
         const selectedSchedule = schedules.find(
@@ -551,7 +552,7 @@ export const BookingTour = () => {
     };
 
     loadTour();
-  }, [id]);
+  }, [slug]);
 
   const schedules = tour?.schedules ?? [];
   const subtotalAmount = useMemo(

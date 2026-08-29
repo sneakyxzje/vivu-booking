@@ -36,8 +36,9 @@ const tourService = {
     return { success: true, data, meta };
   },
 
-  getById: async (id: string): Promise<{ data: Tour; success: boolean }> => {
-    const response = await api.get(`/tours/${id}`);
+  /** `key` là slug (dạng dùng trên đường dẫn) hoặc id — máy chủ nhận cả hai. */
+  getById: async (key: string): Promise<{ data: Tour; success: boolean }> => {
+    const response = await api.get(`/tours/${key}`);
     const tour = extractObject<Tour>(response);
 
     if (!tour?.title) {

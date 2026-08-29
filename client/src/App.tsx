@@ -66,11 +66,18 @@ const router = createBrowserRouter([
         element: <Tours />,
       },
       {
-        path: "/tours/:id",
+        /*
+         * Tham số là SLUG, không phải id — `/tours/tour-ha-long-3n2d` chứ không `/tours/17`.
+         *
+         * Địa chỉ đọc được là thứ người ta dán cho nhau và là thứ máy tìm kiếm xếp hạng; một con
+         * số không nói gì về nội dung trang. Máy chủ vẫn nhận cả id (xem TourController::show),
+         * nên mọi liên kết dạng số đã gửi đi trước đây không gãy.
+         */
+        path: "/tours/:slug",
         element: <TourDetail />,
       },
       {
-        path: "/tours/:id/booking",
+        path: "/tours/:slug/booking",
         element: <BookingTour />,
       },
       {

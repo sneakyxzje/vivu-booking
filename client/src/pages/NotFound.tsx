@@ -1,7 +1,10 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
 export const NotFound: React.FC = () => {
+  useDocumentMeta({ title: "Không tìm thấy trang" });
+
   return (
     <div style={{ textAlign: "center", padding: "80px 20px" }}>
       <h1 style={{ fontSize: "4rem", fontWeight: 700, color: "#4f46e5" }}>

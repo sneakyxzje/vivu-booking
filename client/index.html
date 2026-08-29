@@ -1,14 +1,32 @@
 <!doctype html>
-<html lang="en">
+<!--
+  lang="vi": toàn bộ nội dung là tiếng Việt. Khai "en" là nói sai với trình đọc màn hình, với
+  công cụ dịch của trình duyệt và với máy tìm kiếm.
+-->
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vivu Booking</title>
+    <title>Vivu Booking - Đặt tour du lịch trong nước</title>
     <meta
       name="description"
-      content="Discover and book premium travel experiences, stays, and activities with Vivu Booking."
+      content="Đặt tour du lịch trong nước: lịch khởi hành rõ ràng, giá theo từng loại khách, chính sách hủy công khai trước khi đặt."
     />
+    <!--
+      Thẻ chia sẻ mặc định, dùng cho các trình xem trước liên kết KHÔNG chạy JavaScript.
+      Từng trang tự đặt lại tiêu đề và mô tả sau khi tải, xem src/hooks/useDocumentMeta.ts —
+      nhưng những thẻ đó chỉ tồn tại sau khi JavaScript chạy, nên phần dưới đây là thứ Zalo hay
+      Facebook đọc được khi ai đó dán liên kết.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Vivu Booking" />
+    <meta property="og:title" content="Vivu Booking - Đặt tour du lịch trong nước" />
+    <meta
+      property="og:description"
+      content="Đặt tour du lịch trong nước: lịch khởi hành rõ ràng, giá theo từng loại khách, chính sách hủy công khai trước khi đặt."
+    />
+    <meta name="twitter:card" content="summary" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!--

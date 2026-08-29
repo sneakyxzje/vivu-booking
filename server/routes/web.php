@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ContractPrintController;
+use App\Http\Controllers\SitemapController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -13,6 +14,12 @@ use Illuminate\Support\Facades\Route;
 Route::get('/contracts/{contract}/print', ContractPrintController::class)
     ->middleware('signed')
     ->name('contracts.print');
+
+/*
+ * Sơ đồ trang. Ở routes/web vì nó trả XML cho máy tìm kiếm đọc trực tiếp, không phải JSON cho
+ * ứng dụng gọi. Các địa chỉ bên trong trỏ về giao diện React, xem SitemapController.
+ */
+Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
 
 Route::get('/', function () {
     return response()->json([

@@ -4,6 +4,7 @@ import { ChevronDown } from "lucide-react";
 import policyService from "@/services/policyService";
 import type { PolicyResponse } from "@/services/policyService";
 import { formatPrice } from "@/utils/format";
+import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
 /**
  * Chính sách hủy, đổi và hoàn tiền — bản khách đọc.
@@ -74,6 +75,12 @@ const CauHoi = ({
 );
 
 export default function PolicyPage() {
+  useDocumentMeta({
+    title: "Điều khoản, chính sách hủy và bảo mật",
+    description:
+      "Điều kiện đặt tour, bảng phí hủy theo mốc thời gian, mức hoàn tiền và cách chúng tôi xử lý thông tin của bạn.",
+  });
+
   const [data, setData] = useState<PolicyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);

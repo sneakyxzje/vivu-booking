@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
 const sections = [
   {
@@ -51,7 +52,14 @@ const sections = [
   },
 ];
 
-export const InfoPage: React.FC = () => (
+export const InfoPage: React.FC = () => {
+  useDocumentMeta({
+    title: "Về Vivu Booking",
+    description:
+      "Giới thiệu Vivu Booking, cách chúng tôi tổ chức tour và thông tin liên hệ với bộ phận điều hành.",
+  });
+
+  return (
   <div className="min-h-screen bg-gray-50/60 py-10">
     <div className="max-w-3xl mx-auto px-4 sm:px-6">
       <nav className="flex items-center gap-2 text-xs md:text-sm text-gray-500 font-medium mb-8">
@@ -78,6 +86,7 @@ export const InfoPage: React.FC = () => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
 export default InfoPage;
