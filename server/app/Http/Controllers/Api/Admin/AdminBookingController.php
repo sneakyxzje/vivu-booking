@@ -304,147 +304,20 @@ class AdminBookingController extends Controller
         );
     }
 
-    /**
-     * =========================================================================
-     * TASK X07a: Mở lại đơn đặt tour bị hủy nhầm trong 24 giờ (Edge Case C06)
-     * =========================================================================
-     * Cho phép Quản trị viên khôi phục lại các đơn hàng có trạng thái `cancelled`
-     * nếu thời gian hủy chưa vượt quá 24 giờ và chuyến khởi hành còn đủ chỗ trống.
-     * 
-     * @param Request $request chứa lý do khôi phục (reopen_reason - bắt buộc)
-     * @param int $id ID của đơn đặt tour
-     * @return JsonResponse
-     */
-    public function reopen(Request $request, int $id): JsonResponse
-    {
-        // 1. Validate lý do khôi phục đơn từ phía Quản trị viên
-        $validated = $request->validate([
-            'reopen_reason' => 'required|string|max:500',
-        ], [
-            'reopen_reason.required' => 'Vui lòng nhập lý do mở lại đơn đặt tour.',
-        ]);
-
-        $target = Booking::query()->find($id);
-
-        if (!$target) {
-            return $this->error('Không tìm thấy đơn đặt hàng.', 404);
-        }
-
-        // 2. Kiểm tra điều kiện đơn phải ở trạng thái cancelled
-        if ($target->status !== 'cancelled') {
-            return $this->error('Chỉ có thể mở lại những đơn đang ở trạng thái Đã hủy (cancelled).', 400);
-        }
-
-        // 3. Kiểm tra sơ bộ giới hạn 24 giờ. Kiểm tra thật nằm trong transaction bên dưới.
-        if ($this->reopenWindowExpired($target)) {
-            return $this->error('Đơn đặt tour đã bị hủy quá 24 giờ, không thể mở lại.', 400);
-        }
-
-        try {
-            $updatedBooking = DB::transaction(function () use ($target, $validated, $request) {
-                // Khóa dòng chuyến khởi hành để kiểm tra số chỗ trống khả dụng
-                $schedule = TourSchedule::query()
-                    ->whereKey($target->tour_schedule_id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$schedule) {
-                    throw new \Exception('Chuyến khởi hành của đơn này không còn tồn tại.');
-                }
-
-                // Kiểm tra chuyến đã khởi hành chưa
-                if (\Carbon\Carbon::parse($schedule->start_date)->isPast()) {
-                    throw new \Exception('Chuyến khởi hành này đã xuất phát, không thể khôi phục đơn.');
-                }
-
-                $booking = Booking::query()->lockForUpdate()->find($target->id);
-
-                // Đọc lại sau khi khóa dòng. Hai quản trị viên bấm mở lại cùng lúc thì cả hai
-                // đều qua được phần kiểm tra phía trên; người vào sau phải thấy đơn đã mở rồi
-                // và dừng lại, nếu không booked_people bị cộng hai lượt.
-                if (!$booking || $booking->status !== 'cancelled') {
-                    throw new \Exception('Đơn này đã được mở lại hoặc không còn ở trạng thái đã hủy.');
-                }
-
-                if ($this->reopenWindowExpired($booking)) {
-                    throw new \Exception('Đơn đặt tour đã bị hủy quá 24 giờ, không thể mở lại.');
-                }
-
-                // Chỉ đơn đã trả chỗ về kho mới cần chỗ trống để quay lại.
-                // Đơn hủy sau hạn chốt giữ nguyên chỗ (seats_released = false), tức booked_people
-                // vẫn đang tính chỗ đó, nên đòi thêm chỗ trống là đòi hai lần cho cùng một chỗ.
-                if ($booking->seats_released) {
-                    $availableSeats = (int) $schedule->max_people - (int) $schedule->booked_people;
-
-                    if ($availableSeats < $booking->guests) {
-                        throw new \Exception("Chuyến khởi hành chỉ còn {$availableSeats} chỗ trống, không đủ để khôi phục đơn {$booking->guests} chỗ này.");
-                    }
-
-                    $schedule->increment('booked_people', $booking->guests);
-                    $schedule->refresh();
-
-                    // Chỗ vừa lấy lại có thể lấp đầy chuyến, khi đó phải đóng bán.
-                    if ($schedule->status === ScheduleStatus::Open
-                        && $schedule->booked_people >= $schedule->max_people) {
-                        $this->scheduleLifecycle->transitionTo(
-                            $schedule,
-                            ScheduleStatus::Closed,
-                            'Tự động đóng bán do mở lại đơn đã hủy khiến chuyến đầy chỗ.',
-                            $request->user()?->id,
-                        );
-                    }
-                }
-
-                // Khôi phục trạng thái: Nếu đã có giao dịch VNPAY thành công thì về confirmed, ngược lại về pending
-                $nextStatus = $booking->vnpay_transaction_no ? 'confirmed' : 'pending';
-
-                $booking->update([
-                    'status' => $nextStatus,
-                    'reopen_reason' => $validated['reopen_reason'],
-                    'reopened_at' => now(),
-                    'reopened_by' => $request->user()?->id,
-                    'seats_released' => false,
-                    'seats_released_at' => null,
-                    'seats_released_by' => null,
-                ]);
-
-                $this->auditLogger->logStatusChange(
-                    $booking,
-                    BookingAuditAction::Reopened,
-                    'cancelled',
-                    $nextStatus,
-                    $validated['reopen_reason'],
-                );
-
-                return $booking;
-            });
-
-            return $this->success(
-                $updatedBooking->fresh(['tour', 'customer', 'schedule', 'paymentLogs']),
-                'Đã mở lại đơn đặt tour thành công và khôi phục số chỗ trên chuyến.'
-            );
-        } catch (\Exception $e) {
-            return $this->error($e->getMessage(), 400);
-        }
-    }
-
-    /**
-     * Đơn này đã quá hạn 24 giờ để mở lại chưa.
+    /*
+     * ĐÃ GỠ: mở lại đơn đã hủy.
      *
-     * Đơn hủy trước khi có cột cancelled_at thì lấy updated_at làm mốc thay thế. Nếu bỏ qua
-     * kiểm tra khi cột trống thì mọi đơn đã hủy từ thời đó đều mở lại được vô thời hạn, tức là
-     * giới hạn 24 giờ chỉ có tác dụng với dữ liệu mới.
+     * Hủy là trạng thái kết thúc. Cho hoàn tác thì "đã hủy" không còn nghĩa gì chắc chắn: chỗ đã
+     * trả về kho có thể đã bán cho người khác, thư báo hủy đã gửi đi, và tiền hoàn có thể đã
+     * chuyển. Kéo đơn trở lại là dựng dậy một thứ mà phần còn lại của thế giới đã đi tiếp.
+     *
+     * Cách xử lý đúng khi hủy nhầm là **đặt lại đơn mới** — mất một phút, và để lại đúng một dòng
+     * lịch sử thay vì một đơn có hai vòng đời.
+     *
+     * KHÔNG gỡ, và đừng nhầm nó với chuyện này: đường khôi phục trong `BookingController::vnpayReturn`,
+     * khi khách bấm thanh toán trước lúc đơn hết hạn giữ chỗ nhưng tiền về sau đó. Ở đó tiền đã
+     * nằm trong tài khoản công ty — không nhận lại đơn nghĩa là cầm tiền mà không giao gì.
      */
-    private function reopenWindowExpired(Booking $booking): bool
-    {
-        $cancelledAt = $booking->cancelled_at ?? $booking->updated_at;
-
-        if (!$cancelledAt) {
-            return true;
-        }
-
-        return \Carbon\Carbon::parse($cancelledAt)->diffInHours(now()) > 24;
-    }
 
     private function sendConfirmedMailAfterResponse(Booking $booking): void
     {
