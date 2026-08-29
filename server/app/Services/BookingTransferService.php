@@ -6,8 +6,10 @@ use App\Enums\BookingAuditAction;
 use App\Enums\BookingStatus;
 use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
+use App\Enums\TransferReasonCategory;
 use App\Models\Booking;
 use App\Models\BookingTransfer;
+use App\Models\CustomerContactLog;
 use App\Models\TourSchedule;
 use App\Models\User;
 use Illuminate\Support\Carbon;
@@ -49,6 +51,7 @@ class BookingTransferService
         TourSchedule $toSchedule,
         string $initiatedBy = 'customer',
         bool $nguonBiHuy = false,
+        ?TransferReasonCategory $nhomLyDo = null,
     ): array {
         $coThe = true;
         $lyDoChan = null;
@@ -61,7 +64,7 @@ class BookingTransferService
         }
 
         $tongMoi = $this->recalculateTotal($booking, $toSchedule);
-        $phi = $this->transferFee($booking, $initiatedBy);
+        $phi = $this->transferFee($booking, $initiatedBy, $nhomLyDo);
 
         return [
             'can_transfer' => $coThe,
@@ -89,8 +92,12 @@ class BookingTransferService
         ?User $actor = null,
         string $initiatedBy = 'customer',
         bool $nguonBiHuy = false,
+        ?CustomerContactLog $canCu = null,
+        ?TransferReasonCategory $nhomLyDo = null,
     ): BookingTransfer {
-        return DB::transaction(function () use ($booking, $toSchedule, $reason, $actor, $initiatedBy, $nguonBiHuy) {
+        $this->assertDaHoiKhach($booking, $canCu, $nguonBiHuy);
+
+        return DB::transaction(function () use ($booking, $toSchedule, $reason, $actor, $initiatedBy, $nguonBiHuy, $canCu, $nhomLyDo) {
             $ids = collect([$booking->tour_schedule_id, $toSchedule->getKey()])
                 ->filter()
                 ->unique()
@@ -123,7 +130,7 @@ class BookingTransferService
 
             $tongCu = (float) $locked->total_amount;
             $tongMoi = $this->recalculateTotal($locked, $chuyenDich);
-            $phi = $this->transferFee($locked, $initiatedBy);
+            $phi = $this->transferFee($locked, $initiatedBy, $nhomLyDo);
             $soKhach = (int) $locked->guests;
 
             // Trả chỗ ở chuyến gốc trước rồi mới lấy chỗ ở chuyến đích. Ngược lại thì có lúc
@@ -154,6 +161,8 @@ class BookingTransferService
                 'from_tour_id' => $chuyenGoc?->tour_id,
                 'to_tour_id' => $chuyenDich->tour_id,
                 'initiated_by' => $initiatedBy,
+                'contact_log_id' => $canCu?->getKey(),
+                'reason_category' => $nhomLyDo?->value,
                 'price_difference' => round($tongMoi - $tongCu, 2),
                 'fee' => $phi,
                 'reason' => $reason,
@@ -180,6 +189,69 @@ class BookingTransferService
 
             return $banGhi;
         });
+    }
+
+    /**
+     * Chưa hỏi khách thì chưa chuyển được.
+     *
+     * ## Vì sao đây là một luật chứ không phải một lời nhắc trên giao diện
+     *
+     * Chuyển chuyến đổi ngày đi của người khác. Khách đã xin nghỉ phép, đã đặt vé tàu tới điểm tập
+     * kết, đã hẹn người nhà. Điều hành thấy chuyến ngày 12 trống chỗ nên dời sang - việc đó hợp lý
+     * với bảng xếp chuyến và vô lý với người phải đi.
+     *
+     * Nên luật nằm ở đây, cùng chỗ với luật số chỗ và luật hạn chốt, chứ không nằm ở một dấu tích
+     * trên màn hình. Đường ghi nào cũng đi qua hàm này.
+     *
+     * ## Vì sao trỏ tới một bản ghi cụ thể chứ không chỉ hỏi "đã có ai đồng ý chưa"
+     *
+     * Khách gật đầu cho **một** phương án. Nếu chỉ kiểm sự tồn tại của một bản ghi đồng ý nào đó
+     * trên đơn, thì lần chuyển thứ hai - sang một chuyến khác hẳn, vì một lý do khác hẳn - vẫn
+     * mượn được cái gật đầu của lần trước. Nên mỗi lần chuyển tiêu đúng một bản ghi, và bản ghi đã
+     * dùng rồi thì không dùng lại.
+     *
+     * ## Ngoại lệ duy nhất, và nó không phải cửa sau
+     *
+     * `$nguonBiHuy` là lúc **cả chuyến gốc bị hủy**, khách được dời đi vì chuyến của họ không còn
+     * tồn tại nữa. Ở đó không có phương án nào để hỏi ý - luồng hủy chuyến gửi thư báo kèm lựa
+     * chọn hoàn tiền, và khách trả lời bằng cách nhận tiền hoặc đi chuyến mới. Cờ này đã có sẵn
+     * cho luật hạn chốt từ trước; tôi không thêm cờ mới nào để đi vòng qua luật này.
+     */
+    public function assertDaHoiKhach(
+        Booking $booking,
+        ?CustomerContactLog $canCu,
+        bool $nguonBiHuy = false,
+    ): void {
+        if ($nguonBiHuy) {
+            return;
+        }
+
+        if (!$canCu) {
+            throw new BusinessRuleException(
+                'Phải trao đổi với khách và ghi lại nội dung trước khi chuyển chuyến. Vào đơn, ghi '
+                . 'nhận cuộc liên hệ, rồi quay lại bước chuyển chuyến.',
+            );
+        }
+
+        if ((int) $canCu->booking_id !== (int) $booking->getKey()) {
+            throw new BusinessRuleException('Bản ghi liên hệ này thuộc về một đơn khác.');
+        }
+
+        if (!$canCu->laSuDongYChuyenChuyen()) {
+            throw new BusinessRuleException(sprintf(
+                'Cuộc liên hệ được chọn có kết quả "%s" nên không dùng làm căn cứ chuyển chuyến '
+                    . 'được. Khách không đồng ý hoặc không liên lạc được thì xử lý theo luồng hủy '
+                    . 'đơn, đừng dời họ sang chuyến khác.',
+                $canCu->outcome->label(),
+            ));
+        }
+
+        if ($canCu->transfers()->exists()) {
+            throw new BusinessRuleException(
+                'Cuộc liên hệ này đã dùng làm căn cứ cho một lần chuyển trước rồi. Muốn chuyển '
+                . 'tiếp thì phải hỏi lại khách về phương án mới.',
+            );
+        }
     }
 
     /**
@@ -314,11 +386,23 @@ class BookingTransferService
     /**
      * Phí đổi lịch.
      *
-     * Lần đầu miễn phí, từ lần thứ hai thu. Hãng khởi xướng thì không bao giờ thu.
+     * Lần đầu miễn phí, từ lần thứ hai thu. Hai trường hợp không bao giờ thu:
+     *
+     *   - Hãng khởi xướng - lỗi không thuộc về khách.
+     *   - Lý do là bất khả kháng: bão, quyết định của cơ quan nhà nước, nhà cung cấp hỏng việc.
+     *     Thu phí đổi lịch của một người phải dời chuyến vì bão là bắt họ trả cho một việc không
+     *     ai gây ra. Chỉ nhóm "khách xin đổi vì việc riêng" mới chịu quy tắc phí.
      */
-    public function transferFee(Booking $booking, string $initiatedBy): float
-    {
+    public function transferFee(
+        Booking $booking,
+        string $initiatedBy,
+        ?TransferReasonCategory $nhomLyDo = null,
+    ): float {
         if ($initiatedBy === 'company') {
+            return 0.0;
+        }
+
+        if ($nhomLyDo?->batKhaKhang()) {
             return 0.0;
         }
 
