@@ -1,26 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import adminService from "@/services/adminService";
-import type {
-  CancellationPolicy,
-  CancellationPolicyRule,
-} from "@/services/adminService";
-import { Modal } from "@/components/admin/Modal";
+import type { CancellationPolicyRule } from "@/services/adminService";
 
 /**
- * B06 - Quản lý chính sách hủy.
+ * B06 - Chính sách hủy. **Một bảng phí duy nhất, áp cho mọi tour.**
  *
- * Mỗi chính sách là một bảng phí gồm nhiều bậc theo số giờ còn lại tới khởi hành.
- * Tour trỏ tới chính sách; đơn hàng sao chép chính sách tại thời điểm đặt, nên sửa ở đây
- * không hồi tố lên đơn đã có.
+ * Trước đây màn này là danh sách nhiều chính sách, mỗi tour chọn một cái. Bỏ đi vì nó sinh ra
+ * câu hỏi "cái nào áp cho đơn nào" ở mọi màn hình chạm tới tiền — mà công ty cỡ này không có lý
+ * do nghiệp vụ nào để tour Hạ Long và tour Sapa hoàn tiền theo hai bảng khác nhau.
+ *
+ * Giữ nguyên một điều: **đơn chép bảng phí vào chính nó lúc đặt**. Sửa ở đây chỉ áp cho đơn đặt
+ * từ lúc này trở đi; đơn đã bán giữ đúng điều khoản khách đã đồng ý. Câu đó in ngay trên màn hình
+ * chứ không giấu trong tài liệu, vì nó là thứ người sửa cần biết trước khi bấm lưu.
  */
-
-const BAC_MAC_DINH: CancellationPolicyRule[] = [
-  { min_hours_before: 360, max_hours_before: null, refund_percent: 90 },
-  { min_hours_before: 192, max_hours_before: 360, refund_percent: 70 },
-  { min_hours_before: 96, max_hours_before: 192, refund_percent: 50 },
-  { min_hours_before: 48, max_hours_before: 96, refund_percent: 30 },
-  { min_hours_before: 0, max_hours_before: 48, refund_percent: 0 },
-];
 
 const nhanKhoang = (rule: CancellationPolicyRule) => {
   const tuNgay = Math.floor(rule.min_hours_before / 24);
@@ -36,24 +28,38 @@ const nhanKhoang = (rule: CancellationPolicyRule) => {
   return `Từ ${tuNgay} đến dưới ${denNgay} ngày`;
 };
 
+const bacTrong: CancellationPolicyRule = {
+  min_hours_before: 0,
+  max_hours_before: null,
+  refund_percent: 0,
+  note: "",
+};
+
 export default function CancellationPolicyManagement() {
-  const [policies, setPolicies] = useState<CancellationPolicy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [isDefault, setIsDefault] = useState(false);
-  const [rules, setRules] = useState<CancellationPolicyRule[]>(BAC_MAC_DINH);
-  const [formError, setFormError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [rules, setRules] = useState<CancellationPolicyRule[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
+
     try {
-      setPolicies(await adminService.getCancellationPolicies());
+      const policy = await adminService.getCancellationPolicy();
+
+      if (policy) {
+        setName(policy.name);
+        setDescription(policy.description ?? "");
+        // Xếp bậc xa nhất lên đầu, đúng chiều người ta đọc: hủy sớm thì hoàn nhiều.
+        setRules(
+          [...policy.rules].sort((a, b) => b.min_hours_before - a.min_hours_before),
+        );
+      }
+    } catch {
+      setNotice({ type: "error", text: "Không tải được chính sách hủy." });
     } finally {
       setLoading(false);
     }
@@ -63,347 +69,207 @@ export default function CancellationPolicyManagement() {
     load();
   }, [load]);
 
-  const openCreateModal = () => {
-    setEditingId(null);
-    setName("");
-    setDescription("");
-    setIsDefault(false);
-    setRules(BAC_MAC_DINH);
-    setFormError("");
-    setIsModalOpen(true);
-  };
+  const suaBac = (index: number, thayDoi: Partial<CancellationPolicyRule>) =>
+    setRules((truoc) => truoc.map((r, i) => (i === index ? { ...r, ...thayDoi } : r)));
 
-  const openEditModal = (policy: CancellationPolicy) => {
-    setEditingId(policy.id);
-    setName(policy.name);
-    setDescription(policy.description ?? "");
-    setIsDefault(policy.is_default);
-    setRules(
-      policy.rules.length > 0
-        ? policy.rules.map((r) => ({ ...r }))
-        : BAC_MAC_DINH.map((r) => ({ ...r })),
-    );
-    setFormError("");
-    setIsModalOpen(true);
-  };
+  const luu = async () => {
+    setSaving(true);
+    setNotice(null);
 
-  const updateRule = (index: number, field: keyof CancellationPolicyRule, value: string) => {
-    setRules((current) =>
-      current.map((rule, i) => {
-        if (i !== index) return rule;
-
-        if (field === "max_hours_before") {
-          return { ...rule, max_hours_before: value === "" ? null : Number(value) };
-        }
-
-        return { ...rule, [field]: Number(value) };
-      }),
-    );
-  };
-
-  const handleSubmit = async () => {
-    setFormError("");
-
-    if (!name.trim()) {
-      setFormError("Vui lòng nhập tên chính sách.");
-      return;
-    }
-
-    if (!rules.some((rule) => rule.min_hours_before === 0)) {
-      setFormError(
-        "Phải có một bậc bắt đầu từ 0 giờ để phủ trường hợp hủy sát ngày khởi hành.",
-      );
-      return;
-    }
-
-    setSubmitting(true);
     try {
-      const payload = { name: name.trim(), description, is_default: isDefault, rules };
-      const saved = editingId
-        ? await adminService.updateCancellationPolicy(editingId, payload)
-        : await adminService.createCancellationPolicy(payload);
+      await adminService.updateCancellationPolicy({
+        name: name.trim(),
+        description: description.trim() || null,
+        rules: rules.map((r) => ({
+          min_hours_before: Number(r.min_hours_before) || 0,
+          max_hours_before:
+            r.max_hours_before === null || String(r.max_hours_before) === ""
+              ? null
+              : Number(r.max_hours_before),
+          refund_percent: Number(r.refund_percent) || 0,
+          note: r.note?.trim() || null,
+        })),
+      });
 
-      if (!saved) {
-        setFormError("Không lưu được chính sách. Kiểm tra lại các bậc phí.");
-        return;
-      }
-
-      setIsModalOpen(false);
       setNotice({
         type: "success",
-        text: editingId ? "Đã cập nhật chính sách hủy." : "Đã tạo chính sách hủy.",
+        text: "Đã lưu. Đơn đặt trước thời điểm này giữ nguyên điều khoản cũ.",
       });
-      await load();
-    } catch {
-      setFormError("Không lưu được chính sách. Kiểm tra lại các bậc phí.");
+
+      load();
+    } catch (err) {
+      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      setNotice({ type: "error", text: response?.message || "Không lưu được chính sách." });
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
 
-  const handleDelete = async (policy: CancellationPolicy) => {
-    try {
-      const ok = await adminService.deleteCancellationPolicy(policy.id);
-      setNotice(
-        ok
-          ? { type: "success", text: "Đã xóa chính sách hủy." }
-          : { type: "error", text: "Không xóa được chính sách này." },
-      );
-      if (ok) await load();
-    } catch {
-      setNotice({
-        type: "error",
-        text: "Không xóa được. Chính sách đang được tour hoặc đơn đặt tour sử dụng.",
-      });
-    }
-  };
+  if (loading) {
+    return <p className="py-16 text-center text-sm text-gray-500">Đang tải chính sách hủy...</p>;
+  }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-950">Chính sách hủy</h1>
-          {/*
-            Nói ngay cách chọn chính sách hoạt động ra sao.
+    <div className="max-w-4xl space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-950">Chính sách hủy</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Một bảng phí duy nhất, áp cho toàn bộ tour. Mức hoàn tính theo số giờ còn lại tính tới
+          giờ khởi hành.
+        </p>
+      </div>
 
-            Có nhiều chính sách mà không biết cái nào áp cho tour nào là câu hỏi đầu tiên người
-            dùng gặp ở màn này. Trả lời ngay dưới tiêu đề, thay vì để họ tự suy ra từ các thẻ.
-          */}
-          <p className="mt-1 text-sm text-gray-500 max-w-2xl">
-            Phí hủy theo mốc thời gian còn lại tới khởi hành. Mỗi tour <b>chọn một chính sách
-            riêng</b> ở biểu mẫu tạo/sửa tour; tour nào không chọn thì dùng chính sách đang đánh
-            dấu <b>mặc định</b>. Đơn đặt tour sao chép chính sách tại thời điểm đặt, nên sửa ở đây
-            không đổi điều khoản của đơn đã bán.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="cursor-pointer rounded-lg bg-primary-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-700"
-        >
-          Thêm chính sách
-        </button>
+      {/*
+        Câu quan trọng nhất của màn hình này, nên nó đứng trên cùng chứ không nằm cuối trang:
+        sửa bảng phí KHÔNG đổi điều khoản của đơn đã bán.
+      */}
+      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        <strong>Sửa ở đây chỉ áp cho đơn đặt từ lúc này trở đi.</strong> Mỗi đơn đã chép bảng phí
+        vào chính nó tại thời điểm khách đặt, nên khách vẫn được hưởng đúng điều khoản họ đã đồng ý.
       </div>
 
       {notice && (
         <div
-          className={`rounded-lg border p-3 text-sm font-semibold ${
+          className={`rounded-xl px-4 py-3 text-sm font-medium ${
             notice.type === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-rose-200 bg-rose-50 text-rose-800"
+              ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border border-rose-200 bg-rose-50 text-rose-700"
           }`}
         >
           {notice.text}
         </div>
       )}
 
-      {loading && <p className="text-sm text-gray-500">Đang tải...</p>}
+      <div className="space-y-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+        <label className="block space-y-1.5">
+          <span className="text-xs font-semibold uppercase text-gray-500">Tên chính sách</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500"
+          />
+        </label>
 
-      {!loading && policies.length === 0 && (
-        <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
-          Chưa có chính sách hủy nào.
-        </div>
-      )}
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {policies.map((policy) => (
-          <div key={policy.id} className="rounded-xl border border-gray-200 bg-white p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="font-bold text-gray-950">{policy.name}</h2>
-                  {policy.is_default && (
-                    <span className="rounded border border-primary-200 bg-primary-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-700">
-                      Mặc định
-                    </span>
-                  )}
-                </div>
-                {/*
-                  Nói rõ chính sách này đang chi phối cái gì.
-
-                  Trước đây mọi thẻ đều hiện "0 tour đang sử dụng" — vì biểu mẫu tour chưa bao
-                  giờ gửi `cancellation_policy_id` lên, nên không tour nào chọn được chính sách
-                  riêng và cái mặc định âm thầm gánh hết. Nhìn vào không ai biết cái nào dùng ở
-                  đâu. Nay gán được rồi thì con số này mới có nghĩa, và cái mặc định phải tự nói
-                  ra vai trò của nó.
-                */}
-                <p className="mt-1 text-xs text-gray-500">
-                  {policy.tours_count ?? 0} tour chọn riêng chính sách này
-                  {policy.is_default && " · áp cho mọi tour chưa chọn riêng"}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <button
-                  type="button"
-                  onClick={() => openEditModal(policy)}
-                  className="cursor-pointer rounded border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-                >
-                  Sửa
-                </button>
-                <button
-                  type="button"
-                  disabled={policy.is_default || (policy.tours_count ?? 0) > 0}
-                  onClick={() => handleDelete(policy)}
-                  className="cursor-pointer rounded border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Xóa
-                </button>
-              </div>
-            </div>
-
-            {policy.description && (
-              <p className="mt-3 text-xs leading-relaxed text-gray-600">{policy.description}</p>
-            )}
-
-            <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
-              <table className="w-full text-xs">
-                <tbody className="divide-y divide-gray-100">
-                  {policy.rules.map((rule, index) => (
-                    <tr key={index} className="text-gray-600">
-                      <td className="px-3 py-2">{nhanKhoang(rule)}</td>
-                      <td className="px-3 py-2 text-right font-bold text-gray-800">
-                        Hoàn {rule.refund_percent}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        ))}
+        <label className="block space-y-1.5">
+          <span className="text-xs font-semibold uppercase text-gray-500">
+            Diễn giải <span className="normal-case font-normal text-gray-400">(khách đọc được)</span>
+          </span>
+          <textarea
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500"
+          />
+        </label>
       </div>
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={editingId ? "Sửa chính sách hủy" : "Thêm chính sách hủy"}
-        onSubmit={handleSubmit}
-      >
-        <div className="space-y-4">
-          {formError && (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-800">
-              {formError}
-            </div>
-          )}
+      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+        <div className="border-b border-gray-100 px-5 py-3">
+          <h2 className="text-sm font-bold text-gray-900">Các bậc phí</h2>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Phải có một bậc bắt đầu từ 0 giờ, nếu không thì hủy sát ngày đi sẽ không rơi vào bậc
+            nào.
+          </p>
+        </div>
 
-          <div>
-            <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-500">
-              Tên chính sách
-            </label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-              placeholder="Chính sách hủy tiêu chuẩn"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-500">
-              Mô tả
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={2}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-              placeholder="Vì sao phí tăng dần khi càng sát ngày khởi hành"
-            />
-          </div>
-
-          <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-gray-700">
-            <input
-              type="checkbox"
-              checked={isDefault}
-              onChange={(e) => setIsDefault(e.target.checked)}
-              className="h-4 w-4 cursor-pointer"
-            />
-            Đặt làm chính sách mặc định
-          </label>
-
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">
-              Các bậc phí, tính bằng giờ còn lại tới khởi hành
-            </p>
-            <div className="space-y-2">
-              {rules.map((rule, index) => (
-                <div key={index} className="flex items-center gap-2">
+        <table className="min-w-full divide-y divide-gray-100 text-sm">
+          <thead className="bg-gray-50 text-left text-xs font-bold uppercase text-gray-500">
+            <tr>
+              <th className="px-4 py-3 w-40">Từ (giờ)</th>
+              <th className="px-4 py-3 w-40">Đến (giờ)</th>
+              <th className="px-4 py-3 w-32">Hoàn (%)</th>
+              <th className="px-4 py-3">Ghi chú</th>
+              <th className="px-4 py-3 w-20"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rules.map((rule, index) => (
+              <tr key={index}>
+                <td className="px-4 py-2.5">
                   <input
                     type="number"
                     min={0}
                     value={rule.min_hours_before}
-                    onChange={(e) => updateRule(index, "min_hours_before", e.target.value)}
-                    className="w-24 rounded border border-gray-200 px-2 py-1.5 text-sm"
-                    title="Từ bao nhiêu giờ"
+                    onChange={(e) => suaBac(index, { min_hours_before: Number(e.target.value) })}
+                    className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
                   />
-                  <span className="text-xs text-gray-400">đến</span>
+                  <span className="mt-1 block text-[11px] text-gray-400">{nhanKhoang(rule)}</span>
+                </td>
+                <td className="px-4 py-2.5">
                   <input
                     type="number"
                     min={1}
+                    placeholder="Không giới hạn"
                     value={rule.max_hours_before ?? ""}
-                    onChange={(e) => updateRule(index, "max_hours_before", e.target.value)}
-                    className="w-24 rounded border border-gray-200 px-2 py-1.5 text-sm"
-                    placeholder="không giới hạn"
-                    title="Đến bao nhiêu giờ, để trống nếu là bậc xa nhất"
+                    onChange={(e) =>
+                      suaBac(index, {
+                        max_hours_before: e.target.value === "" ? null : Number(e.target.value),
+                      })
+                    }
+                    className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
                   />
-                  <span className="text-xs text-gray-400">giờ, hoàn</span>
+                </td>
+                <td className="px-4 py-2.5">
                   <input
                     type="number"
                     min={0}
                     max={100}
                     value={rule.refund_percent}
-                    onChange={(e) => updateRule(index, "refund_percent", e.target.value)}
-                    className="w-20 rounded border border-gray-200 px-2 py-1.5 text-sm"
+                    onChange={(e) => suaBac(index, { refund_percent: Number(e.target.value) })}
+                    className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm font-bold"
                   />
-                  <span className="text-xs text-gray-400">%</span>
+                </td>
+                <td className="px-4 py-2.5">
+                  <input
+                    value={rule.note ?? ""}
+                    onChange={(e) => suaBac(index, { note: e.target.value })}
+                    placeholder="VD: Khách sạn chưa chốt phòng"
+                    className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+                  />
+                </td>
+                <td className="px-4 py-2.5 text-right">
                   <button
                     type="button"
-                    onClick={() => setRules((c) => c.filter((_, i) => i !== index))}
-                    className="ml-auto cursor-pointer rounded border border-gray-200 px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-50"
+                    onClick={() => setRules((truoc) => truoc.filter((_, i) => i !== index))}
+                    className="rounded px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50"
                   >
-                    Bỏ
+                    Xóa
                   </button>
-                </div>
-              ))}
-            </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-            <button
-              type="button"
-              onClick={() =>
-                setRules((c) => [
-                  ...c,
-                  { min_hours_before: 0, max_hours_before: null, refund_percent: 0 },
-                ])
-              }
-              className="mt-2 cursor-pointer rounded border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              Thêm bậc
-            </button>
-
-            <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
-              Phải có một bậc bắt đầu từ 0 giờ, nếu không thì hủy sát ngày đi sẽ không rơi vào
-              bậc nào và hệ thống lặng lẽ hoàn 0 phần trăm mà không có căn cứ.
-            </p>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(false)}
-              className="cursor-pointer rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="cursor-pointer rounded-lg bg-primary-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
-            >
-              {submitting ? "Đang lưu..." : "Lưu"}
-            </button>
-          </div>
+        <div className="border-t border-gray-100 px-5 py-3">
+          <button
+            type="button"
+            onClick={() => setRules((truoc) => [...truoc, { ...bacTrong }])}
+            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-primary-600 hover:bg-primary-50"
+          >
+            Thêm bậc
+          </button>
         </div>
-      </Modal>
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={load}
+          disabled={saving}
+          className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          Hoàn tác
+        </button>
+        <button
+          type="button"
+          onClick={luu}
+          disabled={saving}
+          className="rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 disabled:opacity-50"
+        >
+          {saving ? "Đang lưu..." : "Lưu chính sách"}
+        </button>
+      </div>
     </div>
   );
 }

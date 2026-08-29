@@ -127,13 +127,6 @@ export interface Tour {
   pickup_location?: string | null;
   is_featured: boolean;
   status: "active" | "inactive" | "full";
-  /**
-   * Chính sách hủy riêng của tour. Null nghĩa là dùng chính sách mặc định của hệ thống.
-   *
-   * Đơn đặt tour **chép lại** giá trị này lúc đặt, nên sửa chính sách của tour về sau không làm
-   * đổi điều khoản của những đơn đã bán.
-   */
-  cancellation_policy_id?: number | null;
   created_at?: string;
   updated_at?: string;
   admin_id?: number;

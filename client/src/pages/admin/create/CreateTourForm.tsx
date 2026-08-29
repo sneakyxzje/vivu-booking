@@ -59,7 +59,6 @@ const emptyForm: TourFormState = {
   ],
   category_ids: [] as number[],
   service_ids: [] as number[],
-  cancellation_policy_id: "",
 };
 
 const fieldClass =
@@ -98,9 +97,6 @@ export const CreateTourForm: React.FC = () => {
   const [form, setForm] = useState(emptyForm);
   const [categories, setCategories] = useState<SelectOption[]>([]);
   const [services, setServices] = useState<SelectOption[]>([]);
-  const [cancellationPolicies, setCancellationPolicies] = useState<
-    { id: number; name: string; is_default?: boolean }[]
-  >([]);
   const [loading, setLoading] = useState(isEdit);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -130,11 +126,9 @@ export const CreateTourForm: React.FC = () => {
         const formData = await guideService.getFormData();
         setCategories(formData.categories);
         setServices(formData.services);
-        setCancellationPolicies(formData.cancellationPolicies);
       } catch {
         setCategories([]);
         setServices([]);
-        setCancellationPolicies([]);
       } finally {
         setOptionsLoading(false);
       }
@@ -239,9 +233,6 @@ export const CreateTourForm: React.FC = () => {
             })) ?? emptyForm.schedules,
           category_ids: tour.categories?.map((c) => c.id) ?? [],
           service_ids: tour.services?.map((s) => s.id) ?? [],
-          cancellation_policy_id: tour.cancellation_policy_id
-            ? String(tour.cancellation_policy_id)
-            : "",
         });
       } catch {
         setError("Không thể tải dữ liệu tour.");
@@ -669,15 +660,10 @@ export const CreateTourForm: React.FC = () => {
               labelClass={labelClass}
               categories={categories}
               services={services}
-              cancellationPolicies={cancellationPolicies}
               selectedCategoryIds={form.category_ids}
               selectedServiceIds={form.service_ids}
-              cancellationPolicyId={form.cancellation_policy_id}
               onToggleCategory={(id) => toggleId("category_ids", id)}
               onToggleService={(id) => toggleId("service_ids", id)}
-              onCancellationPolicyChange={(value) =>
-                setForm((truoc) => ({ ...truoc, cancellation_policy_id: value }))
-              }
               optionsLoading={optionsLoading}
             />
           </div>

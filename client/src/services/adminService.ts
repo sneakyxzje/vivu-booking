@@ -73,19 +73,18 @@ export interface CancellationPolicyRule {
   note?: string | null;
 }
 
+/** Bảng phí hủy. Hệ thống chỉ có đúng một bản, áp cho mọi tour. */
 export interface CancellationPolicy {
   id: number;
   name: string;
   description: string | null;
   is_default: boolean;
-  tours_count?: number;
   rules: CancellationPolicyRule[];
 }
 
 export interface CancellationPolicyPayload {
   name: string;
   description?: string | null;
-  is_default?: boolean;
   rules: CancellationPolicyRule[];
 }
 
@@ -1091,29 +1090,20 @@ const adminService = {
   },
 
   // --- CHÍNH SÁCH HỦY ---
-  getCancellationPolicies: async (): Promise<CancellationPolicy[]> => {
+  /*
+   * Một bảng phí hủy duy nhất cho toàn hệ thống — không còn danh sách, không tạo, không xóa.
+   * Máy chủ tự dựng bảng mặc định nếu cơ sở dữ liệu chưa có gì, nên hàm này không trả về null.
+   */
+  getCancellationPolicy: async (): Promise<CancellationPolicy | null> => {
     const response = await api.get("/admin/cancellation-policies");
-    return response.data?.data ?? [];
-  },
-
-  createCancellationPolicy: async (
-    payload: CancellationPolicyPayload,
-  ): Promise<CancellationPolicy | null> => {
-    const response = await api.post("/admin/cancellation-policies", payload);
     return extractObject<CancellationPolicy>(response);
   },
 
   updateCancellationPolicy: async (
-    id: number,
     payload: CancellationPolicyPayload,
   ): Promise<CancellationPolicy | null> => {
-    const response = await api.put(`/admin/cancellation-policies/${id}`, payload);
+    const response = await api.put("/admin/cancellation-policies", payload);
     return extractObject<CancellationPolicy>(response);
-  },
-
-  deleteCancellationPolicy: async (id: number): Promise<boolean> => {
-    const response = await api.delete(`/admin/cancellation-policies/${id}`);
-    return response.data?.success !== false;
   },
 
   // --- GUIDES ---
