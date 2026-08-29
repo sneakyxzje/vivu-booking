@@ -1,33 +1,44 @@
 import { Link } from "react-router-dom";
-import { useAdminNotifications } from "@/hooks/useAdminNotifications";
+import { useNotifications } from "@/hooks/useNotifications";
+import { useAuth } from "@/hooks/useAuth";
 import { formatDateTime } from "@/utils/format";
 
 /**
- * Hộp thông báo của điều hành.
+ * Hộp thông báo — một màn hình, hai vai.
  *
- * Ba loại việc, phân biệt bằng màu chứ không bằng nhãn: từ chối chuyến, xin bàn giao, sự cố
- * nghiêm trọng. Nhãn loại không thêm gì — tiêu đề đã nói rõ chuyện gì, và thêm một chữ "Từ chối
- * chuyến" bên cạnh câu "Phạm Hoàng Long từ chối chuyến #11" chỉ là nói hai lần.
+ * Điều hành và hướng dẫn viên nhìn thấy đúng bố cục này; máy chủ đã lọc sẵn nên mỗi người chỉ có
+ * thông báo của mình. Chỉ một câu mô tả đổi theo vai, vì hai bên được báo những việc khác nhau.
+ *
+ * Loại việc phân biệt bằng màu chứ không bằng nhãn: tiêu đề đã nói rõ chuyện gì, và thêm một chữ
+ * "Từ chối chuyến" bên cạnh câu "Phạm Hoàng Long từ chối chuyến #11" chỉ là nói hai lần.
  */
 
 const mauTheoLoai: Record<string, string> = {
+  /* Việc của điều hành: có người vừa rút, hoặc có chuyện xảy ra ngoài đường. */
   guide_declined: "border-l-rose-500",
   handover_requested: "border-l-amber-500",
   incident_reported: "border-l-red-600",
+  /* Việc của hướng dẫn viên: được giao, được trao đoàn, hoặc có câu trả lời. */
+  assigned: "border-l-primary-500",
+  handover_received: "border-l-amber-500",
+  handover_closed: "border-l-gray-400",
+  incident_resolved: "border-l-emerald-500",
 };
 
 export default function NotificationCenter() {
-  const { items, unread, loading, live, danhDauDaDoc, danhDauTatCa } = useAdminNotifications();
+  const { user } = useAuth();
+  const { items, unread, loading, live, danhDauDaDoc, danhDauTatCa } = useNotifications();
+
+  const moTa = user?.role === "guide"
+    ? "Việc cần biết ngay: chuyến mới được giao, đoàn vừa bàn giao cho bạn, và câu trả lời cho những gì bạn đã gửi lên."
+    : "Việc cần biết ngay: hướng dẫn viên từ chối chuyến, xin bàn giao, hoặc báo sự cố nghiêm trọng.";
 
   return (
     <div className="max-w-3xl space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-950">Thông báo</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Việc cần biết ngay: hướng dẫn viên từ chối chuyến, xin bàn giao, hoặc báo sự cố nghiêm
-            trọng.
-          </p>
+          <p className="mt-1 text-sm text-gray-500">{moTa}</p>
         </div>
 
         {unread > 0 && (
