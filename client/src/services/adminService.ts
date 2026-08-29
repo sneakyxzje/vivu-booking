@@ -65,26 +65,34 @@ export interface AdminDashboardData {
   }[];
 }
 
+/**
+ * Một bậc phí, đếm bằng NGÀY còn lại tới lúc khởi hành.
+ *
+ * Khoảng đóng ở dưới, mở ở trên: bậc 8-15 nhận đúng mốc 8 ngày và nhường mốc 15 cho bậc trên, nên
+ * các bậc nối liền nhau mà không chồng nhau. `max_days_before` để trống là bậc xa nhất.
+ */
 export interface CancellationPolicyRule {
   id?: number;
-  min_hours_before: number;
-  max_hours_before: number | null;
+  min_days_before: number;
+  max_days_before: number | null;
   refund_percent: number;
   note?: string | null;
 }
 
-/** Bảng phí hủy. Hệ thống chỉ có đúng một bản, áp cho mọi tour. */
+/** Bảng phí hủy. Hệ thống chỉ có đúng một bản đang áp dụng tại mỗi thời điểm. */
 export interface CancellationPolicy {
   id: number;
   name: string;
   description: string | null;
-  is_default: boolean;
+  /** Mốc bắt đầu áp dụng, giờ Việt Nam dạng "YYYY-MM-DD HH:mm:ss". Có thể nằm ở tương lai. */
+  effective_from: string;
   rules: CancellationPolicyRule[];
 }
 
 export interface CancellationPolicyPayload {
   name: string;
   description?: string | null;
+  effective_from: string;
   rules: CancellationPolicyRule[];
 }
 

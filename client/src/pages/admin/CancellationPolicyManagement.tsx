@@ -15,24 +15,38 @@ import type { CancellationPolicyRule } from "@/services/adminService";
  */
 
 const nhanKhoang = (rule: CancellationPolicyRule) => {
-  const tuNgay = Math.floor(rule.min_hours_before / 24);
+  if (rule.max_days_before === null) return `Từ ${rule.min_days_before} ngày trở lên`;
 
-  if (rule.max_hours_before === null) return `Từ ${tuNgay} ngày trở lên`;
+  if (rule.min_days_before === 0) return `Dưới ${rule.max_days_before} ngày`;
 
-  const denNgay = Math.floor(rule.max_hours_before / 24);
-
-  if (rule.min_hours_before === 0) {
-    return denNgay > 0 ? `Dưới ${denNgay} ngày` : `Dưới ${rule.max_hours_before} giờ`;
-  }
-
-  return `Từ ${tuNgay} đến dưới ${denNgay} ngày`;
+  return `Từ ${rule.min_days_before} đến dưới ${rule.max_days_before} ngày`;
 };
 
 const bacTrong: CancellationPolicyRule = {
-  min_hours_before: 0,
-  max_hours_before: null,
+  min_days_before: 0,
+  max_days_before: null,
   refund_percent: 0,
   note: "",
+};
+
+/**
+ * "YYYY-MM-DD HH:mm:ss" của máy chủ sang "YYYY-MM-DDTHH:mm" mà ô datetime-local đọc được.
+ *
+ * Cắt chuỗi chứ không đi qua `new Date()`: máy chủ trả giờ Việt Nam dạng mộc, dựng Date từ nó là
+ * để trình duyệt tự gán múi giờ rồi cộng trừ thêm - mốc 0h mùng 1 sẽ hiện thành 7h mùng 1.
+ */
+const sangOChonGio = (moc: string | null | undefined) =>
+  moc ? moc.replace(" ", "T").slice(0, 16) : "";
+
+/** Chiều ngược lại, gửi về máy chủ đúng dạng nó lưu. */
+const sangChuoiMayChu = (oChon: string) =>
+  oChon ? `${oChon.replace("T", " ")}:00` : "";
+
+/** Mốc "bây giờ" theo đồng hồ trình duyệt, làm giá trị mặc định cho ô chọn. */
+const bayGio = () => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
 };
 
 export default function CancellationPolicyManagement() {
@@ -42,6 +56,9 @@ export default function CancellationPolicyManagement() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [hieuLuc, setHieuLuc] = useState(bayGio());
+  /** Mốc của bản đã lưu, để biết bản đang mở đã tới giờ chưa. Khác `hieuLuc` là ô đang gõ dở. */
+  const [hieuLucDaLuu, setHieuLucDaLuu] = useState<string | null>(null);
   const [rules, setRules] = useState<CancellationPolicyRule[]>([]);
 
   const load = useCallback(async () => {
@@ -53,9 +70,11 @@ export default function CancellationPolicyManagement() {
       if (policy) {
         setName(policy.name);
         setDescription(policy.description ?? "");
+        setHieuLuc(sangOChonGio(policy.effective_from) || bayGio());
+        setHieuLucDaLuu(policy.effective_from ?? null);
         // Xếp bậc xa nhất lên đầu, đúng chiều người ta đọc: hủy sớm thì hoàn nhiều.
         setRules(
-          [...policy.rules].sort((a, b) => b.min_hours_before - a.min_hours_before),
+          [...policy.rules].sort((a, b) => b.min_days_before - a.min_days_before),
         );
       }
     } catch {
@@ -77,15 +96,16 @@ export default function CancellationPolicyManagement() {
     setNotice(null);
 
     try {
-      await adminService.updateCancellationPolicy({
+      const luuXong = await adminService.updateCancellationPolicy({
         name: name.trim(),
         description: description.trim() || null,
+        effective_from: sangChuoiMayChu(hieuLuc),
         rules: rules.map((r) => ({
-          min_hours_before: Number(r.min_hours_before) || 0,
-          max_hours_before:
-            r.max_hours_before === null || String(r.max_hours_before) === ""
+          min_days_before: Number(r.min_days_before) || 0,
+          max_days_before:
+            r.max_days_before === null || String(r.max_days_before) === ""
               ? null
-              : Number(r.max_hours_before),
+              : Number(r.max_days_before),
           refund_percent: Number(r.refund_percent) || 0,
           note: r.note?.trim() || null,
         })),
@@ -93,7 +113,9 @@ export default function CancellationPolicyManagement() {
 
       setNotice({
         type: "success",
-        text: "Đã lưu. Đơn đặt trước thời điểm này giữ nguyên điều khoản cũ.",
+        text: luuXong && new Date(hieuLuc) > new Date()
+          ? `Đã hẹn. Bảng phí này áp dụng từ ${hieuLuc.replace("T", " ")}; từ giờ tới lúc đó vẫn chạy bảng cũ.`
+          : "Đã lưu. Đơn đặt trước thời điểm này giữ nguyên điều khoản cũ.",
       });
 
       load();
@@ -114,10 +136,23 @@ export default function CancellationPolicyManagement() {
       <div>
         <h1 className="text-2xl font-bold text-gray-950">Chính sách hủy</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Một bảng phí duy nhất, áp cho toàn bộ tour. Mức hoàn tính theo số giờ còn lại tính tới
-          giờ khởi hành.
+          Một bảng phí duy nhất, áp cho toàn bộ tour. Mức hoàn tính theo số ngày còn lại tới lúc
+          khởi hành.
         </p>
       </div>
+
+      {/*
+        Bản đang mở đã tới giờ áp dụng chưa.
+
+        Không nói ra thì người mở màn hình này tưởng thứ mình đang nhìn là thứ hệ thống đang tính
+        tiền theo — trong khi nó có thể là bản hẹn cho tháng sau, còn bảng phí thật vẫn là bản cũ.
+      */}
+      {hieuLucDaLuu && new Date(hieuLucDaLuu.replace(" ", "T")) > new Date() && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <strong>Bảng phí này chưa có hiệu lực.</strong> Nó bắt đầu áp dụng từ{" "}
+          {hieuLucDaLuu}. Từ giờ tới lúc đó, đơn mới vẫn theo bảng phí trước đó.
+        </div>
+      )}
 
       {/*
         Câu quan trọng nhất của màn hình này, nên nó đứng trên cùng chứ không nằm cuối trang:
@@ -150,6 +185,32 @@ export default function CancellationPolicyManagement() {
           />
         </label>
 
+        {/*
+          Mốc áp dụng.
+
+          Để mặc định là bây giờ, tức bấm lưu là áp ngay — đó là việc hay làm nhất. Chọn một mốc
+          xa hơn khi muốn công bố trước rồi mới áp, cách các công ty đổi điều khoản thật.
+        */}
+        <label className="block space-y-1.5">
+          <span className="text-xs font-semibold uppercase text-gray-500">
+            Áp dụng từ{" "}
+            <span className="normal-case font-normal text-gray-400">
+              (giờ Việt Nam; để nguyên là áp dụng ngay)
+            </span>
+          </span>
+          <input
+            type="datetime-local"
+            value={hieuLuc}
+            min={bayGio()}
+            onChange={(e) => setHieuLuc(e.target.value)}
+            className="w-full max-w-xs rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500"
+          />
+          <span className="block text-[11px] text-gray-400">
+            Không đặt được vào quá khứ: đơn đã bán đã chép bảng phí vào chính nó nên đặt lùi cũng
+            không đổi được gì.
+          </span>
+        </label>
+
         <label className="block space-y-1.5">
           <span className="text-xs font-semibold uppercase text-gray-500">
             Diễn giải <span className="normal-case font-normal text-gray-400">(khách đọc được)</span>
@@ -167,16 +228,16 @@ export default function CancellationPolicyManagement() {
         <div className="border-b border-gray-100 px-5 py-3">
           <h2 className="text-sm font-bold text-gray-900">Các bậc phí</h2>
           <p className="mt-0.5 text-xs text-gray-500">
-            Phải có một bậc bắt đầu từ 0 giờ, nếu không thì hủy sát ngày đi sẽ không rơi vào bậc
-            nào.
+            Số ngày còn lại tới lúc khởi hành. Phải có một bậc bắt đầu từ 0 ngày, nếu không thì hủy
+            sát ngày đi sẽ không rơi vào bậc nào.
           </p>
         </div>
 
         <table className="min-w-full divide-y divide-gray-100 text-sm">
           <thead className="bg-gray-50 text-left text-xs font-bold uppercase text-gray-500">
             <tr>
-              <th className="px-4 py-3 w-40">Từ (giờ)</th>
-              <th className="px-4 py-3 w-40">Đến (giờ)</th>
+              <th className="px-4 py-3 w-40">Từ (ngày)</th>
+              <th className="px-4 py-3 w-40">Đến (ngày)</th>
               <th className="px-4 py-3 w-32">Hoàn (%)</th>
               <th className="px-4 py-3">Ghi chú</th>
               <th className="px-4 py-3 w-20"></th>
@@ -189,8 +250,9 @@ export default function CancellationPolicyManagement() {
                   <input
                     type="number"
                     min={0}
-                    value={rule.min_hours_before}
-                    onChange={(e) => suaBac(index, { min_hours_before: Number(e.target.value) })}
+                    max={365}
+                    value={rule.min_days_before}
+                    onChange={(e) => suaBac(index, { min_days_before: Number(e.target.value) })}
                     className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
                   />
                   <span className="mt-1 block text-[11px] text-gray-400">{nhanKhoang(rule)}</span>
@@ -199,11 +261,12 @@ export default function CancellationPolicyManagement() {
                   <input
                     type="number"
                     min={1}
+                    max={365}
                     placeholder="Không giới hạn"
-                    value={rule.max_hours_before ?? ""}
+                    value={rule.max_days_before ?? ""}
                     onChange={(e) =>
                       suaBac(index, {
-                        max_hours_before: e.target.value === "" ? null : Number(e.target.value),
+                        max_days_before: e.target.value === "" ? null : Number(e.target.value),
                       })
                     }
                     className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
