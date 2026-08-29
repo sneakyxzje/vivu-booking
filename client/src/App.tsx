@@ -25,6 +25,7 @@ import DiscountCodeManagement from "@/pages/admin/DiscountCodeManagement";
 import ServiceManagement from "@/pages/admin/ServiceManagement";
 import CategoryManagement from "@/pages/admin/CategoryManagement";
 import ReviewManagement from "@/pages/admin/ReviewManagement";
+import UserManagement from "@/pages/admin/UserManagement";
 import ScheduleAttendance from "@/pages/admin/ScheduleAttendance";
 import AttendanceReport from "@/pages/admin/AttendanceReport";
 import ScheduleManagement from "@/pages/admin/ScheduleManagement";
@@ -315,6 +316,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/reviews",
             element: <ReviewManagement />,
+          },
+          {
+            path: "/admin/users",
+            element: <UserManagement />,
           },
         ],
       },

@@ -251,6 +251,26 @@ export interface ChangeRequestListResponse {
   pending_count: number;
 }
 
+export type AdminUserRole = "admin" | "guide" | "customer";
+export type AdminUserStatus = "active" | "inactive" | "blocked";
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  role: AdminUserRole;
+  status: AdminUserStatus;
+  avatar: string | null;
+  /** Số đơn đã đặt — con số quyết định người bấm có dám khóa hay không. */
+  bookings_count: number;
+  created_at: string | null;
+}
+
+export interface AdminUserListResponse extends PaginatedResponse<AdminUser> {
+  counts: { admin: number; guide: number; customer: number; blocked: number };
+}
+
 export type AdminReviewStatus = "pending" | "approved" | "rejected";
 
 export interface AdminReview {
@@ -873,6 +893,27 @@ const adminService = {
   },
 
   // --- YÊU CẦU THAY ĐỔI CỦA KHÁCH ---
+  // --- Tài khoản ------------------------------------------------------------------------------
+
+  getUsers: async (params: {
+    q?: string;
+    role?: string;
+    status?: string;
+    page?: number;
+  }): Promise<AdminUserListResponse | null> => {
+    const response = await api.get("/admin/users", { params });
+    return extractObject<AdminUserListResponse>(response);
+  },
+
+  /** Khóa nếu đang mở, mở nếu đang khóa. Máy chủ quyết chiều, không nhận tham số trạng thái. */
+  toggleUserStatus: async (id: number) => {
+    const response = await api.put(`/admin/users/${id}/status`);
+    return {
+      message: response.data?.message ?? "Đã cập nhật trạng thái tài khoản.",
+      status: response.data?.data?.status as AdminUserStatus,
+    };
+  },
+
   // --- Kiểm duyệt đánh giá ------------------------------------------------------------------
 
   getReviews: async (
