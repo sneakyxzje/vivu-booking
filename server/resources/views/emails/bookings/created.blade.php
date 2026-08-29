@@ -61,12 +61,33 @@
                                         </td>
                                     </tr>
                                 @endif
+                                {{-- "Giá trị đơn", không phải "Tổng thanh toán".
+                                     Với tour có đặt cọc, con số cần trả NGAY là tiền cọc; ghi tổng
+                                     ở đây rồi đặt nút thanh toán bên dưới là nói với khách một số
+                                     tiền khác hẳn số mà cổng thanh toán sẽ hỏi. --}}
                                 <tr>
-                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Tổng thanh toán</td>
-                                    <td style="padding:12px 14px;font-size:18px;font-weight:800;color:#dc2626;">
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Giá trị đơn</td>
+                                    <td style="padding:12px 14px;font-size:{{ $booking->deposit_amount ? '15px' : '18px' }};font-weight:800;color:#111827;">
                                         {{ number_format((float) $booking->total_amount, 0, ',', '.') }} VNĐ
                                     </td>
                                 </tr>
+                                @if($booking->deposit_amount)
+                                    <tr>
+                                        <td style="padding:12px 14px;background:#fef2f2;font-size:13px;color:#991b1b;">Cần thanh toán ngay (tiền cọc)</td>
+                                        <td style="padding:12px 14px;background:#fef2f2;font-size:18px;font-weight:800;color:#dc2626;">
+                                            {{ number_format((float) $booking->deposit_amount, 0, ',', '.') }} VNĐ
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Phần còn lại</td>
+                                        <td style="padding:12px 14px;font-size:13px;">
+                                            {{ number_format((float) $booking->total_amount - (float) $booking->deposit_amount, 0, ',', '.') }} VNĐ
+                                            @if($booking->balance_due_at)
+                                                &mdash; trả trước {{ $booking->balance_due_at->format('d/m/Y') }}
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endif
                             </table>
 
                             @if($booking->expires_at)
@@ -80,7 +101,8 @@
                             @if($paymentUrl)
                                 <p style="margin:22px 0;">
                                     <a href="{{ $paymentUrl }}" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 18px;border-radius:10px;">
-                                        Thanh toán ngay
+                                        Thanh toán
+                                        {{ number_format((float) ($booking->deposit_amount ?? $booking->total_amount), 0, ',', '.') }} VNĐ
                                     </a>
                                 </p>
                             @endif

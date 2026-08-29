@@ -33,6 +33,8 @@ type BookingFormProps = {
   subtotalAmount: number;
   discountAmount: number;
   totalAmount: number;
+  /** Tiền cọc phải trả ngay, hoặc null khi tour thu đủ. Tính ở nơi gọi, xem `depositAmount`. */
+  depositAmount: number | null;
   appliedDiscountCode: string | null;
   discountApplying: boolean;
   onApplyDiscount: () => void;
@@ -81,6 +83,7 @@ const BookingForm = ({
   subtotalAmount,
   discountAmount,
   totalAmount,
+  depositAmount,
   appliedDiscountCode,
   discountApplying,
   onApplyDiscount,
@@ -366,9 +369,38 @@ const BookingForm = ({
           </div>
         )}
         <div className="flex items-center justify-between border-t border-primary-100 pt-2">
-          <span className="text-sm font-semibold text-primary-800">Tổng giá trị thanh toán</span>
-          <span className="text-xl font-bold text-primary-600">{formatCurrency(totalAmount)}</span>
+          <span className="text-sm font-semibold text-primary-800">Tổng giá trị đơn</span>
+          <span
+            className={`font-bold text-primary-600 ${depositAmount ? "text-base" : "text-xl"}`}
+          >
+            {formatCurrency(totalAmount)}
+          </span>
         </div>
+
+        {/*
+          Tour có đặt cọc: nói rõ số phải trả NGAY, vì đó là số cổng thanh toán sẽ hỏi.
+          Chỉ hiện tổng rồi đẩy sang VNPay đòi một con số khác hẳn là chỗ khách dừng lại và
+          nghĩ mình bấm nhầm.
+        */}
+        {depositAmount !== null && (
+          <>
+            <div className="flex items-center justify-between rounded-lg bg-white/70 px-3 py-2">
+              <span className="text-sm font-bold text-primary-800">
+                Cần thanh toán ngay
+                <span className="ml-1 font-normal text-primary-600">
+                  (cọc {tour?.deposit_percent}%)
+                </span>
+              </span>
+              <span className="text-xl font-bold text-primary-600">
+                {formatCurrency(depositAmount)}
+              </span>
+            </div>
+            <p className="text-xs text-primary-700">
+              Phần còn lại {formatCurrency(totalAmount - depositAmount)} thanh toán trước hạn chốt
+              danh sách. Chỗ của bạn được giữ ngay khi tiền cọc về.
+            </p>
+          </>
+        )}
       </div>
 
       {scheduleUnavailableReason ? (
@@ -569,6 +601,24 @@ export const BookingTour = () => {
     [discountAmount, subtotalAmount],
   );
 
+  /*
+   * Tiền cọc, tính lại y hệt phía máy chủ (`BookingController::tinhTienCoc`): làm tròn tới nghìn,
+   * và không phải cọc nữa nếu bằng hoặc vượt giá trị đơn.
+   *
+   * Có hai bản của cùng một phép tính là điều nên tránh, nhưng đây là con số phải hiện ra TRƯỚC
+   * khi đơn tồn tại, tức chưa có gì để hỏi máy chủ. Máy chủ vẫn là bên chốt: số nó ghi vào
+   * `deposit_amount` mới là số thật, và trang xác nhận đọc lại từ đó.
+   */
+  const depositAmount = useMemo(() => {
+    const tyLe = Number(tour?.deposit_percent ?? 0);
+
+    if (!tyLe || tyLe <= 0 || tyLe >= 100 || totalAmount <= 0) return null;
+
+    const coc = Math.round((totalAmount * tyLe) / 100 / 1000) * 1000;
+
+    return coc > 0 && coc < totalAmount ? coc : null;
+  }, [tour?.deposit_percent, totalAmount]);
+
   const updateForm = (field: keyof BookingFormState, value: string | number) => {
     setForm((current) => ({ ...current, [field]: value }));
     if (["adultCount", "childCount", "infantCount", "discountCode"].includes(field)) {
@@ -678,6 +728,7 @@ export const BookingTour = () => {
               schedules={schedules}
               submitting={submitting}
               subtotalAmount={subtotalAmount}
+              depositAmount={depositAmount}
               discountAmount={discountAmount}
               totalAmount={totalAmount}
               appliedDiscountCode={appliedDiscountCode}

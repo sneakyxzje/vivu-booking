@@ -156,6 +156,26 @@ class GroupBookingTest extends TestCase
         $this->assertTrue($booking->isGroup());
     }
 
+    /**
+     * Đơn đoàn KHÔNG nhận liên kết cổng thanh toán, dù còn nợ tiền.
+     *
+     * Đây là quyết định có sẵn của luồng đoàn: không kế toán nào duyệt chuyển tám mươi triệu qua
+     * cổng trong mười phút, nên tiền đoàn về nhiều đợt bằng chuyển khoản và điều hành ghi vào sổ.
+     *
+     * Luật này dễ vỡ vì trang tra cứu dựng liên kết cho MỌI đơn còn thiếu tiền — quy tắc "đơn lẻ
+     * đã cọc thì được trả nốt" vô tình cũng đúng với đơn đoàn nếu không loại trừ.
+     */
+    public function test_don_doan_khong_nhan_lien_ket_cong_thanh_toan(): void
+    {
+        $yc = $this->baoGia($this->guiYeuCau(), 1_800_000, 0);
+        $booking = $this->service->confirm($yc, 40, $this->admin);
+
+        $response = $this->getJson('/api/bookings/' . $booking->public_token)->assertOk();
+
+        $this->assertGreaterThan(0, (float) $response->json('data.balance_due'));
+        $this->assertNull($response->json('data.payment_url'));
+    }
+
     public function test_chot_bi_chan_khi_thieu_cho(): void
     {
         $nho = $this->taoChuyen(now()->addDays(30), 20);

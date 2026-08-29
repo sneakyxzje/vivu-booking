@@ -41,10 +41,13 @@ class BookingCreatedMail extends Mailable implements ShouldQueue
                     '/'
                 ) . '/booking-success/' . $this->booking->public_token,
 
+                // `/booking-lookup`, không phải `/tra-cuu-don` — đường dẫn kia chưa bao giờ tồn
+                // tại trong bộ định tuyến, nên mọi khách bấm vào đều rơi vào trang 404, đúng lúc
+                // họ đang tìm cách tra lại đơn của mình.
                 'lookupUrl' => rtrim(
                     config('app.frontend_url'),
                     '/'
-                ) . '/tra-cuu-don',
+                ) . '/booking-lookup',
             ],
         );
     }

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\ReviewStatus;
 use App\Models\Review;
 use App\Models\Tour;
 use App\Models\User;
@@ -89,6 +90,18 @@ class ReviewSeeder extends Seeder
                     [
                         'rating' => $review['rating'],
                         'comment' => $review['comment'],
+                        /*
+                         * Đánh giá mẫu là đánh giá ĐÃ DUYỆT.
+                         *
+                         * Từ khi có kiểm duyệt, cột `status` mặc định là `pending` — nghĩa là dữ
+                         * liệu mẫu sinh ra xong thì không đánh giá nào hiện trên trang tour và mọi
+                         * tour đều "chưa có đánh giá". Đây là dữ liệu dựng sẵn để xem giao diện,
+                         * không phải bài vừa có người gửi, nên nó phải ở trạng thái đã đăng.
+                         *
+                         * Muốn xem hàng đợi duyệt thì gửi một đánh giá mới từ tài khoản khách.
+                         */
+                        'status' => ReviewStatus::Approved,
+                        'moderated_at' => now(),
                     ]
                 );
             }

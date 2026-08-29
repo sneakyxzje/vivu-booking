@@ -22,6 +22,8 @@ const mauTheoLoai: Record<string, string> = {
   handover_received: "border-l-amber-500",
   handover_closed: "border-l-gray-400",
   incident_resolved: "border-l-emerald-500",
+  /* Lời nhắn từ trang liên hệ. Xanh dương: cần đọc, nhưng không phải chuyện ngoài đường. */
+  contact_message: "border-l-blue-500",
 };
 
 export default function NotificationCenter() {

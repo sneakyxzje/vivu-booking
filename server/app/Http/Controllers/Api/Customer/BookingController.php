@@ -379,7 +379,17 @@ class BookingController extends Controller
          */
         $conThieu = $this->paymentService->balanceDue($booking);
 
-        if ($conThieu > 0 && in_array($booking->status, ['pending', 'confirmed'], true)) {
+        /*
+         * Đơn ĐOÀN không nhận liên kết cổng thanh toán.
+         *
+         * Đó là quyết định có sẵn của luồng đoàn, không phải sơ suất: không kế toán nào duyệt
+         * chuyển tám mươi triệu qua cổng trong mười phút, nên tiền đoàn về nhiều đợt bằng chuyển
+         * khoản và điều hành ghi vào sổ. Dựng liên kết ở đây là mời họ đi một đường mà cả hai bên
+         * đã thống nhất không dùng.
+         */
+        if ($conThieu > 0
+            && !$booking->isGroup()
+            && in_array($booking->status, ['pending', 'confirmed'], true)) {
             $booking->setAttribute('payment_url', $this->vnpayService->createPayment($booking, $conThieu));
         }
 
