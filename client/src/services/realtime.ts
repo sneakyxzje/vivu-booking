@@ -13,6 +13,9 @@ import Pusher from "pusher-js";
  *
  * Nên mọi hàm ở đây **nuốt lỗi và trả về null**. Bên gọi thấy null thì tự chuyển sang hỏi định kỳ.
  * Ném lỗi ra ngoài chỉ khiến một tiến trình nền không chạy làm vỡ cả trang quản trị.
+ *
+ * Kênh chia theo từng người dùng chứ không theo vai, nên điều hành và hướng dẫn viên dùng chung
+ * tệp này mà không cần thêm nhánh nào.
  */
 
 type EchoInstance = InstanceType<typeof Echo>;
@@ -78,7 +81,7 @@ export const disconnectRealtime = () => {
  * Trả về hàm dọn dẹp, hoặc `null` khi không kết nối được — đó chính là tín hiệu bên gọi dùng để
  * bật chế độ hỏi định kỳ.
  */
-export const onAdminAlert = (
+export const onNotification = (
   token: string,
   userId: number,
   handler: (payload: unknown) => void,
