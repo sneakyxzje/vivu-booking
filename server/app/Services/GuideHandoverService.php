@@ -15,21 +15,29 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Đổi hướng dẫn viên giữa chừng chuyến, kèm biên bản bàn giao.
+ * Đổi hướng dẫn viên giữa chừng chuyến.
  *
  * Đổi người vốn đã làm được: chỉ cần sửa danh sách phân công. Thứ thiếu là **vết**. Người mới
- * nhận đoàn mà không biết đoàn đang ở đâu, ai đã điểm danh tới chặng nào, khách nào cần để ý; và
- * khi có khiếu nại về một chặng thì không tra được lúc ấy ai phụ trách.
+ * nhận đoàn mà không biết đoàn đang ở đâu, ai đã điểm danh tới chặng nào; và khi có khiếu nại về
+ * một chặng thì không tra được lúc ấy ai phụ trách.
  *
- * Nên bàn giao ở đây không phải một lần sửa danh sách, mà là một thao tác riêng bắt buộc kèm hai
- * thứ: **lý do** và **tình trạng đoàn**. Bỏ trống thì không bàn giao được.
+ * Nên bàn giao là một thao tác riêng bắt buộc kèm hai thứ: **lý do** và **tình trạng đoàn**.
  *
- * Ba điều service này giữ:
+ * ## Đã rút gọn
+ *
+ * Trước đây nhóm này có một luồng phê duyệt đầy đủ: bốn trạng thái phiếu, ba thao tác xử lý
+ * (duyệt / từ chối / rút lại), thêm một bước người nhận xác nhận đã đọc, và một lối thoát "nhờ
+ * hướng dẫn viên đoàn khác trông hộ" phá luật trùng lịch. Khoảng 750 dòng cho một việc mà thực tế
+ * chỉ là: **ai đó cần được thay, điều hành chỉ định người mới.**
+ *
+ * Nay còn hai thứ. Một **phiếu** hai trạng thái, và một thao tác **bàn giao**. Điều hành bàn giao
+ * thẳng cũng được, không cần phiếu.
+ *
+ * ## Ba luật giữ nguyên, vì đây mới là phần nghiệp vụ thật
  *
  *   1. Người cũ **mất quyền ghi ngay**, vì bị gỡ khỏi danh sách phân công. Không có trạng thái
  *      lửng lơ nào mà cả hai cùng ghi được.
- *   2. Người mới **không được trùng lịch** - cùng luật đang áp cho phân công thường, và cũng vì
- *      cùng lý do vật lý: một người không đứng ở hai đoàn cùng lúc.
+ *   2. Người mới **không được trùng lịch** — một người không đứng ở hai đoàn cùng lúc.
  *   3. Dữ liệu người cũ đã ghi **giữ nguyên**. Bàn giao không xóa gì, chỉ chuyển quyền ghi tiếp.
  *
  * Xem docs/nghiep-vu/04-luong-dieu-hanh.md mục 4.4.
@@ -86,23 +94,15 @@ class GuideHandoverService
 
             $nguoi = $this->guideService->assertValidGuides([$toGuideId]);
 
-            $nhoDoanKhac = $this->assertDoanKhongBiBoRoi($khoa, $toGuideId, $nguoi[$toGuideId]->name);
+            $this->assertDoanKhongBiBoRoi($khoa);
 
-            /*
-             * Trùng lịch: chặn như mọi nơi khác, TRỪ đúng trường hợp nhờ đoàn khác trông hộ.
-             *
-             * Ở trường hợp đó người nhận đang giữ hai đoàn cùng lúc, tức phá chính luật này. Cho
-             * phép là quyết định có cân nhắc, lý do ở assertDoanKhongBiBoRoi bên dưới.
-             */
-            if (!$nhoDoanKhac) {
-                [$start, $end] = $this->guideService->periodOf($khoa);
-                $vuong = $this->guideService->conflictFor($toGuideId, $start, $end, $khoa->getKey());
+            [$start, $end] = $this->guideService->periodOf($khoa);
+            $vuong = $this->guideService->conflictFor($toGuideId, $start, $end, $khoa->getKey());
 
-                if ($vuong) {
-                    throw new BusinessRuleException(
-                        $this->guideService->moTaTrungLich($nguoi[$toGuideId]->name, $vuong),
-                    );
-                }
+            if ($vuong) {
+                throw new BusinessRuleException(
+                    $this->guideService->moTaTrungLich($nguoi[$toGuideId]->name, $vuong),
+                );
             }
 
             $banGiaoLuc = $luc ?? GioVietNam::bayGio();
@@ -123,7 +123,6 @@ class GuideHandoverService
                 'handed_over_at' => $banGiaoLuc,
                 'reason' => trim($reason),
                 'handover_note' => trim($note),
-                'is_emergency_cover' => $nhoDoanKhac,
                 'created_by' => $actor?->getKey(),
             ]);
 
@@ -151,59 +150,28 @@ class GuideHandoverService
      * đoàn chưa có gì để bỏ rơi.
      *
      * Chuyến **đang chạy** thì khác hẳn. Gỡ người dẫn duy nhất ra khỏi một đoàn đang giữa đường
-     * nghĩa là đoàn không có ai trong suốt quãng thời gian người mới di chuyển tới - có thể vài
-     * giờ, và đó là lúc khách cần người nhất. Trên giấy tờ thì "đã bàn giao", ngoài thực địa thì
-     * ba mươi khách đứng ở bến tàu không biết hỏi ai.
+     * nghĩa là đoàn không có ai trong suốt quãng người mới di chuyển tới - có thể vài giờ, và đó
+     * là lúc khách cần người nhất. Trên giấy tờ thì "đã bàn giao", ngoài thực địa thì ba mươi
+     * khách đứng ở bến tàu không biết hỏi ai.
      *
      * Nên luật là: đang chạy thì chuyến phải có **từ hai hướng dẫn viên trở lên** mới bàn giao
-     * được, để sau khi một người rời đi vẫn còn người đang có mặt bên đoàn.
-     *
-     * Luật này **không chặn vĩnh viễn** mà chỉ ép đúng thứ tự: bổ sung người trước, bàn giao sau.
-     * Và nó chỉ áp lúc thực hiện, không áp lúc hướng dẫn viên gửi yêu cầu - người đang ốm vẫn
-     * phải xin được, chặn từ đầu là bịt miệng người đang cần giúp.
+     * được. Không chặn vĩnh viễn, chỉ ép đúng thứ tự: bổ sung người trước, bàn giao sau.
      */
-    private function assertDoanKhongBiBoRoi(
-        TourSchedule $schedule,
-        int $toGuideId,
-        string $tenNguoiNhan,
-    ): bool {
-        if ($this->lifecycle->effectiveStatus($schedule) !== ScheduleStatus::InProgress) {
-            return false;
-        }
-
-        // Còn người khác ở lại với đoàn: bàn giao bình thường, không cần nhờ ai.
-        if ($schedule->guides()->count() >= 2) {
-            return false;
-        }
-
-        /*
-         * Chuyến chỉ có một người và người đó sắp rời đi. Lối thoát duy nhất là nhờ hướng dẫn
-         * viên đang dẫn một đoàn khác cùng lúc: họ đã ở ngoài đường, gần đoàn, tới được ngay.
-         * Người ở nhà thì cách đoàn nhiều giờ, mà đó lại là quãng đoàn không có ai.
-         */
-        if ($this->dangDanDoanKhacTrenDuong($toGuideId, (int) $schedule->getKey())) {
-            return true;
-        }
-
-        throw new BusinessRuleException(sprintf(
-            'Đoàn đang trên đường và chuyến này chỉ có một hướng dẫn viên. Gỡ người đó ra thì đoàn '
-            . 'không có ai cho tới khi người mới tới nơi. Hai cách: phân công thêm một người cho '
-            . 'chuyến trước rồi bàn giao, hoặc nhờ một hướng dẫn viên đang dẫn đoàn khác cùng lúc '
-            . 'trông hộ — %s hiện không dẫn đoàn nào đang trên đường.',
-            $tenNguoiNhan,
-        ));
-    }
-
-    /** Người này có đang dẫn một đoàn khác cũng đang trên đường không. */
-    private function dangDanDoanKhacTrenDuong(int $guideId, int $boQuaChuyen): bool
+    private function assertDoanKhongBiBoRoi(TourSchedule $schedule): void
     {
-        return TourSchedule::query()
-            ->whereHas('guides', fn ($query) => $query->whereKey($guideId))
-            ->whereKeyNot($boQuaChuyen)
-            ->get()
-            ->contains(
-                fn (TourSchedule $khac) => $this->lifecycle->effectiveStatus($khac) === ScheduleStatus::InProgress,
-            );
+        if ($this->lifecycle->effectiveStatus($schedule) !== ScheduleStatus::InProgress) {
+            return;
+        }
+
+        if ($schedule->guides()->count() >= 2) {
+            return;
+        }
+
+        throw new BusinessRuleException(
+            'Đoàn đang trên đường và chuyến này chỉ có một hướng dẫn viên. Gỡ người đó ra thì đoàn '
+            . 'không có ai cho tới khi người mới tới nơi. Hãy phân công thêm một người cho chuyến '
+            . 'trước, rồi bàn giao.',
+        );
     }
 
     /**
@@ -225,10 +193,13 @@ class GuideHandoverService
     }
 
     /**
-     * Hướng dẫn viên xin được bàn giao đoàn.
+     * Hướng dẫn viên gửi phiếu xin được thay.
      *
      * Không nhận người thay: tìm ai đang rảnh cần nhìn toàn bộ lịch công ty, đó là việc của điều
      * hành. Hướng dẫn viên nói "tôi cần được thay" chứ không phải "giao cho anh B".
+     *
+     * Luật "đoàn không bị bỏ rơi" **không áp ở đây**, chỉ áp lúc thực hiện bàn giao. Người đang
+     * ốm vẫn phải gửi phiếu được; chặn từ đầu là bịt miệng người đang cần giúp.
      */
     public function request(
         TourSchedule $schedule,
@@ -264,22 +235,21 @@ class GuideHandoverService
     }
 
     /**
-     * Điều hành duyệt: chọn người thay rồi thực hiện bàn giao.
+     * Điều hành xử lý phiếu bằng cách chỉ định người mới.
      *
-     * **Duyệt không tự thực hiện bàn giao.** Nó gọi đúng handover() ở trên, tức đi chung một
-     * đường với việc điều hành tự bàn giao. Hai đường ghi cho cùng một việc, mỗi đường một bộ
-     * luật, là khuôn của phần lớn lỗi ở dự án này - nên ở đây cố ý chỉ có một.
+     * Đi chung đúng một đường với việc điều hành tự bàn giao: gọi `handover()` ở trên. Hai đường
+     * ghi cho cùng một việc, mỗi đường một bộ luật, là khuôn của phần lớn lỗi ở dự án này.
      *
-     * Lý do và tình trạng đoàn lấy nguyên từ yêu cầu: đó là chữ của người đang đứng cùng đoàn,
+     * Lý do và tình trạng đoàn lấy nguyên từ phiếu — đó là chữ của người đang đứng cùng đoàn,
      * không phải của người ngồi văn phòng.
      */
-    public function approveRequest(
+    public function resolveWithHandover(
         GuideHandoverRequest $request,
         int $toGuideId,
-        ?string $reviewNote,
+        ?string $note,
         User $actor,
     ): GuideHandover {
-        return DB::transaction(function () use ($request, $toGuideId, $reviewNote, $actor) {
+        return DB::transaction(function () use ($request, $toGuideId, $note, $actor) {
             $khoa = GuideHandoverRequest::query()
                 ->whereKey($request->getKey())
                 ->lockForUpdate()
@@ -303,92 +273,55 @@ class GuideHandoverService
                 $actor,
             );
 
-            $khoa->forceFill([
-                'status' => HandoverRequestStatus::Approved,
-                'reviewed_by' => $actor->getKey(),
-                'reviewed_at' => now(),
-                'review_note' => $reviewNote ? trim($reviewNote) : null,
-                'guide_handover_id' => $bienBan->getKey(),
-            ])->save();
+            $this->dongPhieu($khoa, $note, $actor, $bienBan->getKey());
 
             return $bienBan;
         });
     }
 
     /**
-     * Từ chối yêu cầu.
+     * Đóng phiếu mà không đổi người.
      *
-     * Người xin vẫn giữ nguyên quyền phụ trách - đó là điểm an toàn của việc phải chờ duyệt:
-     * không có khoảnh khắc nào đoàn không có ai chịu trách nhiệm.
+     * Gộp hai việc từng là hai trạng thái riêng: điều hành không đồng ý, hoặc hướng dẫn viên đỡ
+     * rồi nên thôi. Khác nhau ở câu ghi chú, không cần thành hai nhánh mà mọi màn hình phải biết
+     * phân biệt.
+     *
+     * Người gửi giữ nguyên quyền phụ trách — không có khoảnh khắc nào đoàn thiếu người chịu
+     * trách nhiệm trên hệ thống.
      */
-    public function rejectRequest(
-        GuideHandoverRequest $request,
-        string $reviewNote,
-        User $actor,
-    ): GuideHandoverRequest {
+    public function close(GuideHandoverRequest $request, string $note, User $actor): GuideHandoverRequest
+    {
         $this->assertConDangCho($request);
 
-        $request->forceFill([
-            'status' => HandoverRequestStatus::Rejected,
-            'reviewed_by' => $actor->getKey(),
-            'reviewed_at' => now(),
-            'review_note' => trim($reviewNote),
-        ])->save();
+        $this->dongPhieu($request, $note, $actor, null);
 
         return $request->fresh();
     }
 
-    /** Hướng dẫn viên rút lại, ví dụ đỡ sốt rồi vẫn dẫn tiếp được. */
-    public function withdrawRequest(GuideHandoverRequest $request, User $guide): GuideHandoverRequest
-    {
-        $this->assertConDangCho($request);
-
-        if ((int) $request->requested_by !== (int) $guide->getKey()) {
-            throw new BusinessRuleException('Chỉ người gửi mới rút lại được yêu cầu này.');
-        }
-
-        $request->forceFill(['status' => HandoverRequestStatus::Withdrawn])->save();
-
-        return $request->fresh();
+    private function dongPhieu(
+        GuideHandoverRequest $request,
+        ?string $note,
+        User $actor,
+        ?int $handoverId,
+    ): void {
+        $request->forceFill([
+            'status' => HandoverRequestStatus::Closed,
+            'reviewed_by' => $actor->getKey(),
+            'reviewed_at' => now(),
+            'review_note' => $note ? trim($note) : null,
+            'guide_handover_id' => $handoverId,
+        ])->save();
     }
 
     private function assertConDangCho(?GuideHandoverRequest $request): void
     {
         if (!$request) {
-            throw new BusinessRuleException('Không tìm thấy yêu cầu bàn giao.', 404);
+            throw new BusinessRuleException('Không tìm thấy phiếu bàn giao.', 404);
         }
 
         if ($request->status !== HandoverRequestStatus::Pending) {
-            throw new BusinessRuleException(sprintf(
-                'Yêu cầu này đang ở trạng thái "%s" nên không xử lý lại được.',
-                $request->status->label(),
-            ));
+            throw new BusinessRuleException('Phiếu này đã được xử lý rồi.');
         }
-    }
-
-    /**
-     * Người nhận xác nhận đã đọc biên bản.
-     *
-     * Không phải bước duyệt: việc chuyển đã xong từ lúc điều hành bấm, và không có gì phụ thuộc
-     * vào hành động này. Nó chỉ trả lời câu hỏi "người kia biết chưa" — thứ mà trước đó chỉ hỏi
-     * được bằng cách gọi điện.
-     *
-     * Không kham nổi thì không từ chối ở đây, mà gửi yêu cầu bàn giao của chính mình: từ chối một
-     * đoàn đang trên đường không phải là trả lại, mà là xin được thay tiếp.
-     */
-    public function acknowledge(GuideHandover $handover, User $guide): GuideHandover
-    {
-        if ((int) $handover->to_guide_id !== (int) $guide->getKey()) {
-            throw new BusinessRuleException('Chỉ người nhận đoàn mới xác nhận được biên bản này.');
-        }
-
-        if ($handover->acknowledged_at) {
-            return $handover;
-        }
-
-        $handover->forceFill(['acknowledged_at' => now()])->save();
-
-        return $handover->fresh();
     }
 
     /**
