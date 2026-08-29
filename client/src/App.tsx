@@ -38,6 +38,7 @@ import GuideHandovers from "@/pages/guide/GuideHandovers";
 import IncidentManagement from "@/pages/admin/IncidentManagement";
 import HandoverManagement from "@/pages/admin/HandoverManagement";
 import NotificationCenter from "@/pages/NotificationCenter";
+import PolicyPage from "@/pages/PolicyPage";
 import TourDetail from "@/components/TourDetail";
 import { CreateTourForm } from "@/pages/admin/create/CreateTourForm";
 import BookingTour from "@/pages/BookingTour";
@@ -106,6 +107,16 @@ const router = createBrowserRouter([
       {
         path: "/contact",
         element: <InfoPage />,
+      },
+      {
+        /*
+         * Chính sách hủy, đổi, hoàn tiền — trang riêng, không nằm chung với `InfoPage`.
+         *
+         * Ba trang kia là chữ tĩnh; trang này đọc bảng phí thật từ máy chủ và đổi theo mỗi lần
+         * điều hành sửa. Nhét chung thì một trang tĩnh lại phải biết gọi API.
+         */
+        path: "/chinh-sach",
+        element: <PolicyPage />,
       },
       {
         path: "/login",
