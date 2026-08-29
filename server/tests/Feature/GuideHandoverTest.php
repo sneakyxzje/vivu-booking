@@ -244,58 +244,16 @@ class GuideHandoverTest extends TestCase
         );
     }
 
-    /**
-     * Đoàn một người, hướng dẫn viên ốm giữa chừng: nhờ người đang dẫn đoàn khác trông hộ.
+    /*
+     * Đã gỡ hai bài về "nhờ hướng dẫn viên đoàn khác trông hộ".
      *
-     * Người ở nhà cách đoàn nhiều giờ đường, mà đó lại đúng là quãng đoàn không có ai. Người đang
-     * ngoài đường thì tới được ngay. Đổi lại họ giữ hai đoàn cùng lúc - phá chính luật hệ thống
-     * vẫn chặn ở mọi chỗ khác, nên phải đánh dấu.
+     * Lối thoát ấy cho một người giữ hai đoàn cùng lúc, tức phá chính luật trùng lịch hệ thống
+     * chặn ở mọi chỗ khác — nên nó cần thêm một cột đánh dấu, một nhánh kiểm tra riêng, và một
+     * đoạn giải thích ở mỗi màn hình hiển thị. Nhiều bộ máy cho một tình huống hiếm.
+     *
+     * Cách còn lại đơn giản hơn và vẫn đúng: phân công thêm một người cho chuyến trước, rồi bàn
+     * giao. Luật "đoàn không bị bỏ rơi" giữ nguyên, chỉ mất lối tắt.
      */
-    public function test_nho_huong_dan_vien_doan_khac_trong_ho_thi_duoc_va_bi_danh_dau(): void
-    {
-        $this->chuyen->guides()->detach($this->nguoiOLai->id);
-
-        // Người thay đang dẫn một đoàn khác, cũng đang trên đường.
-        $doanKhac = TourSchedule::create([
-            'tour_id' => $this->tour->id,
-            'status' => ScheduleStatus::InProgress->value,
-            'start_date' => now()->subDay(),
-            'end_date' => now()->addDay(),
-            'booking_deadline' => now()->subDays(4),
-            'max_people' => 20,
-            'min_people' => 4,
-            'booked_people' => 0,
-        ]);
-
-        $doanKhac->guides()->sync([$this->nguoiMoi->id]);
-
-        Sanctum::actingAs($this->dieuHanh);
-
-        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/handover', $this->payload())
-            ->assertOk();
-
-        $bienBan = GuideHandover::query()->latest('id')->first();
-
-        $this->assertTrue(
-            (bool) $bienBan->is_emergency_cover,
-            'Phải đánh dấu là nhờ trông hộ, nếu không nó trông y hệt phân công bình thường.',
-        );
-
-        // Người nhận giờ giữ hai đoàn: chấp nhận được vì vẫn hơn một đoàn không có ai.
-        $this->assertTrue($this->chuyen->fresh()->hasGuide($this->nguoiMoi->id));
-        $this->assertTrue($doanKhac->fresh()->hasGuide($this->nguoiMoi->id));
-    }
-
-    /** Chuyến còn người ở lại thì không phải trường hợp chữa cháy, luật trùng lịch vẫn nguyên. */
-    public function test_con_nguoi_o_lai_thi_khong_danh_dau_la_nho_trong_ho(): void
-    {
-        Sanctum::actingAs($this->dieuHanh);
-
-        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/handover', $this->payload())
-            ->assertOk();
-
-        $this->assertFalse((bool) GuideHandover::query()->latest('id')->first()->is_emergency_cover);
-    }
 
     /** Có người thứ hai ở lại với đoàn thì bàn giao được, và người đó vẫn ở lại. */
     public function test_doan_dang_di_co_hai_nguoi_thi_ban_giao_duoc(): void
@@ -371,51 +329,13 @@ class GuideHandoverTest extends TestCase
         )->assertStatus(422);
     }
 
-    // --- Người nhận xác nhận đã đọc --------------------------------------------------------
-
-    /**
-     * Xác nhận không phải bước duyệt.
+    /*
+     * Đã gỡ hai bài về bước "người nhận xác nhận đã đọc".
      *
-     * Việc chuyển đã xong từ lúc điều hành bấm; không có gì phụ thuộc vào hành động này. Nó chỉ
-     * trả lời câu hỏi "người kia biết chưa" — rủi ro thật không phải họ từ chối, mà là họ đang
-     * trong hang không có sóng và chưa hề hay biết mình vừa nhận thêm một đoàn.
+     * Bước ấy không chặn gì: việc chuyển đã xong từ lúc điều hành bấm. Nó chỉ trả lời "người kia
+     * biết chưa" — câu mà gọi điện hỏi nhanh hơn là dựng thêm một trạng thái trong cơ sở dữ liệu
+     * và một màn hình để bấm.
      */
-    public function test_nguoi_nhan_xac_nhan_da_doc_nhung_viec_chuyen_da_xong_tu_truoc(): void
-    {
-        Sanctum::actingAs($this->dieuHanh);
-
-        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/handover', $this->payload())
-            ->assertOk();
-
-        $bienBan = GuideHandover::query()->latest('id')->first();
-
-        // Chưa xác nhận, nhưng quyền đã chuyển xong rồi.
-        $this->assertNull($bienBan->acknowledged_at);
-        $this->assertTrue($this->chuyen->fresh()->hasGuide($this->nguoiMoi->id));
-
-        Sanctum::actingAs($this->nguoiMoi);
-
-        $this->putJson('/api/guide/handovers/' . $bienBan->id . '/acknowledge')->assertOk();
-
-        $this->assertNotNull($bienBan->fresh()->acknowledged_at);
-    }
-
-    public function test_chi_nguoi_nhan_moi_xac_nhan_duoc(): void
-    {
-        Sanctum::actingAs($this->dieuHanh);
-
-        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/handover', $this->payload())
-            ->assertOk();
-
-        $bienBan = GuideHandover::query()->latest('id')->first();
-
-        // Người giao không xác nhận thay được: đây là bằng chứng người nhận đã biết.
-        Sanctum::actingAs($this->nguoiCu);
-
-        $this->putJson('/api/guide/handovers/' . $bienBan->id . '/acknowledge')->assertStatus(422);
-
-        $this->assertNull($bienBan->fresh()->acknowledged_at);
-    }
 
     // --- Hai phía đều đọc được biên bản ----------------------------------------------------
 

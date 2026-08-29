@@ -156,33 +156,18 @@ class GuideHandoverRequestTest extends TestCase
         )->assertStatus(422);
     }
 
-    public function test_nguoi_gui_rut_lai_duoc(): void
-    {
-        $yeuCau = $this->guiYeuCau();
+    /*
+     * Không còn bài "rút lại phiếu": hướng dẫn viên đỡ rồi thì gọi cho điều hành, điều hành đóng
+     * phiếu kèm ghi chú. Một thao tác thay vì một trạng thái riêng.
+     */
 
-        Sanctum::actingAs($this->nguoiDan);
-
-        $this->putJson('/api/guide/handover-requests/' . $yeuCau->id . '/withdraw')->assertOk();
-
-        $this->assertSame(HandoverRequestStatus::Withdrawn, $yeuCau->fresh()->status);
-    }
-
-    public function test_nguoi_khac_khong_rut_duoc_yeu_cau_cua_minh(): void
-    {
-        $yeuCau = $this->guiYeuCau();
-
-        Sanctum::actingAs($this->nguoiThay);
-
-        $this->putJson('/api/guide/handover-requests/' . $yeuCau->id . '/withdraw')->assertStatus(422);
-    }
-
-    // --- Điều hành duyệt ------------------------------------------------------------------
+    // --- Điều hành xử lý phiếu ------------------------------------------------------------
 
     /**
-     * Bài quan trọng nhất: duyệt phải sinh ra đúng một biên bản bàn giao thật.
+     * Bài quan trọng nhất: xử lý phiếu phải sinh ra đúng một biên bản bàn giao thật.
      *
-     * Nếu ai đó về sau cài lại phần duyệt thành "tự đổi người cho nhanh" thì bài này đỏ, vì sẽ
-     * không có biên bản và không có dòng nhật ký chuyến nào.
+     * Nếu ai đó về sau cài lại thành "tự đổi người cho nhanh" thì bài này đỏ, vì sẽ không có biên
+     * bản và không có dòng nhật ký chuyến nào.
      */
     public function test_duyet_di_qua_dung_duong_ban_giao_chung(): void
     {
@@ -190,7 +175,7 @@ class GuideHandoverRequestTest extends TestCase
 
         Sanctum::actingAs($this->dieuHanh);
 
-        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/approve', [
+        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/resolve', [
             'to_guide_id' => $this->nguoiThay->id,
         ])->assertOk();
 
@@ -239,7 +224,7 @@ class GuideHandoverRequestTest extends TestCase
 
         Sanctum::actingAs($this->dieuHanh);
 
-        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/approve', [
+        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/resolve', [
             'to_guide_id' => $this->nguoiThay->id,
         ])->assertStatus(422);
 
@@ -248,11 +233,11 @@ class GuideHandoverRequestTest extends TestCase
         // Bổ sung người ở lại rồi thì duyệt được.
         $this->chuyen->guides()->attach($this->nguoiOLai->id);
 
-        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/approve', [
+        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/resolve', [
             'to_guide_id' => $this->nguoiThay->id,
         ])->assertOk();
 
-        $this->assertSame(HandoverRequestStatus::Approved, $yeuCau->fresh()->status);
+        $this->assertSame(HandoverRequestStatus::Closed, $yeuCau->fresh()->status);
     }
 
     public function test_duyet_ma_khong_chon_nguoi_thay_thi_bi_tu_choi(): void
@@ -261,7 +246,7 @@ class GuideHandoverRequestTest extends TestCase
 
         Sanctum::actingAs($this->dieuHanh);
 
-        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/approve', [])
+        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/resolve', [])
             ->assertStatus(422);
 
         $this->assertSame(HandoverRequestStatus::Pending, $yeuCau->fresh()->status);
@@ -287,7 +272,7 @@ class GuideHandoverRequestTest extends TestCase
 
         Sanctum::actingAs($this->dieuHanh);
 
-        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/approve', [
+        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/resolve', [
             'to_guide_id' => $this->nguoiThay->id,
         ])->assertStatus(422);
 
@@ -303,14 +288,14 @@ class GuideHandoverRequestTest extends TestCase
 
         Sanctum::actingAs($this->dieuHanh);
 
-        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/reject', [])
+        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/close', [])
             ->assertStatus(422);
 
-        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/reject', [
+        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/close', [
             'review_note' => 'Khong tim duoc nguoi thay, cong ty se cu nguoi ho tro toi noi.',
         ])->assertOk();
 
-        $this->assertSame(HandoverRequestStatus::Rejected, $yeuCau->fresh()->status);
+        $this->assertSame(HandoverRequestStatus::Closed, $yeuCau->fresh()->status);
         $this->assertTrue($this->chuyen->fresh()->hasGuide($this->nguoiDan->id));
     }
 
@@ -320,11 +305,11 @@ class GuideHandoverRequestTest extends TestCase
 
         Sanctum::actingAs($this->dieuHanh);
 
-        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/approve', [
+        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/resolve', [
             'to_guide_id' => $this->nguoiThay->id,
         ])->assertOk();
 
-        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/approve', [
+        $this->putJson('/api/admin/handover-requests/' . $yeuCau->id . '/resolve', [
             'to_guide_id' => $this->nguoiThay->id,
         ])->assertStatus(422);
     }
