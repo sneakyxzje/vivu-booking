@@ -1,8 +1,17 @@
 import React from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useNotifications } from "@/hooks/useNotifications";
 
-const navItems = [
+type NavItem = {
+  to: string;
+  label: string;
+  icon: React.ReactNode;
+  /** Mục duy nhất mang số chưa đọc. Xem chỗ dựng thanh điều hướng bên dưới. */
+  coHuyHieu?: boolean;
+};
+
+const navItems: NavItem[] = [
   {
     to: "/guide/dashboard",
     label: "Tổng quan",
@@ -18,6 +27,26 @@ const navItems = [
           strokeLinejoin="round"
           strokeWidth={2}
           d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+        />
+      </svg>
+    ),
+  },
+  {
+    to: "/guide/notifications",
+    label: "Thông báo",
+    coHuyHieu: true,
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
         />
       </svg>
     ),
@@ -128,6 +157,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 
 export const GuideLayout: React.FC = () => {
   const { user, logout } = useAuth();
+  const { unread } = useNotifications();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -167,12 +197,23 @@ export const GuideLayout: React.FC = () => {
           </div>
         </div>
 
-        {/* Navigation items */}
+        {/*
+          Thanh điều hướng.
+
+          Số chưa đọc gắn ngay cạnh mục "Thông báo" chứ không dựng thêm chuông ở góc: bố cục này
+          không có thanh trên cùng, và thêm một thanh chỉ để đặt một con số là dựng cả một tầng
+          giao diện cho một chi tiết.
+        */}
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map((item) => (
             <NavLink key={item.to} to={item.to} className={linkClass}>
               {item.icon}
               {item.label}
+              {item.coHuyHieu && unread > 0 && (
+                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[10px] font-bold text-white">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
