@@ -44,7 +44,6 @@ class BookingCancellationGuardTest extends TestCase
             'admin_id' => $this->taoUser('admin')->id,
             'title' => 'Tour Test Huy Don',
             'slug' => 'tour-test-huy-don-' . Str::random(6),
-            'price' => 1000000,
             'adult_price' => 1000000,
             'child_price' => 700000,
             'infant_price' => 0,

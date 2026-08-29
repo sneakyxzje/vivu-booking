@@ -196,7 +196,7 @@ export const CreateTourForm: React.FC = () => {
         setForm({
           title: tour.title,
           description: tour.description ?? "",
-          adult_price: String(tour.adult_price ?? tour.discount_price ?? tour.price ?? ""),
+          adult_price: String(tour.adult_price ?? ""),
           child_price: String(tour.child_price ?? ""),
           infant_price: String(tour.infant_price ?? 0),
           thumbnail: tour.thumbnail ?? "",

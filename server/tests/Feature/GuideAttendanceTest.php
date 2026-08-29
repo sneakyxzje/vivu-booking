@@ -66,7 +66,6 @@ class GuideAttendanceTest extends TestCase
             'admin_id' => $admin->id,
             'title' => 'Tour Diem Danh',
             'slug' => 'tour-diem-danh-' . Str::random(6),
-            'price' => 1000000,
             'adult_price' => 1000000,
             'child_price' => 700000,
             'infant_price' => 0,

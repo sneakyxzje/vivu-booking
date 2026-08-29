@@ -30,7 +30,6 @@ class TourSearchTest extends TestCase
             'title' => $title,
             'slug' => Str::slug($title) . '-' . Str::random(5),
             'description' => $description,
-            'price' => 1000000,
             'adult_price' => 1000000,
             'child_price' => 700000,
             'infant_price' => 0,

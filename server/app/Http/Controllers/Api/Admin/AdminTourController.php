@@ -306,8 +306,6 @@ class AdminTourController extends Controller
 
             $tour = Tour::create([
                 ...$validated,
-                'price' => $validated['adult_price'],
-                'discount_price' => null,
                 'admin_id' => $request->user()->id,
                 'status' => 'active',
                 'is_featured' => false,
@@ -496,8 +494,6 @@ class AdminTourController extends Controller
 
             $tour->update([
                 ...$validated,
-                'price' => $validated['adult_price'],
-                'discount_price' => null,
                 'slug' => $this->buildUniqueSlug($validated['title'], $tour->id),
             ]);
 

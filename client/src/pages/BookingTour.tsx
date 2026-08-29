@@ -119,7 +119,7 @@ const BookingForm = ({
       field: "adultCount" as const,
       label: "Người lớn",
       note: "12+ tuổi",
-      price: Number(tour.adult_price || tour.discount_price || tour.price || 0),
+      price: Number(tour.adult_price || 0),
     },
     {
       field: "childCount" as const,

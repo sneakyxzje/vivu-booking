@@ -35,8 +35,7 @@ type Booking = {
   public_token?: string;
     title: string;
     thumbnail: string | null;
-    price: number;
-    discount_price?: number | null;
+    adult_price: number;
     start_location?: string | null;
     end_location?: string | null;
     vehicle_info?: string | null;

@@ -70,13 +70,8 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
           </p>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl md:text-3xl font-bold text-red-600 font-plus-jakarta">
-              {formatPrice(tour.adult_price || tour.discount_price || tour.price)}
+              {formatPrice(tour.adult_price)}
             </span>
-            {tour.discount_price && (
-              <span className="text-sm text-gray-400 line-through font-medium font-mono">
-                {formatPrice(tour.price)}
-              </span>
-            )}
           </div>
         </div>
 

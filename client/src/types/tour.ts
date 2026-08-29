@@ -113,8 +113,6 @@ export interface Tour {
   title: string;
   slug: string;
   description: string | null;
-  price: number;
-  discount_price: number | null;
   adult_price: number;
   child_price: number;
   infant_price: number;

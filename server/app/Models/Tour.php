@@ -12,8 +12,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'title',
     'slug',
     'description',
-    'price',
-    'discount_price',
     'adult_price',
     'child_price',
     'infant_price',

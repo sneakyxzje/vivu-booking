@@ -14,7 +14,7 @@ type TourStatus = "active" | "inactive" | "full";
 interface Tour {
   id: number;
   title: string;
-  price: number;
+  adult_price: number;
   status: TourStatus;
   start_location: string;
   schedules?: TourSchedule[];
@@ -152,7 +152,7 @@ export default function TourList() {
     const inactive = tours.filter((t) => t.status === "inactive").length;
     const full = tours.filter((t) => t.status === "full").length;
     const avgPrice = tours.length
-      ? Math.round(tours.reduce((sum, t) => sum + Number(t.price), 0) / tours.length)
+      ? Math.round(tours.reduce((sum, t) => sum + Number(t.adult_price), 0) / tours.length)
       : 0;
 
     return { total, active, inactive, full, avgPrice };
@@ -355,7 +355,7 @@ export default function TourList() {
 
                           {/* Giá */}
                           <td className="py-3.5 px-6 text-right font-bold text-gray-900">
-                            {Number(tour.price).toLocaleString()} đ
+                            {Number(tour.adult_price).toLocaleString()} đ
                           </td>
 
                           {/* Cột Hướng dẫn viên */}

@@ -156,7 +156,6 @@ class BusinessScenarioSeeder extends Seeder
             'slug' => self::TOUR_SLUG,
             'description' => 'Tour dựng riêng để thử tay toàn bộ tình huống của nhóm A, B, C, D, H. '
                 . 'Không phải sản phẩm bán thật.',
-            'price' => 5000000,
             'adult_price' => 5000000,
             'child_price' => 3500000,
             'infant_price' => 0,

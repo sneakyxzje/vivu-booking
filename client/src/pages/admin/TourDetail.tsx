@@ -221,7 +221,7 @@ export default function AdminTourDetail() {
               <div>
                 <p className="text-xs font-semibold uppercase text-gray-400">Giá tour</p>
                 <p className="mt-1 font-bold text-gray-950">
-                  {Number(tour.adult_price ?? tour.discount_price ?? tour.price).toLocaleString("vi-VN")} đ
+                  {Number(tour.adult_price).toLocaleString("vi-VN")} đ
                 </p>
               </div>
               <div>

@@ -41,9 +41,6 @@ use Illuminate\Database\Eloquent\Model;
     'group_booking_request_id',
     'paid_at',
     'confirmed_at',
-    'reopen_reason',
-    'reopened_at',
-    'reopened_by',
 ])]
 class Booking extends Model
 {
@@ -55,7 +52,6 @@ class Booking extends Model
             'cancelled_at' => 'datetime',
             'seats_released_at' => 'datetime',
             'seats_released' => 'boolean',
-            'reopened_at' => 'datetime',
         ];
     }
 

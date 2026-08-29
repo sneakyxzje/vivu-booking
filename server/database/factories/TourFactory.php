@@ -21,7 +21,6 @@ class TourFactory extends Factory
             'title' => $title,
             'slug' => Str::slug($title) . '-' . Str::lower(Str::random(6)),
             'description' => $this->faker->paragraph(),
-            'price' => 1000000,
             'adult_price' => 1000000,
             'child_price' => 700000,
             'infant_price' => 0,

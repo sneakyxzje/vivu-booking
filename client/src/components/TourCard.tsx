@@ -64,7 +64,7 @@ export const TourCard: React.FC<TourCardProps> = ({ tour }) => {
 
   const rating = tour.rating ?? null;
   const reviewCount = tour.review_count ?? 0;
-  const adultPrice = tour.adult_price ?? tour.discount_price ?? tour.price;
+  const adultPrice = tour.adult_price;
 
   return (
     <article className="group card-surface card-hover overflow-hidden flex flex-col h-full">
