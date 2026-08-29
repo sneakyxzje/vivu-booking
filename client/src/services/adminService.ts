@@ -187,6 +187,28 @@ export interface ManifestGroup {
   passengers: ManifestPassenger[];
 }
 
+/**
+ * Một việc điều hành cần biết.
+ *
+ * `kind` chỉ quyết định màu và biểu tượng — nội dung thật nằm ở `title` và `body`, và cả hai đã
+ * được máy chủ dựng sẵn thành câu đọc được. Giao diện không ghép chuỗi từ mã loại.
+ */
+export interface AdminNotification {
+  id: string;
+  kind: "guide_declined" | "handover_requested" | "incident_reported" | string;
+  title: string;
+  body: string;
+  /** Màn hình xử lý việc này. Null nghĩa là chỉ để đọc. */
+  url: string | null;
+  read_at: string | null;
+  created_at: string | null;
+}
+
+export interface AdminNotificationList {
+  notifications: AdminNotification[];
+  unread_count: number;
+}
+
 /** Hợp đồng du lịch của một đơn. `null` ở phía gọi nghĩa là đơn chưa được cấp hợp đồng. */
 export interface BookingContractInfo {
   id: number;
@@ -1079,6 +1101,32 @@ const adminService = {
   },
 
   // Không còn `reopenBooking`: hủy là trạng thái kết thúc, hủy nhầm thì đặt lại đơn mới.
+
+  // --- THÔNG BÁO CỦA ĐIỀU HÀNH ---
+
+  getNotifications: async (): Promise<AdminNotificationList | null> => {
+    const response = await api.get("/admin/notifications");
+    return extractObject<AdminNotificationList>(response);
+  },
+
+  /*
+   * Chỉ lấy con số, không kéo danh sách.
+   *
+   * Đây là thứ màn hình hỏi mỗi 30 giây khi không có WebSocket. Kéo cả danh sách về chỉ để đếm
+   * là lãng phí đúng vào lúc dễ thấy nhất.
+   */
+  getUnreadNotificationCount: async (): Promise<number> => {
+    const response = await api.get("/admin/notifications/unread-count");
+    return Number(response.data?.data?.unread_count ?? 0);
+  },
+
+  markNotificationRead: async (id: string) => {
+    await api.put(`/admin/notifications/${id}/read`);
+  },
+
+  markAllNotificationsRead: async () => {
+    await api.put("/admin/notifications/read-all");
+  },
 
   // --- CHÍNH SÁCH HỦY ---
   /*
