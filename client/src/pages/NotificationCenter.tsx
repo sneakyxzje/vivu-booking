@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { useNotifications } from "@/hooks/useNotifications";
-import { useAuth } from "@/hooks/useAuth";
 import { formatDateTime } from "@/utils/format";
 
 /**
@@ -26,8 +25,7 @@ const mauTheoLoai: Record<string, string> = {
 };
 
 export default function NotificationCenter() {
-  const { user } = useAuth();
-  const { items, unread, loading, live, danhDauDaDoc, danhDauTatCa } =
+  const { items, unread, loading, danhDauDaDoc, danhDauTatCa } =
     useNotifications();
 
   return (
