@@ -37,6 +37,7 @@ import GuideIncidents from "@/pages/guide/GuideIncidents";
 import GuideHandovers from "@/pages/guide/GuideHandovers";
 import IncidentManagement from "@/pages/admin/IncidentManagement";
 import HandoverManagement from "@/pages/admin/HandoverManagement";
+import NotificationCenter from "@/pages/admin/NotificationCenter";
 import TourDetail from "@/components/TourDetail";
 import { CreateTourForm } from "@/pages/admin/create/CreateTourForm";
 import BookingTour from "@/pages/BookingTour";
@@ -216,6 +217,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/schedules",
             element: <ScheduleManagement />,
+          },
+          {
+            path: "/admin/notifications",
+            element: <NotificationCenter />,
           },
           {
             path: "/admin/audit-logs",

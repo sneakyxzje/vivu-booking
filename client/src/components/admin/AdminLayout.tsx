@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminNotifications } from "@/hooks/useAdminNotifications";
 
 /*
  * Menu quản trị: bốn nhóm có menu con, kẹp giữa hai mục đứng riêng.
@@ -91,6 +92,14 @@ const navEntries: NavEntry[] = [
   },
   {
     kind: "link",
+    to: "/admin/notifications",
+    label: "Thông báo",
+    icon: icon(
+      "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9",
+    ),
+  },
+  {
+    kind: "link",
     to: "/admin/audit-logs",
     label: "Nhật ký hệ thống",
     icon: icon("M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"),
@@ -119,6 +128,8 @@ export const AdminLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  // Chuông chỉ cần con số; danh sách nằm ở màn riêng.
+  const { unread } = useAdminNotifications();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -300,6 +311,34 @@ export const AdminLayout: React.FC = () => {
               <span className="text-sm font-bold text-primary-600">VivuBooking</span>
             </div>
           </div>
+
+          {/*
+            Chuông thông báo.
+
+            Chỉ một con số và một đường dẫn — không dựng danh sách thả xuống. Toàn bộ thông báo
+            nằm ở màn riêng; nhồi thêm một bản sao rút gọn vào thanh trên cùng là hai chỗ cùng
+            hiển thị một dữ liệu, và hai chỗ ấy sớm muộn lệch nhau.
+          */}
+          <Link
+            to="/admin/notifications"
+            className="relative ml-auto mr-2 rounded-md p-2 text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+            title="Thông báo"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+              />
+            </svg>
+
+            {unread > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
+          </Link>
 
           {/* Right: User Dropdown */}
           <div className="relative">
