@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Models\IncidentPhoto;
 use App\Models\ScheduleIncident;
 use App\Models\TourSchedule;
+use App\Notifications\AdminAlert;
+use App\Services\AdminNotifier;
 use App\Services\CloudinaryService;
 use App\Services\GuideHandoverService;
 use App\Services\IncidentService;
@@ -27,6 +29,7 @@ class IncidentController extends Controller
     public function __construct(
         private IncidentService $incidentService,
         private CloudinaryService $cloudinaryService,
+        private AdminNotifier $notifier,
     ) {
     }
 
@@ -60,9 +63,16 @@ class IncidentController extends Controller
             $validated['group_state'],
         );
 
+        $this->notifier->guiToiDieuHanh(
+            AdminAlert::XIN_BAN_GIAO,
+            sprintf('%s xin bàn giao chuyến #%d', $request->user()->name, $schedule->id),
+            sprintf('%s · %s', $schedule->tour?->title ?? 'Tour', $validated['reason']),
+            '/admin/handovers',
+        );
+
         return $this->success(
             ['id' => $yeuCau->id, 'status' => $yeuCau->status->value],
-            'Đã gửi yêu cầu. Bạn vẫn phụ trách đoàn cho tới khi điều hành duyệt và cử người thay.',
+            'Đã gửi phiếu. Bạn vẫn phụ trách đoàn cho tới khi điều hành cử người thay.',
         );
     }
 
@@ -174,6 +184,29 @@ class IncidentController extends Controller
         }
 
         $incident = $this->incidentService->report($schedule, $validated, $request->user());
+
+        /*
+         * Chỉ báo động khi mức nghiêm trọng.
+         *
+         * Sự cố nhẹ vẫn nằm trong danh sách chờ xử lý và điều hành xem khi rảnh. Bắn chuông cho
+         * mọi sự cố thì sau một tuần không ai nhìn chuông nữa, và lúc bão thật thì nó cũng chỉ là
+         * một dòng như mọi dòng khác.
+         */
+        if ($incident->severity->canXuLyNgay()) {
+            $schedule->loadMissing('tour:id,title');
+
+            $this->notifier->guiToiDieuHanh(
+                AdminAlert::SU_CO,
+                sprintf('Sự cố nghiêm trọng ở chuyến #%d', $schedule->id),
+                sprintf(
+                    '%s · %s · %s',
+                    $schedule->tour?->title ?? 'Tour',
+                    $incident->type->label(),
+                    $incident->description,
+                ),
+                '/admin/incidents',
+            );
+        }
 
         return $this->success(
             $this->dong($incident->fresh(['photos'])),
