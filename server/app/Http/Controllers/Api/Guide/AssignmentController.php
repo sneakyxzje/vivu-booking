@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Guide;
 use App\Http\Controllers\Controller;
 use App\Models\GuideAssignmentDecline;
 use App\Models\TourSchedule;
+use App\Notifications\AdminAlert;
+use App\Services\AdminNotifier;
 use App\Services\ScheduleGuideService;
 use App\Services\ScheduleLifecycleService;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +26,7 @@ class AssignmentController extends Controller
     public function __construct(
         private ScheduleGuideService $guideService,
         private ScheduleLifecycleService $lifecycle,
+        private AdminNotifier $notifier,
     ) {
     }
 
@@ -98,6 +101,27 @@ class AssignmentController extends Controller
         }
 
         $this->guideService->declineAssignment($schedule, $request->user(), $validated['reason']);
+
+        /*
+         * Báo điều hành ngay.
+         *
+         * Đây là việc gấp nhất trong ba loại thông báo: một chuyến vừa mất người dẫn, và càng
+         * biết muộn thì càng ít lựa chọn để xếp người thay. Trước đây điều hành chỉ phát hiện khi
+         * tự mở màn quản lý chuyến và thấy thẻ hướng dẫn viên trống.
+         */
+        $schedule->loadMissing('tour:id,title');
+
+        $this->notifier->guiToiDieuHanh(
+            AdminAlert::TU_CHOI_CHUYEN,
+            sprintf('%s từ chối chuyến #%d', $request->user()->name, $schedule->id),
+            sprintf(
+                '%s · khởi hành %s · lý do: %s',
+                $schedule->tour?->title ?? 'Tour',
+                $schedule->start_date?->format('d/m/Y H:i') ?? 'chưa rõ',
+                $validated['reason'],
+            ),
+            '/admin/schedules',
+        );
 
         return $this->success(
             ['schedule_id' => $schedule->id],
