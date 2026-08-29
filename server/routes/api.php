@@ -322,8 +322,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/bookings/{id}/cancel-preview', [AdminBookingController::class, 'cancelPreview']);
         Route::put('/bookings/{id}/cancel', [AdminBookingController::class, 'cancel']);
-        // Task X07a - Mở lại đơn đã hủy nhầm trong 24h
-        Route::put('/bookings/{id}/reopen', [AdminBookingController::class, 'reopen']);
+        /*
+         * Không còn tuyến mở lại đơn đã hủy. Hủy là trạng thái kết thúc; hủy nhầm thì đặt lại đơn
+         * mới. Xem chú thích ở AdminBookingController, chỗ hàm reopen() từng nằm.
+         */
         Route::apiResource('discount-codes', AdminDiscountCodeController::class);
 
         // Quản lý dịch vụ phát sinh (khách sạn, ăn uống, ...)
