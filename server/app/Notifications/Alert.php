@@ -87,13 +87,26 @@ class Alert extends Notification
      * Cộng thêm hai trường ấy để màn hình chèn thẳng dòng mới vào danh sách mà không phải gọi lại
      * máy chủ. Thiếu chúng thì mỗi lần có thông báo lại là một lượt tải toàn bộ danh sách, tức
      * WebSocket chỉ tiết kiệm được đúng độ trễ chứ không tiết kiệm truy vấn nào.
+     *
+     * ## Vì sao ép `sync`
+     *
+     * Mặc định Laravel **xếp hàng** việc đẩy broadcast: `BroadcastManager::queue()` đưa nó vào
+     * hàng đợi trừ khi sự kiện tự nhận là gửi ngay. Với `QUEUE_CONNECTION=database` mà không có
+     * `queue:work` chạy kèm thì bản ghi vào cơ sở dữ liệu ngay, còn cú đẩy nằm im trong bảng
+     * `jobs` — nên phải tải lại trang mới thấy thông báo, đúng cái tình huống WebSocket sinh ra để
+     * xoá bỏ.
+     *
+     * Ép `sync` để việc đẩy chạy ngay trong tiến trình đang xử lý yêu cầu. Cái giá là một lượt gọi
+     * HTTP nội bộ tới Reverb, vài mili giây; đổi lại không phải nhớ bật thêm một tiến trình nền
+     * nữa, và hỏng thì `Notifier` đã nuốt lỗi rồi — bản ghi trong cơ sở dữ liệu vẫn còn nguyên vì
+     * `via()` đặt `database` trước `broadcast`.
      */
     public function toBroadcast(object $notifiable): BroadcastMessage
     {
-        return new BroadcastMessage($this->toArray($notifiable) + [
+        return (new BroadcastMessage($this->toArray($notifiable) + [
             'id' => $this->id,
             'created_at' => now()->toDateTimeString(),
             'read_at' => null,
-        ]);
+        ]))->onConnection('sync');
     }
 }
