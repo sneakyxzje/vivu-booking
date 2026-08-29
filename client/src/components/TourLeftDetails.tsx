@@ -288,46 +288,15 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
         )}
       </div>
 
-      {/* Hướng dẫn viên đồng hành */}
-      <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm">
-        <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 font-plus-jakarta">
-          Hướng dẫn viên đồng hành
-        </h2>
-        {(() => {
-          // Chuyến có thể có nhiều hướng dẫn viên; trang giới thiệu tour chỉ cần một gương mặt.
-          const guide =
-            selectedSchedule?.guides?.[0] ??
-            tour.schedules?.find((schedule) => (schedule.guides ?? []).length > 0)?.guides?.[0];
+      {/*
+        Bỏ khối "Hướng dẫn viên đồng hành".
 
-          if (!guide) {
-            return (
-              <p className="text-sm text-gray-500">
-                Hướng dẫn viên sẽ được phân công và thông báo trước ngày khởi hành.
-              </p>
-            );
-          }
+        Khách chọn tour theo điểm đến, lịch trình và giá — không theo tên người dẫn. Và tên đó
+        chưa chắc đúng: hướng dẫn viên phân công lại được tới sát ngày, có khi đổi giữa chuyến,
+        nên in một cái tên lên trang bán hàng là hứa một thứ không giữ được.
 
-          return (
-            <div className="flex flex-col sm:flex-row items-center gap-6 p-5 bg-primary-50/20 border border-primary-100/50 rounded-lg">
-              <div className="w-20 h-20 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-2xl font-bold shrink-0 border-2 border-white shadow-md">
-                {guide.name?.charAt(0)?.toUpperCase()}
-              </div>
-              <div className="flex-1 text-center sm:text-left">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                  <h4 className="font-bold text-gray-900 text-base">{guide.name}</h4>
-                  <span className="inline-block px-2.5 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-200 w-fit mx-auto sm:mx-0">
-                    Hướng dẫn viên Vivu Booking
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  Đồng hành cùng đoàn trong suốt hành trình, hỗ trợ thủ tục, thuyết minh
-                  điểm đến và điểm danh tại từng chặng của chuyến đi.
-                </p>
-              </div>
-            </div>
-          );
-        })()}
-      </div>
+        Điều hành vẫn thấy đủ ở màn quản lý chuyến; khách gặp ai thì biết khi lên xe.
+      */}
 
       {/* Lịch trình (Accordion) */}
       <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm">
