@@ -283,6 +283,36 @@ class NotificationTest extends TestCase
         $this->assertSame(0, $this->dieuHanh->unreadNotifications()->count());
     }
 
+    /**
+     * Cú đẩy WebSocket không được xếp hàng đợi.
+     *
+     * Mặc định Laravel đưa việc broadcast vào hàng đợi. Trên máy đặt `QUEUE_CONNECTION=database`
+     * mà không chạy `queue:work`, bản ghi vào cơ sở dữ liệu ngay còn cú đẩy nằm lại trong bảng
+     * `jobs`: phải F5 mới thấy thông báo, tức WebSocket có cũng như không.
+     *
+     * Máy chạy `sync` thì không bao giờ lộ ra lỗi này, nên bài test phải hỏi thẳng vào cấu hình
+     * của thông điệp chứ không thể trông vào việc chạy thử.
+     */
+    public function test_ban_day_websocket_khong_bi_xep_hang_doi(): void
+    {
+        $tb = new Alert(Alert::PHAN_CONG, 'Tieu de', 'Noi dung', '/guide/assignments');
+
+        $this->assertSame('sync', $tb->toBroadcast($this->guide)->connection);
+    }
+
+    /** Bản đẩy mang đủ trường để màn hình chèn thẳng vào danh sách, không phải gọi lại máy chủ. */
+    public function test_ban_day_mang_du_truong_de_hien_ngay(): void
+    {
+        $tb = new Alert(Alert::PHAN_CONG, 'Tieu de', 'Noi dung', '/guide/assignments');
+        $tb->id = 'khong-quan-trong';
+
+        $data = $tb->toBroadcast($this->guide)->data;
+
+        foreach (['id', 'kind', 'title', 'body', 'url', 'read_at', 'created_at'] as $truong) {
+            $this->assertArrayHasKey($truong, $data, "Thiếu `$truong` thì dòng mới hiện ra lỗi.");
+        }
+    }
+
     // --- Chiều ngược lại: hướng dẫn viên cũng được báo -------------------------------------
 
     /**
