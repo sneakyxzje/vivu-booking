@@ -9,13 +9,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Một bậc trong bảng phí hủy.
  *
- * min_hours_before và max_hours_before là khoảng thời gian còn lại tới lúc khởi hành, tính bằng
- * giờ. Để trống max_hours_before nghĩa là bậc xa nhất, không có giới hạn trên.
+ * `min_days_before` và `max_days_before` là số ngày còn lại tới lúc khởi hành. Để trống
+ * `max_days_before` nghĩa là bậc xa nhất, không có giới hạn trên.
+ *
+ * Khoảng đóng ở dưới, mở ở trên: bậc 8-15 nhận đúng mốc 8 ngày và nhường mốc 15 ngày cho bậc trên.
+ * Nhờ vậy các bậc nối liền nhau mà không chồng lên nhau, và không có khe hở nào rơi ra ngoài.
  */
 #[Fillable([
     'cancellation_policy_id',
-    'min_hours_before',
-    'max_hours_before',
+    'min_days_before',
+    'max_days_before',
     'refund_percent',
     'note',
 ])]
@@ -24,8 +27,8 @@ class CancellationPolicyRule extends Model
     protected function casts(): array
     {
         return [
-            'min_hours_before' => 'integer',
-            'max_hours_before' => 'integer',
+            'min_days_before' => 'integer',
+            'max_days_before' => 'integer',
             'refund_percent' => 'integer',
         ];
     }
@@ -38,20 +41,14 @@ class CancellationPolicyRule extends Model
     /** Nhãn khoảng thời gian để hiển thị, ví dụ "Từ 15 ngày trở lên". */
     public function windowLabel(): string
     {
-        $tuNgay = (int) floor($this->min_hours_before / 24);
-
-        if ($this->max_hours_before === null) {
-            return "Từ {$tuNgay} ngày trở lên";
+        if ($this->max_days_before === null) {
+            return "Từ {$this->min_days_before} ngày trở lên";
         }
 
-        $denNgay = (int) floor($this->max_hours_before / 24);
-
-        if ($this->min_hours_before === 0) {
-            return $denNgay > 0
-                ? "Dưới {$denNgay} ngày"
-                : "Dưới {$this->max_hours_before} giờ";
+        if ($this->min_days_before === 0) {
+            return "Dưới {$this->max_days_before} ngày";
         }
 
-        return "Từ {$tuNgay} đến dưới {$denNgay} ngày";
+        return "Từ {$this->min_days_before} đến dưới {$this->max_days_before} ngày";
     }
 }
