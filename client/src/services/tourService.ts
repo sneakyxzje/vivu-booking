@@ -3,13 +3,37 @@ import { extractArray, extractObject } from "@/utils/apiHelpers";
 import type { Category, Service, Tour } from "../types";
 import { buildTourPayload } from "@/services/guideService";
 
+/** Thông tin phân trang đi kèm danh sách tour, ở khóa `meta` cạnh `data`. */
+export interface TourListMeta {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
+const META_MAC_DINH: TourListMeta = {
+  current_page: 1,
+  last_page: 1,
+  per_page: 12,
+  total: 0,
+};
+
 const tourService = {
+  /*
+   * `data` vẫn là mảng tour như trước khi có phân trang, nên trang chủ và ô gợi ý tìm kiếm không
+   * phải sửa gì. `meta` chỉ có ý nghĩa với màn hình danh sách; nơi nào không cần thì bỏ qua.
+   */
   getAll: async (
     params?: Record<string, unknown>,
-  ): Promise<{ data: Tour[]; success: boolean }> => {
+  ): Promise<{ data: Tour[]; meta: TourListMeta; success: boolean }> => {
     const response = await api.get("/tours", { params });
     const data = extractArray<Tour>(response);
-    return { success: true, data };
+    const meta: TourListMeta = response.data?.meta ?? {
+      ...META_MAC_DINH,
+      total: data.length,
+    };
+
+    return { success: true, data, meta };
   },
 
   getById: async (id: string): Promise<{ data: Tour; success: boolean }> => {

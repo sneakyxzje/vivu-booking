@@ -156,6 +156,33 @@ class TourSchedule extends Model
         return $query->where('status', ScheduleStatus::InProgress->value);
     }
 
+    /**
+     * Bản SQL của `isBookable()` — dùng khi câu hỏi đặt ra cho cả một bảng, không cho một bản ghi.
+     *
+     * Cần nó vì lọc "tour nào còn đặt được trong khoảng ngày X–Y" phải hỏi cơ sở dữ liệu: nạp mọi
+     * chuyến về rồi gọi `isBookable()` từng cái là kéo cả bảng lịch khởi hành lên chỉ để bỏ đi
+     * gần hết.
+     *
+     * Hai bản phải nói cùng một điều. Sửa luật ở `isBookable()` mà quên chỗ này thì trang tìm kiếm
+     * mời khách vào một chuyến mà trang đặt từ chối — kiểu lệch khó thấy nhất, vì cả hai màn hình
+     * đều "chạy đúng".
+     */
+    public function scopeBookable(Builder $query): Builder
+    {
+        $hanMacDinh = (int) config('booking.booking_deadline_days', 3);
+
+        return $query
+            ->where('status', ScheduleStatus::Open->value)
+            ->whereColumn('booked_people', '<', 'max_people')
+            ->where(function (Builder $q) use ($hanMacDinh) {
+                $q->where('booking_deadline', '>', now())
+                    // Chuyến chưa đặt hạn chốt riêng thì áp hạn mặc định, đúng như `isBookable()`.
+                    ->orWhere(fn (Builder $sub) => $sub
+                        ->whereNull('booking_deadline')
+                        ->where('start_date', '>', now()->addDays($hanMacDinh)));
+            });
+    }
+
     // ─── Helper methods ──────────────────────────────────────────────────────
 
     /**

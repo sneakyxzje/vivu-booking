@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import tourService from "@/services/tourService";
+import type { TourListMeta } from "@/services/tourService";
 import type { Category, Service, Tour } from "@/types";
 import { TourCard } from "@/components/TourCard";
 import {
@@ -12,6 +13,9 @@ import {
 import { TourFilters } from "@/components/TourFilters";
 
 const DEFAULT_MAX_PRICE = 20000000;
+
+/** Ba hàng ba cột trên màn hình rộng. Máy chủ chặn trên ở 48, xem TourController. */
+const PER_PAGE = 12;
 
 export const Tours: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -30,11 +34,23 @@ export const Tours: React.FC = () => {
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [selectedDuration, setSelectedDuration] = useState<string>(urlDuration);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, DEFAULT_MAX_PRICE]);
-  const [sortBy, setSortBy] = useState<"featured" | "price_asc" | "price_desc">("featured");
+  const [departureRange, setDepartureRange] = useState<[string, string]>([
+    searchParams.get("departure_from") ?? "",
+    searchParams.get("departure_to") ?? "",
+  ]);
+  const [sortBy, setSortBy] = useState<"featured" | "price_asc" | "price_desc" | "rating" | "newest">("featured");
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<TourListMeta>({
+    current_page: 1,
+    last_page: 1,
+    per_page: PER_PAGE,
+    total: 0,
+  });
 
   const filterParams = useMemo(() => {
     const params: Record<string, string | number> = {
       sort: sortBy,
+      per_page: PER_PAGE,
     };
 
     if (searchKeyword.trim()) params.q = searchKeyword.trim();
@@ -44,16 +60,29 @@ export const Tours: React.FC = () => {
     if (selectedDuration !== "all") params.duration = selectedDuration;
     if (priceRange[0] > 0) params.min_price = priceRange[0];
     if (priceRange[1] < DEFAULT_MAX_PRICE) params.max_price = priceRange[1];
+    if (departureRange[0]) params.departure_from = departureRange[0];
+    if (departureRange[1]) params.departure_to = departureRange[1];
 
     return params;
-  }, [searchKeyword, selectedCategories, selectedServices, selectedDuration, priceRange, sortBy, urlStartLocation]);
+  }, [searchKeyword, selectedCategories, selectedServices, selectedDuration, priceRange, departureRange, sortBy, urlStartLocation]);
 
-  const fetchTours = async (params = filterParams) => {
+  /*
+   * Đổi bộ lọc thì quay về trang 1.
+   *
+   * Không đặt lại thì người đang ở trang 3 và lọc lại còn 8 kết quả sẽ thấy một trang trống, và
+   * cái trống ấy trông y hệt "không có tour nào phù hợp".
+   */
+  useEffect(() => {
+    setPage(1);
+  }, [filterParams]);
+
+  const fetchTours = async (params = filterParams, trang = page) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await tourService.getAll(params);
+      const res = await tourService.getAll({ ...params, page: trang });
       setTours(res.data);
+      setMeta(res.meta);
     } catch {
       setError("Đã xảy ra lỗi kết nối.");
     } finally {
@@ -86,11 +115,11 @@ export const Tours: React.FC = () => {
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      fetchTours(filterParams);
+      fetchTours(filterParams, page);
     }, 300);
 
     return () => window.clearTimeout(timeoutId);
-  }, [filterParams]);
+  }, [filterParams, page]);
 
   const toggleCategory = (slug: string) => {
     setSelectedCategories((prev) =>
@@ -110,7 +139,9 @@ export const Tours: React.FC = () => {
     setSelectedServices([]);
     setSelectedDuration("all");
     setPriceRange([0, DEFAULT_MAX_PRICE]);
+    setDepartureRange(["", ""]);
     setSortBy("featured");
+    setPage(1);
     setSearchParams({});
   };
 
@@ -119,8 +150,16 @@ export const Tours: React.FC = () => {
     || selectedCategories.length
     || selectedServices.length
     || selectedDuration !== "all"
-    || priceRange[1] < DEFAULT_MAX_PRICE,
+    || priceRange[1] < DEFAULT_MAX_PRICE
+    || departureRange[0]
+    || departureRange[1],
   );
+
+  const goToPage = (trang: number) => {
+    setPage(Math.min(Math.max(1, trang), meta.last_page));
+    // Nhảy trang mà giữ nguyên vị trí cuộn là đưa người ta xuống giữa danh sách mới.
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen py-8">
@@ -148,6 +187,8 @@ export const Tours: React.FC = () => {
               priceRange={priceRange}
               setPriceRange={setPriceRange}
               maxPrice={DEFAULT_MAX_PRICE}
+              departureRange={departureRange}
+              setDepartureRange={setDepartureRange}
               onReset={resetFilters}
             />
           </aside>
@@ -173,6 +214,8 @@ export const Tours: React.FC = () => {
                   className="bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-4 text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
                 >
                   <option value="featured">Phổ biến nhất</option>
+                  <option value="newest">Mới nhất</option>
+                  <option value="rating">Đánh giá cao nhất</option>
                   <option value="price_asc">Giá tăng dần</option>
                   <option value="price_desc">Giá giảm dần</option>
                 </select>
@@ -180,8 +223,17 @@ export const Tours: React.FC = () => {
             </div>
 
             <div className="mb-6 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              {/*
+                Đếm theo `meta.total` chứ không theo `tours.length`: từ khi có phân trang,
+                `tours.length` là số thẻ đang hiện trên trang này, không phải số tour tìm được.
+              */}
               <h2 className="text-xl font-bold text-gray-800">
-                Tìm thấy <span className="text-primary-600">{tours.length}</span> kết quả phù hợp
+                Tìm thấy <span className="text-primary-600">{meta.total}</span> kết quả phù hợp
+                {meta.last_page > 1 && (
+                  <span className="ml-2 text-sm font-medium text-gray-400">
+                    (trang {meta.current_page}/{meta.last_page})
+                  </span>
+                )}
               </h2>
               {hasActiveFilters && (
                 <p className="text-xs font-medium text-gray-500">Kết quả đang được lọc theo điều kiện bạn chọn.</p>
@@ -213,9 +265,65 @@ export const Tours: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {tours.map((tour) => <TourCard key={tour.id} tour={tour} />)}
-              </div>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                  {tours.map((tour) => <TourCard key={tour.id} tour={tour} />)}
+                </div>
+
+                {meta.last_page > 1 && (
+                  <nav
+                    aria-label="Phân trang danh sách tour"
+                    className="mt-10 flex flex-wrap items-center justify-center gap-2"
+                  >
+                    <button
+                      onClick={() => goToPage(meta.current_page - 1)}
+                      disabled={meta.current_page <= 1}
+                      className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Trước
+                    </button>
+
+                    {Array.from({ length: meta.last_page }, (_, i) => i + 1)
+                      /*
+                       * Chỉ hiện trang đầu, trang cuối và hai trang quanh trang đang xem.
+                       * Danh sách 40 trang mà in hết 40 nút thì thanh phân trang dài hơn cả
+                       * lưới kết quả nó phục vụ.
+                       */
+                      .filter(
+                        (n) =>
+                          n === 1 ||
+                          n === meta.last_page ||
+                          Math.abs(n - meta.current_page) <= 1,
+                      )
+                      .map((n, idx, arr) => (
+                        <React.Fragment key={n}>
+                          {idx > 0 && arr[idx - 1] !== n - 1 && (
+                            <span className="px-1 text-sm text-gray-400">…</span>
+                          )}
+                          <button
+                            onClick={() => goToPage(n)}
+                            aria-current={n === meta.current_page ? "page" : undefined}
+                            className={`min-w-[40px] rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                              n === meta.current_page
+                                ? "border-primary-600 bg-primary-600 text-white"
+                                : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        </React.Fragment>
+                      ))}
+
+                    <button
+                      onClick={() => goToPage(meta.current_page + 1)}
+                      disabled={meta.current_page >= meta.last_page}
+                      className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Sau
+                    </button>
+                  </nav>
+                )}
+              </>
             )}
           </main>
         </div>

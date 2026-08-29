@@ -20,6 +20,9 @@ interface TourFiltersProps {
   priceRange: [number, number];
   setPriceRange: (range: [number, number]) => void;
   maxPrice: number;
+  /** Khoảng ngày khách rảnh, dạng YYYY-MM-DD. Chuỗi rỗng nghĩa là không giới hạn đầu đó. */
+  departureRange: [string, string];
+  setDepartureRange: (range: [string, string]) => void;
   onReset: () => void;
 }
 
@@ -35,8 +38,13 @@ export const TourFilters: React.FC<TourFiltersProps> = ({
   priceRange,
   setPriceRange,
   maxPrice,
+  departureRange,
+  setDepartureRange,
   onReset,
 }) => {
+  // Không cho chọn ngày trong quá khứ: chuyến đã khởi hành thì không còn đặt được.
+  const homNay = new Date().toISOString().slice(0, 10);
+
   return (
     <aside className="w-full lg:w-[320px] shrink-0">
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 sticky top-24">
@@ -46,6 +54,51 @@ export const TourFilters: React.FC<TourFiltersProps> = ({
             Xóa lọc
           </button>
         </div>
+
+        {/*
+          Ngày khởi hành đứng đầu bộ lọc, trước cả danh mục.
+          Phần lớn người tìm tour bắt đầu từ "tôi rảnh những ngày này", chứ không từ loại hình.
+        */}
+        <div className="mb-8">
+          <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wider">Ngày khởi hành</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="text-xs font-medium text-gray-500">Từ ngày</span>
+              <input
+                type="date"
+                min={homNay}
+                value={departureRange[0]}
+                onChange={(e) => setDepartureRange([e.target.value, departureRange[1]])}
+                className="mt-1 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-gray-500">Đến ngày</span>
+              <input
+                type="date"
+                // Chặn ngay ở ô nhập thay vì để máy chủ trả 422: người dùng thấy được giới hạn
+                // trước khi chọn thì không bao giờ chạm vào lỗi đó.
+                min={departureRange[0] || homNay}
+                value={departureRange[1]}
+                onChange={(e) => setDepartureRange([departureRange[0], e.target.value])}
+                className="mt-1 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white"
+              />
+            </label>
+          </div>
+          {(departureRange[0] || departureRange[1]) && (
+            <button
+              onClick={() => setDepartureRange(["", ""])}
+              className="mt-3 text-xs font-bold text-primary-600 hover:text-primary-700 underline cursor-pointer"
+            >
+              Bỏ chọn ngày
+            </button>
+          )}
+          <p className="mt-3 text-xs text-gray-400">
+            Chỉ hiện tour còn chỗ và chưa qua hạn chốt trong khoảng ngày này.
+          </p>
+        </div>
+
+        <div className="h-px bg-gray-100 my-6" />
 
         <div className="mb-8">
           <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wider">Danh mục Tour</h3>
