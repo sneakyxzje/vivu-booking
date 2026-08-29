@@ -225,7 +225,7 @@ class GroupBookingService
                 'note' => $fresh->note,
                 // Cùng quy tắc với đơn lẻ: chép bảng phí hủy tại thời điểm chốt, để sửa bảng phí
                 // về sau không hồi tố lên đơn đã bán.
-                'cancellation_policy_id' => CancellationPolicy::default()?->id,
+                'cancellation_policy_id' => CancellationPolicy::dangApDung()?->id,
                 'group_booking_request_id' => $fresh->getKey(),
             ]);
 

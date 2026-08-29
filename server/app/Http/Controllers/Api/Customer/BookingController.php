@@ -214,7 +214,7 @@ class BookingController extends Controller
                  * đồng ý, còn đơn mới theo bảng mới. Bỏ dòng chép đi thì sửa một con số là hồi tố
                  * lên toàn bộ đơn đã bán.
                  */
-                'cancellation_policy_id' => \App\Models\CancellationPolicy::default()?->id,
+                'cancellation_policy_id' => \App\Models\CancellationPolicy::dangApDung()?->id,
             ]);
             // Ghi qua PassengerPolicyService để danh sách khai lúc đặt chịu đúng những luật mà
             // danh sách sửa về sau phải chịu. Hai đường ghi mà hai bộ luật thì sớm muộn cũng có
