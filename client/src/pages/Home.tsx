@@ -200,8 +200,7 @@ export const Home: React.FC = () => {
       reviewedTours.map(async (tour) => {
         try {
           const res = await tourService.getReviews(tour.id);
-          const list = Array.isArray(res) ? res : (res?.data ?? []);
-          return (list as Array<{ rating: number; comment: string; user?: { name?: string } }>)
+          return (res.data ?? [])
             .slice(0, 2)
             .map((item) => ({
               name: item.user?.name ?? "Khách hàng Vivu",

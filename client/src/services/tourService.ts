@@ -3,6 +3,41 @@ import { extractArray, extractObject } from "@/utils/apiHelpers";
 import type { Category, Service, Tour } from "../types";
 import { buildTourPayload } from "@/services/guideService";
 
+/** Một đánh giá như máy chủ trả về cho trang chi tiết tour. */
+export interface TourReview {
+  id: number;
+  rating: number;
+  comment: string;
+  created_at: string;
+  user: { id: number; name: string; avatar: string | null } | null;
+  /** Bài của chính người đang đăng nhập. Chỉ khi đó `status` mới khác null. */
+  is_mine: boolean;
+  status: "pending" | "approved" | "rejected" | null;
+  status_label: string | null;
+  moderation_note: string | null;
+  reply: string | null;
+  replied_at: string | null;
+  replied_by: string | null;
+}
+
+/**
+ * Phổ điểm tính trên TOÀN BỘ đánh giá đã duyệt của tour.
+ *
+ * Đến từ máy chủ chứ không cộng lại từ danh sách đang hiện: danh sách ấy chỉ là một trang.
+ */
+export interface TourReviewSummary {
+  total: number;
+  average: number | null;
+  breakdown: { star: number; count: number; percent: number }[];
+}
+
+export interface ReviewListResponse {
+  success: boolean;
+  data: TourReview[];
+  meta: { current_page: number; last_page: number; per_page: number; total: number };
+  summary: TourReviewSummary;
+}
+
 /** Thông tin phân trang đi kèm danh sách tour, ở khóa `meta` cạnh `data`. */
 export interface TourListMeta {
   current_page: number;
@@ -48,9 +83,12 @@ const tourService = {
     return { success: true, data: tour };
   },
 
-  getReviews: async (tourId: number) => {
-    const response = await api.get(`/reviews/${tourId}`);
-    return response.data;
+  getReviews: async (
+    tourId: number,
+    params?: { page?: number; per_page?: number },
+  ): Promise<ReviewListResponse> => {
+    const response = await api.get(`/reviews/${tourId}`, { params });
+    return response.data as ReviewListResponse;
   },
 
   review: async (
@@ -59,7 +97,7 @@ const tourService = {
       rating: number;
       comment: string;
     }
-  ) => {
+  ): Promise<{ success: boolean; message: string; data: TourReview }> => {
     const response = await api.post("/reviews", {
       tour_id: tourId,
       rating: payload.rating,

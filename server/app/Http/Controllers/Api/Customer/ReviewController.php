@@ -3,113 +3,210 @@
 namespace App\Http\Controllers\Api\Customer;
 
 use App\Enums\BookingStatus;
+use App\Enums\ReviewStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Review;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Đánh giá tour, phía khách hàng.
+ *
+ * Ba luật, mỗi luật một lý do:
+ *
+ * 1. **Chỉ khách đã ĐI XONG mới đánh giá được.** Trước đây `confirmed` cũng qua, tức người mới đặt
+ *    chỗ tuần trước đã chấm được năm sao cho một chuyến chưa khởi hành. Điểm số ấy không nói gì về
+ *    chuyến đi, mà lại đứng chung bảng với điểm của người đã đi thật.
+ *
+ * 2. **Đánh giá mới phải chờ duyệt.** Xem `App\Enums\ReviewStatus` và migration 2026_08_30_000002.
+ *
+ * 3. **Người viết luôn thấy đánh giá của chính mình**, kèm trạng thái. Ẩn luôn cho tới khi duyệt
+ *    thì họ tưởng bấm gửi không ăn và gửi lại — rồi gọi điện hỏi vì sao không thấy.
+ */
 class ReviewController extends Controller
 {
+    private const PER_PAGE = 10;
+
     /**
-     * Danh sách đánh giá theo tour
+     * Đánh giá của một tour.
+     *
+     * Có phân trang: một tour bán chạy tích lại hàng trăm đánh giá, và trả hết về trong một lần là
+     * bắt mọi lượt xem trang tải cả đống chữ mà gần như không ai cuộn hết.
      */
-    public function index($tourId)
+    public function index(Request $request, int $tourId): JsonResponse
     {
-        $reviews = Review::with('user')
+        $request->validate([
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $nguoiDung = auth('sanctum')->user();
+
+        $reviews = Review::query()
+            ->with(['user:id,name,avatar', 'repliedBy:id,name'])
             ->where('tour_id', $tourId)
+            ->where(function ($q) use ($nguoiDung) {
+                $q->approved();
+
+                // Người viết thấy bài của chính mình dù đang chờ duyệt hoặc đã bị từ chối.
+                if ($nguoiDung) {
+                    $q->orWhere('user_id', $nguoiDung->id);
+                }
+            })
             ->latest()
-            ->get();
+            ->paginate($request->integer('per_page') ?: self::PER_PAGE);
 
         return response()->json([
             'success' => true,
-            'data' => $reviews
+            'data' => $reviews->getCollection()->map(
+                fn (Review $review) => $this->dong($review, $nguoiDung?->id),
+            )->values(),
+            'meta' => [
+                'current_page' => $reviews->currentPage(),
+                'last_page' => $reviews->lastPage(),
+                'per_page' => $reviews->perPage(),
+                'total' => $reviews->total(),
+            ],
+            'summary' => $this->tongKet($tourId),
         ]);
     }
 
     /**
-     * Thêm đánh giá
+     * Điểm trung bình và phổ điểm của tour.
+     *
+     * Tính ở máy chủ trên TOÀN BỘ đánh giá đã duyệt, không để giao diện tự cộng từ danh sách nó
+     * đang cầm: từ khi có phân trang, danh sách ấy chỉ là mười bài đầu, và "4,8 sao dựa trên 10
+     * đánh giá" trên một tour có 130 đánh giá là một con số sai đứng ở chỗ dễ tin nhất.
+     *
+     * @return array<string, mixed>
      */
-    public function store(Request $request)
-{
-    $request->validate([
-        'tour_id' => 'required|exists:tours,id',
-        'rating' => 'required|integer|min:1|max:5',
-        'comment' => 'required|string|max:1000',
-    ]);
+    private function tongKet(int $tourId): array
+    {
+        $daDuyet = Review::query()->approved()->where('tour_id', $tourId);
 
-    $user = auth()->user();
+        $tong = (clone $daDuyet)->count();
 
-    if (!$user) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Bạn chưa đăng nhập.'
-        ],401);
+        $phoDiem = (clone $daDuyet)
+            ->selectRaw('rating, count(*) as so_luong')
+            ->groupBy('rating')
+            ->pluck('so_luong', 'rating');
+
+        return [
+            'total' => $tong,
+            'average' => $tong > 0 ? round((float) (clone $daDuyet)->avg('rating'), 1) : null,
+            'breakdown' => collect([5, 4, 3, 2, 1])->map(fn (int $sao) => [
+                'star' => $sao,
+                'count' => (int) ($phoDiem[$sao] ?? 0),
+                'percent' => $tong > 0 ? (int) round(((int) ($phoDiem[$sao] ?? 0)) / $tong * 100) : 0,
+            ])->values(),
+        ];
     }
 
-    // Chỉ khách đã đặt và được xác nhận tour này mới được đánh giá.
-    //
-    // Phải nhận cả 'completed': từ D03, đơn của chuyến đã đi xong tự chuyển sang trạng thái đó.
-    // Lọc đúng 'confirmed' thì khách vừa đi về xong lại mất quyền đánh giá, trong khi họ mới
-    // chính là người có gì để nói. 'no_show' không nhận vì khách không thực sự đi chuyến này.
-    $hasConfirmedBooking = Booking::query()
-        ->where('tour_id', $request->tour_id)
-        ->where('customer_id', $user->id)
-        ->whereIn('status', [BookingStatus::Confirmed->value, BookingStatus::Completed->value])
-        ->exists();
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'tour_id' => 'required|exists:tours,id',
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'required|string|min:10|max:1000',
+        ], [
+            'comment.min' => 'Nhận xét cần ít nhất 10 ký tự để người đọc sau hiểu được ý bạn.',
+        ]);
 
-    if (!$hasConfirmedBooking) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Chỉ khách hàng đã đặt và hoàn tất tour này mới có thể đánh giá.'
-        ], 403);
+        $user = $request->user();
+
+        /*
+         * Phải là đơn ĐÃ HOÀN TẤT của chính người này.
+         *
+         * `completed` do tác vụ nền `bookings:finalize-completed` đóng lại sau khi chuyến kết thúc
+         * (xem D03), nên nó là mốc đáng tin cho câu hỏi "người này đã đi chuyến đó chưa".
+         *
+         * `no_show` không nhận: khách không có mặt thì không có gì để kể về chuyến đi.
+         */
+        $daDi = Booking::query()
+            ->where('tour_id', $data['tour_id'])
+            ->where('customer_id', $user->id)
+            ->where('status', BookingStatus::Completed->value)
+            ->exists();
+
+        if (!$daDi) {
+            return $this->error(
+                'Chỉ khách đã đi xong tour này mới đánh giá được. Nếu bạn vừa kết thúc chuyến, '
+                . 'đơn sẽ chuyển sang trạng thái hoàn tất trong ít phút.',
+                403,
+            );
+        }
+
+        /*
+         * Mỗi khách một đánh giá cho mỗi tour; gửi lại thì SỬA bài cũ.
+         *
+         * Sửa xong quay về `pending`: nội dung đã đổi thì lần duyệt trước không còn nói về nội
+         * dung đang có. Không đặt lại thì đây là đường để một bài đã duyệt bị thay bằng chữ khác
+         * mà không ai đọc lại.
+         */
+        $review = Review::query()->updateOrCreate(
+            [
+                'tour_id' => $data['tour_id'],
+                'user_id' => $user->id,
+            ],
+            [
+                'rating' => $data['rating'],
+                'comment' => $data['comment'],
+                'status' => ReviewStatus::Pending,
+                'moderated_at' => null,
+                'moderated_by' => null,
+                'moderation_note' => null,
+            ],
+        );
+
+        return $this->success(
+            $this->dong($review->fresh(['user:id,name,avatar']), $user->id),
+            'Đã gửi đánh giá. Nội dung sẽ hiện công khai sau khi được duyệt.',
+            201,
+        );
     }
 
-    // Mỗi khách một đánh giá cho mỗi tour; gửi lại sẽ cập nhật đánh giá cũ
-    $review = Review::query()->updateOrCreate(
-        [
-            'tour_id' => $request->tour_id,
-            'user_id' => $user->id,
-        ],
-        [
-            'rating' => $request->rating,
-            'comment' => $request->comment,
-        ]
-    );
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Đánh giá thành công',
-        'data' => $review
-    ],201);
-}
-
-    /**
-     * Xóa đánh giá
-     */
-    public function destroy($id)
+    public function destroy(Request $request, int $id): JsonResponse
     {
         $review = Review::find($id);
 
-        if(!$review){
-
-            return response()->json([
-                'message'=>'Không tìm thấy đánh giá'
-            ],404);
-
+        if (!$review) {
+            return $this->error('Không tìm thấy đánh giá', 404);
         }
 
-        if(auth()->id() != $review->user_id){
-
-            return response()->json([
-                'message'=>'Bạn không có quyền xóa'
-            ],403);
-
+        if ($request->user()->id !== $review->user_id) {
+            return $this->error('Bạn không có quyền xóa đánh giá này', 403);
         }
 
         $review->delete();
 
-        return response()->json([
-            'message'=>'Đã xóa đánh giá'
-        ]);
+        return $this->success(null, 'Đã xóa đánh giá');
+    }
+
+    /** @return array<string, mixed> */
+    private function dong(Review $review, ?int $nguoiDungId): array
+    {
+        $laCuaMinh = $nguoiDungId !== null && $review->user_id === $nguoiDungId;
+
+        return [
+            'id' => $review->id,
+            'rating' => $review->rating,
+            'comment' => $review->comment,
+            'created_at' => $review->created_at?->toIso8601String(),
+            'user' => $review->user ? [
+                'id' => $review->user->id,
+                'name' => $review->user->name,
+                'avatar' => $review->user->avatar,
+            ] : null,
+            'is_mine' => $laCuaMinh,
+            // Trạng thái và lý do từ chối chỉ có nghĩa với người viết. Người đọc khác chỉ thấy
+            // những bài đã duyệt, nên với họ hai trường này luôn là cùng một giá trị.
+            'status' => $laCuaMinh ? $review->status->value : null,
+            'status_label' => $laCuaMinh ? $review->status->label() : null,
+            'moderation_note' => $laCuaMinh ? $review->moderation_note : null,
+            'reply' => $review->reply,
+            'replied_at' => $review->replied_at?->toIso8601String(),
+            'replied_by' => $review->repliedBy?->name,
+        ];
     }
 }

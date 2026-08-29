@@ -57,6 +57,7 @@ class TourController extends Controller
          * `orderBy`, nên không cần `HAVING` — thứ mà SQLite chỉ chấp nhận khi có `GROUP BY`.
          */
         $diemTrungBinh = Review::query()
+            ->approved()
             ->selectRaw('coalesce(avg(rating), 0)')
             ->whereColumn('reviews.tour_id', 'tours.id');
 
@@ -69,8 +70,8 @@ class TourController extends Controller
                 'itineraries',
                 'schedules',
             ])
-            ->withAvg('reviews as rating', 'rating')
-            ->withCount('reviews')
+            ->withAvg('approvedReviews as rating', 'rating')
+            ->withCount('approvedReviews as reviews_count')
             ->whereIn('status', ['active', 'full']);
 
         if (!empty($filters['q'])) {
@@ -230,8 +231,8 @@ class TourController extends Controller
             // Khách phải đọc được điều khoản hủy trước khi đặt, không phải sau khi muốn hủy.
             'cancellationPolicy.rules',
         ])
-            ->withAvg('reviews as rating', 'rating')
-            ->withCount('reviews')
+            ->withAvg('approvedReviews as rating', 'rating')
+            ->withCount('approvedReviews as reviews_count')
             ->whereIn('status', ['active', 'full'])
             ->when($laSo, fn ($q) => $q->whereKey((int) $idOrSlug))
             ->when(!$laSo, fn ($q) => $q->where('slug', $idOrSlug))

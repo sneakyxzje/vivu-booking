@@ -81,6 +81,11 @@ const navEntries: NavEntry[] = [
        */
       { to: "/admin/services", label: "Dịch vụ đi kèm" },
       { to: "/admin/discount-codes", label: "Mã giảm giá" },
+      /*
+       * Đánh giá nằm ở nhóm "sản phẩm" chứ không ở nhóm "đơn hàng": nó là thứ hiện trên trang
+       * bán tour và kéo điểm tour lên xuống, không phải một bước trong vòng đời một đơn.
+       */
+      { to: "/admin/reviews", label: "Đánh giá của khách" },
     ],
   },
   {

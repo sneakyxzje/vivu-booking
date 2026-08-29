@@ -72,6 +72,18 @@ class Tour extends Model
         return $this->hasMany(Review::class);
     }
 
+    /**
+     * Chỉ đánh giá đã duyệt — nguồn duy nhất cho điểm trung bình và số đánh giá hiện ra ngoài.
+     *
+     * Tách thành một quan hệ riêng thay vì nhớ gắn `->approved()` ở từng chỗ gọi `withAvg`: quên
+     * một chỗ thì một đánh giá bị từ chối vẫn kéo điểm của tour xuống, và không màn hình nào cho
+     * thấy vì sao.
+     */
+    public function approvedReviews()
+    {
+        return $this->hasMany(Review::class)->approved();
+    }
+
     public function cancellationPolicy()
     {
         return $this->belongsTo(CancellationPolicy::class);

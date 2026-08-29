@@ -251,6 +251,33 @@ export interface ChangeRequestListResponse {
   pending_count: number;
 }
 
+export type AdminReviewStatus = "pending" | "approved" | "rejected";
+
+export interface AdminReview {
+  id: number;
+  rating: number;
+  comment: string;
+  status: AdminReviewStatus;
+  status_label: string;
+  moderation_note: string | null;
+  moderated_at: string | null;
+  moderated_by: string | null;
+  reply: string | null;
+  replied_at: string | null;
+  replied_by: string | null;
+  created_at: string | null;
+  user: { id: number; name: string; email: string } | null;
+  tour: { id: number; title: string; slug: string } | null;
+}
+
+/**
+ * Máy chủ trả về đối tượng phân trang có thêm `pending_count`, nên hình dạng ở đây là
+ * `PaginatedResponse` mở rộng chứ không phải một khóa `reviews` lồng bên trong.
+ */
+export interface AdminReviewListResponse extends PaginatedResponse<AdminReview> {
+  pending_count: number;
+}
+
 export interface ChangeRequestDetail {
   request: ChangeRequest;
   /** false nghĩa là duyệt xong sẽ thành ghế chết. */
@@ -846,6 +873,32 @@ const adminService = {
   },
 
   // --- YÊU CẦU THAY ĐỔI CỦA KHÁCH ---
+  // --- Kiểm duyệt đánh giá ------------------------------------------------------------------
+
+  getReviews: async (
+    status = "pending",
+    page = 1,
+  ): Promise<AdminReviewListResponse | null> => {
+    const response = await api.get(`/admin/reviews?status=${status}&page=${page}`);
+    return extractObject<AdminReviewListResponse>(response);
+  },
+
+  approveReview: async (id: number) => {
+    const response = await api.put(`/admin/reviews/${id}/approve`);
+    return response.data?.message ?? "Đã duyệt đánh giá.";
+  },
+
+  rejectReview: async (id: number, reason: string) => {
+    const response = await api.put(`/admin/reviews/${id}/reject`, { reason });
+    return response.data?.message ?? "Đã từ chối đánh giá.";
+  },
+
+  /** Gửi chuỗi rỗng để gỡ câu trả lời đang có. */
+  replyToReview: async (id: number, reply: string) => {
+    const response = await api.put(`/admin/reviews/${id}/reply`, { reply });
+    return response.data?.message ?? "Đã lưu câu trả lời.";
+  },
+
   getChangeRequests: async (
     status = "pending",
     page = 1,

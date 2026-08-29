@@ -55,6 +55,7 @@ use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
 use App\Http\Controllers\Api\Admin\AdminAttendanceController;
 use App\Http\Controllers\Api\Admin\AdminCancellationPolicyController;
 use App\Http\Controllers\Api\Admin\AdminCategoryController;
+use App\Http\Controllers\Api\Admin\AdminReviewController;
 use App\Http\Controllers\Api\Admin\AdminServiceController;
 
 /*
@@ -123,7 +124,9 @@ Route::post('/discount-codes/validate', [DiscountCodeController::class, 'validat
  */
 Route::get('/policies', [CustomerPolicyController::class, 'show']);
 Route::get('/vnpay/return', [CustomerBookingController::class, 'vnpayReturn']);
-Route::get('/reviews/{tour}', [ReviewController::class,'index']);
+// Đánh giá của một tour. Có phân trang, và người đang đăng nhập thấy thêm bài của chính mình
+// dù bài đó còn chờ duyệt — nên tuyến này đọc `auth('sanctum')` dù không bắt buộc đăng nhập.
+Route::get('/reviews/{tour}', [ReviewController::class, 'index']);
 Route::post('/newsletter', function (\Illuminate\Http\Request $request) {
     $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
 
@@ -148,7 +151,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile', [UserController::class, 'updateProfile']);
     Route::put('/profile/password', [UserController::class, 'changePassword']);
 
-    // Đánh giá tour (mọi user đã đăng nhập)
+    // Đánh giá tour. Luật "chỉ khách đã đi xong chuyến này" nằm trong controller, không ở đây.
     Route::post('/reviews', [ReviewController::class, 'store']);
     Route::delete('/reviews/{id}', [ReviewController::class, 'destroy']);
 
@@ -398,6 +401,17 @@ Route::middleware('auth:sanctum')->group(function () {
          */
         Route::get('cancellation-policies', [AdminCancellationPolicyController::class, 'index']);
         Route::put('cancellation-policies', [AdminCancellationPolicyController::class, 'update']);
+
+        /*
+         * Kiểm duyệt đánh giá và trả lời khách.
+         *
+         * Từ chối không xóa bản ghi — xóa hẳn là quyền của chính người viết, qua tuyến
+         * `DELETE /reviews/{id}` ở nhóm khách hàng.
+         */
+        Route::get('reviews', [AdminReviewController::class, 'index']);
+        Route::put('reviews/{id}/approve', [AdminReviewController::class, 'approve']);
+        Route::put('reviews/{id}/reject', [AdminReviewController::class, 'reject']);
+        Route::put('reviews/{id}/reply', [AdminReviewController::class, 'reply']);
     });
 });
 
