@@ -90,18 +90,10 @@ class IncidentController extends Controller
         return $this->success($ds, 'Lấy yêu cầu bàn giao của bạn thành công');
     }
 
-    public function withdrawHandoverRequest(Request $request, int $id): JsonResponse
-    {
-        $yeuCau = \App\Models\GuideHandoverRequest::query()->find($id);
-
-        if (!$yeuCau) {
-            return $this->error('Không tìm thấy yêu cầu bàn giao', 404);
-        }
-
-        app(GuideHandoverService::class)->withdrawRequest($yeuCau, $request->user());
-
-        return $this->success(['id' => $yeuCau->id], 'Đã rút lại yêu cầu.');
-    }
+    /*
+     * Không còn "rút lại phiếu". Đỡ rồi thì gọi cho điều hành nói một câu, họ đóng phiếu kèm ghi
+     * chú — một thao tác thay vì một trạng thái mà mọi màn hình phải biết phân biệt.
+     */
 
     /**
      * Biên bản bàn giao liên quan tới hướng dẫn viên này.
@@ -136,29 +128,16 @@ class IncidentController extends Controller
                 'handed_over_at' => $bg->handed_over_at?->toDateTimeString(),
                 'reason' => $bg->reason,
                 'handover_note' => $bg->handover_note,
-                'is_emergency_cover' => (bool) $bg->is_emergency_cover,
-                'acknowledged_at' => $bg->acknowledged_at?->toDateTimeString(),
             ]);
 
         return $this->success($ds, 'Lấy biên bản bàn giao thành công');
     }
 
-    /** Người nhận xác nhận đã đọc. Không phải bước duyệt: việc chuyển đã xong từ trước. */
-    public function acknowledgeHandover(Request $request, int $id): JsonResponse
-    {
-        $bienBan = \App\Models\GuideHandover::query()->find($id);
-
-        if (!$bienBan) {
-            return $this->error('Không tìm thấy biên bản bàn giao', 404);
-        }
-
-        $daXacNhan = app(GuideHandoverService::class)->acknowledge($bienBan, $request->user());
-
-        return $this->success(
-            ['id' => $daXacNhan->id, 'acknowledged_at' => $daXacNhan->acknowledged_at?->toDateTimeString()],
-            'Đã xác nhận tiếp nhận đoàn.',
-        );
-    }
+    /*
+     * Không còn bước "người nhận xác nhận đã đọc". Việc chuyển đã xong từ lúc điều hành bấm và
+     * không có gì phụ thuộc vào nó; nó chỉ trả lời "người kia biết chưa" — mà câu đó gọi điện
+     * hỏi nhanh hơn là dựng một trạng thái trong cơ sở dữ liệu.
+     */
 
     /** Các sự cố của những chuyến hướng dẫn viên này phụ trách. */
     public function index(Request $request): JsonResponse
