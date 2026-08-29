@@ -10,7 +10,9 @@ use App\Models\Booking;
 use App\Models\BookingSurcharge;
 use App\Models\IncidentPhoto;
 use App\Models\ScheduleIncident;
+use App\Notifications\Alert;
 use App\Services\IncidentService;
+use App\Services\Notifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -24,6 +26,7 @@ class AdminIncidentController extends Controller
 {
     public function __construct(
         private IncidentService $incidentService,
+        private Notifier $notifier,
     ) {
     }
 
@@ -124,6 +127,21 @@ class AdminIncidentController extends Controller
             ],
             $validated['charges'],
             $request->user(),
+        );
+
+        /*
+         * Báo lại cho người đã gửi báo cáo.
+         *
+         * Họ đang đứng cùng đoàn chờ biết phải làm gì, và phương án này chính là thứ họ đọc cho
+         * khách nghe. Không báo thì họ phải tự mở màn hình kiểm tra — trong lúc đang xoay xở với
+         * ba mươi người.
+         */
+        $this->notifier->toiNguoiDung(
+            $daXuLy->reporter,
+            Alert::SU_CO_DA_QUYET,
+            sprintf('Đã có phương án cho sự cố chuyến #%d', $daXuLy->tour_schedule_id),
+            $validated['resolution'],
+            '/guide/incidents',
         );
 
         return $this->success(
