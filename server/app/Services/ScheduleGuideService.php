@@ -7,6 +7,7 @@ use App\Enums\ScheduleStatus;
 use App\Models\GuideAssignmentDecline;
 use App\Models\TourSchedule;
 use App\Models\User;
+use App\Notifications\Alert;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,7 @@ class ScheduleGuideService
 {
     public function __construct(
         private readonly ScheduleLifecycleService $lifecycle,
+        private readonly Notifier $notifier,
     ) {
     }
 
@@ -49,7 +51,10 @@ class ScheduleGuideService
             ->unique()
             ->values();
 
-        return DB::transaction(function () use ($schedule, $ids) {
+        // Ai đang có mặt trước khi sửa. So với danh sách sau để biết ai là người MỚI được thêm.
+        $truocDo = $schedule->guides()->pluck('users.id');
+
+        $daSua = DB::transaction(function () use ($schedule, $ids) {
             // Khóa từng hướng dẫn viên để hai lần phân công song song cho cùng một người không
             // cùng đọc thấy "chưa có lịch nào" rồi cùng ghi.
             if ($ids->isNotEmpty()) {
@@ -85,6 +90,45 @@ class ScheduleGuideService
 
             return $schedule->fresh(['guides:id,name,email,phone,status']);
         });
+
+        $this->baoNguoiMoiDuocPhanCong($daSua, $ids->diff($truocDo));
+
+        return $daSua;
+    }
+
+    /**
+     * Báo cho người vừa được thêm vào chuyến.
+     *
+     * Chỉ người **mới**, không phải cả danh sách. Điều hành sửa danh sách vì nhiều lý do — thêm
+     * người thứ hai, bớt một người — và bắn lại thông báo cho những ai vốn đã ở trong chuyến là
+     * cách nhanh nhất để họ ngừng đọc thông báo.
+     *
+     * Gọi **sau** giao dịch: thư và thông báo đã gửi thì không gọi về được, còn giao dịch thì vẫn
+     * có thể quay lại. Cùng lý do đang áp ở `ScheduleCancellationService`.
+     *
+     * @param  \Illuminate\Support\Collection<int, int>  $nguoiMoi
+     */
+    private function baoNguoiMoiDuocPhanCong(TourSchedule $schedule, $nguoiMoi): void
+    {
+        if ($nguoiMoi->isEmpty()) {
+            return;
+        }
+
+        $schedule->loadMissing('tour:id,title');
+
+        foreach (User::query()->whereIn('id', $nguoiMoi)->get() as $guide) {
+            $this->notifier->toiNguoiDung(
+                $guide,
+                Alert::PHAN_CONG,
+                sprintf('Bạn được phân công chuyến #%d', $schedule->getKey()),
+                sprintf(
+                    '%s · khởi hành %s',
+                    $schedule->tour?->title ?? 'Tour',
+                    $schedule->start_date?->format('d/m/Y H:i') ?? 'chưa rõ',
+                ),
+                '/guide/assignments',
+            );
+        }
     }
 
     /** Hướng dẫn viên xác nhận sẽ dẫn chuyến này. */
