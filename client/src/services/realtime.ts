@@ -20,6 +20,13 @@ import Pusher from "pusher-js";
 
 type EchoInstance = InstanceType<typeof Echo>;
 
+/** Phần kết nối của pusher-js mà laravel-echo không phơi ra trong kiểu của nó. */
+type PusherConnection = {
+  state: string;
+  bind: (event: string, handler: () => void) => void;
+  unbind: (event: string, handler: () => void) => void;
+};
+
 let echo: EchoInstance | null = null;
 
 /**
@@ -85,6 +92,7 @@ export const onNotification = (
   token: string,
   userId: number,
   handler: (payload: unknown) => void,
+  onKetNoi?: (dangNoi: boolean) => void,
 ): (() => void) | null => {
   const client = connectRealtime(token);
 
@@ -98,8 +106,34 @@ export const onNotification = (
     const channel = client.private(`App.Models.User.${userId}`);
     channel.notification(handler);
 
+    /*
+     * Báo ra ngoài khi đường dây thực sự nối được, và khi nó đứt.
+     *
+     * Dựng được đối tượng Echo **không** có nghĩa là đã kết nối. Nếu chưa chạy `reverb:start` thì
+     * pusher-js vẫn nhận lệnh, vẫn thử lại ngầm mãi mãi, và không ném lỗi cho ai cả. Thiếu chỗ
+     * này thì bên gọi tưởng mình đang nghe tức thì trong khi không có gì tới — hỏng mà báo xanh,
+     * tệ hơn hỏng mà báo đỏ.
+     *
+     * `connector.pusher` không nằm trong kiểu công khai của laravel-echo nên phải ép kiểu hẹp.
+     */
+    const pusher = (client as unknown as {
+      connector?: { pusher?: { connection?: PusherConnection } };
+    }).connector?.pusher?.connection;
+
+    let boTheoDoi: (() => void) | undefined;
+
+    if (pusher && onKetNoi) {
+      const bao = () => onKetNoi(pusher.state === "connected");
+
+      pusher.bind("state_change", bao);
+      bao();
+
+      boTheoDoi = () => pusher.unbind("state_change", bao);
+    }
+
     return () => {
       try {
+        boTheoDoi?.();
         client.leave(`App.Models.User.${userId}`);
       } catch {
         // Rời kênh hỏng thì bỏ qua: trang đang đóng.
