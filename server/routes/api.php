@@ -47,6 +47,7 @@ use App\Http\Controllers\Api\Guide\IncidentController as GuideIncidentController
 use App\Http\Controllers\Api\Admin\AdminScheduleCancellationController;
 use App\Http\Controllers\Api\Admin\AdminScheduleDeadlineController;
 use App\Http\Controllers\Api\Admin\AdminScheduleMergeController;
+use App\Http\Controllers\Api\Admin\AdminContactLogController;
 use App\Http\Controllers\Api\Admin\AdminTransferController;
 use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
 use App\Http\Controllers\Api\Admin\AdminAttendanceController;
@@ -334,6 +335,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Nhật ký hệ thống: gộp nhật ký đơn và nhật ký chuyến thành một dòng thời gian.
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
+
+        /*
+         * Nhật ký liên hệ khách. Chỉ ghi và đọc - không sửa, không xóa.
+         *
+         * Đặt ngay trên phần chuyển chuyến vì đó là chỗ nó bắt buộc: không có bản ghi khách đồng ý
+         * thì không chuyển được.
+         */
+        Route::get('/bookings/{id}/contact-logs', [AdminContactLogController::class, 'index']);
+        Route::post('/bookings/{id}/contact-logs', [AdminContactLogController::class, 'store']);
 
         // I05 - Chuyển đơn sang chuyến khác.
         Route::get('/bookings/{id}/transfer-options', [AdminTransferController::class, 'options']);
