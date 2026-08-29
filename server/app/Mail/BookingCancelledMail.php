@@ -31,7 +31,7 @@ class BookingCancelledMail extends Mailable
             view: 'emails.bookings.cancelled',
             with: [
                 'booking' => $this->booking,
-                'frontendBookingUrl' => rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/')
+                'frontendBookingUrl' => rtrim(config('app.frontend_url'), '/')
                     . '/booking-success/' . $this->booking->public_token,
             ],
         );

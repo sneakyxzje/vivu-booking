@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 
 // Controllers
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\TourController;
 use App\Http\Controllers\Api\DiscountCodeController;
@@ -62,8 +63,22 @@ use App\Http\Controllers\Api\Admin\AdminServiceController;
 |--------------------------------------------------------------------------
 */
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+/*
+ * Cửa vào tài khoản — mỗi tuyến một hạn mức riêng, chặt hơn hạn mức chung 60 lượt/phút.
+ *
+ * Hạn mức chung đủ cho việc duyệt tour, nhưng với ô đăng nhập thì 60 lần thử mật khẩu mỗi phút là
+ * 86.400 lần một ngày từ một địa chỉ. Bốn tuyến dưới đây đều là chỗ đoán được thứ gì đó của người
+ * khác - mật khẩu, hoặc việc một địa chỉ email có tài khoản ở đây hay không - nên chúng phải trả
+ * giá theo số lần thử.
+ *
+ * Số lần đếm theo địa chỉ IP. Hai tuyến gửi thư để mức 5 lần mỗi 10 phút, vì một lần bấm đúng là
+ * đã có thư trong hộp; bấm tới lần thứ sáu trong mười phút là đang thử người khác, không phải đang
+ * chờ thư của mình.
+ */
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:5,10');
+Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:10,10');
 
 Route::get('/tours', [TourController::class, 'index']);
 Route::get('/tours/{id}', [TourController::class, 'show']);
@@ -82,8 +97,10 @@ Route::post('/bookings', [CustomerBookingController::class, 'store']);
 Route::post('/group-bookings', [CustomerGroupBookingController::class, 'store']);
 Route::get('/group-bookings/{publicToken}', [CustomerGroupBookingController::class, 'show']);
 Route::put('/group-bookings/{publicToken}/withdraw', [CustomerGroupBookingController::class, 'withdraw']);
-// Task X06a - API gửi lại mã tra cứu về email khách vãng lai
-Route::post('/bookings/resend-code', [CustomerBookingController::class, 'resendLookupCode']);
+// Task X06a - API gửi lại mã tra cứu về email khách vãng lai.
+// Hạn mức riêng cùng lý do với nhóm tài khoản ở trên: đây là một đường dò xem email nào đã đặt tour.
+Route::post('/bookings/resend-code', [CustomerBookingController::class, 'resendLookupCode'])
+    ->middleware('throttle:5,10');
 Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']);
 /*
  * G03 - Khai danh sách hành khách bằng mã tra cứu, không cần đăng nhập.

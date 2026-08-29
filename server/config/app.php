@@ -56,6 +56,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Địa chỉ giao diện người dùng
+    |--------------------------------------------------------------------------
+    |
+    | Máy chủ này chỉ có API; mọi liên kết gửi cho người dùng - thư xác nhận đơn, thư đặt lại mật
+    | khẩu, chỗ VNPay trả khách về - đều phải trỏ sang ứng dụng React, không trỏ về `app.url`.
+    |
+    | Khai ở đây thay vì gọi `env('FRONTEND_URL')` rải rác trong mã: `env()` trả về null ngay khi
+    | cấu hình được nạp sẵn bằng `config:cache`, và triệu chứng khi ấy là các liên kết trong thư
+    | im lặng trỏ về sai chỗ chứ không phải một lỗi nhìn thấy được.
+    |
+    */
+
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

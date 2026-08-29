@@ -10,6 +10,8 @@ import { GuideLayout } from "@/components/guide/GuideLayout";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Login } from "@/pages/Login";
 import { Register } from "@/pages/Register";
+import { ForgotPassword } from "@/pages/ForgotPassword";
+import { ResetPassword } from "@/pages/ResetPassword";
 import { NotFound } from "@/pages/NotFound";
 import { Home } from "@/pages/Home";
 import { Tours } from "@/pages/Tours";
@@ -133,6 +135,17 @@ const router = createBrowserRouter([
       {
         path: "/register",
         element: <Register />,
+      },
+      {
+        // Trang đăng nhập vẫn trỏ tới đây từ trước khi có màn hình này — liên kết cũ rơi vào 404.
+        path: "/forgot-password",
+        element: <ForgotPassword />,
+      },
+      {
+        // Địa chỉ này nằm trong thư gửi khách, kèm ?token=...&email=... — đổi đường dẫn thì mọi
+        // liên kết đã gửi đi đều hỏng. Xem App\Mail\PasswordResetMail.
+        path: "/reset-password",
+        element: <ResetPassword />,
       },
       {
         element: <ProtectedRoute />,

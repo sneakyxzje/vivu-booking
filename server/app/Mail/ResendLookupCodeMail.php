@@ -42,7 +42,7 @@ class ResendLookupCodeMail extends Mailable
      */
     public function content(): Content
     {
-        $frontendUrl = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
+        $frontendUrl = rtrim(config('app.frontend_url'), '/');
 
         return new Content(
             view: 'emails.bookings.resend_lookup_code',

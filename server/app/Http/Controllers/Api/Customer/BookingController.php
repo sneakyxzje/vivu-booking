@@ -498,7 +498,7 @@ class BookingController extends Controller
 
     public function vnpayReturn(Request $request)
     {
-        $frontendUrl = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
+        $frontendUrl = rtrim(config('app.frontend_url'), '/');
         $bookingId = $request->query('vnp_TxnRef');
         $isValidSignature = $this->hasValidVnpaySignature($request);
         $isSuccessful = $isValidSignature

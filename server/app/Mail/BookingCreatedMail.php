@@ -36,12 +36,12 @@ class BookingCreatedMail extends Mailable
                 'paymentUrl' => $this->paymentUrl,
 
                 'frontendBookingUrl' => rtrim(
-                    env('FRONTEND_URL', 'http://localhost:5173'),
+                    config('app.frontend_url'),
                     '/'
                 ) . '/booking-success/' . $this->booking->public_token,
 
                 'lookupUrl' => rtrim(
-                    env('FRONTEND_URL', 'http://localhost:5173'),
+                    config('app.frontend_url'),
                     '/'
                 ) . '/tra-cuu-don',
             ],

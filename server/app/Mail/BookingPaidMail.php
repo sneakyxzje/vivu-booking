@@ -31,7 +31,7 @@ class BookingPaidMail extends Mailable
             view: 'emails.bookings.paid',
             with: [
                 'booking' => $this->booking,
-                'frontendBookingUrl' => rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/')
+                'frontendBookingUrl' => rtrim(config('app.frontend_url'), '/')
                     . '/booking-success/' . $this->booking->public_token,
                 /*
                  * G03 - Liên kết khai danh sách hành khách.
@@ -39,7 +39,7 @@ class BookingPaidMail extends Mailable
                  * Danh sách nay khai sau khi đặt, nên thư này là chỗ khách chắc chắn tìm lại
                  * được. Thiếu nó thì họ phải nhớ mã tra cứu rồi tự mò đường.
                  */
-                'frontendPassengerUrl' => rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/')
+                'frontendPassengerUrl' => rtrim(config('app.frontend_url'), '/')
                     . '/bookings/' . $this->booking->public_token . '/passengers',
             ],
         );

@@ -6,8 +6,10 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Mail\PasswordResetMail;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable(['name', 'email', 'password', 'phone', 'address', 'avatar', 'role', 'status'])]
@@ -56,6 +58,18 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Thư đặt lại mật khẩu, gửi thẳng bằng Mailable của dự án.
+     *
+     * Mặc định của Laravel là thông báo `ResetPassword`, dựng liên kết bằng `route('password.reset')`
+     * - một tuyến chỉ tồn tại ở ứng dụng có giao diện Blade. Ở đây giao diện là ứng dụng React
+     * riêng, nên liên kết phải trỏ sang đó; xem `PasswordResetMail`.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        Mail::to($this->email)->send(new PasswordResetMail($this, $token));
     }
     public function reviews()
     {
