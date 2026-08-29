@@ -201,15 +201,6 @@ export interface GuideHandoverNote {
   handed_over_at: string | null;
   reason: string;
   handover_note: string;
-  /** Nhờ trông hộ: người nhận đang giữ hai đoàn cùng lúc. */
-  is_emergency_cover: boolean;
-  /**
-   * Người nhận đã xác nhận đọc chưa.
-   *
-   * Không phải bước duyệt — việc chuyển đã xong từ lúc điều hành bấm. Đây chỉ là bằng chứng
-   * người nhận thật sự biết mình đang giữ đoàn nào.
-   */
-  acknowledged_at: string | null;
 }
 
 /** Yêu cầu bàn giao do chính hướng dẫn viên gửi. Không có người thay: đó là việc của điều hành. */
@@ -387,10 +378,7 @@ const guideService = {
     return response.data?.message ?? "Đã từ chối chuyến này.";
   },
 
-  acknowledgeHandover: async (id: number) => {
-    const response = await api.put(`/guide/handovers/${id}/acknowledge`);
-    return response.data?.message ?? "Đã xác nhận tiếp nhận đoàn.";
-  },
+  // Không còn `acknowledgeHandover`: bước xác nhận đã đọc không chặn gì, gọi điện hỏi nhanh hơn.
 
   getMyHandoverRequests: async (): Promise<GuideHandoverRequestRow[]> => {
     const response = await api.get("/guide/handover-requests");
@@ -411,10 +399,7 @@ const guideService = {
     return response.data?.message ?? "Đã gửi yêu cầu.";
   },
 
-  withdrawHandoverRequest: async (id: number) => {
-    const response = await api.put(`/guide/handover-requests/${id}/withdraw`);
-    return response.data?.message ?? "Đã rút lại yêu cầu.";
-  },
+  // Không còn `withdrawHandoverRequest`: đỡ rồi thì gọi điều hành, họ đóng phiếu kèm ghi chú.
 
   getMyIncidents: async (): Promise<GuideIncident[]> => {
     const response = await api.get("/guide/incidents");

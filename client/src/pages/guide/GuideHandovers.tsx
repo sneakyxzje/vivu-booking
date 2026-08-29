@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, Clock, Phone, Plus } from "lucide-react";
+import { ArrowRight, Clock, Phone, Plus } from "lucide-react";
 import guideService from "@/services/guideService";
 import type { GuideHandoverNote, GuideHandoverRequestRow } from "@/services/guideService";
 import type { Tour } from "@/types";
@@ -88,23 +88,12 @@ export default function GuideHandovers() {
     }
   };
 
-  const xacNhan = async (id: number) => {
-    try {
-      await guideService.acknowledgeHandover(id);
-      loadData();
-    } catch (err) {
-      console.error("Lỗi xác nhận bàn giao:", err);
-    }
-  };
-
-  const rutLai = async (id: number) => {
-    try {
-      await guideService.withdrawHandoverRequest(id);
-      loadData();
-    } catch (err) {
-      console.error("Lỗi rút yêu cầu:", err);
-    }
-  };
+  /*
+   * Không còn nút "đã đọc, tôi tiếp nhận" và nút "rút lại yêu cầu".
+   *
+   * Nút thứ nhất không chặn gì — đoàn đã thuộc về bạn từ lúc điều hành bấm. Nút thứ hai thì đỡ
+   * rồi gọi cho điều hành một câu là xong, họ đóng phiếu kèm ghi chú.
+   */
 
   const nhan = notes.filter((n) => n.direction === "received");
   const giao = notes.filter((n) => n.direction === "given");
@@ -150,30 +139,11 @@ export default function GuideHandovers() {
         <p className="mt-1 text-sm text-gray-800">{note.handover_note}</p>
       </div>
 
-      {/*
-        Xác nhận chỉ có ở chiều nhận, và chỉ là bằng chứng đã đọc — đoàn đã thuộc về bạn từ lúc
-        điều hành bấm, không chờ nút này. Không kham nổi thì gửi yêu cầu bàn giao của chính mình.
-      */}
-      {nhanDoan &&
-        (note.acknowledged_at ? (
-          <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
-            <Check className="h-3.5 w-3.5" />
-            Đã xác nhận lúc {formatDateTime(note.acknowledged_at)}
-          </p>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => xacNhan(note.id)}
-              className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700"
-            >
-              Đã đọc, tôi tiếp nhận
-            </button>
-            <span className="text-[11px] text-gray-500">
-              Đoàn đã thuộc về bạn rồi. Bấm để điều hành biết bạn đã nắm được tình hình.
-            </span>
-          </div>
-        ))}
+      {nhanDoan && (
+        <p className="text-[11px] text-gray-500">
+          Đoàn đã thuộc về bạn kể từ thời điểm ghi ở trên.
+        </p>
+      )}
     </div>
   );
 
@@ -297,26 +267,21 @@ export default function GuideHandovers() {
                 <span className="font-bold text-gray-900">
                   {yc.tour_title} · chuyến #{yc.tour_schedule_id}
                 </span>
+                {/* Hai trạng thái: đang chờ, hoặc đã xử lý. */}
                 <span
                   className={`rounded px-2 py-0.5 font-semibold ${
                     yc.status === "pending"
                       ? "bg-amber-50 text-amber-700"
-                      : yc.status === "approved"
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-gray-100 text-gray-600"
+                      : "bg-gray-100 text-gray-600"
                   }`}
                 >
                   {yc.status_label}
                 </span>
 
                 {yc.status === "pending" && (
-                  <button
-                    type="button"
-                    onClick={() => rutLai(yc.id)}
-                    className="ml-auto rounded border border-gray-200 px-2 py-0.5 font-semibold text-gray-700 hover:bg-gray-50"
-                  >
-                    Rút lại
-                  </button>
+                  <span className="ml-auto text-[11px] text-gray-500">
+                    Đỡ rồi thì gọi điều hành để đóng phiếu.
+                  </span>
                 )}
               </div>
 
