@@ -2,10 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ContactChannel;
+use App\Enums\ContactOutcome;
+use App\Enums\ContactPurpose;
 use App\Enums\ScheduleStatus;
+use App\Enums\TransferReasonCategory;
 use App\Models\Booking;
 use App\Models\BookingAuditLog;
 use App\Models\BookingTransfer;
+use App\Models\CustomerContactLog;
 use App\Models\Tour;
 use App\Models\TourSchedule;
 use App\Models\User;
@@ -102,6 +107,25 @@ class BookingTransferTest extends TestCase
         return app(BookingTransferService::class);
     }
 
+    /**
+     * Một cuộc trao đổi đã ghi nhận, khách đồng ý — căn cứ để chuyển chuyến.
+     *
+     * Hầu hết bài dưới đây kiểm những chuyện khác (số chỗ, tiền, nhật ký) nên chỉ cần có căn cứ
+     * hợp lệ là đủ. Bản thân luật "phải hỏi khách" có nhóm bài riêng ở cuối tệp.
+     */
+    private function daHoiKhach(Booking $don, ContactOutcome $ketQua = ContactOutcome::Agreed): CustomerContactLog
+    {
+        return CustomerContactLog::create([
+            'booking_id' => $don->id,
+            'channel' => ContactChannel::Phone->value,
+            'purpose' => ContactPurpose::Transfer->value,
+            'outcome' => $ketQua->value,
+            'note' => 'Da goi cho khach, trao doi ve viec doi sang chuyen khac.',
+            'contacted_by' => $this->dieuHanh->id,
+            'contacted_at' => now(),
+        ]);
+    }
+
     // --- Số chỗ ở hai đầu ---------------------------------------------------------------
 
     /** Bài quan trọng nhất: chỗ phải rời chuyến gốc và tới chuyến đích, không mất không nhân đôi. */
@@ -109,7 +133,7 @@ class BookingTransferTest extends TestCase
     {
         $don = $this->taoDon();
 
-        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
 
         $this->assertSame(0, (int) $this->chuyenGoc->fresh()->booked_people);
         $this->assertSame(2, (int) $this->chuyenDich->fresh()->booked_people);
@@ -120,7 +144,7 @@ class BookingTransferTest extends TestCase
     {
         $don = $this->taoDon();
 
-        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
 
         $this->artisan('bookings:check-seat-consistency')->assertSuccessful();
     }
@@ -130,7 +154,7 @@ class BookingTransferTest extends TestCase
         $chuyenNho = $this->taoChuyen(now()->addDays(50), null, ['max_people' => 2]);
         $don = $this->taoDon();
 
-        $this->service()->transfer($don, $chuyenNho, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+        $this->service()->transfer($don, $chuyenNho, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
 
         $this->assertSame(
             ScheduleStatus::Closed->value,
@@ -144,7 +168,7 @@ class BookingTransferTest extends TestCase
         $don = $this->taoDon(nguoiLon: 10);
         $this->chuyenGoc->update(['status' => ScheduleStatus::Closed->value]);
 
-        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
 
         $this->assertSame(
             ScheduleStatus::Open->value,
@@ -161,7 +185,7 @@ class BookingTransferTest extends TestCase
 
         $this->expectException(\App\Exceptions\BusinessRuleException::class);
 
-        $this->service()->transfer($don, $chuyenChat, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+        $this->service()->transfer($don, $chuyenChat, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
     }
 
     /** Từ chối thì không được để lại dấu vết nào ở số chỗ của cả hai chuyến. */
@@ -171,7 +195,7 @@ class BookingTransferTest extends TestCase
         $don = $this->taoDon();
 
         try {
-            $this->service()->transfer($don, $chuyenChat, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+            $this->service()->transfer($don, $chuyenChat, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
         } catch (\App\Exceptions\BusinessRuleException) {
             // Bỏ qua, phần cần kiểm là số chỗ bên dưới.
         }
@@ -187,7 +211,7 @@ class BookingTransferTest extends TestCase
 
         $this->expectException(\App\Exceptions\BusinessRuleException::class);
 
-        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
     }
 
     public function test_chuyen_goc_dang_chay_thi_khong_chuyen_duoc(): void
@@ -201,7 +225,7 @@ class BookingTransferTest extends TestCase
 
         $this->expectException(\App\Exceptions\BusinessRuleException::class);
 
-        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
     }
 
     /**
@@ -221,7 +245,7 @@ class BookingTransferTest extends TestCase
 
         $this->expectException(\App\Exceptions\BusinessRuleException::class);
 
-        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
     }
 
     /** Hãng khởi xướng được miễn hạn báo trước, nhưng không miễn được hạn chốt danh sách. */
@@ -243,7 +267,7 @@ class BookingTransferTest extends TestCase
         $this->chuyenGoc->update(['booking_deadline' => now()->subHour()]);
 
         try {
-            $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+            $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
         } catch (\App\Exceptions\BusinessRuleException) {
             // Bỏ qua, phần cần kiểm nằm bên dưới.
         }
@@ -285,7 +309,7 @@ class BookingTransferTest extends TestCase
 
         $this->expectException(\App\Exceptions\BusinessRuleException::class);
 
-        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
     }
 
     /**
@@ -323,7 +347,7 @@ class BookingTransferTest extends TestCase
         $chuyenDat = $this->taoChuyen(now()->addDays(50), $tourDat);
         $don = $this->taoDon();
 
-        $banGhi = $this->service()->transfer($don, $chuyenDat, 'Khach doi sang tour khac.', $this->dieuHanh, 'company');
+        $banGhi = $this->service()->transfer($don, $chuyenDat, 'Khach doi sang tour khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
 
         $this->assertEquals(2_000_000, (float) $banGhi->price_difference);
         $this->assertEquals(6_000_000, (float) $don->fresh()->total_amount);
@@ -334,11 +358,11 @@ class BookingTransferTest extends TestCase
     {
         $don = $this->taoDon();
 
-        $lanMot = $this->service()->transfer($don, $this->chuyenDich, 'Doi lan mot.', $this->dieuHanh, 'customer');
+        $lanMot = $this->service()->transfer($don, $this->chuyenDich, 'Doi lan mot.', $this->dieuHanh, 'customer', canCu: $this->daHoiKhach($don));
         $this->assertEquals(0, (float) $lanMot->fee);
 
         $chuyenBa = $this->taoChuyen(now()->addDays(60));
-        $lanHai = $this->service()->transfer($don->fresh(), $chuyenBa, 'Doi lan hai.', $this->dieuHanh, 'customer');
+        $lanHai = $this->service()->transfer($don->fresh(), $chuyenBa, 'Doi lan hai.', $this->dieuHanh, 'customer', canCu: $this->daHoiKhach($don));
 
         $this->assertGreaterThan(0, (float) $lanHai->fee);
         $this->assertSame(2, (int) $don->fresh()->transfer_count);
@@ -350,7 +374,7 @@ class BookingTransferTest extends TestCase
         $don = $this->taoDon();
         $don->forceFill(['transfer_count' => 3])->save();
 
-        $banGhi = $this->service()->transfer($don, $this->chuyenDich, 'Chuyen goc bi huy.', $this->dieuHanh, 'company');
+        $banGhi = $this->service()->transfer($don, $this->chuyenDich, 'Chuyen goc bi huy.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
 
         $this->assertEquals(0, (float) $banGhi->fee);
     }
@@ -362,7 +386,7 @@ class BookingTransferTest extends TestCase
         $don = $this->taoDon();
 
         Sanctum::actingAs($this->dieuHanh);
-        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company');
+        $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
 
         $log = BookingAuditLog::query()->where('booking_id', $don->id)->latest('id')->first();
 
@@ -377,8 +401,8 @@ class BookingTransferTest extends TestCase
         $don = $this->taoDon();
         $chuyenBa = $this->taoChuyen(now()->addDays(60));
 
-        $this->service()->transfer($don, $this->chuyenDich, 'Doi lan mot.', $this->dieuHanh, 'company');
-        $this->service()->transfer($don->fresh(), $chuyenBa, 'Doi lan hai.', $this->dieuHanh, 'company');
+        $this->service()->transfer($don, $this->chuyenDich, 'Doi lan mot.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
+        $this->service()->transfer($don->fresh(), $chuyenBa, 'Doi lan hai.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
 
         $this->assertSame(2, BookingTransfer::query()->where('booking_id', $don->id)->count());
     }
@@ -402,10 +426,13 @@ class BookingTransferTest extends TestCase
     public function test_api_chuyen_chuyen_thanh_cong(): void
     {
         $don = $this->taoDon();
+        $canCu = $this->daHoiKhach($don);
         Sanctum::actingAs($this->dieuHanh);
 
         $this->postJson("/api/admin/bookings/{$don->id}/transfer", [
             'to_schedule_id' => $this->chuyenDich->id,
+            'contact_log_id' => $canCu->id,
+            'reason_category' => TransferReasonCategory::CustomerRequest->value,
             'reason' => 'Khach xin doi sang ngay khac vi ban viec.',
         ])->assertOk();
 
@@ -441,5 +468,171 @@ class BookingTransferTest extends TestCase
             'to_schedule_id' => $this->chuyenDich->id,
             'reason' => 'Toi muon tu doi chuyen.',
         ])->assertStatus(403);
+    }
+
+    // --- Phải hỏi khách trước --------------------------------------------------------------
+
+    /**
+     * Bài trung tâm của nhóm này: chưa ghi nhận cuộc trao đổi nào thì không chuyển được.
+     *
+     * Chuyển chuyến đổi ngày đi của người khác - họ đã xin nghỉ phép, đã đặt vé tàu tới điểm tập
+     * kết. Điều hành thấy chuyến ngày 12 trống chỗ nên dời sang: hợp lý với bảng xếp chuyến, vô lý
+     * với người phải đi.
+     */
+    public function test_chua_hoi_khach_thi_khong_chuyen_duoc(): void
+    {
+        $don = $this->taoDon();
+
+        $this->expectException(\App\Exceptions\BusinessRuleException::class);
+
+        $this->service()->transfer($don, $this->chuyenDich, 'Doi cho gon lich.', $this->dieuHanh, 'company');
+    }
+
+    /** Chặn ở tầng dịch vụ thì mọi lối vào đều dính, kể cả lối gọi thẳng không qua API. */
+    public function test_chua_hoi_khach_thi_so_cho_hai_dau_giu_nguyen(): void
+    {
+        $don = $this->taoDon();
+
+        try {
+            $this->service()->transfer($don, $this->chuyenDich, 'Doi cho gon lich.', $this->dieuHanh, 'company');
+        } catch (\App\Exceptions\BusinessRuleException) {
+            // Đúng như mong đợi.
+        }
+
+        $this->assertSame(2, (int) $this->chuyenGoc->fresh()->booked_people);
+        $this->assertSame(0, (int) $this->chuyenDich->fresh()->booked_people);
+    }
+
+    /**
+     * Khách không đồng ý, hoặc không liên lạc được, thì bản ghi ấy không phải giấy phép.
+     *
+     * Ghi nhận được cả hai kết quả xấu là chủ ý - nhật ký chỉ có giá trị khi nó ghi cả những lần
+     * không thành. Nhưng ghi nhận không đồng nghĩa với cho phép.
+     */
+    public function test_khach_khong_dong_y_thi_khong_dung_lam_can_cu_duoc(): void
+    {
+        foreach ([ContactOutcome::Refused, ContactOutcome::Unreachable] as $ketQua) {
+            $don = $this->taoDon();
+            $canCu = $this->daHoiKhach($don, $ketQua);
+
+            try {
+                $this->service()->transfer(
+                    $don,
+                    $this->chuyenDich,
+                    'Doi cho gon lich.',
+                    $this->dieuHanh,
+                    'company',
+                    canCu: $canCu,
+                );
+
+                $this->fail(sprintf('Kết quả "%s" lẽ ra phải bị từ chối.', $ketQua->value));
+            } catch (\App\Exceptions\BusinessRuleException $e) {
+                $this->assertStringContainsString($ketQua->label(), $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Một cái gật đầu là gật cho một phương án, không phải giấy phép dùng mãi.
+     *
+     * Không có luật này thì lần chuyển thứ hai - sang một chuyến khác hẳn, vì một lý do khác hẳn -
+     * vẫn mượn được cuộc gọi của lần trước.
+     */
+    public function test_mot_can_cu_chi_dung_duoc_cho_mot_lan_chuyen(): void
+    {
+        $chuyenBa = $this->taoChuyen(now()->addDays(60));
+        $don = $this->taoDon();
+        $canCu = $this->daHoiKhach($don);
+
+        $this->service()->transfer($don, $this->chuyenDich, 'Doi lan mot.', $this->dieuHanh, 'company', canCu: $canCu);
+
+        $this->expectException(\App\Exceptions\BusinessRuleException::class);
+
+        $this->service()->transfer($don->fresh(), $chuyenBa, 'Doi lan hai.', $this->dieuHanh, 'company', canCu: $canCu);
+    }
+
+    /** Bản ghi của đơn khác cũng không dùng được, dù nội dung có đẹp đến đâu. */
+    public function test_can_cu_cua_don_khac_thi_khong_dung_duoc(): void
+    {
+        $don = $this->taoDon();
+        $donKhac = $this->taoDon();
+
+        $this->expectException(\App\Exceptions\BusinessRuleException::class);
+
+        $this->service()->transfer(
+            $don,
+            $this->chuyenDich,
+            'Doi cho gon lich.',
+            $this->dieuHanh,
+            'company',
+            canCu: $this->daHoiKhach($donKhac),
+        );
+    }
+
+    /**
+     * Ngoại lệ duy nhất: cả chuyến gốc bị hủy.
+     *
+     * Ở đó không có phương án nào để hỏi ý - chuyến của khách không còn tồn tại. Luồng hủy chuyến
+     * gửi thư báo kèm lựa chọn hoàn tiền, và khách trả lời bằng cách nhận tiền hoặc đi chuyến mới.
+     * Cờ `nguonBiHuy` đã có sẵn từ trước cho luật hạn chốt, không phải cửa sau mở thêm.
+     */
+    public function test_chuyen_goc_bi_huy_thi_khong_can_can_cu(): void
+    {
+        $don = $this->taoDon();
+
+        $banGhi = $this->service()->transfer(
+            $don,
+            $this->chuyenDich,
+            'Cong ty huy chuyen goc.',
+            $this->dieuHanh,
+            'company',
+            nguonBiHuy: true,
+        );
+
+        $this->assertNull($banGhi->contact_log_id);
+        $this->assertSame($this->chuyenDich->id, (int) $don->fresh()->tour_schedule_id);
+    }
+
+    // --- Nhóm lý do -------------------------------------------------------------------------
+
+    /**
+     * Chuyển vì bão thì không thu phí đổi lịch, dù đơn đã đổi một lần rồi.
+     *
+     * Thu phí của người phải dời chuyến vì bão là bắt họ trả cho việc không ai gây ra. Chỉ nhóm
+     * "khách xin đổi vì việc riêng" mới chịu quy tắc phí.
+     */
+    public function test_ly_do_bat_kha_khang_thi_khong_thu_phi(): void
+    {
+        $don = $this->taoDon();
+        $don->forceFill(['transfer_count' => 1])->save();
+
+        $this->assertSame(
+            0.0,
+            $this->service()->transferFee($don, 'customer', TransferReasonCategory::ForceMajeure),
+        );
+
+        $this->assertGreaterThan(
+            0.0,
+            $this->service()->transferFee($don, 'customer', TransferReasonCategory::CustomerRequest),
+            'Khách xin đổi vì việc riêng, lần thứ hai, thì vẫn thu như cũ.',
+        );
+    }
+
+    /** Nhóm lý do được lưu lại, để sau này còn biết chuyến ấy dời vì bão hay vì khách bận. */
+    public function test_nhom_ly_do_duoc_luu_vao_ban_ghi(): void
+    {
+        $don = $this->taoDon();
+
+        $banGhi = $this->service()->transfer(
+            $don,
+            $this->chuyenDich,
+            'Bao so 9, cam bien, khong chay tau ra dao.',
+            $this->dieuHanh,
+            'company',
+            canCu: $this->daHoiKhach($don),
+            nhomLyDo: TransferReasonCategory::ForceMajeure,
+        );
+
+        $this->assertSame(TransferReasonCategory::ForceMajeure, $banGhi->fresh()->reason_category);
     }
 }
