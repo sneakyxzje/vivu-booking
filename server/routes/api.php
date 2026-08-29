@@ -47,6 +47,7 @@ use App\Http\Controllers\Api\Guide\IncidentController as GuideIncidentController
 use App\Http\Controllers\Api\Admin\AdminScheduleCancellationController;
 use App\Http\Controllers\Api\Admin\AdminScheduleDeadlineController;
 use App\Http\Controllers\Api\Admin\AdminScheduleMergeController;
+use App\Http\Controllers\Api\Customer\PolicyController as CustomerPolicyController;
 use App\Http\Controllers\Api\Admin\AdminContactLogController;
 use App\Http\Controllers\Api\Admin\AdminTransferController;
 use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
@@ -96,6 +97,14 @@ Route::put('/bookings/{publicToken}/passengers', [CustomerPassengerController::c
 // Mức hoàn dự kiến nếu hủy ngay bây giờ. Khách vãng lai cũng xem được bằng mã tra cứu.
 Route::get('/bookings/{publicToken}/refund-quote', [CustomerBookingController::class, 'refundQuote']);
 Route::post('/discount-codes/validate', [DiscountCodeController::class, 'validateCode']);
+
+/*
+ * Chính sách công ty, đọc được mà không cần đăng nhập.
+ *
+ * Khách phải đọc được điều khoản hoàn tiền TRƯỚC khi đặt, tức trước khi có tài khoản. Bắt đăng
+ * nhập mới xem được chính sách hủy là giấu điều khoản cho tới khi người ta đã cam kết.
+ */
+Route::get('/policies', [CustomerPolicyController::class, 'show']);
 Route::get('/vnpay/return', [CustomerBookingController::class, 'vnpayReturn']);
 Route::get('/reviews/{tour}', [ReviewController::class,'index']);
 Route::post('/newsletter', function (\Illuminate\Http\Request $request) {
