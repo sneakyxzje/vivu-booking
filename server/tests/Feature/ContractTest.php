@@ -47,21 +47,21 @@ class ContractTest extends TestCase
 
         $chinhSach = CancellationPolicy::create([
             'name' => 'Chính sách chuẩn',
-            'is_default' => true,
+            'effective_from' => now()->subDay(),
             'is_active' => true,
         ]);
 
         CancellationPolicyRule::create([
             'cancellation_policy_id' => $chinhSach->id,
-            'min_hours_before' => 360,
-            'max_hours_before' => null,
+            'min_days_before' => 360,
+            'max_days_before' => null,
             'refund_percent' => 80,
         ]);
 
         CancellationPolicyRule::create([
             'cancellation_policy_id' => $chinhSach->id,
-            'min_hours_before' => 0,
-            'max_hours_before' => 360,
+            'min_days_before' => 0,
+            'max_days_before' => 360,
             'refund_percent' => 30,
         ]);
 

@@ -150,12 +150,31 @@ class CancellationPolicyTest extends TestCase
     public function test_chinh_sach_rieng_ghi_de_bang_mac_dinh(): void
     {
         $quyTacRieng = [
-            ['min_hours_before' => 168, 'max_hours_before' => null, 'refund_percent' => 100],
-            ['min_hours_before' => 0, 'max_hours_before' => 168, 'refund_percent' => 20],
+            ['min_days_before' => 7, 'max_days_before' => null, 'refund_percent' => 100],
+            ['min_days_before' => 0, 'max_days_before' => 7, 'refund_percent' => 20],
         ];
 
         $this->assertSame(100, $this->service->refundPercent(24 * 10, $quyTacRieng));
         $this->assertSame(20, $this->service->refundPercent(24 * 3, $quyTacRieng));
+    }
+
+    /**
+     * Bậc đếm bằng ngày nhưng ranh giới nằm ở giờ, không làm tròn.
+     *
+     * Bảng phí ghi "dưới 2 ngày hoàn 0%". Người hủy trước 47 tiếng vẫn là dưới 2 ngày, và phải rơi
+     * vào bậc ấy. Làm tròn số ngày lên thì họ được tính như đã báo trước đủ 2 ngày - một mức ưu ái
+     * không có trong hợp đồng, phát sinh từ một phép làm tròn.
+     */
+    public function test_ranh_gioi_bac_tinh_theo_gio_khong_lam_tron_ngay(): void
+    {
+        $bac = [
+            ['min_days_before' => 2, 'max_days_before' => null, 'refund_percent' => 60],
+            ['min_days_before' => 0, 'max_days_before' => 2, 'refund_percent' => 0],
+        ];
+
+        $this->assertSame(0, $this->service->refundPercent(47.0, $bac), '47 giờ vẫn là dưới 2 ngày.');
+        $this->assertSame(60, $this->service->refundPercent(48.0, $bac), 'Đúng 2 ngày thì vào bậc trên.');
+        $this->assertSame(60, $this->service->refundPercent(49.0, $bac));
     }
 
     /**
@@ -165,28 +184,37 @@ class CancellationPolicyTest extends TestCase
     public function test_doc_duoc_quy_tac_dang_doi_tuong(): void
     {
         $quyTac = [
-            (object) ['min_hours_before' => 100, 'max_hours_before' => null, 'refund_percent' => 80],
-            (object) ['min_hours_before' => 0, 'max_hours_before' => 100, 'refund_percent' => 10],
+            (object) ['min_days_before' => 5, 'max_days_before' => null, 'refund_percent' => 80],
+            (object) ['min_days_before' => 0, 'max_days_before' => 5, 'refund_percent' => 10],
         ];
 
-        $this->assertSame(80, $this->service->refundPercent(150.0, $quyTac));
-        $this->assertSame(10, $this->service->refundPercent(50.0, $quyTac));
+        $this->assertSame(80, $this->service->refundPercent(24 * 6, $quyTac));
+        $this->assertSame(10, $this->service->refundPercent(24 * 2, $quyTac));
     }
 
     /**
-     * Thứ tự ưu tiên: chính sách đã sao chép vào đơn, rồi chính sách mặc định trong cơ sở
-     * dữ liệu, cuối cùng mới tới bảng phí viết trong mã.
+     * Thứ tự ưu tiên: bản chính sách đơn đã sao chép vào chính nó, rồi bản đang có hiệu lực trong
+     * cơ sở dữ liệu, cuối cùng mới tới bảng phí viết trong mã.
+     *
+     * Đây là chỗ nguyên tắc không hồi tố sống hay chết: đơn cũ vẫn hưởng bảng phí cũ dù bảng phí
+     * mới đã áp dụng từ lâu.
      */
-    public function test_chinh_sach_cua_don_thang_chinh_sach_mac_dinh(): void
+    public function test_ban_don_da_chep_thang_ban_dang_ap_dung(): void
     {
-        $macDinh = CancellationPolicy::create(['name' => 'Mặc định', 'is_default' => true]);
+        $macDinh = CancellationPolicy::create([
+            'name' => 'Mặc định',
+            'effective_from' => now()->subDay(),
+        ]);
         $macDinh->rules()->create([
-            'min_hours_before' => 0, 'max_hours_before' => null, 'refund_percent' => 10,
+            'min_days_before' => 0, 'max_days_before' => null, 'refund_percent' => 10,
         ]);
 
-        $rieng = CancellationPolicy::create(['name' => 'Tour lễ tết', 'is_default' => false]);
+        $rieng = CancellationPolicy::create([
+            'name' => 'Bản cũ hơn, đơn đã chép vào chính nó',
+            'effective_from' => now()->subDays(30),
+        ]);
         $rieng->rules()->create([
-            'min_hours_before' => 0, 'max_hours_before' => null, 'refund_percent' => 55,
+            'min_days_before' => 0, 'max_days_before' => null, 'refund_percent' => 55,
         ]);
 
         $booking = $this->booking(10_000_000);
@@ -199,14 +227,17 @@ class CancellationPolicyTest extends TestCase
     }
 
     /**
-     * Đơn chưa gắn chính sách thì dùng chính sách mặc định trong cơ sở dữ liệu, không rơi
+     * Đơn chưa gắn chính sách thì dùng bản đang có hiệu lực trong cơ sở dữ liệu, không rơi
      * thẳng về bảng phí trong mã.
      */
-    public function test_don_khong_gan_chinh_sach_thi_dung_mac_dinh_trong_co_so_du_lieu(): void
+    public function test_don_khong_gan_chinh_sach_thi_dung_ban_dang_ap_dung(): void
     {
-        $macDinh = CancellationPolicy::create(['name' => 'Mặc định', 'is_default' => true]);
+        $macDinh = CancellationPolicy::create([
+            'name' => 'Mặc định',
+            'effective_from' => now()->subDay(),
+        ]);
         $macDinh->rules()->create([
-            'min_hours_before' => 0, 'max_hours_before' => null, 'refund_percent' => 25,
+            'min_days_before' => 0, 'max_days_before' => null, 'refund_percent' => 25,
         ]);
 
         $ketQua = $this->service->quote($this->booking(10_000_000), $this->schedule(24 * 10));

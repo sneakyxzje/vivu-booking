@@ -25,19 +25,19 @@ class RefundQuoteApiTest extends TestCase
     {
         $policy = CancellationPolicy::create([
             'name' => 'Chính sách hủy tiêu chuẩn',
-            'is_default' => true,
+            'effective_from' => now()->subDay(),
         ]);
 
         foreach ([
-            [360, null, 90],
-            [192, 360, 70],
-            [96, 192, 50],
-            [48, 96, 30],
-            [0, 48, 0],
+            [15, null, 90],
+            [8, 15, 70],
+            [4, 8, 50],
+            [2, 4, 30],
+            [0, 2, 0],
         ] as [$min, $max, $percent]) {
             $policy->rules()->create([
-                'min_hours_before' => $min,
-                'max_hours_before' => $max,
+                'min_days_before' => $min,
+                'max_days_before' => $max,
                 'refund_percent' => $percent,
             ]);
         }

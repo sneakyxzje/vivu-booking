@@ -50,9 +50,9 @@ class AdminCancellationPolicyTest extends TestCase
     private function bacPhiHopLe(): array
     {
         return [
-            ['min_hours_before' => 360, 'max_hours_before' => null, 'refund_percent' => 90],
-            ['min_hours_before' => 48, 'max_hours_before' => 360, 'refund_percent' => 50],
-            ['min_hours_before' => 0, 'max_hours_before' => 48, 'refund_percent' => 0],
+            ['min_days_before' => 15, 'max_days_before' => null, 'refund_percent' => 90],
+            ['min_days_before' => 2, 'max_days_before' => 15, 'refund_percent' => 50],
+            ['min_days_before' => 0, 'max_days_before' => 2, 'refund_percent' => 0],
         ];
     }
 
@@ -83,7 +83,7 @@ class AdminCancellationPolicyTest extends TestCase
 
         $policy = CancellationPolicy::query()->create([
             'name' => 'Bảng phí đang chạy',
-            'is_default' => true,
+            'effective_from' => now()->subDay(),
         ]);
 
         foreach ($this->bacPhiHopLe() as $rule) {
@@ -106,33 +106,32 @@ class AdminCancellationPolicyTest extends TestCase
         $this->getJson('/api/admin/cancellation-policies')->assertOk();
 
         $this->putJson('/api/admin/cancellation-policies', [
-            'name' => 'Bảng phí mới',
+            'effective_from' => now()->format('Y-m-d H:i:s'), 'name' => 'Bảng phí mới',
             'description' => 'Rút còn hai bậc cho gọn.',
             'rules' => [
-                ['min_hours_before' => 168, 'max_hours_before' => null, 'refund_percent' => 80],
-                ['min_hours_before' => 0, 'max_hours_before' => 168, 'refund_percent' => 20],
+                ['min_days_before' => 7, 'max_days_before' => null, 'refund_percent' => 80],
+                ['min_days_before' => 0, 'max_days_before' => 7, 'refund_percent' => 20],
             ],
         ])->assertOk();
 
-        $policy = CancellationPolicy::default()->load('rules');
+        $policy = CancellationPolicy::dangApDung();
 
         $this->assertSame('Bảng phí mới', $policy->name);
         $this->assertCount(2, $policy->rules, 'Bảng đang áp dụng phải là bảng vừa nhập.');
 
-        // Bản cũ ở lại làm phiên bản lịch sử cho đơn đã trỏ vào, chỉ mất cờ mặc định.
+        // Bản cũ ở lại làm phiên bản lịch sử cho đơn đã trỏ vào, chỉ thôi là bản mới nhất.
         $this->assertSame(2, CancellationPolicy::query()->count());
-        $this->assertSame(1, CancellationPolicy::query()->where('is_default', true)->count());
     }
 
-    /** Không có bậc từ 0 giờ thì hủy sát ngày đi không rơi vào bậc nào và lặng lẽ hoàn 0. */
-    public function test_phai_co_bac_bat_dau_tu_khong_gio(): void
+    /** Không có bậc từ 0 ngày thì hủy sát ngày đi không rơi vào bậc nào và lặng lẽ hoàn 0. */
+    public function test_phai_co_bac_bat_dau_tu_khong_ngay(): void
     {
         $this->dangNhapAdmin();
 
         $this->putJson('/api/admin/cancellation-policies', [
-            'name' => 'Thiếu bậc cuối',
+            'effective_from' => now()->format('Y-m-d H:i:s'), 'name' => 'Thiếu bậc cuối',
             'rules' => [
-                ['min_hours_before' => 48, 'max_hours_before' => null, 'refund_percent' => 50],
+                ['min_days_before' => 2, 'max_days_before' => null, 'refund_percent' => 50],
             ],
         ])->assertStatus(422);
     }
@@ -142,10 +141,10 @@ class AdminCancellationPolicyTest extends TestCase
         $this->dangNhapAdmin();
 
         $this->putJson('/api/admin/cancellation-policies', [
-            'name' => 'Bậc ngược',
+            'effective_from' => now()->format('Y-m-d H:i:s'), 'name' => 'Bậc ngược',
             'rules' => [
-                ['min_hours_before' => 0, 'max_hours_before' => 100, 'refund_percent' => 50],
-                ['min_hours_before' => 200, 'max_hours_before' => 100, 'refund_percent' => 80],
+                ['min_days_before' => 0, 'max_days_before' => 5, 'refund_percent' => 50],
+                ['min_days_before' => 10, 'max_days_before' => 5, 'refund_percent' => 80],
             ],
         ])->assertStatus(422);
     }
@@ -155,11 +154,103 @@ class AdminCancellationPolicyTest extends TestCase
         $this->dangNhapAdmin();
 
         $this->putJson('/api/admin/cancellation-policies', [
-            'name' => 'Hoàn quá tay',
+            'effective_from' => now()->format('Y-m-d H:i:s'), 'name' => 'Hoàn quá tay',
             'rules' => [
-                ['min_hours_before' => 0, 'max_hours_before' => null, 'refund_percent' => 150],
+                ['min_days_before' => 0, 'max_days_before' => null, 'refund_percent' => 150],
             ],
         ])->assertStatus(422);
+    }
+
+    // --- Mốc hiệu lực ---------------------------------------------------------------------
+
+    /**
+     * Bảng phí hẹn cho tương lai nằm im tới đúng giờ của nó.
+     *
+     * Đây là cách một công ty thật đổi điều khoản: công bố trước, áp sau. Nếu bản hẹn có hiệu lực
+     * ngay lúc bấm lưu thì việc công bố trước thành ra lừa khách - họ đọc một bảng phí rồi đặt
+     * theo một bảng khác.
+     */
+    public function test_ban_hen_cho_tuong_lai_chua_ap_dung_ngay(): void
+    {
+        $this->dangNhapAdmin();
+
+        $this->putJson('/api/admin/cancellation-policies', [
+            'effective_from' => now()->format('Y-m-d H:i:s'),
+            'name' => 'Bảng đang chạy',
+            'rules' => [
+                ['min_days_before' => 0, 'max_days_before' => null, 'refund_percent' => 90],
+            ],
+        ])->assertOk();
+
+        $this->putJson('/api/admin/cancellation-policies', [
+            'effective_from' => now()->addDays(30)->format('Y-m-d H:i:s'),
+            'name' => 'Bảng siết lại từ tháng sau',
+            'rules' => [
+                ['min_days_before' => 0, 'max_days_before' => null, 'refund_percent' => 10],
+            ],
+        ])->assertOk();
+
+        $this->assertSame(
+            'Bảng đang chạy',
+            CancellationPolicy::dangApDung()->name,
+            'Chưa tới ngày thì bản cũ vẫn là bản áp dụng.',
+        );
+
+        $this->assertSame(
+            'Bảng siết lại từ tháng sau',
+            CancellationPolicy::dangApDung(now()->addDays(31))->name,
+            'Tới ngày thì bản mới thay chỗ, không cần ai bật cờ.',
+        );
+    }
+
+    /**
+     * Màn hình mở ra phải thấy bản mình vừa hẹn, không phải bản đang chạy.
+     *
+     * Người vừa đặt lịch một bảng phí cho tháng sau mà mở lại thấy bảng cũ thì sẽ tưởng thao tác
+     * của mình không ăn, và bấm lưu thêm lần nữa.
+     */
+    public function test_doc_ve_ban_moi_nhat_ke_ca_khi_chua_toi_gio(): void
+    {
+        $this->dangNhapAdmin();
+
+        $this->putJson('/api/admin/cancellation-policies', [
+            'effective_from' => now()->addDays(30)->format('Y-m-d H:i:s'),
+            'name' => 'Bảng hẹn cho tháng sau',
+            'rules' => [
+                ['min_days_before' => 0, 'max_days_before' => null, 'refund_percent' => 10],
+            ],
+        ])->assertOk();
+
+        $this->getJson('/api/admin/cancellation-policies')
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Bảng hẹn cho tháng sau');
+    }
+
+    /** Đặt mốc vào quá khứ bị chặn: nó gợi ý một sự hồi tố mà hệ thống cố ý không làm. */
+    public function test_khong_dat_duoc_moc_ap_dung_vao_qua_khu(): void
+    {
+        $this->dangNhapAdmin();
+
+        $this->putJson('/api/admin/cancellation-policies', [
+            'effective_from' => now()->subDays(3)->format('Y-m-d H:i:s'),
+            'name' => 'Bảng phí ký lùi',
+            'rules' => [
+                ['min_days_before' => 0, 'max_days_before' => null, 'refund_percent' => 50],
+            ],
+        ])->assertStatus(422);
+
+        $this->assertSame(0, CancellationPolicy::query()->count());
+    }
+
+    /** Mốc hiệu lực là bắt buộc: không có nó thì không trả lời được câu "từ bao giờ". */
+    public function test_thieu_moc_hieu_luc_thi_khong_luu_duoc(): void
+    {
+        $this->dangNhapAdmin();
+
+        $this->putJson('/api/admin/cancellation-policies', [
+            'name' => 'Không ghi từ bao giờ',
+            'rules' => $this->bacPhiHopLe(),
+        ])->assertStatus(422)->assertJsonValidationErrors('effective_from');
     }
 
     // --- Chỉ có một -----------------------------------------------------------------------
@@ -176,7 +267,7 @@ class AdminCancellationPolicyTest extends TestCase
 
         // POST lên đúng đường dẫn: có tuyến nhưng không có động từ này -> 405.
         $this->postJson('/api/admin/cancellation-policies', [
-            'name' => 'Bảng thứ hai',
+            'effective_from' => now()->format('Y-m-d H:i:s'), 'name' => 'Bảng thứ hai',
             'rules' => $this->bacPhiHopLe(),
         ])->assertStatus(405);
 
@@ -203,7 +294,7 @@ class AdminCancellationPolicyTest extends TestCase
 
         $this->getJson('/api/admin/cancellation-policies')->assertForbidden();
         $this->putJson('/api/admin/cancellation-policies', [
-            'name' => 'Thử sửa',
+            'effective_from' => now()->format('Y-m-d H:i:s'), 'name' => 'Thử sửa',
             'rules' => $this->bacPhiHopLe(),
         ])->assertForbidden();
     }
@@ -223,10 +314,10 @@ class AdminCancellationPolicyTest extends TestCase
 
         // Bảng phí lúc khách đặt: hủy sớm hoàn 90%.
         $this->putJson('/api/admin/cancellation-policies', [
-            'name' => 'Bảng phí lúc khách đặt',
+            'effective_from' => now()->format('Y-m-d H:i:s'), 'name' => 'Bảng phí lúc khách đặt',
             'rules' => [
-                ['min_hours_before' => 240, 'max_hours_before' => null, 'refund_percent' => 90],
-                ['min_hours_before' => 0, 'max_hours_before' => 240, 'refund_percent' => 0],
+                ['min_days_before' => 10, 'max_days_before' => null, 'refund_percent' => 90],
+                ['min_days_before' => 0, 'max_days_before' => 10, 'refund_percent' => 0],
             ],
         ])->assertOk();
 
@@ -234,10 +325,10 @@ class AdminCancellationPolicyTest extends TestCase
 
         // Công ty siết lại: cùng khoảng thời gian ấy giờ chỉ hoàn 10%.
         $this->putJson('/api/admin/cancellation-policies', [
-            'name' => 'Bảng phí siết lại',
+            'effective_from' => now()->format('Y-m-d H:i:s'), 'name' => 'Bảng phí siết lại',
             'rules' => [
-                ['min_hours_before' => 240, 'max_hours_before' => null, 'refund_percent' => 10],
-                ['min_hours_before' => 0, 'max_hours_before' => 240, 'refund_percent' => 0],
+                ['min_days_before' => 10, 'max_days_before' => null, 'refund_percent' => 10],
+                ['min_days_before' => 0, 'max_days_before' => 10, 'refund_percent' => 0],
             ],
         ])->assertOk();
 
@@ -256,10 +347,10 @@ class AdminCancellationPolicyTest extends TestCase
         $this->dangNhapAdmin();
 
         $this->putJson('/api/admin/cancellation-policies', [
-            'name' => 'Bảng phí siết lại',
+            'effective_from' => now()->format('Y-m-d H:i:s'), 'name' => 'Bảng phí siết lại',
             'rules' => [
-                ['min_hours_before' => 240, 'max_hours_before' => null, 'refund_percent' => 10],
-                ['min_hours_before' => 0, 'max_hours_before' => 240, 'refund_percent' => 0],
+                ['min_days_before' => 10, 'max_days_before' => null, 'refund_percent' => 10],
+                ['min_days_before' => 0, 'max_days_before' => 10, 'refund_percent' => 0],
             ],
         ])->assertOk();
 
@@ -303,7 +394,7 @@ class AdminCancellationPolicyTest extends TestCase
             'status' => 'confirmed',
             'paid_at' => now(),
             'confirmed_at' => now(),
-            'cancellation_policy_id' => CancellationPolicy::default()?->id,
+            'cancellation_policy_id' => CancellationPolicy::dangApDung()?->id,
         ]);
     }
 }
