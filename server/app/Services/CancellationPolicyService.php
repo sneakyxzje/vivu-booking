@@ -25,14 +25,14 @@ class CancellationPolicyService
      * Đây là thông lệ thị trường lữ hành nội địa, không phải trích từ một văn bản cụ thể.
      * Xem ghi chú về mức độ tin cậy ở docs/nghiep-vu/00-pham-vi-va-gioi-han.md mục 5.
      *
-     * @var array<int, array{min_hours_before: int, max_hours_before: int|null, refund_percent: int}>
+     * @var array<int, array{min_days_before: int, max_days_before: int|null, refund_percent: int}>
      */
     public const DEFAULT_RULES = [
-        ['min_hours_before' => 360, 'max_hours_before' => null, 'refund_percent' => 90], // từ 15 ngày
-        ['min_hours_before' => 192, 'max_hours_before' => 360, 'refund_percent' => 70],  // 8 đến 14 ngày
-        ['min_hours_before' => 96, 'max_hours_before' => 192, 'refund_percent' => 50],   // 4 đến 7 ngày
-        ['min_hours_before' => 48, 'max_hours_before' => 96, 'refund_percent' => 30],    // 2 đến 3 ngày
-        ['min_hours_before' => 0, 'max_hours_before' => 48, 'refund_percent' => 0],      // dưới 48 giờ
+        ['min_days_before' => 15, 'max_days_before' => null, 'refund_percent' => 90],
+        ['min_days_before' => 8, 'max_days_before' => 15, 'refund_percent' => 70],
+        ['min_days_before' => 4, 'max_days_before' => 8, 'refund_percent' => 50],
+        ['min_days_before' => 2, 'max_days_before' => 4, 'refund_percent' => 30],
+        ['min_days_before' => 0, 'max_days_before' => 2, 'refund_percent' => 0],
     ];
 
     /**
@@ -56,10 +56,10 @@ class CancellationPolicyService
             return $rules;
         }
 
-        $macDinh = CancellationPolicy::default();
+        $dangApDung = CancellationPolicy::dangApDung();
 
-        if ($macDinh && $macDinh->rules->isNotEmpty()) {
-            return $macDinh->rules;
+        if ($dangApDung && $dangApDung->rules->isNotEmpty()) {
+            return $dangApDung->rules;
         }
 
         return self::DEFAULT_RULES;
@@ -83,8 +83,13 @@ class CancellationPolicyService
     /**
      * Phần trăm được hoàn ứng với số giờ còn lại.
      *
-     * Đã qua giờ khởi hành thì $hoursBefore âm, không rơi vào quy tắc nào nên hoàn 0.
-     * Đây cũng là mức áp cho khách không có mặt lúc khởi hành.
+     * Nhận vào **giờ** nhưng so bằng **ngày**, và số ngày ở đây có phần lẻ chứ không làm tròn.
+     * Hủy trước 36 tiếng là 1,5 ngày, rơi đúng vào bậc "dưới 2 ngày" - làm tròn xuống 1 ngày cũng
+     * ra cùng bậc, nhưng làm tròn lên thì một người hủy trước 47 tiếng lại được tính như đã báo
+     * trước 2 ngày. Phần lẻ giữ cho ranh giới nằm đúng chỗ hợp đồng ghi.
+     *
+     * Đã qua giờ khởi hành thì $hoursBefore âm, không rơi vào quy tắc nào nên hoàn 0. Đây cũng là
+     * mức áp cho khách không có mặt lúc khởi hành.
      *
      * @param  iterable<int, array<string, mixed>|object>|null  $rules
      */
@@ -94,22 +99,23 @@ class CancellationPolicyService
             return 0;
         }
 
+        $soNgay = $hoursBefore / 24;
         $matched = null;
 
         foreach ($rules ?? self::DEFAULT_RULES as $rule) {
-            $min = (float) data_get($rule, 'min_hours_before', 0);
-            $max = data_get($rule, 'max_hours_before');
+            $min = (float) data_get($rule, 'min_days_before', 0);
+            $max = data_get($rule, 'max_days_before');
 
-            if ($hoursBefore < $min) {
+            if ($soNgay < $min) {
                 continue;
             }
 
-            if ($max !== null && $hoursBefore >= (float) $max) {
+            if ($max !== null && $soNgay >= (float) $max) {
                 continue;
             }
 
             // Nhiều quy tắc chồng nhau thì lấy quy tắc có mốc dưới cao nhất.
-            if ($matched === null || $min > (float) data_get($matched, 'min_hours_before', 0)) {
+            if ($matched === null || $min > (float) data_get($matched, 'min_days_before', 0)) {
                 $matched = $rule;
             }
         }
