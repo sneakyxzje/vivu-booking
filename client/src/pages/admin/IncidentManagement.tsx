@@ -78,13 +78,17 @@ export default function IncidentManagement() {
    * nhập được: bão làm tàu không chạy thì chiếc xe thuê thay tàu là hãng chịu, còn đêm phòng ở
    * thêm là khách chịu — hai khoản, hai người, một sự cố.
    */
-  const nguoiChiuCuaKhoan = (khoan: IncidentChargeInput) => khoan.who_bears || whoBears || "";
+  const nguoiChiuCuaKhoan = (khoan: IncidentChargeInput) =>
+    khoan.who_bears || whoBears || "";
 
   const khachPhaiTraKhoan = (khoan: IncidentChargeInput) => {
     const value = nguoiChiuCuaKhoan(khoan);
     if (!value) return true;
 
-    return data?.options.bearers.find((b) => b.value === value)?.customer_pays === true;
+    return (
+      data?.options.bearers.find((b) => b.value === value)?.customer_pays ===
+      true
+    );
   };
 
   const themKhoan = () => {
@@ -104,7 +108,9 @@ export default function IncidentManagement() {
   };
 
   const suaKhoan = (index: number, thayDoi: Partial<IncidentChargeInput>) =>
-    setCharges((truoc) => truoc.map((k, i) => (i === index ? { ...k, ...thayDoi } : k)));
+    setCharges((truoc) =>
+      truoc.map((k, i) => (i === index ? { ...k, ...thayDoi } : k)),
+    );
 
   const luuPhuongAn = async () => {
     if (!detail) return;
@@ -123,7 +129,8 @@ export default function IncidentManagement() {
       setDetail(null);
       loadData();
     } catch (err) {
-      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      const response = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data;
       setError(response?.message || "Không lưu được phương án.");
     } finally {
       setSaving(false);
@@ -179,10 +186,13 @@ export default function IncidentManagement() {
     if (hinhThuc === null) return;
 
     try {
-      await adminService.settleSurcharge(id, { method: hinhThuc.trim() || null });
+      await adminService.settleSurcharge(id, {
+        method: hinhThuc.trim() || null,
+      });
       await taiLaiKhoan();
     } catch (err) {
-      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      const response = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data;
       setError(response?.message || "Không ghi nhận được.");
     }
   };
@@ -190,10 +200,13 @@ export default function IncidentManagement() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Sự cố dọc đường</h1>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+          Chi phí phát sinh
+        </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Hướng dẫn viên báo lại những gì xảy ra với đoàn; ở đây quyết phương án và ai trả bao nhiêu.
-          Nguyên tắc: hãng chịu chi phí thuộc nghĩa vụ tổ chức, khách chịu chi phí tiêu dùng cá nhân.
+          Hướng dẫn viên báo lại những gì xảy ra với đoàn; ở đây quyết phương án
+          và ai trả bao nhiêu. Nguyên tắc: hãng chịu chi phí thuộc nghĩa vụ tổ
+          chức, khách chịu chi phí tiêu dùng cá nhân.
         </p>
       </div>
 
@@ -234,7 +247,9 @@ export default function IncidentManagement() {
             type="button"
             onClick={() => openDetail(sc)}
             className={`w-full rounded-xl border bg-white p-4 text-left transition-colors hover:bg-gray-50 ${
-              sc.needs_attention ? "border-rose-300 ring-1 ring-rose-100" : "border-gray-200"
+              sc.needs_attention
+                ? "border-rose-300 ring-1 ring-rose-100"
+                : "border-gray-200"
             }`}
           >
             <div className="flex flex-wrap items-center gap-2">
@@ -245,7 +260,9 @@ export default function IncidentManagement() {
               >
                 {sc.severity_label}
               </span>
-              <span className="text-sm font-bold text-gray-900">{sc.type_label}</span>
+              <span className="text-sm font-bold text-gray-900">
+                {sc.type_label}
+              </span>
               <span className="text-xs text-gray-500">
                 #{sc.tour_schedule_id} · {sc.tour_title}
               </span>
@@ -261,7 +278,9 @@ export default function IncidentManagement() {
               </span>
             </div>
 
-            <p className="mt-1.5 line-clamp-2 text-sm text-gray-700">{sc.description}</p>
+            <p className="mt-1.5 line-clamp-2 text-sm text-gray-700">
+              {sc.description}
+            </p>
 
             <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-gray-500">
               <span className="flex items-center gap-1">
@@ -277,7 +296,8 @@ export default function IncidentManagement() {
               {sc.surcharges.length > 0 && (
                 <span>
                   {sc.surcharges.length} khoản ·{" "}
-                  {sc.surcharges.filter((k) => k.in_effect).length} đã có hiệu lực
+                  {sc.surcharges.filter((k) => k.in_effect).length} đã có hiệu
+                  lực
                 </span>
               )}
             </p>
@@ -291,10 +311,12 @@ export default function IncidentManagement() {
           <div className="bg-white w-full max-w-3xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[88vh] overflow-y-auto">
             <div>
               <h4 className="text-base font-bold text-gray-900">
-                {detail.incident.type_label} — chuyến #{detail.incident.tour_schedule_id}
+                {detail.incident.type_label} — chuyến #
+                {detail.incident.tour_schedule_id}
               </h4>
               <p className="text-xs text-gray-500 mt-0.5">
-                {detail.incident.reporter_name} báo lúc {formatDateTime(detail.incident.occurred_at)}
+                {detail.incident.reporter_name} báo lúc{" "}
+                {formatDateTime(detail.incident.occurred_at)}
                 {detail.incident.reported_late ? " (ghi bù)" : ""}
               </p>
             </div>
@@ -327,11 +349,15 @@ export default function IncidentManagement() {
                     key={kh.id}
                     className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 p-2.5 text-xs"
                   >
-                    <span className="font-bold text-gray-900">BK-{kh.booking_id}</span>
+                    <span className="font-bold text-gray-900">
+                      BK-{kh.booking_id}
+                    </span>
                     <span className="text-gray-600">{kh.customer_name}</span>
                     <span
                       className={`font-semibold ${
-                        kh.kind === "refund" ? "text-emerald-700" : "text-rose-700"
+                        kh.kind === "refund"
+                          ? "text-emerald-700"
+                          : "text-rose-700"
                       }`}
                     >
                       {kh.kind_label} {formatPrice(kh.amount)}
@@ -393,10 +419,14 @@ export default function IncidentManagement() {
                       {kh.can_settle && (
                         <button
                           type="button"
-                          onClick={() => ghiNhanTatToan(kh.id, kh.kind === "surcharge")}
+                          onClick={() =>
+                            ghiNhanTatToan(kh.id, kh.kind === "surcharge")
+                          }
                           className="rounded border border-primary-300 bg-primary-50 px-2 py-0.5 font-semibold text-primary-700 hover:bg-primary-100"
                         >
-                          {kh.kind === "surcharge" ? "Ghi nhận đã thu" : "Ghi nhận đã hoàn"}
+                          {kh.kind === "surcharge"
+                            ? "Ghi nhận đã thu"
+                            : "Ghi nhận đã hoàn"}
                         </button>
                       )}
 
@@ -413,7 +443,8 @@ export default function IncidentManagement() {
 
                     {kh.needs_consent && kh.status === "approved" && (
                       <p className="w-full text-[11px] text-amber-700">
-                        Chưa ghi nhận khách đồng ý. Phải nói với khách trước khi thu tiền.
+                        Chưa ghi nhận khách đồng ý. Phải nói với khách trước khi
+                        thu tiền.
                       </p>
                     )}
 
@@ -440,7 +471,8 @@ export default function IncidentManagement() {
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
                 />
                 <p className="mt-1 text-[11px] text-gray-400">
-                  Hướng dẫn viên sẽ đọc đúng đoạn này cho khách, và đây là căn cứ khi có khiếu nại.
+                  Hướng dẫn viên sẽ đọc đúng đoạn này cho khách, và đây là căn
+                  cứ khi có khiếu nại.
                 </p>
               </div>
 
@@ -482,9 +514,10 @@ export default function IncidentManagement() {
 
               {bearerHienTai && (
                 <p className="rounded-lg bg-gray-50 px-3 py-2 text-[11px] text-gray-600">
-                  Mặc định <strong>{bearerHienTai.label}</strong>. Một sự cố thường sinh ra nhiều
-                  loại khoản — xe thuê thay tàu là nghĩa vụ tổ chức nên hãng chịu, đêm phòng ở thêm
-                  là tiêu dùng cá nhân nên khách chịu — nên hãy chỉnh từng dòng cho đúng.
+                  Mặc định <strong>{bearerHienTai.label}</strong>. Một sự cố
+                  thường sinh ra nhiều loại khoản — xe thuê thay tàu là nghĩa vụ
+                  tổ chức nên hãng chịu, đêm phòng ở thêm là tiêu dùng cá nhân
+                  nên khách chịu — nên hãy chỉnh từng dòng cho đúng.
                 </p>
               )}
 
@@ -505,15 +538,21 @@ export default function IncidentManagement() {
 
                 {charges.length === 0 && (
                   <p className="text-[11px] text-gray-400">
-                    Không lập khoản nào cũng được: sự cố mà hãng chịu toàn bộ thì chỉ cần ghi phương án.
+                    Không lập khoản nào cũng được: sự cố mà hãng chịu toàn bộ
+                    thì chỉ cần ghi phương án.
                   </p>
                 )}
 
                 {charges.map((khoan, index) => (
-                  <div key={index} className="grid grid-cols-1 gap-2 rounded-lg border border-gray-200 p-2.5 sm:grid-cols-12">
+                  <div
+                    key={index}
+                    className="grid grid-cols-1 gap-2 rounded-lg border border-gray-200 p-2.5 sm:grid-cols-12"
+                  >
                     <select
                       value={khoan.booking_id}
-                      onChange={(e) => suaKhoan(index, { booking_id: Number(e.target.value) })}
+                      onChange={(e) =>
+                        suaKhoan(index, { booking_id: Number(e.target.value) })
+                      }
                       className="rounded border border-gray-200 px-2 py-1 text-xs sm:col-span-3"
                     >
                       {detail.bookings.map((don) => (
@@ -526,11 +565,15 @@ export default function IncidentManagement() {
                     {/* Người chịu của riêng dòng này. Để trống thì lấy mặc định của phương án. */}
                     <select
                       value={khoan.who_bears ?? ""}
-                      onChange={(e) => suaKhoan(index, { who_bears: e.target.value || null })}
+                      onChange={(e) =>
+                        suaKhoan(index, { who_bears: e.target.value || null })
+                      }
                       className="rounded border border-gray-200 px-2 py-1 text-xs sm:col-span-3"
                     >
                       <option value="">
-                        {bearerHienTai ? `Theo mặc định (${bearerHienTai.label})` : "Chưa xác định"}
+                        {bearerHienTai
+                          ? `Theo mặc định (${bearerHienTai.label})`
+                          : "Chưa xác định"}
                       </option>
                       {data?.options.bearers.map((b) => (
                         <option key={b.value} value={b.value}>
@@ -542,12 +585,17 @@ export default function IncidentManagement() {
                     <select
                       value={khoan.kind}
                       onChange={(e) =>
-                        suaKhoan(index, { kind: e.target.value as "surcharge" | "refund" })
+                        suaKhoan(index, {
+                          kind: e.target.value as "surcharge" | "refund",
+                        })
                       }
                       className="rounded border border-gray-200 px-2 py-1 text-xs sm:col-span-3"
                     >
                       {data?.options.kinds
-                        .filter((k) => k.value === "refund" || khachPhaiTraKhoan(khoan))
+                        .filter(
+                          (k) =>
+                            k.value === "refund" || khachPhaiTraKhoan(khoan),
+                        )
                         .map((k) => (
                           <option key={k.value} value={k.value}>
                             {k.label}
@@ -558,14 +606,20 @@ export default function IncidentManagement() {
                     <input
                       type="number"
                       value={khoan.amount || ""}
-                      onChange={(e) => suaKhoan(index, { amount: Number(e.target.value) })}
+                      onChange={(e) =>
+                        suaKhoan(index, { amount: Number(e.target.value) })
+                      }
                       placeholder="Số tiền"
                       className="rounded border border-gray-200 px-2 py-1 text-xs sm:col-span-2"
                     />
 
                     <button
                       type="button"
-                      onClick={() => setCharges((truoc) => truoc.filter((_, i) => i !== index))}
+                      onClick={() =>
+                        setCharges((truoc) =>
+                          truoc.filter((_, i) => i !== index),
+                        )
+                      }
                       className="rounded px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 sm:col-span-1"
                     >
                       Xóa
@@ -577,7 +631,9 @@ export default function IncidentManagement() {
                     */}
                     <input
                       value={khoan.reason}
-                      onChange={(e) => suaKhoan(index, { reason: e.target.value })}
+                      onChange={(e) =>
+                        suaKhoan(index, { reason: e.target.value })
+                      }
                       placeholder="Diễn giải cho khách — VD: một đêm phòng đôi và hai bữa ăn ngoài lịch trình"
                       className="rounded border border-gray-200 px-2 py-1 text-xs sm:col-span-12"
                     />

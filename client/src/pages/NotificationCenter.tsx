@@ -27,18 +27,14 @@ const mauTheoLoai: Record<string, string> = {
 
 export default function NotificationCenter() {
   const { user } = useAuth();
-  const { items, unread, loading, live, danhDauDaDoc, danhDauTatCa } = useNotifications();
-
-  const moTa = user?.role === "guide"
-    ? "Việc cần biết ngay: chuyến mới được giao, đoàn vừa bàn giao cho bạn, và câu trả lời cho những gì bạn đã gửi lên."
-    : "Việc cần biết ngay: hướng dẫn viên từ chối chuyến, xin bàn giao, hoặc báo sự cố nghiêm trọng.";
+  const { items, unread, loading, live, danhDauDaDoc, danhDauTatCa } =
+    useNotifications();
 
   return (
     <div className="max-w-3xl space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-950">Thông báo</h1>
-          <p className="mt-1 text-sm text-gray-500">{moTa}</p>
         </div>
 
         {unread > 0 && (
@@ -51,28 +47,6 @@ export default function NotificationCenter() {
           </button>
         )}
       </div>
-
-      {/*
-        Nói thẳng đang chạy ở chế độ nào.
-
-        Khi WebSocket không kết nối được, thông báo vẫn tới nhưng chậm hơn — và nếu màn hình không
-        nói ra thì người dùng tưởng hệ thống hỏng, còn người sửa thì không biết bắt đầu từ đâu.
-      */}
-      <div
-        className={`rounded-lg px-3 py-2 text-xs ${
-          live ? "bg-emerald-50 text-emerald-800" : "bg-gray-100 text-gray-600"
-        }`}
-      >
-        {live ? (
-          <>Đang nhận tức thì qua WebSocket.</>
-        ) : (
-          <>
-            Chưa kết nối được WebSocket nên đang tự làm mới mỗi 30 giây. Thông báo vẫn đầy đủ, chỉ
-            chậm hơn. Muốn tức thì thì chạy <code className="font-mono">php artisan reverb:start</code>.
-          </>
-        )}
-      </div>
-
       {loading && <p className="text-sm text-gray-500">Đang tải...</p>}
 
       {!loading && items.length === 0 && (
@@ -86,7 +60,9 @@ export default function NotificationCenter() {
           const noiDung = (
             <>
               <div className="flex flex-wrap items-baseline gap-2">
-                <span className={`text-sm ${tb.read_at ? "font-medium text-gray-700" : "font-bold text-gray-950"}`}>
+                <span
+                  className={`text-sm ${tb.read_at ? "font-medium text-gray-700" : "font-bold text-gray-950"}`}
+                >
                   {tb.title}
                 </span>
                 {!tb.read_at && (
@@ -96,7 +72,9 @@ export default function NotificationCenter() {
                   {formatDateTime(tb.created_at)}
                 </span>
               </div>
-              <p className="mt-1 text-xs leading-relaxed text-gray-600">{tb.body}</p>
+              <p className="mt-1 text-xs leading-relaxed text-gray-600">
+                {tb.body}
+              </p>
             </>
           );
 
@@ -106,11 +84,21 @@ export default function NotificationCenter() {
 
           // Có màn hình xử lý thì cả thẻ là một liên kết; không có thì chỉ bấm để đánh dấu đã đọc.
           return tb.url ? (
-            <Link key={tb.id} to={tb.url} onClick={() => danhDauDaDoc(tb.id)} className={lop}>
+            <Link
+              key={tb.id}
+              to={tb.url}
+              onClick={() => danhDauDaDoc(tb.id)}
+              className={lop}
+            >
               {noiDung}
             </Link>
           ) : (
-            <button key={tb.id} type="button" onClick={() => danhDauDaDoc(tb.id)} className={lop}>
+            <button
+              key={tb.id}
+              type="button"
+              onClick={() => danhDauDaDoc(tb.id)}
+              className={lop}
+            >
               {noiDung}
             </button>
           );

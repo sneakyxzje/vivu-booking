@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
 
@@ -21,11 +27,27 @@ type NavLeaf = { to: string; label: string };
 
 type NavEntry =
   | { kind: "link"; to: string; label: string; icon: React.ReactNode }
-  | { kind: "group"; id: string; label: string; icon: React.ReactNode; items: NavLeaf[] };
+  | {
+      kind: "group";
+      id: string;
+      label: string;
+      icon: React.ReactNode;
+      items: NavLeaf[];
+    };
 
 const icon = (d: string, strokeWidth = 2) => (
-  <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={strokeWidth} d={d} />
+  <svg
+    className="w-5 h-5 shrink-0"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={strokeWidth}
+      d={d}
+    />
   </svg>
 );
 
@@ -86,7 +108,7 @@ const navEntries: NavEntry[] = [
       { to: "/admin/schedules", label: "Quản lý chuyến" },
       { to: "/admin/guides", label: "Hướng dẫn viên" },
       { to: "/admin/handovers", label: "Bàn giao HDV" },
-      { to: "/admin/incidents", label: "Sự cố dọc đường" },
+      { to: "/admin/incidents", label: "Chi phí phát sinh" },
       { to: "/admin/attendance-reports", label: "Báo cáo điểm danh" },
     ],
   },
@@ -107,9 +129,10 @@ const navEntries: NavEntry[] = [
 ];
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 ${isActive
-    ? "bg-primary-600 text-white font-semibold shadow-sm"
-    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+  `flex items-center gap-3 px-4 py-3 rounded-md text-sm font-medium transition-all duration-200 ${
+    isActive
+      ? "bg-primary-600 text-white font-semibold shadow-sm"
+      : "text-slate-400 hover:bg-slate-800 hover:text-white"
   }`;
 
 /*
@@ -119,9 +142,10 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
  * mục ngay trên, và nhìn một cái là biết nhóm dài đến đâu.
  */
 const subLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `block rounded-md py-2 pl-4 pr-3 text-sm transition-colors duration-200 ${isActive
-    ? "bg-primary-600/15 text-white font-semibold"
-    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+  `block rounded-md py-2 pl-4 pr-3 text-sm transition-colors duration-200 ${
+    isActive
+      ? "bg-primary-600/15 text-white font-semibold"
+      : "text-slate-400 hover:bg-slate-800 hover:text-white"
   }`;
 
 export const AdminLayout: React.FC = () => {
@@ -142,7 +166,9 @@ export const AdminLayout: React.FC = () => {
    */
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const active = navEntries.find(
-      (entry) => entry.kind === "group" && entry.items.some((item) => pathname.startsWith(item.to)),
+      (entry) =>
+        entry.kind === "group" &&
+        entry.items.some((item) => pathname.startsWith(item.to)),
     );
 
     return active && active.kind === "group" ? { [active.id]: true } : {};
@@ -168,8 +194,9 @@ export const AdminLayout: React.FC = () => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 transition-transform duration-300 ease-in-out shrink-0 md:sticky md:top-0 md:bottom-auto md:h-screen md:self-start md:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-slate-900 text-slate-300 border-r border-slate-800 transition-transform duration-300 ease-in-out shrink-0 md:sticky md:top-0 md:bottom-auto md:h-screen md:self-start md:translate-x-0 ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
         <div className="p-5 border-b border-slate-800 flex items-center justify-between">
           <Link
@@ -190,8 +217,18 @@ export const AdminLayout: React.FC = () => {
             onClick={() => setIsSidebarOpen(false)}
             className="text-slate-400 hover:text-white md:hidden focus:outline-none cursor-pointer"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -214,7 +251,9 @@ export const AdminLayout: React.FC = () => {
             }
 
             const isOpen = Boolean(openGroups[entry.id]);
-            const hasActive = entry.items.some((item) => pathname.startsWith(item.to));
+            const hasActive = entry.items.some((item) =>
+              pathname.startsWith(item.to),
+            );
 
             return (
               <div key={entry.id}>
@@ -241,7 +280,12 @@ export const AdminLayout: React.FC = () => {
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
                   </svg>
                 </button>
 
@@ -272,8 +316,18 @@ export const AdminLayout: React.FC = () => {
             to="/"
             className="flex items-center gap-3 text-sm text-slate-400 hover:text-white px-4 py-2.5 rounded-md hover:bg-slate-800 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              />
             </svg>
             Trang chủ
           </Link>
@@ -282,8 +336,18 @@ export const AdminLayout: React.FC = () => {
             onClick={handleLogout}
             className="w-full flex items-center gap-3 text-sm text-rose-400 hover:bg-rose-950/30 hover:text-rose-300 px-4 py-2.5 rounded-md transition-colors text-left cursor-pointer"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+              />
             </svg>
             Đăng xuất
           </button>
@@ -301,14 +365,28 @@ export const AdminLayout: React.FC = () => {
               onClick={() => setIsSidebarOpen(true)}
               className="text-gray-500 hover:text-gray-700 md:hidden focus:outline-none cursor-pointer"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </button>
             <div className="hidden sm:flex items-center">
-              <span className="text-sm font-semibold text-gray-500">Hệ thống quản trị</span>
+              <span className="text-sm font-semibold text-gray-500">
+                Hệ thống quản trị
+              </span>
               <span className="mx-2 text-gray-300">/</span>
-              <span className="text-sm font-bold text-primary-600">VivuBooking</span>
+              <span className="text-sm font-bold text-primary-600">
+                VivuBooking
+              </span>
             </div>
           </div>
 
@@ -324,7 +402,12 @@ export const AdminLayout: React.FC = () => {
             className="relative ml-auto mr-2 rounded-md p-2 text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
             title="Thông báo"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -354,7 +437,9 @@ export const AdminLayout: React.FC = () => {
                 <p className="text-sm font-semibold text-gray-700 leading-tight">
                   {user?.name ?? "Administrator"}
                 </p>
-                <p className="text-xs text-gray-400 leading-tight">Quản trị viên</p>
+                <p className="text-xs text-gray-400 leading-tight">
+                  Quản trị viên
+                </p>
               </div>
               <svg
                 className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`}
@@ -362,7 +447,12 @@ export const AdminLayout: React.FC = () => {
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             </button>
 
@@ -379,7 +469,9 @@ export const AdminLayout: React.FC = () => {
                     <p className="text-sm font-bold text-gray-800 truncate">
                       {user?.name ?? "Administrator"}
                     </p>
-                    <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                    <p className="text-xs text-gray-500 truncate">
+                      {user?.email}
+                    </p>
                     <span className="inline-block mt-1 text-[9px] font-bold uppercase tracking-wider text-primary-700 bg-primary-50 border border-primary-100 px-1.5 py-0.5 rounded">
                       Admin Role
                     </span>
@@ -391,8 +483,18 @@ export const AdminLayout: React.FC = () => {
                       onClick={() => setIsDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-600 hover:bg-slate-50 rounded transition-colors"
                     >
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      <svg
+                        className="w-4 h-4 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                        />
                       </svg>
                       Xem trang chủ
                     </Link>
@@ -405,8 +507,18 @@ export const AdminLayout: React.FC = () => {
                       }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-rose-50 rounded transition-colors text-left font-medium cursor-pointer"
                     >
-                      <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      <svg
+                        className="w-4 h-4 text-red-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                        />
                       </svg>
                       Đăng xuất
                     </button>
@@ -427,4 +539,3 @@ export const AdminLayout: React.FC = () => {
 };
 
 export default AdminLayout;
-

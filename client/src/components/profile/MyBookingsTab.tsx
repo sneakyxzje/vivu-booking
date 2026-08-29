@@ -23,7 +23,7 @@ import {
   Star,
   CreditCard,
   Building2,
-  Navigation
+  Navigation,
 } from "lucide-react";
 
 export type ExtendedBooking = Booking;
@@ -35,7 +35,8 @@ export const MyBookingsTab: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Modals state
-  const [selectedBooking, setSelectedBooking] = useState<ExtendedBooking | null>(null);
+  const [selectedBooking, setSelectedBooking] =
+    useState<ExtendedBooking | null>(null);
   // Sửa thông tin liên hệ nhập nhầm. Số lượng khách thì không sửa được: đổi số người là đổi cả
   // chỗ lẫn tiền, phải hủy và đặt lại theo chính sách hủy.
   const [editingContact, setEditingContact] = useState(false);
@@ -47,20 +48,26 @@ export const MyBookingsTab: React.FC = () => {
   const [contactSaving, setContactSaving] = useState(false);
   const [contactError, setContactError] = useState("");
 
-  const [showReviewModal, setShowReviewModal] = useState<ExtendedBooking | null>(null);
+  const [showReviewModal, setShowReviewModal] =
+    useState<ExtendedBooking | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
   // Hủy đơn chưa thanh toán
-  const [cancelTarget, setCancelTarget] = useState<ExtendedBooking | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<ExtendedBooking | null>(
+    null,
+  );
   const [cancelReason, setCancelReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState("");
 
   // Yêu cầu hủy đơn đã thanh toán, phải chờ điều hành duyệt
-  const [requestTarget, setRequestTarget] = useState<ExtendedBooking | null>(null);
-  const [requestPreview, setRequestPreview] = useState<CancelRequestPreview | null>(null);
+  const [requestTarget, setRequestTarget] = useState<ExtendedBooking | null>(
+    null,
+  );
+  const [requestPreview, setRequestPreview] =
+    useState<CancelRequestPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [requestReason, setRequestReason] = useState("");
   const [requestLoading, setRequestLoading] = useState(false);
@@ -103,12 +110,15 @@ export const MyBookingsTab: React.FC = () => {
 
       setSelectedBooking((truoc) => (truoc ? { ...truoc, ...moi } : truoc));
       setBookings((truoc) =>
-        truoc.map((item) => (item.id === selectedBooking.id ? { ...item, ...moi } : item)),
+        truoc.map((item) =>
+          item.id === selectedBooking.id ? { ...item, ...moi } : item,
+        ),
       );
 
       setEditingContact(false);
     } catch (err) {
-      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      const response = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data;
       setContactError(response?.message || "Không lưu được thông tin liên hệ.");
     } finally {
       setContactSaving(false);
@@ -154,10 +164,12 @@ export const MyBookingsTab: React.FC = () => {
   const coTheTuHuy = (booking: ExtendedBooking) => booking.status === "pending";
 
   /** Đơn đã thu tiền thì không tự hủy, chỉ gửi yêu cầu cho điều hành duyệt. */
-  const coTheGuiYeuCau = (booking: ExtendedBooking) => booking.status === "confirmed";
+  const coTheGuiYeuCau = (booking: ExtendedBooking) =>
+    booking.status === "confirmed";
 
   const layLoiMayChu = (err: unknown, macDinh: string): string => {
-    const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+    const message = (err as { response?: { data?: { message?: string } } })
+      ?.response?.data?.message;
     return message || macDinh;
   };
 
@@ -204,7 +216,8 @@ export const MyBookingsTab: React.FC = () => {
     setPaxLoading(true);
 
     try {
-      const result = (await bookingService.getPassengers(booking.id)).data?.data ?? null;
+      const result =
+        (await bookingService.getPassengers(booking.id)).data?.data ?? null;
       setPaxData(result);
 
       // Khai chưa đủ thì bù dòng trống cho tới đúng số khách đã đặt, để khách không phải tự
@@ -243,12 +256,18 @@ export const MyBookingsTab: React.FC = () => {
     }
   };
 
-  const suaDong = (index: number, field: keyof PassengerInput, value: string | boolean) => {
+  const suaDong = (
+    index: number,
+    field: keyof PassengerInput,
+    value: string | boolean,
+  ) => {
     setPaxRows((prev) =>
       prev.map((row, i) => {
         if (i !== index) {
           // Chỉ một người được đánh dấu liên hệ, chọn người mới thì bỏ người cũ.
-          return field === "is_contact" && value === true ? { ...row, is_contact: false } : row;
+          return field === "is_contact" && value === true
+            ? { ...row, is_contact: false }
+            : row;
         }
         return { ...row, [field]: value };
       }),
@@ -295,10 +314,15 @@ export const MyBookingsTab: React.FC = () => {
     setRequestError("");
 
     try {
-      await bookingService.requestCancellation(requestTarget.id, requestReason.trim());
+      await bookingService.requestCancellation(
+        requestTarget.id,
+        requestReason.trim(),
+      );
       setRequestSent(true);
     } catch (err) {
-      setRequestError(layLoiMayChu(err, "Không gửi được yêu cầu. Vui lòng thử lại."));
+      setRequestError(
+        layLoiMayChu(err, "Không gửi được yêu cầu. Vui lòng thử lại."),
+      );
     } finally {
       setRequestLoading(false);
     }
@@ -323,7 +347,10 @@ export const MyBookingsTab: React.FC = () => {
     setCancelError("");
 
     try {
-      await bookingService.cancelMyBooking(cancelTarget.id, cancelReason.trim());
+      await bookingService.cancelMyBooking(
+        cancelTarget.id,
+        cancelReason.trim(),
+      );
 
       // Cập nhật tại chỗ thay vì tải lại cả danh sách: đơn vừa hủy phải đổi trạng thái ngay
       // trước mắt khách, còn các đơn khác không có lý do gì phải nhấp nháy theo.
@@ -334,14 +361,20 @@ export const MyBookingsTab: React.FC = () => {
       );
 
       setSelectedBooking((prev) =>
-        prev && prev.id === cancelTarget.id ? { ...prev, status: "cancelled" } : prev,
+        prev && prev.id === cancelTarget.id
+          ? { ...prev, status: "cancelled" }
+          : prev,
       );
 
       dongFormHuy();
     } catch (err) {
       // Thông báo của máy chủ nói rõ vì sao, ví dụ chuyến đã khởi hành nên không hủy được nữa.
-      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setCancelError(message || "Không hủy được đơn. Vui lòng thử lại hoặc liên hệ tổng đài.");
+      const message = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      setCancelError(
+        message ||
+          "Không hủy được đơn. Vui lòng thử lại hoặc liên hệ tổng đài.",
+      );
     } finally {
       setCancelLoading(false);
     }
@@ -352,7 +385,8 @@ export const MyBookingsTab: React.FC = () => {
       case "confirmed":
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Đã xác nhận
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Đã xác
+            nhận
           </span>
         );
       case "pending":
@@ -378,14 +412,15 @@ export const MyBookingsTab: React.FC = () => {
 
   return (
     <div className="space-y-6 font-inter">
-      
       {/* Search & Filter Header Bar */}
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2 font-plus-jakarta">
             <Ticket className="w-5 h-5 text-primary-600" /> Quản lý tour đã đặt
           </h2>
-          <p className="text-xs text-gray-500 mt-1">Theo dõi lịch trình, phương tiện xe đưa đón và hướng dẫn viên đoàn</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Theo dõi lịch trình, phương tiện xe đưa đón và hướng dẫn viên đoàn
+          </p>
         </div>
 
         {/* Search input */}
@@ -427,7 +462,9 @@ export const MyBookingsTab: React.FC = () => {
       {loadingBookings ? (
         <div className="bg-white p-12 rounded-lg border border-gray-100 text-center space-y-3 shadow-sm">
           <div className="w-8 h-8 border-3 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs text-gray-500 font-medium">Đang nạp dữ liệu các đơn đặt tour của bạn...</p>
+          <p className="text-xs text-gray-500 font-medium">
+            Đang nạp dữ liệu các đơn đặt tour của bạn...
+          </p>
         </div>
       ) : filteredBookings.length === 0 ? (
         <div className="bg-white p-12 rounded-lg border border-gray-100 text-center space-y-4 shadow-sm">
@@ -435,9 +472,12 @@ export const MyBookingsTab: React.FC = () => {
             <Ticket className="w-8 h-8" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-gray-900 font-plus-jakarta">Không tìm thấy đơn đặt tour nào</h3>
+            <h3 className="text-base font-bold text-gray-900 font-plus-jakarta">
+              Không tìm thấy đơn đặt tour nào
+            </h3>
             <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
-              Bạn chưa có đơn đặt tour nào phù hợp với bộ lọc hiện tại. Hãy đặt chuyến du lịch tiếp theo ngay hôm nay!
+              Bạn chưa có đơn đặt tour nào phù hợp với bộ lọc hiện tại. Hãy đặt
+              chuyến du lịch tiếp theo ngay hôm nay!
             </p>
           </div>
           <a
@@ -484,19 +524,39 @@ export const MyBookingsTab: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3 text-xs text-gray-600">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-primary-600 shrink-0" />
-                      <span>Khởi hành: <strong className="text-gray-900 font-semibold">{formatDateTime(item.departure_date)}</strong></span>
+                      <span>
+                        Khởi hành:{" "}
+                        <strong className="text-gray-900 font-semibold">
+                          {formatDateTime(item.departure_date)}
+                        </strong>
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-primary-600 shrink-0" />
-                      <span>Số lượng khách: <strong className="text-gray-900 font-semibold">{item.guests} hành khách</strong></span>
+                      <span>
+                        Số lượng khách:{" "}
+                        <strong className="text-gray-900 font-semibold">
+                          {item.guests} hành khách
+                        </strong>
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-primary-600 shrink-0" />
-                      <span>Khởi hành từ: <strong className="text-gray-900 font-semibold">{item.tour?.start_location || "TP.HCM"}</strong></span>
+                      <span>
+                        Khởi hành từ:{" "}
+                        <strong className="text-gray-900 font-semibold">
+                          {item.tour?.start_location || "TP.HCM"}
+                        </strong>
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CreditCard className="w-4 h-4 text-primary-600 shrink-0" />
-                      <span>Tổng số tiền: <strong className="text-primary-600 font-bold text-sm">{Number(item.total_amount).toLocaleString("vi-VN")} đ</strong></span>
+                      <span>
+                        Tổng số tiền:{" "}
+                        <strong className="text-primary-600 font-bold text-sm">
+                          {Number(item.total_amount).toLocaleString("vi-VN")} đ
+                        </strong>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -517,7 +577,8 @@ export const MyBookingsTab: React.FC = () => {
                       Phát sinh trong chuyến
                     </p>
                     <p className="mt-0.5 text-[11px] text-amber-700">
-                      Không nằm trong giá tour. Đây là khoản sinh ra từ sự cố dọc đường.
+                      Không nằm trong giá tour. Đây là các khoản chi phí phát
+                      sinh.
                     </p>
 
                     <div className="mt-2.5 space-y-2">
@@ -528,7 +589,9 @@ export const MyBookingsTab: React.FC = () => {
                         >
                           <strong
                             className={`font-bold ${
-                              kh.kind === "refund" ? "text-emerald-700" : "text-rose-700"
+                              kh.kind === "refund"
+                                ? "text-emerald-700"
+                                : "text-rose-700"
                             }`}
                           >
                             {kh.kind === "refund" ? "Hoàn lại" : "Trả thêm"}{" "}
@@ -559,7 +622,8 @@ export const MyBookingsTab: React.FC = () => {
                 {/* Card Action Footer */}
                 <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-100">
                   <span className="text-[11px] text-gray-400">
-                    Ngày đăng ký: {new Date(item.created_at).toLocaleDateString("vi-VN")}
+                    Ngày đăng ký:{" "}
+                    {new Date(item.created_at).toLocaleDateString("vi-VN")}
                   </span>
 
                   <div className="flex items-center gap-2">
@@ -635,11 +699,11 @@ export const MyBookingsTab: React.FC = () => {
       >
         {selectedBooking && (
           <div className="space-y-6">
-            
             {/* STEPPER TRACKING PROGRESS */}
             <div className="bg-slate-50/80 rounded-lg p-5 border border-slate-200/80">
               <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-5 flex items-center gap-2">
-                <Navigation className="w-4 h-4 text-primary-600" /> Trạng thái tiến trình chuyến đi
+                <Navigation className="w-4 h-4 text-primary-600" /> Trạng thái
+                tiến trình chuyến đi
               </h4>
 
               <div className="relative px-2 sm:px-4">
@@ -662,7 +726,9 @@ export const MyBookingsTab: React.FC = () => {
                     <div className="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center text-xs font-bold shadow-sm ring-4 ring-slate-50">
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
-                    <span className="text-[11px] font-bold text-primary-900 mt-2 text-center">Đặt tour</span>
+                    <span className="text-[11px] font-bold text-primary-900 mt-2 text-center">
+                      Đặt tour
+                    </span>
                   </div>
 
                   {/* Step 2 */}
@@ -676,7 +742,9 @@ export const MyBookingsTab: React.FC = () => {
                     >
                       <CreditCard className="w-4 h-4" />
                     </div>
-                    <span className="text-[11px] font-semibold text-gray-800 mt-2 text-center">Thanh toán</span>
+                    <span className="text-[11px] font-semibold text-gray-800 mt-2 text-center">
+                      Thanh toán
+                    </span>
                   </div>
 
                   {/* Step 3 */}
@@ -690,7 +758,9 @@ export const MyBookingsTab: React.FC = () => {
                     >
                       <Car className="w-4 h-4" />
                     </div>
-                    <span className="text-[11px] font-semibold text-gray-700 mt-2 text-center">Xe & HDV</span>
+                    <span className="text-[11px] font-semibold text-gray-700 mt-2 text-center">
+                      Xe & HDV
+                    </span>
                   </div>
 
                   {/* Step 4 */}
@@ -698,7 +768,9 @@ export const MyBookingsTab: React.FC = () => {
                     <div className="w-8 h-8 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center text-xs font-bold ring-4 ring-slate-50">
                       <Building2 className="w-4 h-4" />
                     </div>
-                    <span className="text-[11px] font-medium text-gray-400 mt-2 text-center">Khởi hành</span>
+                    <span className="text-[11px] font-medium text-gray-400 mt-2 text-center">
+                      Khởi hành
+                    </span>
                   </div>
                 </div>
               </div>
@@ -708,27 +780,37 @@ export const MyBookingsTab: React.FC = () => {
             <div className="bg-blue-50/50 rounded-lg p-5 border border-blue-100 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
-                  <Car className="w-4 h-4 text-primary-600" /> Thông tin xe đi cùng tour
+                  <Car className="w-4 h-4 text-primary-600" /> Thông tin xe đi
+                  cùng tour
                 </h4>
-                <span className="text-[10px] font-bold bg-primary-600 text-white px-2.5 py-0.5 rounded-md shadow-xs">Xe du lịch đưa đón</span>
+                <span className="text-[10px] font-bold bg-primary-600 text-white px-2.5 py-0.5 rounded-md shadow-xs">
+                  Xe du lịch đưa đón
+                </span>
               </div>
               <div className="grid grid-cols-1 gap-3 text-xs text-gray-700 pt-1">
                 <div>
-                  <span className="text-gray-500 block">Phương tiện di chuyển:</span>
+                  <span className="text-gray-500 block">
+                    Phương tiện di chuyển:
+                  </span>
                   <strong className="text-gray-900 font-semibold">
-                    {selectedBooking.tour?.vehicle_info || "Thông tin xe sẽ được cập nhật trước ngày khởi hành."}
+                    {selectedBooking.tour?.vehicle_info ||
+                      "Thông tin xe sẽ được cập nhật trước ngày khởi hành."}
                   </strong>
                 </div>
                 <div className="pt-2.5 border-t border-blue-100 flex items-start gap-2 text-xs">
                   <MapPin className="w-4 h-4 text-primary-600 shrink-0 mt-0.5" />
                   <div>
-                    <span className="text-gray-500">Điểm đón & thời gian tập trung:</span>
+                    <span className="text-gray-500">
+                      Điểm đón & thời gian tập trung:
+                    </span>
                     <p className="font-semibold text-gray-900">
                       {formatDateTime(selectedBooking.departure_date)} —{" "}
                       {selectedBooking.tour?.pickup_location ||
                         `${selectedBooking.tour?.start_location ?? "Điểm khởi hành"} (chi tiết gửi qua email)`}
                     </p>
-                    <p className="text-gray-500 mt-1">Vui lòng có mặt trước giờ khởi hành ít nhất 30 phút.</p>
+                    <p className="text-gray-500 mt-1">
+                      Vui lòng có mặt trước giờ khởi hành ít nhất 30 phút.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -742,19 +824,26 @@ export const MyBookingsTab: React.FC = () => {
 
               {(selectedBooking.schedule?.guides ?? []).length === 0 ? (
                 <p className="text-sm text-gray-500">
-                  Đang sắp xếp hướng dẫn viên. Thông tin liên hệ sẽ gửi trước ngày đi.
+                  Đang sắp xếp hướng dẫn viên. Thông tin liên hệ sẽ gửi trước
+                  ngày đi.
                 </p>
               ) : (
                 (selectedBooking.schedule?.guides ?? []).map((guide) => (
-                  <div key={guide.id} className="flex items-center justify-between gap-3">
+                  <div
+                    key={guide.id}
+                    className="flex items-center justify-between gap-3"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-base border-2 border-primary-200">
                         {guide.name?.charAt(0)?.toUpperCase() ?? "?"}
                       </div>
                       <div>
-                        <h5 className="font-bold text-gray-900 text-sm">{guide.name}</h5>
+                        <h5 className="font-bold text-gray-900 text-sm">
+                          {guide.name}
+                        </h5>
                         <p className="text-xs text-primary-600 font-semibold">
-                          {guide.phone ?? "Thông tin liên hệ sẽ gửi trước ngày đi"}
+                          {guide.phone ??
+                            "Thông tin liên hệ sẽ gửi trước ngày đi"}
                         </p>
                       </div>
                     </div>
@@ -775,13 +864,16 @@ export const MyBookingsTab: React.FC = () => {
             {/* THÔNG TIN ĐOÀN KHÁCH */}
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-primary-600" /> Đoàn khách ({selectedBooking.guests} người)
+                <UserCheck className="w-4 h-4 text-primary-600" /> Đoàn khách (
+                {selectedBooking.guests} người)
               </h4>
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200/70 text-xs text-gray-700 space-y-1.5">
                 <p>
                   <span className="text-gray-500">Cơ cấu đoàn:</span>{" "}
                   <strong className="text-gray-900">
-                    {selectedBooking.adult_count ?? 0} người lớn, {selectedBooking.child_count ?? 0} trẻ em, {selectedBooking.infant_count ?? 0} em bé
+                    {selectedBooking.adult_count ?? 0} người lớn,{" "}
+                    {selectedBooking.child_count ?? 0} trẻ em,{" "}
+                    {selectedBooking.infant_count ?? 0} em bé
                   </strong>
                 </p>
                 {/*
@@ -793,7 +885,10 @@ export const MyBookingsTab: React.FC = () => {
                     <input
                       value={contactForm.customer_name}
                       onChange={(e) =>
-                        setContactForm((truoc) => ({ ...truoc, customer_name: e.target.value }))
+                        setContactForm((truoc) => ({
+                          ...truoc,
+                          customer_name: e.target.value,
+                        }))
                       }
                       placeholder="Họ và tên người liên hệ"
                       className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-primary-400"
@@ -802,7 +897,10 @@ export const MyBookingsTab: React.FC = () => {
                       type="email"
                       value={contactForm.customer_email}
                       onChange={(e) =>
-                        setContactForm((truoc) => ({ ...truoc, customer_email: e.target.value }))
+                        setContactForm((truoc) => ({
+                          ...truoc,
+                          customer_email: e.target.value,
+                        }))
                       }
                       placeholder="Email"
                       className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-primary-400"
@@ -810,7 +908,10 @@ export const MyBookingsTab: React.FC = () => {
                     <input
                       value={contactForm.customer_phone}
                       onChange={(e) =>
-                        setContactForm((truoc) => ({ ...truoc, customer_phone: e.target.value }))
+                        setContactForm((truoc) => ({
+                          ...truoc,
+                          customer_phone: e.target.value,
+                        }))
                       }
                       placeholder="Số điện thoại"
                       className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm outline-none focus:border-primary-400"
@@ -844,8 +945,12 @@ export const MyBookingsTab: React.FC = () => {
                 ) : (
                   <p className="flex flex-wrap items-center gap-x-2">
                     <span className="text-gray-500">Người liên hệ:</span>{" "}
-                    <strong className="text-gray-900">{selectedBooking.customer_name}</strong>
-                    {selectedBooking.customer_phone ? ` — ${selectedBooking.customer_phone}` : ""}
+                    <strong className="text-gray-900">
+                      {selectedBooking.customer_name}
+                    </strong>
+                    {selectedBooking.customer_phone
+                      ? ` — ${selectedBooking.customer_phone}`
+                      : ""}
                     <button
                       type="button"
                       onClick={() => openContactEditor(selectedBooking)}
@@ -855,27 +960,36 @@ export const MyBookingsTab: React.FC = () => {
                     </button>
                   </p>
                 )}
-                {selectedBooking.passengers && selectedBooking.passengers.length > 0 && (
-                  <div className="pt-2 mt-1 border-t border-gray-200/60 space-y-1.5">
-                    {selectedBooking.passengers.map((passenger, idx) => (
-                      <div key={passenger.id} className="flex items-center justify-between py-0.5">
-                        <span className="flex items-center gap-2">
-                          <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 font-bold flex items-center justify-center text-[10px]">
-                            {idx + 1}
+                {selectedBooking.passengers &&
+                  selectedBooking.passengers.length > 0 && (
+                    <div className="pt-2 mt-1 border-t border-gray-200/60 space-y-1.5">
+                      {selectedBooking.passengers.map((passenger, idx) => (
+                        <div
+                          key={passenger.id}
+                          className="flex items-center justify-between py-0.5"
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 font-bold flex items-center justify-center text-[10px]">
+                              {idx + 1}
+                            </span>
+                            <strong className="text-gray-800">
+                              {passenger.name}
+                            </strong>
                           </span>
-                          <strong className="text-gray-800">{passenger.name}</strong>
-                        </span>
-                        <span className="text-gray-500">
-                          {passenger.type === "adult" ? "Người lớn" : passenger.type === "child" ? "Trẻ em" : "Em bé"}
-                          {passenger.note ? ` · ${passenger.note}` : ""}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                          <span className="text-gray-500">
+                            {passenger.type === "adult"
+                              ? "Người lớn"
+                              : passenger.type === "child"
+                                ? "Trẻ em"
+                                : "Em bé"}
+                            {passenger.note ? ` · ${passenger.note}` : ""}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
               </div>
             </div>
-
           </div>
         )}
       </Modal>
@@ -921,7 +1035,10 @@ export const MyBookingsTab: React.FC = () => {
 
             <div className="space-y-3">
               {paxRows.map((row, index) => (
-                <div key={index} className="rounded-xl border border-gray-200 p-4 space-y-3">
+                <div
+                  key={index}
+                  className="rounded-xl border border-gray-200 p-4 space-y-3"
+                >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-gray-700">
                       Hành khách {index + 1}
@@ -972,13 +1089,17 @@ export const MyBookingsTab: React.FC = () => {
                       type="date"
                       value={row.date_of_birth ?? ""}
                       disabled={!paxData.can_edit}
-                      onChange={(e) => suaDong(index, "date_of_birth", e.target.value)}
+                      onChange={(e) =>
+                        suaDong(index, "date_of_birth", e.target.value)
+                      }
                       className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
                     />
                     <select
                       value={row.id_type ?? "cccd"}
                       disabled={!paxData.can_edit}
-                      onChange={(e) => suaDong(index, "id_type", e.target.value)}
+                      onChange={(e) =>
+                        suaDong(index, "id_type", e.target.value)
+                      }
                       className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
                     >
                       <option value="cccd">Căn cước công dân</option>
@@ -990,7 +1111,9 @@ export const MyBookingsTab: React.FC = () => {
                       type="text"
                       value={row.identity_number ?? ""}
                       disabled={!paxData.can_edit}
-                      onChange={(e) => suaDong(index, "identity_number", e.target.value)}
+                      onChange={(e) =>
+                        suaDong(index, "identity_number", e.target.value)
+                      }
                       placeholder="Số giấy tờ"
                       className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
                     />
@@ -1006,7 +1129,9 @@ export const MyBookingsTab: React.FC = () => {
                       type="text"
                       value={row.special_request ?? ""}
                       disabled={!paxData.can_edit}
-                      onChange={(e) => suaDong(index, "special_request", e.target.value)}
+                      onChange={(e) =>
+                        suaDong(index, "special_request", e.target.value)
+                      }
                       placeholder="Ăn chay, dị ứng, cần hỗ trợ..."
                       className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
                     />
@@ -1016,8 +1141,8 @@ export const MyBookingsTab: React.FC = () => {
             </div>
 
             <p className="text-[11px] text-gray-500">
-              Số giấy tờ và ngày sinh dùng để mua bảo hiểm du lịch và khai báo lưu trú tại khách
-              sạn, nên cần đúng như trên giấy tờ.
+              Số giấy tờ và ngày sinh dùng để mua bảo hiểm du lịch và khai báo
+              lưu trú tại khách sạn, nên cần đúng như trên giấy tờ.
             </p>
 
             {paxError && (
@@ -1045,7 +1170,9 @@ export const MyBookingsTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={luuHanhKhach}
-                  disabled={paxSaving || paxRows.some((row) => !row.name.trim())}
+                  disabled={
+                    paxSaving || paxRows.some((row) => !row.name.trim())
+                  }
                   className="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold rounded-xl disabled:opacity-50"
                 >
                   {paxSaving ? "Đang lưu..." : "Lưu danh sách"}
@@ -1083,8 +1210,9 @@ export const MyBookingsTab: React.FC = () => {
                   Đã gửi yêu cầu hủy
                 </h4>
                 <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                  Bộ phận điều hành sẽ xem xét và phản hồi. Đơn của bạn vẫn giữ nguyên cho tới khi
-                  yêu cầu được duyệt, nên bạn vẫn đi được nếu đổi ý trước lúc đó.
+                  Bộ phận điều hành sẽ xem xét và phản hồi. Đơn của bạn vẫn giữ
+                  nguyên cho tới khi yêu cầu được duyệt, nên bạn vẫn đi được nếu
+                  đổi ý trước lúc đó.
                 </p>
                 <button
                   type="button"
@@ -1097,16 +1225,23 @@ export const MyBookingsTab: React.FC = () => {
             ) : (
               <>
                 {previewLoading && (
-                  <p className="text-xs font-medium text-gray-500">Đang tính mức hoàn dự kiến...</p>
+                  <p className="text-xs font-medium text-gray-500">
+                    Đang tính mức hoàn dự kiến...
+                  </p>
                 )}
 
                 {/* Đơn đã có yêu cầu chờ duyệt thì không gửi thêm được nữa. */}
                 {requestPreview?.pending_request && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 space-y-1">
-                    <p className="font-bold">Đơn này đã có một yêu cầu hủy đang chờ duyệt.</p>
+                    <p className="font-bold">
+                      Đơn này đã có một yêu cầu hủy đang chờ duyệt.
+                    </p>
                     <p>
-                      Gửi lúc {formatDateTime(requestPreview.pending_request.created_at)}. Vui lòng
-                      đợi bộ phận điều hành phản hồi.
+                      Gửi lúc{" "}
+                      {formatDateTime(
+                        requestPreview.pending_request.created_at,
+                      )}
+                      . Vui lòng đợi bộ phận điều hành phản hồi.
                     </p>
                   </div>
                 )}
@@ -1119,7 +1254,12 @@ export const MyBookingsTab: React.FC = () => {
                   <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-500">
-                        Còn {Math.max(0, Math.round(requestPreview.hours_before ?? 0))} giờ tới khởi hành
+                        Còn{" "}
+                        {Math.max(
+                          0,
+                          Math.round(requestPreview.hours_before ?? 0),
+                        )}{" "}
+                        giờ tới khởi hành
                       </span>
                       <span className="font-bold text-gray-900">
                         Mức hoàn {requestPreview.refund_percent}%
@@ -1130,26 +1270,37 @@ export const MyBookingsTab: React.FC = () => {
                       <div className="rounded-md bg-gray-50 py-2">
                         <p className="text-[11px] text-gray-500">Bạn đã trả</p>
                         <p className="text-sm font-bold text-gray-900">
-                          {Number(requestPreview.paid_amount).toLocaleString("vi-VN")} đ
+                          {Number(requestPreview.paid_amount).toLocaleString(
+                            "vi-VN",
+                          )}{" "}
+                          đ
                         </p>
                       </div>
                       <div className="rounded-md bg-amber-50 py-2">
                         <p className="text-[11px] text-amber-700">Phí hủy</p>
                         <p className="text-sm font-bold text-amber-800">
-                          {Number(requestPreview.cancellation_fee).toLocaleString("vi-VN")} đ
+                          {Number(
+                            requestPreview.cancellation_fee,
+                          ).toLocaleString("vi-VN")}{" "}
+                          đ
                         </p>
                       </div>
                       <div className="rounded-md bg-emerald-50 py-2">
-                        <p className="text-[11px] text-emerald-700">Bạn nhận lại</p>
+                        <p className="text-[11px] text-emerald-700">
+                          Bạn nhận lại
+                        </p>
                         <p className="text-sm font-bold text-emerald-800">
-                          {Number(requestPreview.refund_amount).toLocaleString("vi-VN")} đ
+                          {Number(requestPreview.refund_amount).toLocaleString(
+                            "vi-VN",
+                          )}{" "}
+                          đ
                         </p>
                       </div>
                     </div>
 
                     <p className="text-[11px] text-gray-500">
-                      Mức hoàn được chốt theo thời điểm bạn gửi yêu cầu, nên bạn không bị thiệt nếu
-                      việc duyệt mất vài ngày.
+                      Mức hoàn được chốt theo thời điểm bạn gửi yêu cầu, nên bạn
+                      không bị thiệt nếu việc duyệt mất vài ngày.
                     </p>
                   </div>
                 )}
@@ -1168,7 +1319,9 @@ export const MyBookingsTab: React.FC = () => {
                     />
                     <p
                       className={`text-[11px] mt-1 font-semibold ${
-                        requestReason.trim().length >= 10 ? "text-emerald-700" : "text-gray-500"
+                        requestReason.trim().length >= 10
+                          ? "text-emerald-700"
+                          : "text-gray-500"
                       }`}
                     >
                       {requestReason.trim().length}/10 ký tự tối thiểu
@@ -1195,11 +1348,11 @@ export const MyBookingsTab: React.FC = () => {
                     type="button"
                     onClick={guiYeuCauHuy}
                     disabled={
-                      requestLoading
-                      || previewLoading
-                      || !requestPreview
-                      || !!requestPreview.pending_request
-                      || requestReason.trim().length < 10
+                      requestLoading ||
+                      previewLoading ||
+                      !requestPreview ||
+                      !!requestPreview.pending_request ||
+                      requestReason.trim().length < 10
                     }
                     className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-sm disabled:opacity-50"
                   >
@@ -1233,11 +1386,15 @@ export const MyBookingsTab: React.FC = () => {
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200/70 text-xs text-gray-700 space-y-1.5">
               <p>
                 <span className="text-gray-500">Khởi hành:</span>{" "}
-                <strong className="text-gray-900">{formatDateTime(cancelTarget.departure_date)}</strong>
+                <strong className="text-gray-900">
+                  {formatDateTime(cancelTarget.departure_date)}
+                </strong>
               </p>
               <p>
                 <span className="text-gray-500">Số khách:</span>{" "}
-                <strong className="text-gray-900">{cancelTarget.guests} người</strong>
+                <strong className="text-gray-900">
+                  {cancelTarget.guests} người
+                </strong>
               </p>
               <p>
                 <span className="text-gray-500">Giá trị đơn:</span>{" "}
@@ -1250,10 +1407,12 @@ export const MyBookingsTab: React.FC = () => {
             {/* Đơn này chưa thu tiền nên không có gì để hoàn. Nói thẳng ra, đừng hiện bảng phí
                 hủy với con số 0 đồng - khách sẽ tưởng mình vừa mất tiền. */}
             <div className="bg-emerald-50/70 rounded-lg p-4 border border-emerald-200 text-xs text-emerald-900 space-y-1">
-              <p className="font-bold">Đơn chưa thanh toán nên không phát sinh phí hủy.</p>
+              <p className="font-bold">
+                Đơn chưa thanh toán nên không phát sinh phí hủy.
+              </p>
               <p>
-                Chỗ giữ sẽ được trả lại ngay cho chuyến, và mã giảm giá đã dùng (nếu có) được hoàn
-                lượt để bạn dùng lần sau.
+                Chỗ giữ sẽ được trả lại ngay cho chuyến, và mã giảm giá đã dùng
+                (nếu có) được hoàn lượt để bạn dùng lần sau.
               </p>
             </div>
 
@@ -1269,8 +1428,8 @@ export const MyBookingsTab: React.FC = () => {
                 className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-400"
               />
               <p className="text-[11px] text-gray-400 mt-1">
-                Lý do giúp chúng tôi cải thiện dịch vụ. Hủy xong không khôi phục lại được, bạn cần
-                đặt đơn mới nếu đổi ý.
+                Lý do giúp chúng tôi cải thiện dịch vụ. Hủy xong không khôi phục
+                lại được, bạn cần đặt đơn mới nếu đổi ý.
               </p>
             </div>
 
@@ -1305,7 +1464,10 @@ export const MyBookingsTab: React.FC = () => {
       {/* REUSABLE COMMON MODAL: ĐÁNH GIÁ TOUR */}
       <Modal
         isOpen={!!showReviewModal}
-        onClose={() => { setShowReviewModal(null); setReviewSubmitted(false); }}
+        onClose={() => {
+          setShowReviewModal(null);
+          setReviewSubmitted(false);
+        }}
         size="lg"
         title={
           <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full uppercase tracking-wider border border-amber-200">
@@ -1323,13 +1485,26 @@ export const MyBookingsTab: React.FC = () => {
             <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-8 h-8" />
             </div>
-            <h4 className="text-base font-bold text-gray-900 font-plus-jakarta">Cảm ơn bạn đã gửi đánh giá!</h4>
-            <p className="text-xs text-gray-500">Ý kiến đóng góp của bạn giúp Vivu Booking nâng cao chất lượng dịch vụ hơn nữa.</p>
+            <h4 className="text-base font-bold text-gray-900 font-plus-jakarta">
+              Cảm ơn bạn đã gửi đánh giá!
+            </h4>
+            <p className="text-xs text-gray-500">
+              Ý kiến đóng góp của bạn giúp Vivu Booking nâng cao chất lượng dịch
+              vụ hơn nữa.
+            </p>
           </div>
         ) : (
-          <form onSubmit={(e) => { e.preventDefault(); setReviewSubmitted(true); }} className="space-y-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              setReviewSubmitted(true);
+            }}
+            className="space-y-4"
+          >
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Chấm điểm sao</label>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                Chấm điểm sao
+              </label>
               <div className="flex items-center gap-2">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
@@ -1338,14 +1513,18 @@ export const MyBookingsTab: React.FC = () => {
                     onClick={() => setReviewRating(star)}
                     className="p-1 transition-transform hover:scale-110"
                   >
-                    <Star className={`w-8 h-8 ${star <= reviewRating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`} />
+                    <Star
+                      className={`w-8 h-8 ${star <= reviewRating ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
+                    />
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Nội dung nhận xét</label>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+                Nội dung nhận xét
+              </label>
               <textarea
                 rows={4}
                 placeholder="Hãy chia sẻ trải nghiệm thực tế của bạn về tour này..."
@@ -1365,7 +1544,6 @@ export const MyBookingsTab: React.FC = () => {
           </form>
         )}
       </Modal>
-
     </div>
   );
 };

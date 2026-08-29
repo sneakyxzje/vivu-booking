@@ -129,7 +129,7 @@ const navItems: NavItem[] = [
   },
   {
     to: "/guide/incidents",
-    label: "Sự cố dọc đường",
+    label: "Chi phí phát sinh",
     icon: (
       <svg
         className="w-5 h-5"
@@ -271,10 +271,3 @@ export const GuideLayout: React.FC = () => {
 };
 
 export default GuideLayout;
-
-
-
-
-
-
-

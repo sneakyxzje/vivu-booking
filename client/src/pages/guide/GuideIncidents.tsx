@@ -78,7 +78,9 @@ export default function GuideIncidents() {
     () =>
       tours.flatMap((tour) =>
         (tour.schedules ?? [])
-          .filter((sc) => sc.status === "in_progress" || sc.status === "completed")
+          .filter(
+            (sc) => sc.status === "in_progress" || sc.status === "completed",
+          )
           .map((sc) => ({
             id: sc.id,
             label: `#${sc.id} · ${tour.title} · ${formatDateTime(sc.start_date)}`,
@@ -94,19 +96,23 @@ export default function GuideIncidents() {
     setError("");
 
     try {
-      const { message } = await guideService.reportIncident(Number(form.tour_schedule_id), {
-        type: form.type,
-        severity: form.severity,
-        occurred_at: form.occurred_at.replace("T", " ") + ":00",
-        description: form.description.trim(),
-      });
+      const { message } = await guideService.reportIncident(
+        Number(form.tour_schedule_id),
+        {
+          type: form.type,
+          severity: form.severity,
+          occurred_at: form.occurred_at.replace("T", " ") + ":00",
+          description: form.description.trim(),
+        },
+      );
 
       setNotice(message);
       setCreating(false);
       setForm((truoc) => ({ ...truoc, description: "" }));
       loadData();
     } catch (err) {
-      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      const response = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data;
       setError(response?.message || "Không gửi được báo cáo.");
     } finally {
       setSaving(false);
@@ -126,10 +132,13 @@ export default function GuideIncidents() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Sự cố dọc đường</h1>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+            Chi phí phát sinh
+          </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Báo lại những gì đang xảy ra với đoàn. Bạn không cần và không được quyết mức tiền —
-            điều hành sẽ đưa phương án về đây cho bạn đọc cho khách.
+            Báo lại những gì đang xảy ra với đoàn. Bạn không cần và không được
+            quyết mức tiền — điều hành sẽ đưa phương án về đây cho bạn đọc cho
+            khách.
           </p>
         </div>
 
@@ -154,8 +163,9 @@ export default function GuideIncidents() {
 
       {chuyenDangDi.length === 0 && !loading && (
         <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-500">
-          Bạn không có chuyến nào đang đi. Sự cố dọc đường chỉ báo được khi đoàn đã lên đường;
-          chuyến chưa đi mà có vấn đề thì báo điều hành để hủy hoặc dời lịch.
+          Bạn không có chuyến nào đang đi. Sự cố dọc đường chỉ báo được khi đoàn
+          đã lên đường; chuyến chưa đi mà có vấn đề thì báo điều hành để hủy
+          hoặc dời lịch.
         </p>
       )}
 
@@ -163,10 +173,17 @@ export default function GuideIncidents() {
       {creating && (
         <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3 shadow-sm">
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">Chuyến đang đi</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              Chuyến đang đi
+            </label>
             <select
               value={form.tour_schedule_id}
-              onChange={(e) => setForm((truoc) => ({ ...truoc, tour_schedule_id: e.target.value }))}
+              onChange={(e) =>
+                setForm((truoc) => ({
+                  ...truoc,
+                  tour_schedule_id: e.target.value,
+                }))
+              }
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
             >
               <option value="">Chọn chuyến</option>
@@ -180,10 +197,14 @@ export default function GuideIncidents() {
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Loại sự cố</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Loại sự cố
+              </label>
               <select
                 value={form.type}
-                onChange={(e) => setForm((truoc) => ({ ...truoc, type: e.target.value }))}
+                onChange={(e) =>
+                  setForm((truoc) => ({ ...truoc, type: e.target.value }))
+                }
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
               >
                 {INCIDENT_TYPES.map((item) => (
@@ -195,10 +216,14 @@ export default function GuideIncidents() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Mức nghiêm trọng</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Mức nghiêm trọng
+              </label>
               <select
                 value={form.severity}
-                onChange={(e) => setForm((truoc) => ({ ...truoc, severity: e.target.value }))}
+                onChange={(e) =>
+                  setForm((truoc) => ({ ...truoc, severity: e.target.value }))
+                }
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
               >
                 {INCIDENT_SEVERITIES.map((item) => (
@@ -210,33 +235,47 @@ export default function GuideIncidents() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Xảy ra lúc</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Xảy ra lúc
+              </label>
               <input
                 type="datetime-local"
                 value={form.occurred_at}
-                onChange={(e) => setForm((truoc) => ({ ...truoc, occurred_at: e.target.value }))}
+                onChange={(e) =>
+                  setForm((truoc) => ({
+                    ...truoc,
+                    occurred_at: e.target.value,
+                  }))
+                }
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">Diễn biến</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              Diễn biến
+            </label>
             <textarea
               rows={3}
               value={form.description}
-              onChange={(e) => setForm((truoc) => ({ ...truoc, description: e.target.value }))}
+              onChange={(e) =>
+                setForm((truoc) => ({ ...truoc, description: e.target.value }))
+              }
               placeholder="VD: Bão vào đất liền, tàu không ra đảo được, đoàn phải ở lại bờ thêm một đêm..."
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
             />
             <p className="mt-1 text-[11px] text-gray-400">
-              Ít nhất 20 ký tự. Điều hành ở xa và chỉ có mô tả này để quyết phương án — viết như
-              đang kể cho người không nhìn thấy hiện trường.
+              Ít nhất 20 ký tự. Điều hành ở xa và chỉ có mô tả này để quyết
+              phương án — viết như đang kể cho người không nhìn thấy hiện
+              trường.
             </p>
           </div>
 
           {error && (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">{error}</p>
+            <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+              {error}
+            </p>
           )}
 
           <div className="flex justify-end gap-2">
@@ -251,7 +290,11 @@ export default function GuideIncidents() {
             <button
               type="button"
               onClick={submit}
-              disabled={saving || !form.tour_schedule_id || form.description.trim().length < 20}
+              disabled={
+                saving ||
+                !form.tour_schedule_id ||
+                form.description.trim().length < 20
+              }
               className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-40"
             >
               {saving ? "Đang gửi..." : "Gửi cho điều hành"}
@@ -269,7 +312,10 @@ export default function GuideIncidents() {
         )}
 
         {incidents.map((sc) => (
-          <div key={sc.id} className="rounded-xl border border-gray-200 bg-white p-4 space-y-2">
+          <div
+            key={sc.id}
+            className="rounded-xl border border-gray-200 bg-white p-4 space-y-2"
+          >
             <div className="flex flex-wrap items-center gap-2">
               <span
                 className={`rounded px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
@@ -278,7 +324,9 @@ export default function GuideIncidents() {
               >
                 {sc.severity_label}
               </span>
-              <span className="text-sm font-bold text-gray-900">{sc.type_label}</span>
+              <span className="text-sm font-bold text-gray-900">
+                {sc.type_label}
+              </span>
               <span className="text-xs text-gray-500">{sc.tour_title}</span>
 
               <span className="ml-auto flex items-center gap-1 text-xs text-gray-500">
