@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, ArrowRight, Check, Clock, Phone } from "lucide-react";
+import { AlertTriangle, ArrowRight, Clock, Phone } from "lucide-react";
 import adminService from "@/services/adminService";
 import type {
   HandoverHistoryResponse,
@@ -25,7 +25,6 @@ export default function HandoverManagement() {
   const [requests, setRequests] = useState<PendingHandoverRequest[]>([]);
   const [history, setHistory] = useState<HandoverHistoryResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [emergencyOnly, setEmergencyOnly] = useState(false);
 
   const [reviewing, setReviewing] = useState<PendingHandoverRequest | null>(null);
   const [panel, setPanel] = useState<HandoverPanelResponse | null>(null);
@@ -46,7 +45,7 @@ export default function HandoverManagement() {
     try {
       const [yeuCau, lichSu] = await Promise.all([
         adminService.getPendingHandoverRequests(),
-        adminService.getHandoverHistory(emergencyOnly),
+        adminService.getHandoverHistory(),
       ]);
       setRequests(yeuCau);
       setHistory(lichSu);
@@ -55,23 +54,22 @@ export default function HandoverManagement() {
     } finally {
       setLoading(false);
     }
-  }, [emergencyOnly]);
+  }, []);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   /**
-   * Đoàn đang trên đường mà chỉ còn một người: chỉ nhờ được hướng dẫn viên đang dẫn đoàn khác.
-   * Người ở nhà cách đoàn nhiều giờ, mà đó đúng là quãng đoàn không có ai.
+   * Đoàn đang trên đường mà chỉ còn một người: chưa bàn giao được.
+   *
+   * Phải phân công thêm người cho chuyến trước. Không còn lối tắt "nhờ hướng dẫn viên đoàn khác
+   * trông hộ" — lối ấy cho một người giữ hai đoàn cùng lúc, phá chính luật trùng lịch hệ thống
+   * chặn ở mọi chỗ khác.
    */
-  const canNhoTrongHo = panel?.needs_emergency_cover === true;
+  const chuaBanGiaoDuoc = panel?.blocked_needs_second_guide === true;
 
-  const nguoiThayChonDuoc = (panel?.available_guides ?? []).filter(
-    (g) => !canNhoTrongHo || g.leading_other_group,
-  );
-
-  const khongCoAiNhoDuoc = canNhoTrongHo && nguoiThayChonDuoc.length === 0;
+  const nguoiThayChonDuoc = panel?.available_guides ?? [];
 
   /*
    * Tách hai nhóm để người chọn thấy được khoảng cách.
@@ -95,24 +93,21 @@ export default function HandoverManagement() {
     try {
       const data = await adminService.getHandoverPanel(yc.tour_schedule_id);
       setPanel(data);
-
-      const nhoDuoc = (data?.available_guides ?? []).filter(
-        (g) => !data?.needs_emergency_cover || g.leading_other_group,
-      );
-      setGuideId(nhoDuoc[0]?.id ?? 0);
+      setGuideId(data?.available_guides?.[0]?.id ?? 0);
     } catch (err) {
       console.error("Lỗi lấy danh sách người thay:", err);
     }
   };
 
-  const duyet = async () => {
+  /** Chỉ định người mới. Máy chủ đi qua đúng đường bàn giao chung. */
+  const banGiao = async () => {
     if (!reviewing || !guideId) return;
 
     setSaving(true);
     setError("");
 
     try {
-      const message = await adminService.approveHandoverRequest(
+      const message = await adminService.resolveHandoverRequest(
         reviewing.id,
         guideId,
         note.trim() || undefined,
@@ -123,27 +118,28 @@ export default function HandoverManagement() {
       loadData();
     } catch (err) {
       const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
-      setError(response?.message || "Không duyệt được.");
+      setError(response?.message || "Không bàn giao được.");
     } finally {
       setSaving(false);
     }
   };
 
-  const tuChoi = async () => {
+  /** Đóng phiếu mà không đổi ai — gộp cả "không đồng ý" lẫn "hướng dẫn viên đỡ rồi". */
+  const dongPhieu = async () => {
     if (!reviewing || note.trim().length < 10) return;
 
     setSaving(true);
     setError("");
 
     try {
-      const message = await adminService.rejectHandoverRequest(reviewing.id, note.trim());
+      const message = await adminService.closeHandoverRequest(reviewing.id, note.trim());
 
       setReviewing(null);
       setToast({ message, type: "success", isOpen: true });
       loadData();
     } catch (err) {
       const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
-      setError(response?.message || "Không từ chối được.");
+      setError(response?.message || "Không đóng phiếu được.");
     } finally {
       setSaving(false);
     }
@@ -205,30 +201,7 @@ export default function HandoverManagement() {
 
       {/* ĐÃ BÀN GIAO — phần theo dõi */}
       <div className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-bold text-gray-900">Đã bàn giao</h2>
-
-          {(history?.emergency_count ?? 0) > 0 && (
-            <button
-              type="button"
-              onClick={() => setEmergencyOnly((truoc) => !truoc)}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                emergencyOnly
-                  ? "border-amber-300 bg-amber-50 text-amber-800"
-                  : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              Chỉ lần nhờ trông hộ ({history?.emergency_count})
-            </button>
-          )}
-        </div>
-
-        {emergencyOnly && (
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-800">
-            Mỗi lần nhờ trông hộ là một người đang giữ hai đoàn cùng lúc — biện pháp chữa cháy,
-            không phải cách vận hành bình thường. Thu xếp được người khác thì phân công lại.
-          </p>
-        )}
+        <h2 className="text-sm font-bold text-gray-900">Đã bàn giao</h2>
 
         {!loading && (history?.handovers.length ?? 0) === 0 && (
           <p className="rounded-xl border border-gray-100 bg-white p-6 text-sm text-gray-500">
@@ -243,28 +216,6 @@ export default function HandoverManagement() {
               <ArrowRight className="h-3.5 w-3.5 text-gray-400" />
               <span className="font-semibold text-gray-900">{bg.to_guide?.name}</span>
 
-              {bg.is_emergency_cover && (
-                <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
-                  Nhờ trông hộ
-                </span>
-              )}
-
-              {/*
-                Đã đọc chưa. Không chặn gì cả — đoàn đã chuyển xong từ lúc bấm duyệt. Cái này chỉ
-                trả lời "nó biết chưa nhỉ", thứ mà trước đó phải gọi điện mới biết.
-              */}
-              {bg.acknowledged_at ? (
-                <span className="flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                  <Check className="h-3 w-3" />
-                  Đã tiếp nhận
-                </span>
-              ) : (
-                <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-700">
-                  Chưa xác nhận
-                  {bg.minutes_waiting !== null && ` · ${bg.minutes_waiting} phút`}
-                </span>
-              )}
-
               <span className="ml-auto flex items-center gap-1 text-xs text-gray-500">
                 <Clock className="h-3 w-3" />
                 {formatDateTime(bg.handed_over_at)}
@@ -274,9 +225,9 @@ export default function HandoverManagement() {
             <p className="text-xs text-gray-500">
               {bg.tour_title} · chuyến #{bg.tour_schedule_id}
               {bg.created_by_name ? ` · ${bg.created_by_name} thực hiện` : ""}
-              {!bg.acknowledged_at && bg.to_guide?.phone && (
-                <span className="ml-1 text-rose-700">
-                  · gọi {bg.to_guide.name}: {bg.to_guide.phone}
+              {bg.to_guide?.phone && (
+                <span className="ml-1">
+                  · {bg.to_guide.name}: {bg.to_guide.phone}
                 </span>
               )}
             </p>
@@ -317,33 +268,14 @@ export default function HandoverManagement() {
               </div>
             </div>
 
-            {canNhoTrongHo && (
-              <div
-                className={`rounded-lg border px-4 py-3 text-sm ${
-                  khongCoAiNhoDuoc
-                    ? "border-rose-200 bg-rose-50 text-rose-800"
-                    : "border-amber-200 bg-amber-50 text-amber-900"
-                }`}
-              >
-                <p className="font-semibold">
-                  {khongCoAiNhoDuoc
-                    ? "Chưa duyệt được yêu cầu này."
-                    : "Chuyến chỉ có một người — chính người đang xin."}
-                </p>
+            {chuaBanGiaoDuoc && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                <p className="font-semibold">Chưa bàn giao được.</p>
                 <p className="text-xs mt-0.5">
-                  {khongCoAiNhoDuoc ? (
-                    <>
-                      Không có hướng dẫn viên nào đang dẫn đoàn khác cùng lúc để nhờ. Sang trang
-                      quản lý chuyến phân công thêm một người, rồi quay lại duyệt. Từ chối cũng
-                      được, nhưng nhớ ghi lý do để họ biết đường xoay xở.
-                    </>
-                  ) : (
-                    <>
-                      Chỉ nhờ được người <strong>đang dẫn đoàn khác</strong>, vì họ đã ở ngoài
-                      đường và tới được ngay. Người đó tạm giữ hai đoàn cho tới khi bạn thu xếp
-                      được người khác.
-                    </>
-                  )}
+                  Đoàn đang trên đường và chuyến này chỉ có một hướng dẫn viên — chính người đang
+                  xin. Gỡ họ ra thì đoàn không có ai cho tới khi người mới tới nơi. Sang trang quản
+                  lý chuyến <strong>phân công thêm một người</strong>, rồi quay lại đây. Đóng phiếu
+                  cũng được, nhưng nhớ ghi lý do để họ biết đường xoay xở.
                 </p>
               </div>
             )}
@@ -357,10 +289,8 @@ export default function HandoverManagement() {
                 <p className="text-xs text-gray-500">Đang tìm người rảnh...</p>
               ) : nguoiThayChonDuoc.length === 0 ? (
                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  {canNhoTrongHo
-                    ? "Không có hướng dẫn viên nào đang dẫn đoàn khác để nhờ."
-                    : "Không còn hướng dẫn viên nào khác đang hoạt động."}{" "}
-                  Từ chối kèm lý do để người xin biết đường xoay xở.
+                  Không còn hướng dẫn viên nào khác đang hoạt động. Đóng phiếu kèm lý do để người
+                  xin biết đường xoay xở.
                 </p>
               ) : (
                 <>
@@ -443,7 +373,7 @@ export default function HandoverManagement() {
               </button>
               <button
                 type="button"
-                onClick={tuChoi}
+                onClick={dongPhieu}
                 disabled={saving || note.trim().length < 10}
                 className="px-4 py-2 text-xs font-semibold rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-40"
               >
@@ -451,11 +381,11 @@ export default function HandoverManagement() {
               </button>
               <button
                 type="button"
-                onClick={duyet}
-                disabled={saving || khongCoAiNhoDuoc || !guideId}
+                onClick={banGiao}
+                disabled={saving || chuaBanGiaoDuoc || !guideId}
                 className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40"
               >
-                {saving ? "Đang xử lý..." : "Duyệt và bàn giao"}
+                {saving ? "Đang xử lý..." : "Bàn giao"}
               </button>
             </div>
           </div>

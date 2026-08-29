@@ -287,9 +287,7 @@ export interface GuideHandoverRow {
   /** Tình trạng đoàn tại thời điểm bàn giao. Phần có giá trị nhất của biên bản. */
   handover_note: string;
   /** Nhờ hướng dẫn viên của đoàn khác trông hộ: người nhận đang giữ hai đoàn, còn việc dở. */
-  is_emergency_cover: boolean;
   /** Người nhận đã xác nhận đọc chưa. Không chặn gì, chỉ để biết có cần gọi điện không. */
-  acknowledged_at: string | null;
   /** Bao nhiêu phút trôi qua mà chưa ai xác nhận. Null khi đã xác nhận. */
   minutes_waiting: number | null;
   created_by_name: string | null;
@@ -303,11 +301,9 @@ export interface HandoverHistoryResponse {
     tour_title: string | null;
     start_date: string | null;
   })[];
-  /** Số lần nhờ trông hộ: mỗi cái là một người đang giữ hai đoàn, tức việc còn dở. */
-  emergency_count: number;
 }
 
-/** Yêu cầu bàn giao đang chờ điều hành xử lý. */
+/** Phiếu bàn giao đang chờ điều hành xử lý. */
 export interface PendingHandoverRequest {
   id: number;
   tour_schedule_id: number;
@@ -330,12 +326,12 @@ export interface HandoverPanelResponse {
   };
   current_guides: { id: number; name: string; phone?: string | null }[];
   /**
-   * Đoàn đang trên đường mà chỉ còn một người phụ trách.
+   * Đoàn đang trên đường mà chỉ còn một người phụ trách — chưa bàn giao được.
    *
-   * Khi đó chỉ nhờ được hướng dẫn viên đang dẫn đoàn khác: người ở nhà cách đoàn nhiều giờ, mà
-   * đó đúng là quãng đoàn không có ai.
+   * Phải phân công thêm một người cho chuyến trước, để sau khi một người rời đi vẫn còn ai đó
+   * bên đoàn.
    */
-  needs_emergency_cover: boolean;
+  blocked_needs_second_guide: boolean;
   /** Còn bao nhiêu giờ nữa đoàn về. Cử người ở xa cho chuyến sắp kết thúc là vô nghĩa. */
   hours_remaining: number | null;
   available_guides: {
@@ -839,38 +835,39 @@ const adminService = {
    * sẽ có người đổi người dẫn bằng màn phân công và bỏ qua biên bản.
    */
   /**
-   * Lịch sử bàn giao toàn công ty.
-   *
-   * Câu hỏi của màn theo dõi chung: gần đây có bao nhiêu lần đổi người, và còn ai đang phải
-   * trông hai đoàn.
+   * Lịch sử bàn giao toàn công ty: gần đây có bao nhiêu lần đổi người.
    */
-  getHandoverHistory: async (emergencyOnly = false): Promise<HandoverHistoryResponse | null> => {
-    const response = await api.get("/admin/handovers", {
-      params: emergencyOnly ? { emergency_only: 1 } : {},
-    });
+  getHandoverHistory: async (): Promise<HandoverHistoryResponse | null> => {
+    const response = await api.get("/admin/handovers");
     return extractObject<HandoverHistoryResponse>(response);
   },
 
-  /** Yêu cầu bàn giao hướng dẫn viên gửi lên, chờ điều hành chọn người thay. */
+  /** Phiếu bàn giao hướng dẫn viên gửi lên, chờ điều hành chọn người thay. */
   getPendingHandoverRequests: async (): Promise<PendingHandoverRequest[]> => {
     const response = await api.get("/admin/handover-requests");
     return extractArray<PendingHandoverRequest>(response);
   },
 
-  /** Duyệt: chọn người thay rồi thực hiện. Máy chủ đi qua đúng đường bàn giao chung. */
-  approveHandoverRequest: async (id: number, toGuideId: number, reviewNote?: string) => {
-    const response = await api.put(`/admin/handover-requests/${id}/approve`, {
+  /*
+   * Hai cách xử lý một phiếu, không có luồng duyệt nhiều bước.
+   *
+   * `resolve` chỉ định người mới và đi qua đúng đường bàn giao chung của máy chủ.
+   * `close` đóng phiếu mà không đổi ai — gộp cả "không đồng ý" lẫn "hướng dẫn viên đỡ rồi",
+   * khác nhau ở câu ghi chú chứ không cần thành hai trạng thái.
+   */
+  resolveHandoverRequest: async (id: number, toGuideId: number, reviewNote?: string) => {
+    const response = await api.put(`/admin/handover-requests/${id}/resolve`, {
       to_guide_id: toGuideId,
       review_note: reviewNote || null,
     });
-    return response.data?.message ?? "Đã duyệt và bàn giao.";
+    return response.data?.message ?? "Đã bàn giao.";
   },
 
-  rejectHandoverRequest: async (id: number, reviewNote: string) => {
-    const response = await api.put(`/admin/handover-requests/${id}/reject`, {
+  closeHandoverRequest: async (id: number, reviewNote: string) => {
+    const response = await api.put(`/admin/handover-requests/${id}/close`, {
       review_note: reviewNote,
     });
-    return response.data?.message ?? "Đã từ chối.";
+    return response.data?.message ?? "Đã đóng phiếu.";
   },
 
   getHandoverPanel: async (scheduleId: number): Promise<HandoverPanelResponse | null> => {

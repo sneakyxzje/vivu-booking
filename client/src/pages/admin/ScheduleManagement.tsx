@@ -324,19 +324,16 @@ export default function ScheduleManagement() {
   }, [loadHandoverRequests]);
 
   /**
-   * Đoàn đang trên đường mà chỉ còn một người phụ trách.
+   * Đoàn đang trên đường mà chỉ còn một người phụ trách — chưa bàn giao được.
    *
-   * Khi đó chỉ nhờ được hướng dẫn viên đang dẫn đoàn khác — họ đã ở ngoài đường, tới được ngay.
-   * Người ở nhà cách đoàn nhiều giờ, mà đó đúng là quãng đoàn không có ai.
+   * Phải phân công thêm một người cho chuyến trước, để sau khi một người rời đi vẫn còn ai đó
+   * bên đoàn.
    */
-  const canNhoTrongHo = handoverPanel?.needs_emergency_cover === true;
+  const canNhoTrongHo = handoverPanel?.blocked_needs_second_guide === true;
 
-  /** Chỉ những người nhờ được. Lúc bình thường thì là tất cả. */
-  const nguoiThayChonDuoc = (handoverPanel?.available_guides ?? []).filter(
-    (g) => !canNhoTrongHo || g.leading_other_group,
-  );
+  const nguoiThayChonDuoc = handoverPanel?.available_guides ?? [];
 
-  const khongCoAiNhoDuoc = canNhoTrongHo && nguoiThayChonDuoc.length === 0;
+  const khongCoAiNhoDuoc = canNhoTrongHo || nguoiThayChonDuoc.length === 0;
 
   const openHandoverDialog = async (scheduleId: number) => {
     setHandoverScheduleId(scheduleId);
@@ -1334,11 +1331,6 @@ export default function ScheduleManagement() {
                       <div key={bg.id} className="rounded-lg border border-gray-200 p-2.5 text-xs">
                         <p className="font-semibold text-gray-900">
                           {bg.from_guide?.name} → {bg.to_guide?.name}
-                          {bg.is_emergency_cover && (
-                            <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
-                              Nhờ trông hộ
-                            </span>
-                          )}
                           <span className="ml-2 font-normal text-gray-500">
                             {formatDateTime(bg.handed_over_at)}
                           </span>
