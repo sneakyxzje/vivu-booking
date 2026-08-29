@@ -332,9 +332,14 @@ Route::middleware('auth:sanctum')->group(function () {
         // Quản lý danh mục tour (biển đảo, nghỉ dưỡng, ...)
         Route::apiResource('categories', AdminCategoryController::class);
 
-        // Quản lý chính sách hủy theo mốc thời gian
-        Route::apiResource('cancellation-policies', AdminCancellationPolicyController::class)
-            ->except(['show']);
+        /*
+         * Chính sách hủy: **một bảng phí duy nhất**, không phải danh sách.
+         *
+         * Chỉ còn đọc và ghi — không tạo, không xóa. Đường dẫn giữ dạng số nhiều cho khỏi phải
+         * sửa mọi chỗ đang gọi, nhưng phía sau nó là đúng một bản ghi.
+         */
+        Route::get('cancellation-policies', [AdminCancellationPolicyController::class, 'index']);
+        Route::put('cancellation-policies', [AdminCancellationPolicyController::class, 'update']);
     });
 });
 
