@@ -40,29 +40,65 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('cancellation_policy_rules', function (Blueprint $table) {
-            $table->unsignedSmallInteger('min_days_before')->default(0)->after('cancellation_policy_id');
-            $table->unsignedSmallInteger('max_days_before')->nullable()->after('min_days_before');
-        });
+        // Bọc trong hasColumn để chạy lại được sau một lần hỏng giữa chừng: MySQL không quay ngược
+        // được lệnh DDL, nên lần chạy trước có thể đã kịp thêm hai cột này rồi mới dừng.
+        if (!Schema::hasColumn('cancellation_policy_rules', 'min_days_before')) {
+            Schema::table('cancellation_policy_rules', function (Blueprint $table) {
+                $table->unsignedSmallInteger('min_days_before')->default(0)->after('cancellation_policy_id');
+                $table->unsignedSmallInteger('max_days_before')->nullable()->after('min_days_before');
+            });
+        }
 
-        DB::table('cancellation_policy_rules')->update([
-            'min_days_before' => DB::raw('min_hours_before / 24'),
-            'max_days_before' => DB::raw('CASE WHEN max_hours_before IS NULL THEN NULL ELSE max_hours_before / 24 END'),
-        ]);
+        /*
+         * Phép chia làm bằng PHP chứ không bằng SQL.
+         *
+         * Hai engine chia khác nhau: SQLite cắt phần lẻ, MySQL làm tròn khi ghi vào cột nguyên.
+         * Một bậc 47 giờ sẽ thành 1 ngày ở máy này và 2 ngày ở máy kia. `FLOOR()` bắc cầu được cho
+         * MySQL nhưng SQLite ở đây không có hàm đó.
+         *
+         * `intdiv` cắt phần lẻ ở cả hai, và bảng này có vài dòng nên vòng lặp không đáng kể.
+         */
+        foreach (DB::table('cancellation_policy_rules')->get() as $bac) {
+            DB::table('cancellation_policy_rules')->where('id', $bac->id)->update([
+                'min_days_before' => intdiv((int) $bac->min_hours_before, 24),
+                'max_days_before' => $bac->max_hours_before === null
+                    ? null
+                    : intdiv((int) $bac->max_hours_before, 24),
+            ]);
+        }
+
+        /*
+         * Dựng chỉ mục mới TRƯỚC rồi mới bỏ chỉ mục cũ.
+         *
+         * `idx_policy_rules_lookup` bắt đầu bằng `cancellation_policy_id`, và MySQL dùng luôn nó
+         * để đỡ khóa ngoại trên cột ấy. Bỏ trước khi có cái thay thế thì MySQL từ chối:
+         * "Cannot drop index: needed in a foreign key constraint". SQLite không kiểm điều này nên
+         * thứ tự ngược lại vẫn chạy lọt ở máy phát triển và chỉ hỏng ở máy chạy MySQL.
+         *
+         * Chỉ mục mới mang tên khác vì hai chỉ mục không trùng tên được, mà lúc này cả hai cùng
+         * tồn tại. Tên mới cũng nói đúng nội dung hơn.
+         */
+        Schema::table('cancellation_policy_rules', function (Blueprint $table) {
+            $table->index(['cancellation_policy_id', 'min_days_before'], 'idx_policy_rules_days');
+        });
 
         Schema::table('cancellation_policy_rules', function (Blueprint $table) {
             $table->dropIndex('idx_policy_rules_lookup');
             $table->dropColumn(['min_hours_before', 'max_hours_before']);
-            $table->index(['cancellation_policy_id', 'min_days_before'], 'idx_policy_rules_lookup');
         });
 
         Schema::table('cancellation_policies', function (Blueprint $table) {
             $table->dateTime('effective_from')->nullable()->after('description');
         });
 
-        // Bản đang có sẵn coi như đã có hiệu lực từ lúc nó được tạo.
+        /*
+         * Bản đang có sẵn coi như đã có hiệu lực từ lúc nó được tạo.
+         *
+         * COALESCE vì bước ngay sau đây bắt cột này NOT NULL: một hàng lỡ thiếu `created_at` sẽ
+         * làm cả lệnh đổi kiểu hỏng, và hỏng ở giữa một migration MySQL thì không quay ngược được.
+         */
         DB::table('cancellation_policies')->update([
-            'effective_from' => DB::raw('created_at'),
+            'effective_from' => DB::raw("COALESCE(created_at, '2020-01-01 00:00:00')"),
         ]);
 
         Schema::table('cancellation_policies', function (Blueprint $table) {
@@ -87,15 +123,23 @@ return new class extends Migration
             $table->unsignedInteger('max_hours_before')->nullable()->after('min_hours_before');
         });
 
-        DB::table('cancellation_policy_rules')->update([
-            'min_hours_before' => DB::raw('min_days_before * 24'),
-            'max_hours_before' => DB::raw('CASE WHEN max_days_before IS NULL THEN NULL ELSE max_days_before * 24 END'),
-        ]);
+        foreach (DB::table('cancellation_policy_rules')->get() as $bac) {
+            DB::table('cancellation_policy_rules')->where('id', $bac->id)->update([
+                'min_hours_before' => (int) $bac->min_days_before * 24,
+                'max_hours_before' => $bac->max_days_before === null
+                    ? null
+                    : (int) $bac->max_days_before * 24,
+            ]);
+        }
+
+        // Cùng lý do như ở up(): chỉ mục đỡ khóa ngoại phải có cái thay thế trước khi bị bỏ.
+        Schema::table('cancellation_policy_rules', function (Blueprint $table) {
+            $table->index(['cancellation_policy_id', 'min_hours_before'], 'idx_policy_rules_lookup');
+        });
 
         Schema::table('cancellation_policy_rules', function (Blueprint $table) {
-            $table->dropIndex('idx_policy_rules_lookup');
+            $table->dropIndex('idx_policy_rules_days');
             $table->dropColumn(['min_days_before', 'max_days_before']);
-            $table->index(['cancellation_policy_id', 'min_hours_before'], 'idx_policy_rules_lookup');
         });
     }
 };
