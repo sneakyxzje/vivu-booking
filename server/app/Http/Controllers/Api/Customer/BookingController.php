@@ -206,10 +206,15 @@ class BookingController extends Controller
                 'status' => 'pending',
                 'expires_at' => now()->addMinutes($this->holdService->holdMinutes()),
                 'note' => $data['note'] ?? null,
-                // Sao chép chính sách hủy tại thời điểm đặt. Sửa chính sách của tour về sau
-                // không được làm đổi điều khoản mà khách đã đồng ý.
-                'cancellation_policy_id' => $tour->cancellation_policy_id
-                    ?? \App\Models\CancellationPolicy::default()?->id,
+                /*
+                 * Chép chính sách hủy vào đơn ngay lúc đặt.
+                 *
+                 * Cả hệ thống chỉ còn MỘT bảng phí, nên bản chép luôn giống bản gốc - cho tới
+                 * ngày ai đó sửa bảng phí. Từ giây ấy, đơn này vẫn giữ đúng điều khoản khách đã
+                 * đồng ý, còn đơn mới theo bảng mới. Bỏ dòng chép đi thì sửa một con số là hồi tố
+                 * lên toàn bộ đơn đã bán.
+                 */
+                'cancellation_policy_id' => \App\Models\CancellationPolicy::default()?->id,
             ]);
             // Ghi qua PassengerPolicyService để danh sách khai lúc đặt chịu đúng những luật mà
             // danh sách sửa về sau phải chịu. Hai đường ghi mà hai bộ luật thì sớm muộn cũng có

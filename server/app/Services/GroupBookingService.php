@@ -223,9 +223,9 @@ class GroupBookingService
                 'status' => 'confirmed',
                 'confirmed_at' => now(),
                 'note' => $fresh->note,
-                // Cùng quy tắc với đơn lẻ: sao chép chính sách hủy tại thời điểm chốt.
-                'cancellation_policy_id' => $schedule->tour?->cancellation_policy_id
-                    ?? CancellationPolicy::default()?->id,
+                // Cùng quy tắc với đơn lẻ: chép bảng phí hủy tại thời điểm chốt, để sửa bảng phí
+                // về sau không hồi tố lên đơn đã bán.
+                'cancellation_policy_id' => CancellationPolicy::default()?->id,
                 'group_booking_request_id' => $fresh->getKey(),
             ]);
 
