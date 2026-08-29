@@ -58,8 +58,6 @@ export default function BookingManagement() {
   // Khách gọi lên xin đổi thì vẫn là "customer", dù người bấm nút là điều hành. Chỉ chọn
   // "company" khi công ty tự chuyển vì lý do vận hành.
   const [initiatedBy, setInitiatedBy] = useState<"customer" | "company">("customer");
-  const [reopenMode, setReopenMode] = useState(false);
-  const [reopenReason, setReopenReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
 
@@ -397,32 +395,13 @@ export default function BookingManagement() {
     }
   };
 
-  // Kiểm tra đơn có đủ điều kiện mở lại trong vòng 24 giờ không (Edge Case C06)
-  const canReopen = (booking: Booking | null) => {
-    if (!booking || booking.status !== "cancelled" || !booking.cancelled_at) return false;
-    const cancelledTime = new Date(booking.cancelled_at).getTime();
-    const now = new Date().getTime();
-    const diffInHours = (now - cancelledTime) / (1000 * 60 * 60);
-    return diffInHours <= 24;
-  };
-
-  const handleReopen = async () => {
-    if (!selectedBooking || !reopenReason.trim()) return;
-    setActionLoading(true);
-    setActionError("");
-    try {
-      const updated = await adminService.reopenBooking(selectedBooking.id, reopenReason.trim());
-      if (updated) {
-        applyBookingUpdate(updated);
-        setReopenMode(false);
-        setReopenReason("");
-      }
-    } catch (err) {
-      setActionError(extractApiError(err, "Không thể mở lại đơn đặt tour này. Vui lòng kiểm tra số chỗ trống trên chuyến."));
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  /*
+   * Không còn "mở lại đơn đã hủy".
+   *
+   * Hủy là trạng thái kết thúc. Chỗ đã trả về kho có thể đã bán cho người khác, thư báo hủy đã
+   * gửi, tiền hoàn có thể đã chuyển — kéo đơn trở lại là dựng dậy một thứ mà phần còn lại đã đi
+   * tiếp. Hủy nhầm thì đặt lại đơn mới, mất một phút và để lại đúng một dòng lịch sử.
+   */
 
   return (
     <div className="space-y-6">
@@ -810,7 +789,7 @@ export default function BookingManagement() {
             )}
             {/* I06 - Chỉ đơn đã thanh toán mới chuyển; đơn chưa trả tiền thì hủy rồi đặt lại
                 đơn giản hơn nhiều. */}
-            {selectedBooking?.status === "confirmed" && !cancelMode && !reopenMode && !transferMode && (
+            {selectedBooking?.status === "confirmed" && !cancelMode && !transferMode && (
               <button
                 onClick={() => openTransferForm()}
                 disabled={actionLoading}
@@ -819,7 +798,7 @@ export default function BookingManagement() {
                 Chuyển chuyến
               </button>
             )}
-            {(selectedBooking?.status === "pending" || selectedBooking?.status === "confirmed") && !cancelMode && !reopenMode && !transferMode && (
+            {(selectedBooking?.status === "pending" || selectedBooking?.status === "confirmed") && !cancelMode && !transferMode && (
               <button
                 onClick={openCancelForm}
                 disabled={actionLoading}
@@ -832,7 +811,7 @@ export default function BookingManagement() {
               Q - Hợp đồng du lịch. Chỉ đơn đã thành giao dịch mới có gì để ký; đơn đang giữ chỗ
               thì máy chủ cũng từ chối, ẩn nút ở đây để khỏi bấm xong mới bị chặn.
             */}
-            {selectedBooking && !["pending", "cancelled"].includes(String(selectedBooking.status)) && !cancelMode && !reopenMode && !transferMode && (
+            {selectedBooking && !["pending", "cancelled"].includes(String(selectedBooking.status)) && !cancelMode && !transferMode && (
               <>
                 <button
                   onClick={moHopDong}
@@ -858,15 +837,6 @@ export default function BookingManagement() {
               </>
             )}
 
-            {selectedBooking?.status === "cancelled" && canReopen(selectedBooking) && !cancelMode && !reopenMode && (
-              <button
-                onClick={() => { setReopenMode(true); setActionError(""); }}
-                disabled={actionLoading}
-                className="px-4 py-2 bg-blue-600 text-sm font-semibold rounded-md text-white hover:bg-blue-700 transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-              >
-                🔄 Mở lại đơn đã hủy
-              </button>
-            )}
             <button
               onClick={closeDetails}
               className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-md text-gray-700 hover:bg-gray-100 transition-colors focus:outline-none cursor-pointer"
@@ -1071,24 +1041,15 @@ export default function BookingManagement() {
                 {selectedBooking.cancelled_at && (
                   <p className="text-[11px] text-rose-600 mt-2 font-mono">
                     Thời gian hủy: {formatDateTime(selectedBooking.cancelled_at)}
-                    {canReopen(selectedBooking) ? " (Trong thời hạn 24h — Có thể mở lại)" : " (Đã quá 24h — Không thể mở lại)"}
                   </p>
                 )}
               </div>
             )}
 
-            {/* Lý do khôi phục đơn (nếu đơn từng được khôi phục) */}
-            {selectedBooking.reopen_reason && (
-              <div className="bg-blue-50/60 p-4 rounded-lg border border-blue-200">
-                <h5 className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">Lý do khôi phục đơn</h5>
-                <p className="text-sm text-blue-800 leading-relaxed">{selectedBooking.reopen_reason}</p>
-                {selectedBooking.reopened_at && (
-                  <p className="text-[11px] text-blue-600 mt-2 font-mono">
-                    Khôi phục lúc: {formatDateTime(selectedBooking.reopened_at)}
-                  </p>
-                )}
-              </div>
-            )}
+            {/*
+              Không còn khối "lý do khôi phục đơn": không đơn nào khôi phục được nữa. Đơn cũ từng
+              được mở lại thì dấu vết vẫn còn trong lịch sử thay đổi ngay bên dưới.
+            */}
 
             {/*
               E04 - Dòng thời gian thay đổi của đơn.
@@ -1426,40 +1387,6 @@ export default function BookingManagement() {
               </div>
             )}
 
-            {/* Form nhập lý do mở lại đơn */}
-            {reopenMode && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 space-y-3">
-                <label className="block text-sm font-semibold text-blue-800">
-                  Lý do mở lại đơn đã hủy <span className="text-blue-500">*</span>
-                </label>
-                <textarea
-                  rows={2}
-                  value={reopenReason}
-                  onChange={(e) => setReopenReason(e.target.value)}
-                  placeholder="VD: Quản trị viên hủy nhầm đơn khách đã thanh toán, khách muốn tiếp tục đi tour..."
-                  className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
-                />
-                <p className="text-xs text-blue-600">
-                  Mở lại đơn sẽ cộng lại số chỗ vào chuyến khởi hành và khôi phục trạng thái đơn về {selectedBooking.vnpay_transaction_no ? "Đã xác nhận (Confirmed)" : "Chờ xác nhận (Pending)"}.
-                </p>
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => { setReopenMode(false); setReopenReason(""); }}
-                    disabled={actionLoading}
-                    className="px-3.5 py-2 bg-white border border-gray-200 text-xs font-semibold rounded-md text-gray-600 hover:bg-gray-100 cursor-pointer"
-                  >
-                    Không mở nữa
-                  </button>
-                  <button
-                    onClick={handleReopen}
-                    disabled={actionLoading || !reopenReason.trim()}
-                    className="px-3.5 py-2 bg-blue-600 text-xs font-semibold rounded-md text-white hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
-                  >
-                    {actionLoading ? "Đang khôi phục..." : "Xác nhận khôi phục đơn"}
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </Modal>

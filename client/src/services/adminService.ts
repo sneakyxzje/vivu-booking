@@ -1081,13 +1081,7 @@ const adminService = {
     return extractObject<Booking>(response);
   },
 
-  // Task X07b - Mở lại đơn đã hủy nhầm trong 24 giờ (Edge Case C06)
-  reopenBooking: async (id: number, reopen_reason: string): Promise<Booking | null> => {
-    const response = await api.put(`/admin/bookings/${id}/reopen`, {
-      reopen_reason,
-    });
-    return extractObject<Booking>(response);
-  },
+  // Không còn `reopenBooking`: hủy là trạng thái kết thúc, hủy nhầm thì đặt lại đơn mới.
 
   // --- CHÍNH SÁCH HỦY ---
   /*
