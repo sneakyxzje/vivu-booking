@@ -7,13 +7,20 @@ use Illuminate\Http\Request;
 
 class RoleMiddleware
 {
-    public function handle(Request $request, Closure $next, $role)
-
+    /**
+     * Nhận nhiều vai, ví dụ `role:admin,guide`.
+     *
+     * Trước đây chỉ nhận một. Hộp thông báo là chỗ đầu tiên cần hai vai cùng vào được — mỗi người
+     * chỉ thấy thông báo của chính mình, nên mở cho cả hai không nới rộng quyền gì.
+     *
+     * Cách khác là chép controller ra hai bản dưới hai nhóm route. Hai bản của cùng một logic là
+     * kiểu lỗi dự án này đã gặp nhiều lần.
+     */
+    public function handle(Request $request, Closure $next, string ...$roles)
     {
         $user = $request->user();
 
-        if ($user->role !== $role) {
-
+        if (!in_array($user->role, $roles, true)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Forbidden'
