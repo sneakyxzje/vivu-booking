@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
 import policyService from "@/services/policyService";
 import type { PolicyResponse } from "@/services/policyService";
 import { formatPrice } from "@/utils/format";
@@ -27,11 +28,16 @@ import { formatPrice } from "@/utils/format";
  * Một trang điều khoản đọc từ trên xuống. Cắt nó thành các thẻ có viền là chia một mạch văn thành
  * những ô rời rạc, và mắt phải nhảy giữa các ô thay vì trôi theo dòng.
  *
- * Bề rộng khớp thanh điều hướng để trang không thụt vào so với phần còn lại của website; riêng
- * phần chữ giữ `max-w-3xl` vì dòng dài quá 80 ký tự thì mắt lạc dòng khi xuống hàng. Bảng phí
- * được trải rộng hơn, vì nó là dữ liệu chứ không phải văn xuôi.
+ * Toàn bộ nội dung trải đúng bề rộng thanh điều hướng, không thụt vào ở đâu cả.
  */
 
+/**
+ * Một câu hỏi, gập lại được.
+ *
+ * Dùng thẻ `details` của trình duyệt chứ không tự dựng bằng `useState`: nó gập mở sẵn không cần
+ * JavaScript, đọc được bằng bàn phím và trình đọc màn hình, và Ctrl+F của trình duyệt vẫn tìm thấy
+ * chữ bên trong rồi tự bung ra. Dựng tay thì phải làm lại cả bốn thứ đó.
+ */
 const CauHoi = ({
   hoi,
   children,
@@ -39,12 +45,15 @@ const CauHoi = ({
   hoi: string;
   children: React.ReactNode;
 }) => (
-  <div className="mt-7">
-    <h3 className="text-title-md text-ink">{hoi}</h3>
-    <div className="mt-2 space-y-2.5 text-body-md text-body [&_strong]:font-semibold [&_strong]:text-ink">
+  <details className="group border-b border-hairline-soft">
+    <summary className="text-title-md text-ink flex cursor-pointer list-none items-center justify-between gap-6 py-4 transition-colors hover:text-primary-600">
+      {hoi}
+      <ChevronDown className="text-muted h-4.5 w-4.5 shrink-0 transition-transform duration-200 group-open:rotate-180" />
+    </summary>
+    <div className="text-body-md text-body space-y-2.5 pb-5 [&_strong]:font-semibold [&_strong]:text-ink">
       {children}
     </div>
-  </div>
+  </details>
 );
 
 export default function PolicyPage() {
@@ -89,7 +98,7 @@ export default function PolicyPage() {
           Chính sách &amp; Điều khoản
         </h1>
 
-        <p className="text-body-md text-body mt-3 max-w-3xl">
+        <p className="text-body-md text-body mt-3">
           Mức hoàn tiền, quy định đổi chuyến, điều khoản sử dụng và cách chúng tôi giữ dữ liệu của
           bạn — gộp trong một trang. Bảng phí ở mục 1 đọc thẳng từ hệ thống, là mức thực sự áp khi
           bạn hủy, không phải một bản chép tay có thể lệch.
@@ -120,12 +129,12 @@ export default function PolicyPage() {
               1. Mức hoàn khi bạn hủy đơn
             </h2>
 
-            <p className="text-body-md text-body mt-3 max-w-3xl">
+            <p className="text-body-md text-body mt-3">
               {data.cancellation.description
                 ?? "Phí hủy tăng dần khi càng sát ngày khởi hành, vì chi phí đã cam kết với nhà cung cấp càng khó hủy."}
             </p>
 
-            <div className="mt-5 max-w-4xl overflow-x-auto">
+            <div className="mt-5 overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-hairline">
@@ -156,7 +165,7 @@ export default function PolicyPage() {
               </table>
             </div>
 
-            <p className="text-body-md text-body mt-5 max-w-3xl">
+            <p className="text-body-md text-body mt-5">
               Mức hoàn tính theo số ngày còn lại tới giờ khởi hành. Trước khi xác nhận hủy, hệ thống
               hiện sẵn số tiền bạn nhận lại — bạn thấy con số rồi mới quyết.
             </p>
@@ -164,7 +173,7 @@ export default function PolicyPage() {
             {/* --- 2. Hỏi đáp --- */}
             <h2 className="text-display-sm text-ink mt-14">2. Câu hỏi thường gặp</h2>
 
-            <div className="max-w-3xl">
+            <div className="mt-1">
               <CauHoi hoi="Tôi được hoàn bao nhiêu tiền khi hủy?">
                 <p>
                   Phần trăm lấy theo bảng phía trên, tính theo số ngày còn lại tới giờ khởi hành.
@@ -274,7 +283,7 @@ export default function PolicyPage() {
               3. Điều khoản sử dụng
             </h2>
 
-            <ul className="text-body-md text-body mt-3 max-w-3xl list-disc space-y-2.5 pl-5 marker:text-muted-soft">
+            <ul className="text-body-md text-body mt-3 list-disc space-y-2.5 pl-5 marker:text-muted-soft">
               <li>
                 Bạn chịu trách nhiệm về tính chính xác của thông tin cung cấp khi đặt tour: họ tên,
                 giấy tờ tùy thân, số điện thoại và email liên hệ. Thông tin sai có thể khiến bạn
@@ -307,7 +316,7 @@ export default function PolicyPage() {
               4. Chính sách bảo mật
             </h2>
 
-            <ul className="text-body-md text-body mt-3 max-w-3xl list-disc space-y-2.5 pl-5 marker:text-muted-soft">
+            <ul className="text-body-md text-body mt-3 list-disc space-y-2.5 pl-5 marker:text-muted-soft">
               <li>
                 Thông tin cá nhân của bạn chỉ được dùng để xử lý đơn đặt tour, làm bảo hiểm du lịch
                 và chăm sóc khách hàng.
@@ -333,7 +342,7 @@ export default function PolicyPage() {
             {/* --- 5. Liên hệ --- */}
             <h2 className="text-display-sm text-ink mt-14">5. Còn điều gì chưa rõ</h2>
 
-            <p className="text-body-md text-body mt-3 max-w-3xl">
+            <p className="text-body-md text-body mt-3">
               Gọi tổng đài{" "}
               <a href="tel:19001234" className="font-semibold text-primary-600 hover:underline">
                 1900 1234
