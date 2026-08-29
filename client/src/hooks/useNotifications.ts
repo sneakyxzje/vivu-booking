@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import adminService from "@/services/adminService";
-import type { AdminNotification } from "@/services/adminService";
-import { onAdminAlert } from "@/services/realtime";
+import notificationService from "@/services/notificationService";
+import type { AppNotification } from "@/services/notificationService";
+import { onNotification } from "@/services/realtime";
 import { useAuth } from "@/hooks/useAuth";
 
 /**
- * Thông báo của điều hành: tải danh sách, và giữ cho nó mới.
+ * Hộp thông báo: tải danh sách, và giữ cho nó mới.
+ *
+ * Dùng chung cho điều hành và hướng dẫn viên. Hai vai khác nhau ở nội dung thông báo chứ không
+ * khác ở cách nhận, nên tách thành hai hook chỉ là chép đoạn logic kết nối ra làm hai bản rồi
+ * chờ ngày chúng lệch nhau.
  *
  * ## Hai đường, và đường thứ hai luôn có
  *
@@ -22,10 +26,13 @@ import { useAuth } from "@/hooks/useAuth";
 /** Nhịp hỏi lại khi không có WebSocket. Đủ nhanh để không ai chờ, đủ chậm để không quấy máy chủ. */
 const NHIP_HOI_LAI = 30_000;
 
-export const useAdminNotifications = () => {
+/** Ai có hộp thông báo. Khách chưa có — máy chủ cũng chưa gửi gì cho họ. */
+const CO_HOP_THONG_BAO = ["admin", "guide"];
+
+export const useNotifications = () => {
   const { user } = useAuth();
 
-  const [items, setItems] = useState<AdminNotification[]>([]);
+  const [items, setItems] = useState<AppNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
   /** true = đang nghe WebSocket. false = đang hỏi định kỳ. Hiện lên giao diện để biết đường gỡ. */
@@ -34,9 +41,16 @@ export const useAdminNotifications = () => {
   // Giữ trong ref để hàm nghe kênh không phải khai lại mỗi lần danh sách đổi.
   const daNhan = useRef(new Set<string>());
 
+  const coHop = !!user && CO_HOP_THONG_BAO.includes(user.role);
+
   const taiLai = useCallback(async () => {
+    if (!coHop) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const data = await adminService.getNotifications();
+      const data = await notificationService.getNotifications();
 
       if (data) {
         setItems(data.notifications);
@@ -48,20 +62,20 @@ export const useAdminNotifications = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [coHop]);
 
   useEffect(() => {
     taiLai();
   }, [taiLai]);
 
   useEffect(() => {
-    if (!user || user.role !== "admin") return;
+    if (!user || !coHop) return;
 
     const token = localStorage.getItem("token");
     if (!token) return;
 
-    const dungNghe = onAdminAlert(token, user.id, (payload) => {
-      const tb = payload as AdminNotification;
+    const dungNghe = onNotification(token, user.id, (payload) => {
+      const tb = payload as AppNotification;
 
       // Máy chủ có thể gửi lại cùng một thông báo khi kết nối chập chờn.
       if (!tb?.id || daNhan.current.has(tb.id)) return;
@@ -86,7 +100,7 @@ export const useAdminNotifications = () => {
 
     const dinhKy = window.setInterval(async () => {
       try {
-        const soMoi = await adminService.getUnreadNotificationCount();
+        const soMoi = await notificationService.getUnreadCount();
 
         // So với giá trị mới nhất chứ không so với biến đóng gói lúc khai hiệu ứng.
         setUnread((truoc) => {
@@ -99,7 +113,7 @@ export const useAdminNotifications = () => {
     }, NHIP_HOI_LAI);
 
     return () => window.clearInterval(dinhKy);
-  }, [user, taiLai]);
+  }, [user, coHop, taiLai]);
 
   const danhDauDaDoc = useCallback(async (id: string) => {
     // Đổi giao diện trước rồi mới gọi máy chủ: bấm vào một dòng thì nó phải mờ đi ngay.
@@ -109,7 +123,7 @@ export const useAdminNotifications = () => {
     setUnread((truoc) => Math.max(0, truoc - 1));
 
     try {
-      await adminService.markNotificationRead(id);
+      await notificationService.markRead(id);
     } catch (err) {
       console.error("Lỗi đánh dấu đã đọc:", err);
       taiLai();
@@ -121,7 +135,7 @@ export const useAdminNotifications = () => {
     setUnread(0);
 
     try {
-      await adminService.markAllNotificationsRead();
+      await notificationService.markAllRead();
     } catch (err) {
       console.error("Lỗi đánh dấu tất cả:", err);
       taiLai();
