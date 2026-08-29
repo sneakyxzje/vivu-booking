@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import policyService from "@/services/policyService";
 import type { PolicyResponse } from "@/services/policyService";
 import { formatPrice } from "@/utils/format";
@@ -51,6 +51,7 @@ export default function PolicyPage() {
   const [data, setData] = useState<PolicyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const { hash } = useLocation();
 
   useEffect(() => {
     policyService
@@ -60,6 +61,24 @@ export default function PolicyPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  /*
+   * Cuộn tới mục được trỏ bằng neo `#`.
+   *
+   * Trình duyệt tự làm việc này khi tải trang thật, nhưng điều hướng phía client thì không: React
+   * đổi nội dung mà không nạp lại trang, nên neo bị bỏ qua. Thiếu chỗ này thì `/terms` chuyển
+   * hướng sang đây rồi dừng ở đầu trang, và người bấm "Điều khoản sử dụng" nhìn thấy bảng phí hủy.
+   *
+   * Chờ `data` vì các mục chỉ tồn tại sau khi tải xong - cuộn trước đó thì không có gì để cuộn tới.
+   */
+  useEffect(() => {
+    if (!data || !hash) return;
+
+    document.getElementById(hash.slice(1))?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [data, hash]);
+
   return (
     <div className="bg-canvas animate-fade-in">
       {/* Cùng bề rộng và cùng lề với thanh điều hướng, để trang không lệch khỏi phần còn lại. */}
@@ -67,12 +86,13 @@ export default function PolicyPage() {
         <span className="tag-upper bg-primary-50 text-primary-700">Điều khoản</span>
 
         <h1 className="text-display-xl text-ink mt-4 sm:text-[32px]">
-          Chính sách hủy, đổi và hoàn tiền
+          Chính sách &amp; Điều khoản
         </h1>
 
         <p className="text-body-md text-body mt-3 max-w-3xl">
-          Toàn bộ mức phí dưới đây là mức hệ thống thực sự áp khi bạn hủy hoặc đổi chuyến. Bảng này
-          đọc thẳng từ hệ thống, không phải một bản chép tay có thể lệch.
+          Mức hoàn tiền, quy định đổi chuyến, điều khoản sử dụng và cách chúng tôi giữ dữ liệu của
+          bạn — gộp trong một trang. Bảng phí ở mục 1 đọc thẳng từ hệ thống, là mức thực sự áp khi
+          bạn hủy, không phải một bản chép tay có thể lệch.
         </p>
 
         {loading && (
@@ -249,18 +269,82 @@ export default function PolicyPage() {
               </CauHoi>
             </div>
 
-            {/* --- 3. Liên hệ --- */}
-            <h2 className="text-display-sm text-ink mt-14">3. Còn điều gì chưa rõ</h2>
+            {/* --- 3. Điều khoản sử dụng --- */}
+            <h2 id="dieu-khoan" className="text-display-sm text-ink mt-14 scroll-mt-24">
+              3. Điều khoản sử dụng
+            </h2>
+
+            <ul className="text-body-md text-body mt-3 max-w-3xl list-disc space-y-2.5 pl-5 marker:text-muted-soft">
+              <li>
+                Bạn chịu trách nhiệm về tính chính xác của thông tin cung cấp khi đặt tour: họ tên,
+                giấy tờ tùy thân, số điện thoại và email liên hệ. Thông tin sai có thể khiến bạn
+                không lên được phương tiện hoặc không nhận được thông báo về chuyến đi.
+              </li>
+              <li>
+                Đơn đặt tour chỉ được giữ chỗ trong{" "}
+                <strong className="font-semibold text-ink">
+                  {data.booking.payment_ttl_minutes} phút
+                </strong>{" "}
+                kể từ khi khởi tạo. Quá thời hạn mà chưa thanh toán, hệ thống tự hủy đơn và nhường
+                chỗ cho khách khác.
+              </li>
+              <li>
+                Đơn đã thanh toán là cam kết giữ chỗ chính thức giữa Vivu Booking và bạn, kèm theo
+                bảng phí hủy tại thời điểm đặt như nêu ở mục 1.
+              </li>
+              <li>
+                Vivu Booking có quyền từ chối hoặc hủy các đơn có dấu hiệu gian lận, kèm hoàn tiền
+                theo quy định.
+              </li>
+              <li>
+                Mỗi chuyến có số khách tối thiểu để khởi hành. Không đủ số lượng tới hạn chốt danh
+                sách, công ty hủy chuyến và hoàn đủ tiền — xem mục 2.
+              </li>
+            </ul>
+
+            {/* --- 4. Chính sách bảo mật --- */}
+            <h2 id="bao-mat" className="text-display-sm text-ink mt-14 scroll-mt-24">
+              4. Chính sách bảo mật
+            </h2>
+
+            <ul className="text-body-md text-body mt-3 max-w-3xl list-disc space-y-2.5 pl-5 marker:text-muted-soft">
+              <li>
+                Thông tin cá nhân của bạn chỉ được dùng để xử lý đơn đặt tour, làm bảo hiểm du lịch
+                và chăm sóc khách hàng.
+              </li>
+              <li>
+                Mật khẩu được mã hóa một chiều — kể cả nhân viên công ty cũng không đọc được. Giao
+                dịch thanh toán xử lý qua cổng VNPay với chữ ký bảo mật; Vivu Booking không lưu
+                thông tin thẻ của bạn.
+              </li>
+              <li>
+                Chúng tôi không chia sẻ dữ liệu khách hàng cho bên thứ ba ngoài phạm vi phục vụ
+                chuyến đi, tức đơn vị vận chuyển và lưu trú của chính chuyến bạn đặt.
+              </li>
+              <li>
+                Mọi lần công ty liên hệ với bạn về một đơn — gọi điện, nhắn tin, gửi email — đều
+                được ghi lại kèm thời điểm và nội dung, để cả hai bên đối chiếu khi cần.
+              </li>
+              <li>
+                Bạn có thể yêu cầu chỉnh sửa hoặc xóa thông tin cá nhân qua email hỗ trợ bên dưới.
+              </li>
+            </ul>
+
+            {/* --- 5. Liên hệ --- */}
+            <h2 className="text-display-sm text-ink mt-14">5. Còn điều gì chưa rõ</h2>
 
             <p className="text-body-md text-body mt-3 max-w-3xl">
               Gọi tổng đài{" "}
               <a href="tel:19001234" className="font-semibold text-primary-600 hover:underline">
                 1900 1234
               </a>{" "}
-              trong khung 8:00 – 21:00 hằng ngày, hoặc xem thêm{" "}
-              <Link to="/terms" className="font-semibold text-primary-600 hover:underline">
-                Điều khoản sử dụng
-              </Link>
+              trong khung 8:00 – 21:00 hằng ngày, hoặc gửi email tới{" "}
+              <a
+                href="mailto:info@vivubooking.vn"
+                className="font-semibold text-primary-600 hover:underline"
+              >
+                info@vivubooking.vn
+              </a>
               .
             </p>
           </>
