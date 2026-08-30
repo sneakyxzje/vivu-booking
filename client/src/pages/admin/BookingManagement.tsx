@@ -41,6 +41,7 @@ export default function BookingManagement() {
 
   // Sổ giao dịch của đơn đang mở, và biểu mẫu ghi một khoản thu ngoài cổng thanh toán.
   const [ledger, setLedger] = useState<BookingLedger | null>(null);
+  const [showPaymentLogs, setShowPaymentLogs] = useState(false);
   const [paymentMode, setPaymentMode] = useState(false);
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [paymentError, setPaymentError] = useState("");
@@ -195,6 +196,7 @@ export default function BookingManagement() {
     setContract(null);
     setLedger(null);
     setPaymentMode(false);
+    setShowPaymentLogs(false);
 
     adminService
       .getBookingLedger(booking.id)
@@ -986,7 +988,11 @@ export default function BookingManagement() {
           </div>
         }
       >
-        {selectedBooking && (
+        {selectedBooking && (() => {
+        // Nhật ký cổng thanh toán đi kèm chi tiết đơn, không phải một lượt gọi riêng.
+        const paymentLogs = selectedBooking.payment_logs ?? [];
+
+        return (
           <div className="space-y-5">
             {/* Tour info */}
             <div className="bg-primary-50/50 p-5 rounded-lg border border-primary-100/50">
@@ -1114,7 +1120,31 @@ export default function BookingManagement() {
               </div>
 
               <div className="bg-gray-50/50 p-5 rounded-lg border border-gray-200">
-                <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Trạng thái thanh toán</h5>
+                <div className="flex items-center justify-between gap-2">
+                  <h5 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Trạng thái thanh toán</h5>
+                  {/*
+                    Nút ghi khoản thu đặt ở đây, không ở mục sổ bên dưới: đây là chỗ người ta
+                    đang nhìn khi tự hỏi "đơn này trả tiền chưa".
+                  */}
+                  {ledger && !["cancelled", "transferred"].includes(String(selectedBooking.status)) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentForm({
+                          kind: "balance",
+                          amount: String(Math.max(0, ledger.balance_due)),
+                          method: "bank_transfer",
+                          reference: "",
+                        });
+                        setPaymentError("");
+                        setPaymentMode(true);
+                      }}
+                      className="rounded border border-gray-200 bg-white px-2 py-0.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 transition-colors"
+                    >
+                      Ghi khoản thu
+                    </button>
+                  )}
+                </div>
                 <div className="mt-3.5 space-y-2 text-sm font-inter">
                   <p className="flex justify-between border-b border-gray-100 pb-1.5">
                     <span className="text-gray-450">Giao dịch VNPAY:</span>{" "}
@@ -1134,9 +1164,100 @@ export default function BookingManagement() {
                       {Number(selectedBooking.total_amount).toLocaleString()}đ
                     </span>
                   </p>
+                  {/*
+                    Chỉ nói thêm khi số thu KHÁC tổng đơn. Trả đủ một lần thì hai dòng dưới đây
+                    chỉ nhắc lại "Tổng tiền" ở trên bằng chữ khác.
+                  */}
+                  {ledger && ledger.balance_due > 0 && ledger.net_paid > 0 && (
+                    <p className="flex justify-between items-baseline border-t border-gray-100 pt-1.5">
+                      <span className="text-gray-450">Còn thiếu:</span>{" "}
+                      <span className="font-bold text-amber-700">{formatPrice(ledger.balance_due)}</span>
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
+
+            {/* Ghi một khoản tiền nhận ngoài cổng thanh toán. Mở từ nút ở khối bên trên. */}
+            {paymentMode && (
+              <div className="space-y-3 rounded-lg border border-primary-200 bg-primary-50/40 p-4">
+                <p className="text-xs text-gray-600">
+                  Khách chuyển khoản hoặc nộp tiền mặt tại quầy. Khoản trả qua VNPay tự vào sổ,
+                  không cần ghi tay.
+                </p>
+
+                {paymentError && (
+                  <p className="rounded border border-rose-200 bg-rose-50 p-2 text-xs text-rose-700">
+                    {paymentError}
+                  </p>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="text-[11px] font-semibold text-gray-600">Số tiền</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={paymentForm.amount}
+                      onChange={(e) => setPaymentForm((cu) => ({ ...cu, amount: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm focus:border-primary-500 focus:outline-none"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[11px] font-semibold text-gray-600">Hình thức</span>
+                    <select
+                      value={paymentForm.method}
+                      onChange={(e) => setPaymentForm((cu) => ({ ...cu, method: e.target.value }))}
+                      className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm focus:border-primary-500 focus:outline-none"
+                    >
+                      <option value="bank_transfer">Chuyển khoản</option>
+                      <option value="cash">Tiền mặt</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label className="block">
+                  <span className="text-[11px] font-semibold text-gray-600">
+                    Mã giao dịch / chứng từ{" "}
+                    <span className="font-normal text-gray-400">(không bắt buộc)</span>
+                  </span>
+                  <input
+                    value={paymentForm.reference}
+                    onChange={(e) => setPaymentForm((cu) => ({ ...cu, reference: e.target.value }))}
+                    placeholder={paymentForm.method === "cash" ? "Số phiếu thu" : "Mã giao dịch ngân hàng"}
+                    className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm focus:border-primary-500 focus:outline-none"
+                  />
+                  {/*
+                    Nói rõ lấy ở đâu. Trước đây ô này chỉ có placeholder "FT26083012345" — trông
+                    như một định dạng bắt buộc, trong khi máy chủ khai `nullable` và không ai biết
+                    con số ấy đến từ đâu.
+                  */}
+                  <span className="mt-1 block text-[11px] text-gray-500">
+                    {paymentForm.method === "cash"
+                      ? "Số phiếu thu công ty tự ghi. Không có thì để trống."
+                      : "Mã tham chiếu trong app ngân hàng hoặc trên sao kê. Không có thì để trống."}
+                  </span>
+                </label>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMode(false)}
+                    className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={ghiKhoanThu}
+                    disabled={paymentSaving || Number(paymentForm.amount) <= 0}
+                    className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {paymentSaving ? "Đang ghi..." : "Ghi vào sổ"}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Danh sách hành khách */}
             {selectedBooking.passengers && selectedBooking.passengers.length > 0 && (
@@ -1192,191 +1313,137 @@ export default function BookingManagement() {
             */}
 
             {/*
-              Sổ giao dịch — mọi khoản thu và hoàn của đơn này.
+              Sổ giao dịch — chỉ hiện khi có gì để hiện.
 
-              Nằm ở đây chứ không riêng màn booking đoàn: từ khi đơn lẻ cũng nhận được tiền ngoài
-              cổng thanh toán (khách chuyển khoản, nộp tiền mặt tại quầy), câu "đơn này đã thu bao
-              nhiêu" phải trả lời được ở đúng chỗ người ta mở đơn ra xem.
+              Không dựng ba ô tổng ở đây: khối "Trạng thái thanh toán" phía trên đã nói tổng tiền
+              và đã trả hay chưa. Lặp lại bằng chữ khác là ba con số cho một thông tin.
 
               Sổ chỉ thêm dòng, không sửa dòng cũ: ghi nhầm thì ghi một dòng điều chỉnh ngược lại.
             */}
-            {ledger && (
-              <div className="pt-4 border-t border-gray-200 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    Sổ giao dịch
+            {ledger && ledger.entries.length > 0 && (
+              <div className="pt-4 border-t border-gray-200 space-y-2">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  Sổ giao dịch ({ledger.entries.length})
+                </span>
+                <ul className="space-y-2">
+                  {ledger.entries.map((entry) => (
+                    <li
+                      key={entry.id}
+                      className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-gray-200 bg-white p-3"
+                    >
+                      <div>
+                        <span className="text-sm font-semibold text-gray-900">{entry.kind_label}</span>
+                        <span className="ml-2 text-[11px] text-gray-500">
+                          {entry.paid_at}
+                          {entry.method && ` · ${METHOD_LABEL[entry.method] ?? entry.method}`}
+                          {entry.reference && ` · ${entry.reference}`}
+                          {entry.recorded_by && ` · ${entry.recorded_by}`}
+                        </span>
+                        {entry.note && (
+                          <span className="mt-0.5 block text-[11px] text-gray-500">{entry.note}</span>
+                        )}
+                      </div>
+                      <span
+                        className={`font-mono text-sm font-bold ${
+                          entry.kind === "refund" ? "text-rose-600" : "text-emerald-700"
+                        }`}
+                      >
+                        {entry.kind === "refund" ? "−" : "+"}
+                        {formatPrice(entry.amount)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Nghĩa vụ hoàn tiền — chỉ có nghĩa sau khi đơn đã hủy. */}
+            {ledger && ledger.refund_due > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                Phải hoàn <b>{formatPrice(ledger.refund_due)}</b>, đã trả{" "}
+                <b>{formatPrice(ledger.refunded)}</b>, còn nợ khách{" "}
+                <b>{formatPrice(ledger.refund_outstanding)}</b>.
+                {ledger.refund_bank && (
+                  <span className="mt-1 block font-mono text-[11px]">
+                    {ledger.refund_bank.account_number} · {ledger.refund_bank.bank_name} ·{" "}
+                    {ledger.refund_bank.account_holder}
                   </span>
-                  {!["cancelled", "transferred"].includes(String(selectedBooking.status)) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPaymentForm({
-                          kind: "balance",
-                          amount: String(Math.max(0, ledger.balance_due)),
-                          method: "bank_transfer",
-                          reference: "",
-                        });
-                        setPaymentError("");
-                        setPaymentMode(true);
-                      }}
-                      className="rounded border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-primary-600 hover:bg-primary-50 transition-colors"
-                    >
-                      Ghi khoản thu
-                    </button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-3">
-                    <p className="text-[11px] text-gray-500">Giá trị đơn</p>
-                    <p className="text-sm font-bold text-gray-900">{formatPrice(ledger.total_amount)}</p>
-                  </div>
-                  <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-3">
-                    <p className="text-[11px] text-gray-500">Đã thu thực</p>
-                    <p className="text-sm font-bold text-gray-900">{formatPrice(ledger.net_paid)}</p>
-                  </div>
-                  <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-3">
-                    <p className="text-[11px] text-gray-500">Còn thiếu</p>
-                    <p
-                      className={`text-sm font-bold ${
-                        ledger.balance_due > 0 ? "text-amber-700" : "text-emerald-700"
-                      }`}
-                    >
-                      {formatPrice(ledger.balance_due)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Nghĩa vụ hoàn chỉ có nghĩa sau khi đơn đã hủy. */}
-                {ledger.refund_due > 0 && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
-                    Phải hoàn <b>{formatPrice(ledger.refund_due)}</b>, đã trả{" "}
-                    <b>{formatPrice(ledger.refunded)}</b>, còn nợ khách{" "}
-                    <b>{formatPrice(ledger.refund_outstanding)}</b>.
-                    {ledger.refund_bank && (
-                      <span className="mt-1 block font-mono text-[11px]">
-                        {ledger.refund_bank.account_number} · {ledger.refund_bank.bank_name} ·{" "}
-                        {ledger.refund_bank.account_holder}
-                      </span>
-                    )}
-                    <span className="mt-1 block">Ghi khoản đã chuyển ở màn Hoàn tiền.</span>
-                  </div>
                 )}
+                <span className="mt-1 block">Ghi khoản đã chuyển ở màn Hoàn tiền.</span>
+              </div>
+            )}
 
-                {paymentMode && (
-                  <div className="space-y-3 rounded-lg border border-primary-200 bg-primary-50/40 p-4">
-                    <p className="text-xs text-gray-600">
-                      Ghi lại khoản tiền vừa nhận ngoài cổng thanh toán — khách chuyển khoản hoặc
-                      nộp tiền mặt tại quầy.
-                    </p>
+            {/*
+              Nhật ký cổng thanh toán.
 
-                    {paymentError && (
-                      <p className="rounded border border-rose-200 bg-rose-50 p-2 text-xs text-rose-700">
-                        {paymentError}
-                      </p>
-                    )}
+              Dữ liệu này được nạp cùng chi tiết đơn từ trước nhưng chưa màn hình nào hiện ra. Nó
+              ghi MỌI lượt VNPay trả về, kể cả lượt thất bại, kèm kết quả kiểm chữ ký — thứ trả lời
+              câu "làm sao biết khoản thanh toán này là thật".
+            */}
+            {paymentLogs.length > 0 && (
+              <div className="pt-4 border-t border-gray-200 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentLogs((prev) => !prev)}
+                  className="flex w-full items-center justify-between text-left"
+                >
+                  <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Nhật ký cổng thanh toán ({paymentLogs.length})
+                  </span>
+                  <span className="text-xs font-bold text-primary-600">
+                    {showPaymentLogs ? "Thu gọn" : "Xem"}
+                  </span>
+                </button>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="block">
-                        <span className="text-[11px] font-semibold text-gray-600">Số tiền</span>
-                        <input
-                          type="number"
-                          min={1}
-                          value={paymentForm.amount}
-                          onChange={(e) =>
-                            setPaymentForm((cu) => ({ ...cu, amount: e.target.value }))
-                          }
-                          className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm focus:border-primary-500 focus:outline-none"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="text-[11px] font-semibold text-gray-600">Hình thức</span>
-                        <select
-                          value={paymentForm.method}
-                          onChange={(e) =>
-                            setPaymentForm((cu) => ({ ...cu, method: e.target.value }))
-                          }
-                          className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm focus:border-primary-500 focus:outline-none"
-                        >
-                          <option value="bank_transfer">Chuyển khoản</option>
-                          <option value="cash">Tiền mặt</option>
-                        </select>
-                      </label>
-                    </div>
-
-                    <label className="block">
-                      <span className="text-[11px] font-semibold text-gray-600">
-                        Mã giao dịch / chứng từ
-                      </span>
-                      <input
-                        value={paymentForm.reference}
-                        onChange={(e) =>
-                          setPaymentForm((cu) => ({ ...cu, reference: e.target.value }))
-                        }
-                        placeholder="FT26083012345"
-                        className="mt-1 w-full rounded-lg border border-gray-200 p-2 text-sm focus:border-primary-500 focus:outline-none"
-                      />
-                    </label>
-
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMode(false)}
-                        className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-                      >
-                        Hủy
-                      </button>
-                      <button
-                        type="button"
-                        onClick={ghiKhoanThu}
-                        disabled={paymentSaving || Number(paymentForm.amount) <= 0}
-                        className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-primary-700 disabled:opacity-50"
-                      >
-                        {paymentSaving ? "Đang ghi..." : "Ghi vào sổ"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {ledger.entries.length === 0 ? (
-                  <p className="text-xs text-gray-400">
-                    Chưa có bút toán nào. Đơn trả qua cổng thanh toán sẽ tự sinh một dòng khi tiền về.
-                  </p>
-                ) : (
+                {showPaymentLogs && (
                   <ul className="space-y-2">
-                    {ledger.entries.map((entry) => (
-                      <li
-                        key={entry.id}
-                        className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-gray-200 bg-white p-3"
-                      >
-                        <div>
-                          <span className="text-sm font-semibold text-gray-900">
-                            {entry.kind_label}
-                          </span>
-                          <span className="ml-2 text-[11px] text-gray-500">
-                            {entry.paid_at}
-                            {entry.method && ` · ${METHOD_LABEL[entry.method] ?? entry.method}`}
-                            {entry.reference && ` · ${entry.reference}`}
-                            {entry.recorded_by && ` · ${entry.recorded_by}`}
-                          </span>
-                          {entry.note && (
-                            <span className="mt-0.5 block text-[11px] text-gray-500">{entry.note}</span>
-                          )}
-                        </div>
-                        <span
-                          className={`font-mono text-sm font-bold ${
-                            entry.kind === "refund" ? "text-rose-600" : "text-emerald-700"
+                    {paymentLogs.map((log) => {
+                      const thanhCong = log.response_code === "00" && log.transaction_status === "00";
+
+                      return (
+                        <li
+                          key={log.id}
+                          className={`rounded-lg border p-3 text-xs ${
+                            thanhCong ? "border-emerald-200 bg-emerald-50/60" : "border-gray-200 bg-gray-50/60"
                           }`}
                         >
-                          {entry.kind === "refund" ? "−" : "+"}
-                          {formatPrice(entry.amount)}
-                        </span>
-                      </li>
-                    ))}
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <span className="font-mono font-semibold text-gray-900">
+                              {log.transaction_no ?? "Không có mã giao dịch"}
+                            </span>
+                            <span
+                              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                                thanhCong
+                                  ? "border-emerald-300 bg-emerald-100 text-emerald-800"
+                                  : "border-gray-300 bg-white text-gray-600"
+                              }`}
+                            >
+                              {thanhCong ? "Thành công" : "Không thành công"}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-gray-600">
+                            {log.amount != null && `${formatPrice(Number(log.amount))} · `}
+                            {log.bank_code && `${log.bank_code} · `}
+                            mã trả về {log.response_code ?? "—"}/{log.transaction_status ?? "—"}
+                            {log.created_at && ` · ${formatDateTime(log.created_at)}`}
+                          </p>
+                          {/*
+                            Chữ ký không hợp lệ nghĩa là dữ liệu trả về không do VNPay ký. Đây là
+                            dòng đáng chú ý nhất trong cả nhật ký, nên nó phải nổi lên.
+                          */}
+                          {!log.is_valid_signature && (
+                            <p className="mt-1.5 rounded border border-rose-200 bg-rose-50 px-2 py-1 font-semibold text-rose-700">
+                              Chữ ký KHÔNG hợp lệ — lượt gọi này không được hệ thống công nhận.
+                            </p>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
             )}
+
 
             {/*
               E04 - Dòng thời gian thay đổi của đơn.
@@ -1881,7 +1948,8 @@ export default function BookingManagement() {
             )}
 
           </div>
-        )}
+        );
+        })()}
       </Modal>
     </div>
   );

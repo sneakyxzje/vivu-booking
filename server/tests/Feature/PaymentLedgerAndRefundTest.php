@@ -236,6 +236,38 @@ class PaymentLedgerAndRefundTest extends TestCase
         $this->assertSame(5_000_000.0, (float) $response->json('data.0.balance_due'));
     }
 
+    /**
+     * Chi tiết đơn phía điều hành kèm nhật ký cổng thanh toán.
+     *
+     * Dữ liệu này được nạp từ lâu nhưng giao diện chưa bao giờ hiện. Nó ghi MỌI lượt VNPay trả về,
+     * kể cả lượt thất bại, kèm kết quả kiểm chữ ký — thứ trả lời câu "làm sao biết khoản thanh
+     * toán này là thật".
+     */
+    public function test_chi_tiet_don_kem_nhat_ky_cong_thanh_toan(): void
+    {
+        Mail::fake();
+        $booking = $this->datTour();
+
+        // Một lượt hỏng trước, rồi một lượt thành công — nhật ký phải giữ cả hai.
+        $this->get('/api/vnpay/return?' . http_build_query(
+            $this->vnpayQuayVe($booking, 5_000_000, thanhCong: false),
+        ));
+        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 5_000_000)));
+
+        $logs = $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/bookings/' . $booking->id)
+            ->assertOk()
+            ->json('data.payment_logs');
+
+        $this->assertCount(2, $logs);
+        $this->assertArrayHasKey('is_valid_signature', $logs[0]);
+        $this->assertArrayHasKey('transaction_no', $logs[0]);
+        $this->assertArrayHasKey('response_code', $logs[0]);
+        // Test tự ký bằng đúng khóa nên chữ ký hợp lệ ở cả hai lượt; cái khác nhau là mã trả về.
+        $this->assertTrue((bool) $logs[0]['is_valid_signature']);
+        $this->assertSame(['00', '24'], collect($logs)->pluck('response_code')->sort()->values()->all());
+    }
+
     // --- Thu tiền thủ công ---------------------------------------------------------------------
 
     public function test_dieu_hanh_ghi_nhan_khach_chuyen_khoan_cho_don_le(): void

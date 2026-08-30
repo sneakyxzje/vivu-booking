@@ -47,6 +47,26 @@ export interface Booking {
   passengers?: BookingPassenger[];
   /** Khoản sinh ra từ sự cố dọc đường. Máy chủ chỉ trả về khoản đã có hiệu lực. */
   surcharges?: BookingSurcharge[];
+  /** Nhật ký cổng thanh toán. Chỉ có ở điểm cuối chi tiết đơn phía điều hành. */
+  payment_logs?: PaymentLogEntry[];
+}
+
+/**
+ * Một lượt cổng thanh toán trả về, ghi lại nguyên trạng — kể cả lượt thất bại.
+ *
+ * `is_valid_signature` là trường quan trọng nhất: nó trả lời câu "dữ liệu này có đúng do VNPay ký
+ * không", tức khoản thanh toán có thật hay là ai đó tự gọi vào địa chỉ quay về.
+ */
+export interface PaymentLogEntry {
+  id: number;
+  provider: string;
+  transaction_no: string | null;
+  bank_code: string | null;
+  response_code: string | null;
+  transaction_status: string | null;
+  amount: string | number | null;
+  is_valid_signature: boolean;
+  created_at: string;
 }
 
 /**
