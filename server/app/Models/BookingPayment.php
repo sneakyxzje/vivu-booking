@@ -37,6 +37,19 @@ class BookingPayment extends Model
     public const PHU_THU = 'surcharge';
     public const PHU_THU_HOAN = 'surcharge_refund';
 
+    /*
+     * Chiều của dòng tiền, gộp cả hai túi.
+     *
+     * Khác `THU`/`HOAN` ở trên: hai hằng số ấy chỉ nói về tiền GIÁ TOUR, vì chính sách hủy phải
+     * tính hoàn trên đúng số đã trả cho tour. Hai hằng số dưới đây trả lời một câu khác — "bao
+     * nhiêu tiền đã vào và ra khỏi tài khoản công ty" — nên chúng đếm cả phụ thu sự cố.
+     *
+     * Sổ tổng ở màn giao dịch dùng bộ này; mọi phép tính hoàn tiền dùng bộ trên. Nhầm hai bộ với
+     * nhau là cách một đêm phòng chạy bão bị đem đi hoàn theo bậc phần trăm của chính sách hủy.
+     */
+    public const VAO = ['deposit', 'balance', 'surcharge'];
+    public const RA = ['refund', 'surcharge_refund'];
+
     protected $fillable = [
         'booking_id',
         'booking_surcharge_id',

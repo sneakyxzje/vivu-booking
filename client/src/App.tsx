@@ -27,6 +27,7 @@ import CategoryManagement from "@/pages/admin/CategoryManagement";
 import ReviewManagement from "@/pages/admin/ReviewManagement";
 import UserManagement from "@/pages/admin/UserManagement";
 import RefundManagement from "@/pages/admin/RefundManagement";
+import TransactionRegister from "@/pages/admin/TransactionRegister";
 import ContactMessages from "@/pages/admin/ContactMessages";
 import ScheduleAttendance from "@/pages/admin/ScheduleAttendance";
 import AttendanceReport from "@/pages/admin/AttendanceReport";
@@ -324,6 +325,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/users",
             element: <UserManagement />,
+          },
+          {
+            path: "/admin/transactions",
+            element: <TransactionRegister />,
           },
           {
             path: "/admin/refunds",

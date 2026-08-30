@@ -100,10 +100,13 @@ const navEntries: NavEntry[] = [
       { to: "/admin/group-bookings", label: "Booking theo đoàn" },
       { to: "/admin/change-requests", label: "Yêu cầu huỷ" },
       /*
-       * "Hoàn tiền" đứng ngay sau "Yêu cầu huỷ" vì đó là bước tiếp theo của cùng một câu chuyện:
-       * duyệt hủy xong thì còn một nghĩa vụ trả tiền, và trước đây nghĩa vụ ấy không có màn hình
-       * nào để nhìn thấy.
+       * Hai mục tiền, đặt cạnh nhau và đúng thứ tự vào trước ra sau.
+       *
+       * "Sổ giao dịch" là toàn bộ dòng tiền; "Hoàn tiền" là một lát cắt của nó — phần công ty còn
+       * nợ khách. Trước đây chỉ có mục thứ hai, tức tiền đi ra có màn riêng còn tiền đi vào thì
+       * phải mở từng đơn mới xem được, trong khi công ty thu nhiều hơn chi rất nhiều lần.
        */
+      { to: "/admin/transactions", label: "Sổ giao dịch" },
       { to: "/admin/refunds", label: "Hoàn tiền" },
       { to: "/admin/cancellation-policies", label: "Chính sách hủy" },
     ],

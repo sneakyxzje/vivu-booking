@@ -251,6 +251,42 @@ export interface ChangeRequestListResponse {
   pending_count: number;
 }
 
+/** Bộ lọc của sổ giao dịch tổng. Bỏ trống trường nào là không lọc theo trường đó. */
+export interface TransactionFilters {
+  from?: string;
+  to?: string;
+  /** `in` = tiền vào, `out` = tiền hoàn ra. */
+  direction?: "in" | "out" | "";
+  method?: "bank_transfer" | "cash" | "gateway" | "";
+  /** Tìm theo mã chứng từ hoặc tên khách. */
+  q?: string;
+}
+
+export interface TransactionRow {
+  id: number;
+  booking_id: number;
+  public_token: string | null;
+  customer_name: string | null;
+  tour_title: string | null;
+  booking_status: string | null;
+  kind: string;
+  kind_label: string;
+  /** Chiều tiền do máy chủ quyết, giao diện không tự đoán từ `kind`. */
+  direction: "in" | "out";
+  amount: number;
+  method: string | null;
+  method_label: string | null;
+  reference: string | null;
+  note: string | null;
+  paid_at: string | null;
+  recorded_by: string | null;
+}
+
+export interface TransactionListResponse extends PaginatedResponse<TransactionRow> {
+  /** Tính trên TOÀN BỘ bộ lọc, không riêng trang đang xem. */
+  totals: { in: number; out: number; net: number; count: number };
+}
+
 export interface RefundQueueRow {
   id: number;
   public_token: string;
@@ -939,7 +975,42 @@ const adminService = {
   },
 
   // --- YÊU CẦU THAY ĐỔI CỦA KHÁCH ---
-  // --- Sổ giao dịch và hoàn tiền ---------------------------------------------------------------
+  // --- Sổ giao dịch tổng -----------------------------------------------------------------------
+
+  getTransactions: async (
+    params: TransactionFilters & { page?: number },
+  ): Promise<TransactionListResponse | null> => {
+    const response = await api.get("/admin/transactions", { params });
+    return extractObject<TransactionListResponse>(response);
+  },
+
+  /**
+   * Tải sổ ra CSV theo đúng bộ lọc đang xem.
+   *
+   * Qua axios rồi dựng liên kết blob, không đặt `href` thẳng: thẻ `<a>` không mang được tiêu đề
+   * Authorization nên sẽ nhận 401.
+   */
+  exportTransactions: async (params: TransactionFilters): Promise<void> => {
+    const response = await api.get("/admin/transactions/export", {
+      params,
+      responseType: "blob",
+    });
+
+    const disposition = String(response.headers?.["content-disposition"] ?? "");
+    const khop = disposition.match(/filename="?([^"]+)"?/);
+
+    const url = URL.createObjectURL(response.data as Blob);
+    const the = document.createElement("a");
+    the.href = url;
+    the.download = khop?.[1] ?? "so-giao-dich.csv";
+    document.body.appendChild(the);
+    the.click();
+
+    document.body.removeChild(the);
+    URL.revokeObjectURL(url);
+  },
+
+  // --- Sổ giao dịch của một đơn, và hoàn tiền ---------------------------------------------------
 
   getRefundQueue: async (settled = false): Promise<RefundQueueResponse | null> => {
     const response = await api.get("/admin/refunds", { params: { settled: settled ? 1 : 0 } });

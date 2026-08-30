@@ -60,6 +60,7 @@ use App\Http\Controllers\Api\Admin\AdminCategoryController;
 use App\Http\Controllers\Api\Admin\AdminContactMessageController;
 use App\Http\Controllers\Api\Admin\AdminReviewController;
 use App\Http\Controllers\Api\Admin\AdminServiceController;
+use App\Http\Controllers\Api\Admin\AdminTransactionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -334,6 +335,15 @@ Route::middleware('auth:sanctum')->group(function () {
          * `/refunds` khai TRƯỚC `/bookings/{id}` không cần thiết vì khác tiền tố, nhưng để cạnh
          * nhau cho thấy chúng đọc cùng một nguồn: khoản hoàn là một dòng trong chính sổ này.
          */
+        /*
+         * Sổ tổng: mọi bút toán của mọi đơn, xếp theo thời gian.
+         *
+         * Khác `/bookings/{id}/payments` ngay dưới — cái đó trả lời "khách này đã trả chưa", cái
+         * này trả lời "hôm nay thu bao nhiêu, từ những đơn nào", câu kế toán hỏi mỗi ngày.
+         */
+        Route::get('/transactions', [AdminTransactionController::class, 'index']);
+        Route::get('/transactions/export', [AdminTransactionController::class, 'export']);
+
         Route::get('/refunds', [AdminBookingPaymentController::class, 'refundQueue']);
         Route::get('/bookings/{id}/payments', [AdminBookingPaymentController::class, 'index']);
         Route::post('/bookings/{id}/payments', [AdminBookingPaymentController::class, 'store']);
