@@ -1,60 +1,20 @@
 import React from "react";
+import { Camera, MapPin, Plus, Trash2 } from "lucide-react";
+import type { CheckpointItem } from "@/components/guide/tour-form/types";
+import { checkpointRong } from "@/components/guide/tour-form/formHelpers";
 
-export type CheckpointType = "pickup" | "sightseeing" | "meal" | "hotel" | "dropoff";
-
-export interface CheckpointItem {
-  id: string;
-  name: string;
-  type: CheckpointType;
-  expected_at?: string;
-  requires_attendance: boolean;
-  requires_photo: boolean;
-  note?: string;
-}
-
-/*
- * Năm loại điểm dừng, phân biệt bằng nhãn và màu chứ không bằng biểu tượng.
+/**
+ * Điểm dừng trong một ngày của lịch trình.
  *
- * Trường `icon` cũ hiện ở hai chỗ, và một trong hai chỗ đó là bên trong <option> của thẻ <select>.
- * Trình duyệt vẽ danh sách thả xuống bằng bộ vẽ của hệ điều hành, nên emoji ở đấy mỗi máy một
- * dáng và không thể chỉnh — chưa kể "hòn đảo" cho tham quan hay "lá cờ ô vuông" cho điểm trả thì
- * cũng phải được kể mới đoán ra.
+ * ## Chỉ khai những gì máy chủ lưu được
+ *
+ * Bảng `itinerary_checkpoints` có đúng: tên, mô tả, tọa độ, thứ tự, và cờ bắt buộc chụp ảnh.
+ * Biểu mẫu trước đây còn hỏi thêm loại điểm dừng, giờ dự kiến và cờ "yêu cầu điểm danh" — ba
+ * thứ không có cột nào để ghi và cũng không nằm trong payload gửi đi, nên người dùng khai xong
+ * lưu tour là mất trắng, mà không có gì báo cho biết.
+ *
+ * Ô nhập nào cũng phải sống sót qua nút Lưu. Thà ít ô mà thật.
  */
-export const CHECKPOINT_TYPE_CONFIG: Record<
-  CheckpointType,
-  { label: string; bgClass: string; textClass: string; borderClass: string }
-> = {
-  pickup: {
-    label: "Điểm đón",
-    bgClass: "bg-emerald-50",
-    textClass: "text-emerald-700",
-    borderClass: "border-emerald-200",
-  },
-  sightseeing: {
-    label: "Tham quan",
-    bgClass: "bg-blue-50",
-    textClass: "text-blue-700",
-    borderClass: "border-blue-200",
-  },
-  meal: {
-    label: "Ăn uống",
-    bgClass: "bg-amber-50",
-    textClass: "text-amber-700",
-    borderClass: "border-amber-200",
-  },
-  hotel: {
-    label: "Khách sạn",
-    bgClass: "bg-purple-50",
-    textClass: "text-purple-700",
-    borderClass: "border-purple-200",
-  },
-  dropoff: {
-    label: "Điểm trả",
-    bgClass: "bg-rose-50",
-    textClass: "text-rose-700",
-    borderClass: "border-rose-200",
-  },
-};
 
 interface Props {
   checkpoints: CheckpointItem[];
@@ -66,213 +26,122 @@ interface Props {
 export const CheckpointManager: React.FC<Props> = ({
   checkpoints,
   onChange,
-  fieldClass = "block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100",
+  fieldClass = "block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100",
 }) => {
-  const handleAdd = () => {
-    const newItem: CheckpointItem = {
-      id: `cp-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      name: "",
-      type: "sightseeing",
-      expected_at: "08:00",
-      requires_attendance: true,
-      requires_photo: false,
-    };
-    onChange([...checkpoints, newItem]);
-  };
+  const them = () => onChange([...checkpoints, checkpointRong()]);
 
-  const handleRemove = (index: number) => {
-    const updated = checkpoints.filter((_, i) => i !== index);
-    onChange(updated);
-  };
+  const xoa = (index: number) => onChange(checkpoints.filter((_, i) => i !== index));
 
-  const handleUpdate = (index: number, key: keyof CheckpointItem, value: any) => {
-    const updated = checkpoints.map((item, i) => {
-      if (i === index) {
-        return { ...item, [key]: value };
-      }
-      return item;
-    });
-    onChange(updated);
-  };
+  const sua = (index: number, thayDoi: Partial<CheckpointItem>) =>
+    onChange(checkpoints.map((item, i) => (i === index ? { ...item, ...thayDoi } : item)));
 
-  const handleMove = (index: number, direction: "up" | "down") => {
-    if (
-      (direction === "up" && index === 0) ||
-      (direction === "down" && index === checkpoints.length - 1)
-    ) {
-      return;
-    }
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    const updated = [...checkpoints];
-    const temp = updated[index];
-    updated[index] = updated[targetIndex];
-    updated[targetIndex] = temp;
-    onChange(updated);
+  const doiCho = (index: number, huong: "len" | "xuong") => {
+    const dich = huong === "len" ? index - 1 : index + 1;
+    if (dich < 0 || dich >= checkpoints.length) return;
+
+    const sau = [...checkpoints];
+    [sau[index], sau[dich]] = [sau[dich], sau[index]];
+    onChange(sau);
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">
-            Danh sách điểm dừng / Điểm tham quan chi tiết
-            <span className="ml-1.5 normal-case font-medium text-gray-400 tracking-normal">
+          <h4 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-700">
+            <MapPin className="h-3.5 w-3.5 text-primary-600" />
+            Điểm dừng trong ngày
+            <span className="font-medium normal-case tracking-normal text-gray-400">
               (không bắt buộc)
             </span>
           </h4>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Cấu hình thứ tự điểm dừng, giờ dự kiến và yêu cầu ảnh check-in cho HDV. Bỏ trống thì
-            hướng dẫn viên điểm danh một lần cho cả chặng.
+          <p className="mt-0.5 text-[11px] text-gray-500">
+            Thứ tự các điểm hướng dẫn viên phải điểm danh khách. Bỏ trống thì điểm danh một lần
+            cho cả chặng.
           </p>
         </div>
         <button
           type="button"
-          onClick={handleAdd}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 transition-colors shadow-sm"
+          onClick={them}
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary-50 px-2.5 py-1.5 text-[11px] font-semibold text-primary-700 transition-colors hover:bg-primary-100"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+          <Plus className="h-3.5 w-3.5" />
           Thêm điểm dừng
         </button>
       </div>
 
       {checkpoints.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
-          <p className="text-xs text-gray-500">
-            Chưa có điểm dừng nào cho chặng này, và để nguyên như vậy cũng được.
-          </p>
-          <button
-            type="button"
-            onClick={handleAdd}
-            className="mt-2 text-xs font-semibold text-primary-600 hover:underline"
-          >
-            Bấm để thêm điểm dừng đầu tiên
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={them}
+          className="w-full rounded-lg border border-dashed border-gray-300 bg-gray-50/60 px-4 py-3 text-[11px] text-gray-500 transition-colors hover:border-primary-300 hover:bg-primary-50/50 hover:text-primary-700"
+        >
+          Chưa có điểm dừng nào — bấm để thêm điểm đầu tiên.
+        </button>
       ) : (
-        <div className="space-y-3 relative before:absolute before:left-4 before:top-4 before:bottom-4 before:w-0.5 before:bg-gray-200">
-          {checkpoints.map((cp, idx) => {
-            const config = CHECKPOINT_TYPE_CONFIG[cp.type] || CHECKPOINT_TYPE_CONFIG.sightseeing;
-            return (
-              <div
-                key={cp.id || idx}
-                className="relative pl-9 pr-4 py-3.5 bg-white rounded-xl border border-gray-100 shadow-sm transition-all duration-200 hover:border-gray-200 hover:shadow-md"
-              >
-                {/* Timeline node */}
-                <div className="absolute left-2.5 top-5 -translate-x-1/2 w-4 h-4 rounded-full bg-primary-600 border-2 border-white ring-2 ring-primary-100 flex items-center justify-center text-[9px] text-white font-bold">
-                  {idx + 1}
-                </div>
+        <div className="space-y-2">
+          {checkpoints.map((cp, idx) => (
+            <div
+              key={idx}
+              className="flex items-start gap-2.5 rounded-lg border border-gray-200 bg-white p-2.5"
+            >
+              <span className="mt-1.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-100 text-[11px] font-bold text-primary-700">
+                {idx + 1}
+              </span>
 
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-                  {/* Tên điểm dừng */}
-                  <div className="md:col-span-4">
-                    <label className="block text-[11px] font-medium text-gray-500 mb-1">
-                      Tên điểm dừng #{idx + 1}
-                    </label>
-                    <input
-                      type="text"
-                      value={cp.name}
-                      onChange={(e) => handleUpdate(idx, "name", e.target.value)}
-                      placeholder="VD: Cảng Tuần Châu, Khách sạn Mường Thanh..."
-                      className={fieldClass}
-                    />
-                  </div>
-
-                  {/* Phân loại */}
-                  <div className="md:col-span-3">
-                    <label className="block text-[11px] font-medium text-gray-500 mb-1">
-                      Loại điểm dừng
-                    </label>
-                    <select
-                      value={cp.type}
-                      onChange={(e) => handleUpdate(idx, "type", e.target.value as CheckpointType)}
-                      className={fieldClass}
-                    >
-                      {Object.entries(CHECKPOINT_TYPE_CONFIG).map(([typeKey, cfg]) => (
-                        <option key={typeKey} value={typeKey}>
-                          {cfg.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Giờ dự kiến */}
-                  <div className="md:col-span-2">
-                    <label className="block text-[11px] font-medium text-gray-500 mb-1">
-                      Giờ dự kiến
-                    </label>
-                    <input
-                      type="time"
-                      value={cp.expected_at || ""}
-                      onChange={(e) => handleUpdate(idx, "expected_at", e.target.value)}
-                      className={fieldClass}
-                    />
-                  </div>
-
-                  {/*
-                    Ba nút thao tác, cả ba mang chữ.
-
-                    Trước đây là hai mũi tên ký tự và một hình thùng rác, tức ba nút không nhãn
-                    nằm cạnh nhau, ai đọc màn hình cũng chỉ nghe được thuộc tính `title`. Chữ
-                    ngắn vừa đủ chỗ trong ba phần mười hàng, nên không phải đánh đổi gì.
-                  */}
-                  <div className="md:col-span-3 flex items-center justify-end gap-1.5 pt-4 md:pt-0">
-                    <button
-                      type="button"
-                      onClick={() => handleMove(idx, "up")}
-                      disabled={idx === 0}
-                      className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 text-[11px] font-semibold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Lên
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleMove(idx, "down")}
-                      disabled={idx === checkpoints.length - 1}
-                      className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 text-[11px] font-semibold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Xuống
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRemove(idx)}
-                      className="px-2.5 py-1.5 rounded-lg border border-rose-200 text-rose-600 bg-rose-50/50 text-[11px] font-semibold hover:bg-rose-100 transition-colors"
-                    >
-                      Xóa
-                    </button>
-                  </div>
-                </div>
-
-                {/* Tùy chọn thuộc tính (Requires Attendance / Photo) */}
-                <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex flex-wrap items-center gap-4 text-xs">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium text-[11px] border ${config.bgClass} ${config.textClass} ${config.borderClass}`}>
-                    {config.label}
-                  </span>
-
-                  <label className="inline-flex items-center gap-2 cursor-pointer text-gray-700 select-none">
-                    <input
-                      type="checkbox"
-                      checked={cp.requires_attendance}
-                      onChange={(e) => handleUpdate(idx, "requires_attendance", e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    <span>Yêu cầu điểm danh khách</span>
-                  </label>
-
-                  <label className="inline-flex items-center gap-2 cursor-pointer text-gray-700 select-none">
-                    <input
-                      type="checkbox"
-                      checked={cp.requires_photo}
-                      onChange={(e) => handleUpdate(idx, "requires_photo", e.target.checked)}
-                      className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    <span>Bắt buộc chụp ảnh đoàn</span>
-                  </label>
-                </div>
+              <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
+                <input
+                  value={cp.name}
+                  onChange={(e) => sua(idx, { name: e.target.value })}
+                  placeholder="Tên điểm dừng, VD: Cảng Tuần Châu"
+                  className={fieldClass}
+                />
+                <input
+                  value={cp.description}
+                  onChange={(e) => sua(idx, { description: e.target.value })}
+                  placeholder="Ghi chú cho hướng dẫn viên (không bắt buộc)"
+                  className={fieldClass}
+                />
+                <label className="inline-flex cursor-pointer select-none items-center gap-2 text-[11px] font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={cp.is_required_photo}
+                    onChange={(e) => sua(idx, { is_required_photo: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <Camera className="h-3.5 w-3.5 text-gray-400" />
+                  Bắt buộc chụp ảnh đoàn tại điểm này
+                </label>
               </div>
-            );
-          })}
+
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => doiCho(idx, "len")}
+                  disabled={idx === 0}
+                  className="rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-30"
+                >
+                  Lên
+                </button>
+                <button
+                  type="button"
+                  onClick={() => doiCho(idx, "xuong")}
+                  disabled={idx === checkpoints.length - 1}
+                  className="rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-30"
+                >
+                  Xuống
+                </button>
+                <button
+                  type="button"
+                  onClick={() => xoa(idx)}
+                  aria-label={`Xóa điểm dừng ${idx + 1}`}
+                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

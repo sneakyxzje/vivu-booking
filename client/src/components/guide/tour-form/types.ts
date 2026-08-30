@@ -1,10 +1,22 @@
 import type { ReactNode } from "react";
-// CheckpointManager nằm ở components/admin, tính từ đây phải lùi hai cấp.
-import type { CheckpointItem } from "../../admin/CheckpointManager";
 
 export interface SelectOption {
   id: number;
   name: string;
+}
+
+/**
+ * Một điểm dừng đang soạn.
+ *
+ * Đúng bằng những cột bảng `itinerary_checkpoints` có — xem `CheckpointManager` để biết vì sao
+ * biểu mẫu không hỏi thêm gì ngoài chỗ này.
+ */
+export interface CheckpointItem {
+  /** Có id nghĩa là đã nằm trong cơ sở dữ liệu; máy chủ khớp theo đó thay vì xóa rồi tạo lại. */
+  id?: number;
+  name: string;
+  description: string;
+  is_required_photo: boolean;
 }
 
 export interface ItineraryFormItem {
@@ -21,6 +33,15 @@ export interface ItineraryFormItem {
 
 export interface ScheduleFormItem {
   id?: number;
+  /**
+   * Khóa chỉ sống ở trình duyệt, không gửi lên máy chủ.
+   *
+   * Danh sách chuyến được sắp lại theo ngày mỗi lần người dùng đổi ngày khởi hành, nên vị trí
+   * trong mảng không đứng yên. Mọi thứ gắn với một chuyến cụ thể — danh sách hướng dẫn viên
+   * đang rảnh, ô đang mở rộng, ô đang được chọn để sửa hàng loạt — phải bám vào khóa này thay
+   * vì bám vào chỉ số mảng, nếu không dữ liệu sẽ nhảy sang chuyến khác ngay khi thứ tự đổi.
+   */
+  uid: string;
   start_date: string;
   max_people: string;
   min_people: string;
