@@ -219,6 +219,7 @@ class DemoBookingSeeder extends Seeder
 
         $this->donChuaThuDu($tours, $customers);
         $this->donDaHuyConNoHoan($tours, $customers);
+        $this->donChoChuyenDangChay($customers);
 
         $this->dongBoSoCho();
 
@@ -231,6 +232,80 @@ class DemoBookingSeeder extends Seeder
         //
         // Dữ liệu điểm danh để thử tay nằm ở BusinessScenarioSeeder.
         unset($guide);
+    }
+
+    /**
+     * Khách cho những chuyến đang trên đường.
+     *
+     * Một chuyến đang chạy mà không có đơn nào là chuyến chở không khí: hướng dẫn viên mở màn
+     * điểm danh ra thấy danh sách rỗng, và người xem không phân biệt được đó là tính năng hỏng
+     * hay là dữ liệu chưa có. Đơn ở đây khai đủ danh sách hành khách kèm tên, vì điểm danh làm
+     * việc trên từng người chứ không trên cả đơn.
+     *
+     * @param  \Illuminate\Support\Collection<int, User>  $customers
+     */
+    private function donChoChuyenDangChay($customers): void
+    {
+        $tenKhach = [
+            ['Nguyễn Hoàng Nam', 'Nguyễn Thu Hà'],
+            ['Trần Đức Thắng', 'Lý Ngọc Mai'],
+            ['Phạm Quang Huy', 'Đặng Kim Chi'],
+        ];
+
+        $dangChay = TourSchedule::query()
+            ->where('status', ScheduleStatus::InProgress)
+            ->with('tour')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($dangChay as $thuTu => $schedule) {
+            $tour = $schedule->tour;
+
+            // Chuyến đã có khách rồi thì thôi — kịch bản nghiệp vụ dựng riêng cho nó.
+            if (!$tour || Booking::query()->where('tour_schedule_id', $schedule->id)->exists()) {
+                continue;
+            }
+
+            foreach ([0, 1] as $lan) {
+                $khach = $customers[($thuTu + $lan) % $customers->count()];
+                $ten = $tenKhach[($thuTu + $lan) % count($tenKhach)];
+                $luc = $schedule->start_date->copy()->subDays(9 + $lan);
+
+                $booking = Booking::create([
+                    'public_token' => (string) Str::uuid(),
+                    'tour_id' => $tour->id,
+                    'customer_id' => $khach->id,
+                    'tour_schedule_id' => $schedule->id,
+                    'customer_name' => $khach->name,
+                    'customer_email' => $khach->email,
+                    'customer_phone' => '09' . str_pad((string) (33000000 + $thuTu * 971 + $lan), 8, '0', STR_PAD_LEFT),
+                    'departure_date' => $schedule->start_date,
+                    'guests' => count($ten),
+                    'adult_count' => count($ten),
+                    'child_count' => 0,
+                    'infant_count' => 0,
+                    'total_amount' => count($ten) * (float) $tour->adult_price,
+                    'status' => 'confirmed',
+                    'paid_at' => $luc->copy()->addMinutes(8),
+                    'confirmed_at' => $luc->copy()->addMinutes(8),
+                    'note' => self::DEMO_NOTE . ' - đoàn đang trên đường',
+                ]);
+
+                $booking->created_at = $luc;
+                $booking->updated_at = $luc->copy()->addMinutes(8);
+                $booking->save();
+
+                foreach ($ten as $viTri => $hoTen) {
+                    $booking->passengers()->create([
+                        'name' => mb_strtoupper($hoTen),
+                        'type' => 'adult',
+                        'identity_number' => '0380' . str_pad((string) (400000 + $thuTu * 137 + $lan * 11 + $viTri), 8, '0', STR_PAD_LEFT),
+                    ]);
+                }
+
+                $this->ghiSoVaNhatKy($booking, $lan === 0, $thuTu * 2 + $lan, $luc);
+            }
+        }
     }
 
     /**

@@ -239,7 +239,15 @@ class BusinessScenarioSeeder extends Seeder
             ['ma' => 'S3', 'gio' => 120, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 50%, còn 48 giờ nữa mới tới hạn chốt'],
             ['ma' => 'S4', 'gio' => 60, 'status' => ScheduleStatus::Closed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 30%, ĐÃ QUA hạn chốt nên hủy sinh ghế chết'],
             ['ma' => 'S5', 'gio' => 26, 'status' => ScheduleStatus::Confirmed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 0%, đã chốt danh sách'],
-            ['ma' => 'S6', 'gio' => -24, 'status' => ScheduleStatus::InProgress, 'min' => 4, 'so_hdv' => 2, 'mo_ta' => 'Đang chạy: khóa hủy, mở điểm danh'],
+            /*
+             * Khởi hành SÁNG NAY, không phải hôm qua.
+             *
+             * Đây là chuyến dùng để trình bày điểm danh. Đặt nó lùi 24 giờ thì hôm nay đã là
+             * ngày thứ hai của hành trình, và cảnh người xem thấy là điểm danh một điểm đón đã
+             * qua từ hôm trước. Lùi ba giờ thì đoàn vừa lên xe sáng nay: điểm đón của ngày 1 rơi
+             * đúng vào hôm nay, đúng cảnh hướng dẫn viên thật sự làm việc ấy.
+             */
+            ['ma' => 'S6', 'gio' => -3, 'status' => ScheduleStatus::InProgress, 'min' => 4, 'so_hdv' => 2, 'mo_ta' => 'Đang chạy, khởi hành sáng nay: khóa hủy, mở điểm danh'],
             ['ma' => 'S7', 'gio' => -120, 'status' => ScheduleStatus::Completed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Đã kết thúc, đơn chờ chốt'],
             // Chuyến đã hủy thì không cần ai dẫn: để trống cho thấy trạng thái "Chưa phân công".
             ['ma' => 'S8', 'gio' => 360, 'status' => ScheduleStatus::Cancelled, 'min' => 4, 'so_hdv' => 0, 'mo_ta' => 'Chuyến bị hủy, trạng thái cuối'],
@@ -259,7 +267,7 @@ class BusinessScenarioSeeder extends Seeder
              * Đặt cuối mảng có chủ ý: các bài kiểm thử tra chuyến theo thứ tự tạo, chèn vào giữa
              * là lệch hết S10 với S11.
              */
-            ['ma' => 'S12', 'gio' => -20, 'status' => ScheduleStatus::InProgress, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Đoàn thứ hai đang đi, dùng làm nơi nhờ người trông hộ'],
+            ['ma' => 'S12', 'gio' => -5, 'status' => ScheduleStatus::InProgress, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Đoàn thứ hai đang đi, cũng khởi hành sáng nay, dùng làm nơi nhờ người trông hộ'],
         ];
 
         foreach ($chuyen as $item) {
@@ -563,7 +571,8 @@ class BusinessScenarioSeeder extends Seeder
                     'new_status' => PassengerCheckinStatus::Absent->value,
                     'note' => 'Ghi nhầm lúc đầu là có mặt, kiểm lại thì khách không lên xe.',
                     'changed_by' => $nguoiGhi?->id,
-                    'changed_at' => now()->subHours(20),
+                    // Sửa lại một tiếng trước, tức sau lúc ghi và sau lúc xe chạy sáng nay.
+                    'changed_at' => now()->subHour(),
                 ]);
             }
 
@@ -575,7 +584,8 @@ class BusinessScenarioSeeder extends Seeder
         foreach ($this->donCuaChuyen('S7') as $don) {
             if (str_contains((string) $don->note, 'KHÔNG CÓ MẶT')) {
                 foreach ($don->passengers as $hanhKhach) {
-                    $this->ghiDiemDanh($hanhKhach, $diemDon, PassengerCheckinStatus::Absent, 'Khách không tới điểm đón, không liên lạc được.', 5);
+                    // S7 khởi hành 120 giờ trước; điểm danh ngay sau lúc xe chạy.
+                    $this->ghiDiemDanh($hanhKhach, $diemDon, PassengerCheckinStatus::Absent, 'Khách không tới điểm đón, không liên lạc được.', 118);
                 }
 
                 continue;
@@ -586,17 +596,24 @@ class BusinessScenarioSeeder extends Seeder
             }
 
             foreach ($don->passengers as $hanhKhach) {
-                $this->ghiDiemDanh($hanhKhach, $diemDon, PassengerCheckinStatus::Present, null, 5);
+                $this->ghiDiemDanh($hanhKhach, $diemDon, PassengerCheckinStatus::Present, null, 118);
             }
         }
     }
 
+    /**
+     * Tính bằng GIỜ, không phải ngày.
+     *
+     * Chuyến đang chạy khởi hành sáng nay, nên một mốc điểm danh "một ngày trước" sẽ nằm trước
+     * cả lúc xe lăn bánh — bản ghi nói rằng hướng dẫn viên điểm danh khách trước khi chuyến bắt
+     * đầu. Chuyến đã kết thúc thì vẫn khai được bằng giờ, chỉ là con số lớn hơn.
+     */
     private function ghiDiemDanh(
         BookingPassenger $passenger,
         ItineraryCheckpoint $checkpoint,
         PassengerCheckinStatus $status,
         ?string $note = null,
-        int $soNgayTruoc = 1,
+        int $soGioTruoc = 2,
     ): PassengerCheckin {
         return PassengerCheckin::query()->create([
             'booking_passenger_id' => $passenger->id,
@@ -605,7 +622,7 @@ class BusinessScenarioSeeder extends Seeder
             'status' => $status,
             'note' => $note,
             'checked_by' => $this->guide?->id,
-            'checked_at' => now()->subDays($soNgayTruoc),
+            'checked_at' => now()->subHours($soGioTruoc),
             'is_late_entry' => false,
         ]);
     }
