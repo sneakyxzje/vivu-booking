@@ -3,6 +3,7 @@ import { CalendarDays, Users, AlertTriangle } from "lucide-react";
 import type { Guide } from "@/types";
 import type { ScheduleFormItem } from "./types";
 import Pagination from "@/components/common/Pagination";
+import { DateTimePicker } from "@/components/DateTimePicker";
 
 const getNowInputValue = () => {
   const now = new Date();
@@ -172,15 +173,14 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                       <label className="block text-xs font-bold text-gray-700 mb-1.5">
                         Thời gian khởi hành <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="datetime-local"
-                        min={minStartDate}
+                      <DateTimePicker
+                        withTime
                         required
+                        minDate={minStartDate ? new Date(minStartDate) : undefined}
                         value={item.start_date}
-                        onChange={(event) =>
-                          onChange(index, "start_date", event.target.value)
-                        }
-                        className={fieldClass}
+                        onChange={(giaTri) => onChange(index, "start_date", giaTri)}
+                        placeholder="Chọn ngày giờ khởi hành"
+                        buttonClassName={`${fieldClass} flex items-center gap-2 text-left`}
                       />
                       <p className="mt-1 text-[10px] text-gray-400">
                         Ngày giờ xuất phát dự kiến của đoàn.
@@ -192,14 +192,16 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                       <label className="block text-xs font-bold text-gray-700 mb-1.5">
                         Hạn chốt đặt tour <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="datetime-local"
+                      {/* Chặn trên là chính giờ khởi hành: hạn chốt danh sách sau lúc xe lăn
+                          bánh thì không còn là hạn chốt. */}
+                      <DateTimePicker
+                        withTime
                         required
+                        maxDate={item.start_date ? new Date(item.start_date) : undefined}
                         value={item.booking_deadline}
-                        onChange={(event) =>
-                          onChange(index, "booking_deadline", event.target.value)
-                        }
-                        className={fieldClass}
+                        onChange={(giaTri) => onChange(index, "booking_deadline", giaTri)}
+                        placeholder="Chọn hạn chốt"
+                        buttonClassName={`${fieldClass} flex items-center gap-2 text-left`}
                       />
                       <p className="mt-1 text-[10px] text-gray-400">
                         Khách không thể đặt sau mốc này (Mặc định trước đi 3 ngày).

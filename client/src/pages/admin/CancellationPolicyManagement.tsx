@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import adminService from "@/services/adminService";
 import type { CancellationPolicyRule } from "@/services/adminService";
+import { DateTimePicker } from "@/components/DateTimePicker";
 
 /**
  * B06 - Chính sách hủy. **Một bảng phí duy nhất, áp cho mọi tour.**
@@ -191,25 +192,28 @@ export default function CancellationPolicyManagement() {
           Để mặc định là bây giờ, tức bấm lưu là áp ngay — đó là việc hay làm nhất. Chọn một mốc
           xa hơn khi muốn công bố trước rồi mới áp, cách các công ty đổi điều khoản thật.
         */}
-        <label className="block space-y-1.5">
-          <span className="text-xs font-semibold uppercase text-gray-500">
+        {/* <div> chứ không <label>: bộ chọn là một nút mở bảng, bọc trong <label> thì bấm vào
+            nhãn cũng mở bảng, và bấm ra ngoài để đóng lại vướng vào chính nhãn ấy. */}
+        <div className="space-y-1.5">
+          <span className="block text-xs font-semibold uppercase text-gray-500">
             Áp dụng từ{" "}
             <span className="normal-case font-normal text-gray-400">
               (giờ Việt Nam; để nguyên là áp dụng ngay)
             </span>
           </span>
-          <input
-            type="datetime-local"
+          <DateTimePicker
+            withTime
+            minDate={new Date()}
             value={hieuLuc}
-            min={bayGio()}
-            onChange={(e) => setHieuLuc(e.target.value)}
-            className="w-full max-w-xs rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500"
+            onChange={setHieuLuc}
+            placeholder="Chọn mốc hiệu lực"
+            className="max-w-xs"
           />
           <span className="block text-[11px] text-gray-400">
             Không đặt được vào quá khứ: đơn đã bán đã chép bảng phí vào chính nó nên đặt lùi cũng
             không đổi được gì.
           </span>
-        </label>
+        </div>
 
         <label className="block space-y-1.5">
           <span className="text-xs font-semibold uppercase text-gray-500">

@@ -31,6 +31,7 @@ import { Toast } from "@/components/admin/CustomAlert";
 import { formatDateTime, formatPrice, getEndDate, toDateTimeLocalValue } from "@/utils/format";
 import { statusLabel, statusClasses } from "@/utils/schedule";
 import Pagination from "@/components/common/Pagination";
+import { DateTimePicker } from "@/components/DateTimePicker";
 
 type ScheduleStatus = ExtendedSchedule["status"];
 
@@ -1550,11 +1551,11 @@ export default function ScheduleManagement() {
 
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">Hạn chốt mới</label>
-              <input
-                type="datetime-local"
+              <DateTimePicker
+                withTime
                 value={deadlineValue}
-                onChange={(e) => setDeadlineValue(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
+                onChange={setDeadlineValue}
+                placeholder="Để trống dùng mốc mặc định"
               />
               <p className="text-[11px] text-gray-400 mt-1">
                 Để trống thì chuyến dùng mốc mặc định của hệ thống.

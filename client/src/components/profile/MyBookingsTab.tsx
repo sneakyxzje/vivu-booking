@@ -8,6 +8,7 @@ import type {
 import type { Booking } from "@/types";
 import { formatDateTime, formatPrice } from "@/utils/format";
 import { Modal } from "@/components/Modal";
+import { DateTimePicker } from "@/components/DateTimePicker";
 import {
   Ticket,
   Search,
@@ -1118,14 +1119,14 @@ export const MyBookingsTab: React.FC = () => {
                       <option value="female">Nữ</option>
                       <option value="other">Khác</option>
                     </select>
-                    <input
-                      type="date"
+                    {/* Chế độ ngày sinh: chọn năm và tháng bằng ô danh sách. */}
+                    <DateTimePicker
+                      mode="birthday"
                       value={row.date_of_birth ?? ""}
                       disabled={!paxData.can_edit}
-                      onChange={(e) =>
-                        suaDong(index, "date_of_birth", e.target.value)
-                      }
-                      className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
+                      onChange={(giaTri) => suaDong(index, "date_of_birth", giaTri)}
+                      placeholder="Ngày sinh"
+                      buttonClassName="flex w-full items-center gap-2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-left disabled:opacity-60 disabled:cursor-not-allowed hover:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                     />
                     <select
                       value={row.id_type ?? "cccd"}

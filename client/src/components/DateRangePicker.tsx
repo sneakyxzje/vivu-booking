@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { MonthGrid } from "./date/MonthGrid";
+import type { OTrangThai } from "./date/MonthGrid";
+import {
+  cungNgay,
+  dauNgay,
+  doiSangNgay,
+  ghepGio,
+  hienThiNgay,
+  khoaNgay,
+  layGio,
+} from "./date/dateHelpers";
 
 /**
  * Chọn một khoảng thời gian: danh sách mốc dựng sẵn bên trái, lịch hai tháng bên phải.
@@ -46,37 +57,7 @@ interface Props {
   className?: string;
 }
 
-// ── Ngày giờ, luôn theo giờ địa phương ────────────────────────────────────────
-
-const hai = (n: number) => String(n).padStart(2, "0");
-
-/** `Date` → `YYYY-MM-DD`, lấy từ các thành phần địa phương chứ không qua UTC. */
-const khoaNgay = (d: Date) => `${d.getFullYear()}-${hai(d.getMonth() + 1)}-${hai(d.getDate())}`;
-
-/** `YYYY-MM-DD...` → `Date` lúc 0 giờ địa phương. */
-const doiSangNgay = (s: string): Date | null => {
-  if (!s) return null;
-  const [nam, thang, ngay] = s.slice(0, 10).split("-").map(Number);
-  if (!nam || !thang || !ngay) return null;
-  return new Date(nam, thang - 1, ngay);
-};
-
-/** Phần giờ của một giá trị, hoặc mặc định khi giá trị chưa có giờ. */
-const layGio = (s: string, macDinh: string) => (s.length >= 16 ? s.slice(11, 16) : macDinh);
-
-const ghepGio = (ngay: string, gio: string, withTime: boolean) =>
-  withTime && ngay ? `${ngay}T${gio}` : ngay;
-
-const cungNgay = (a: Date, b: Date) => khoaNgay(a) === khoaNgay(b);
-
-const hienThi = (s: string, withTime: boolean) => {
-  const d = doiSangNgay(s);
-  if (!d) return "";
-  const ngay = `${hai(d.getDate())}/${hai(d.getMonth() + 1)}/${d.getFullYear()}`;
-  return withTime && s.length >= 16 ? `${ngay} ${s.slice(11, 16)}` : ngay;
-};
-
-// ── Mốc dựng sẵn ─────────────────────────────────────────────────────────────
+// ── Mốc dựng sẵn ────────────────────────────────────────────────────────────
 
 /**
  * Mọi mốc đều nhìn về QUÁ KHỨ, vì đây là bộ lọc cho dữ liệu đã xảy ra.
@@ -244,25 +225,6 @@ const MOC_TUONG_LAI: { nhan: string; tinh: () => [Date, Date] }[] = [
   },
 ];
 
-const THU = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-const TEN_THANG = [
-  "Tháng 1", "Tháng 2", "Tháng 3", "Tháng 4", "Tháng 5", "Tháng 6",
-  "Tháng 7", "Tháng 8", "Tháng 9", "Tháng 10", "Tháng 11", "Tháng 12",
-];
-
-/** Lưới 6 hàng 7 cột của một tháng, gồm cả ô trống đầu tháng. */
-function luoiThang(nam: number, thang: number): (Date | null)[] {
-  const dauThang = new Date(nam, thang, 1);
-  const soNgay = new Date(nam, thang + 1, 0).getDate();
-  const dem = (dauThang.getDay() + 6) % 7;
-
-  const o: (Date | null)[] = Array(dem).fill(null);
-  for (let i = 1; i <= soNgay; i++) o.push(new Date(nam, thang, i));
-  while (o.length % 7 !== 0) o.push(null);
-
-  return o;
-}
-
 export const DateRangePicker: React.FC<Props> = ({
   value,
   onChange,
@@ -318,9 +280,9 @@ export const DateRangePicker: React.FC<Props> = ({
   const tuNgay = useMemo(() => doiSangNgay(nhap.from), [nhap.from]);
   const denNgay = useMemo(() => doiSangNgay(nhap.to), [nhap.to]);
 
-  const bienDuoi = minDate ? new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate()) : null;
-  const bienTren = maxDate ? new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate()) : null;
-  const ngoaiBien = (d: Date) => (bienDuoi && d < bienDuoi) || (bienTren && d > bienTren);
+  const bienDuoi = minDate ? dauNgay(minDate) : null;
+  const bienTren = maxDate ? dauNgay(maxDate) : null;
+  const ngoaiBien = (d: Date) => (!!bienDuoi && d < bienDuoi) || (!!bienTren && d > bienTren);
 
   const chonNgay = (d: Date) => {
     if (ngoaiBien(d)) return;
@@ -366,7 +328,7 @@ export const DateRangePicker: React.FC<Props> = ({
   };
 
   const nhanNut = value.from || value.to
-    ? `${hienThi(value.from, withTime) || "…"} – ${hienThi(value.to, withTime) || "…"}`
+    ? `${hienThiNgay(value.from, withTime) || "…"} – ${hienThiNgay(value.to, withTime) || "…"}`
     : placeholder;
 
   const mocDangChon = danhSachMoc.find(({ tinh }) => {
@@ -376,63 +338,27 @@ export const DateRangePicker: React.FC<Props> = ({
     );
   })?.nhan;
 
-  const veThang = (goc: Date) => {
-    const o = luoiThang(goc.getFullYear(), goc.getMonth());
+  const trangThaiO = (d: Date): OTrangThai => {
+    if (tuNgay && cungNgay(d, tuNgay)) return denNgay && cungNgay(d, denNgay) ? "single" : "start";
+    if (denNgay && cungNgay(d, denNgay)) return "end";
 
-    return (
-      <div className="w-[248px]">
-        <p className="mb-2 text-center text-sm font-bold text-gray-900">
-          {TEN_THANG[goc.getMonth()]} {goc.getFullYear()}
-        </p>
-        <div className="grid grid-cols-7 gap-y-1">
-          {THU.map((t) => (
-            <span key={t} className="py-1 text-center text-[10px] font-semibold uppercase text-gray-400">
-              {t}
-            </span>
-          ))}
-          {o.map((d, i) => {
-            if (!d) return <span key={`trong-${i}`} />;
+    // Xem trước khoảng khi mới chọn một đầu và đang rê chuột trên lịch.
+    const cuoi = denNgay ?? (dangDiChuot ? doiSangNgay(dangDiChuot) : null);
+    if (tuNgay && cuoi && d > tuNgay && d < cuoi) return "between";
 
-            const khoa = khoaNgay(d);
-            const chan = ngoaiBien(d);
-            const laDau = tuNgay && cungNgay(d, tuNgay);
-            const laCuoi = denNgay && cungNgay(d, denNgay);
-
-            // Xem trước khoảng khi mới chọn một đầu và đang rê chuột.
-            const dauKhoang = tuNgay;
-            const cuoiKhoang = denNgay ?? (dangDiChuot ? doiSangNgay(dangDiChuot) : null);
-            const trongKhoang =
-              dauKhoang && cuoiKhoang && d > dauKhoang && d < cuoiKhoang;
-
-            return (
-              <button
-                key={khoa}
-                type="button"
-                disabled={!!chan}
-                onClick={() => chonNgay(d)}
-                onMouseEnter={() => setDangDiChuot(khoa)}
-                className={[
-                  "h-8 text-xs font-medium transition-colors",
-                  chan ? "cursor-not-allowed text-gray-300" : "cursor-pointer",
-                  laDau || laCuoi
-                    ? "bg-primary-600 text-white font-bold"
-                    : trongKhoang
-                      ? "bg-primary-50 text-primary-800"
-                      : chan
-                        ? ""
-                        : "text-gray-700 hover:bg-gray-100",
-                  laDau && laCuoi ? "rounded-lg" : laDau ? "rounded-l-lg" : laCuoi ? "rounded-r-lg" : "",
-                  cungNgay(d, new Date()) && !laDau && !laCuoi ? "ring-1 ring-inset ring-primary-300" : "",
-                ].join(" ")}
-              >
-                {d.getDate()}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
+    return "none";
   };
+
+  const veThang = (goc: Date) => (
+    <MonthGrid
+      month={goc}
+      trangThai={trangThaiO}
+      chan={ngoaiBien}
+      onPick={chonNgay}
+      onHover={(d) => setDangDiChuot(d ? khoaNgay(d) : null)}
+    />
+  );
+
 
   const thangPhai = new Date(thangTrai.getFullYear(), thangTrai.getMonth() + 1, 1);
 

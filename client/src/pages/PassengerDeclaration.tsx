@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, CalendarClock, Check, Users } from "lucide-react";
 import api from "@/services/api";
 import { formatDateTime } from "@/utils/format";
+import { DateTimePicker } from "@/components/DateTimePicker";
 
 /**
  * Khai danh sách hành khách sau khi đã đặt chỗ.
@@ -278,12 +279,14 @@ export default function PassengerDeclaration() {
 
               <div>
                 <label className="field-label">Ngày sinh</label>
-                <input
-                  type="date"
+                {/* Chế độ ngày sinh: chọn năm và tháng bằng ô danh sách, không bấm lùi từng tháng. */}
+                <DateTimePicker
+                  mode="birthday"
                   value={row.date_of_birth}
                   disabled={!data.can_edit}
-                  onChange={(e) => sua(index, "date_of_birth", e.target.value)}
-                  className="input-field disabled:bg-surface-soft"
+                  onChange={(giaTri) => sua(index, "date_of_birth", giaTri)}
+                  placeholder="Chọn ngày sinh"
+                  buttonClassName="input-field flex w-full items-center gap-2 text-left disabled:bg-surface-soft disabled:cursor-not-allowed"
                 />
               </div>
 

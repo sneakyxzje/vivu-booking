@@ -3,6 +3,8 @@ import adminService from "@/services/adminService";
 import { TableActions } from "@/components/admin/TableActions";
 import { Pencil, Trash2 } from "lucide-react";
 import type { DiscountCode, DiscountCodePayload } from "@/types/discount";
+import { DateTimePicker } from "@/components/DateTimePicker";
+import { doiSangNgay } from "@/components/date/dateHelpers";
 
 const emptyForm: DiscountCodePayload = {
   code: "",
@@ -197,14 +199,33 @@ export default function DiscountCodeManagement() {
             <span className="text-xs font-semibold uppercase text-gray-500">Giới hạn lượt dùng</span>
             <input type="number" min="1" placeholder="VD: 100" value={form.usage_limit ?? ""} onChange={(e) => updateForm("usage_limit", e.target.value ? Number(e.target.value) : null)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500" />
           </label>
-          <label className="space-y-1.5">
-            <span className="text-xs font-semibold uppercase text-gray-500">Ngày bắt đầu</span>
-            <input type="date" value={formatDateInput(form.starts_at)} onChange={(e) => updateForm("starts_at", e.target.value || null)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500" />
-          </label>
-          <label className="space-y-1.5">
-            <span className="text-xs font-semibold uppercase text-gray-500">Ngày kết thúc</span>
-            <input type="date" value={formatDateInput(form.expires_at)} onChange={(e) => updateForm("expires_at", e.target.value || null)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500" />
-          </label>
+          {/*
+            Hai mốc hiệu lực của mã, không phải một bộ lọc — nên dùng bộ chọn một ngày, không dùng
+            bộ chọn khoảng: mốc dựng sẵn kiểu "tháng trước" vô nghĩa với một mã sắp phát hành.
+            `minDate` của ngày kết thúc bám theo ngày bắt đầu, chặn ngay trên lịch.
+          */}
+          <div className="space-y-1.5">
+            <span className="block text-xs font-semibold uppercase text-gray-500">Ngày bắt đầu</span>
+            <DateTimePicker
+              value={formatDateInput(form.starts_at)}
+              onChange={(giaTri) => updateForm("starts_at", giaTri || null)}
+              placeholder="Chọn ngày bắt đầu"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <span className="block text-xs font-semibold uppercase text-gray-500">Ngày kết thúc</span>
+            {/*
+              `minDate` dựng bằng `doiSangNgay`, không bằng `new Date("2026-08-30")`: chuỗi chỉ có
+              ngày được JavaScript hiểu là 0 giờ UTC, nên ở múi giờ âm nó lùi mất một ngày. Hàm
+              kia đọc bằng thành phần địa phương.
+            */}
+            <DateTimePicker
+              value={formatDateInput(form.expires_at)}
+              minDate={doiSangNgay(formatDateInput(form.starts_at)) ?? undefined}
+              onChange={(giaTri) => updateForm("expires_at", giaTri || null)}
+              placeholder="Chọn ngày kết thúc"
+            />
+          </div>
           <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700">
             <input type="checkbox" checked={form.is_active} onChange={(e) => updateForm("is_active", e.target.checked)} />
             Kích hoạt

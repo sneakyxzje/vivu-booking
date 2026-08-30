@@ -5,6 +5,7 @@ import { Toast } from "@/components/admin/CustomAlert";
 import { Modal } from "@/components/admin/Modal";
 import Pagination from "@/components/common/Pagination";
 import { formatDateTime, formatPrice } from "@/utils/format";
+import { DateTimePicker } from "@/components/DateTimePicker";
 
 /**
  * Booking theo đoàn — bàn làm việc của điều hành cho điểm 14.
@@ -466,11 +467,13 @@ export default function GroupBookingManagement() {
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
               Báo giá có hiệu lực tới
             </label>
-            <input
-              type="datetime-local"
+            <DateTimePicker
+              withTime
+              minDate={new Date()}
               value={quoteExpires}
-              onChange={(e) => setQuoteExpires(e.target.value)}
-              className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md bg-gray-50/50 focus:outline-none focus:border-primary-500"
+              onChange={setQuoteExpires}
+              placeholder="Chọn hạn hiệu lực"
+              buttonClassName="flex w-full items-center gap-2 px-3.5 py-2 text-sm text-left border border-gray-200 rounded-md bg-gray-50/50 hover:bg-white focus:outline-none focus:border-primary-500"
             />
             <span className="text-[10px] text-gray-400 mt-1 block">
               Chỗ đang bán cho khách lẻ — giá không thể treo vô thời hạn cho một đoàn chưa chắc đi.

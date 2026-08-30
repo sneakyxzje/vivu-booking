@@ -7,6 +7,7 @@ import guideService, {
 import type { GuideIncident } from "@/services/guideService";
 import type { Tour } from "@/types";
 import { formatDateTime } from "@/utils/format";
+import { DateTimePicker } from "@/components/DateTimePicker";
 
 /**
  * O - Hướng dẫn viên báo cáo sự cố tại hiện trường.
@@ -238,16 +239,18 @@ export default function GuideIncidents() {
               <label className="block text-xs font-bold text-gray-700 mb-1">
                 Xảy ra lúc
               </label>
-              <input
-                type="datetime-local"
+              {/* `maxDate` là hôm nay: sự cố đã xảy ra rồi mới có người ngồi báo cáo nó. */}
+              <DateTimePicker
+                withTime
+                maxDate={new Date()}
                 value={form.occurred_at}
-                onChange={(e) =>
+                onChange={(giaTri) =>
                   setForm((truoc) => ({
                     ...truoc,
-                    occurred_at: e.target.value,
+                    occurred_at: giaTri,
                   }))
                 }
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
+                placeholder="Chọn thời điểm xảy ra"
               />
             </div>
           </div>
