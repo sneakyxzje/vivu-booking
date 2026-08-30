@@ -116,8 +116,6 @@ export interface Tour {
   adult_price: number;
   child_price: number;
   infant_price: number;
-  /** null nghĩa là thu đủ 100% ngay khi đặt. */
-  deposit_percent?: number | null;
   thumbnail: string | null;
   number_of_days: number;
   number_of_nights: number;

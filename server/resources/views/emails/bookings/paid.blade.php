@@ -10,13 +10,8 @@
             <td align="center">
                 <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:640px;max-width:94%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
                     <tr>
-                        {{-- Thư này dùng cho cả hai trường hợp: đã trả đủ, và mới trả cọc.
-                             Nói "Thanh toán thành công" cho một đơn còn nợ phần lớn tiền là để
-                             khách tin rằng họ đã xong, rồi ngạc nhiên khi bị nhắc trả nốt. --}}
                         <td style="background:#16a34a;padding:24px 28px;color:#ffffff;">
-                            <h1 style="margin:0;font-size:22px;line-height:1.35;">
-                                {{ $balanceDue > 0 ? 'Đã nhận tiền cọc' : 'Thanh toán thành công' }}
-                            </h1>
+                            <h1 style="margin:0;font-size:22px;line-height:1.35;">Thanh toán thành công</h1>
                             <p style="margin:8px 0 0;font-size:14px;opacity:.92;">Đơn đặt tour #{{ $booking->id }} đã được xác nhận</p>
                         </td>
                     </tr>
@@ -62,32 +57,12 @@
                                     <td style="padding:12px 14px;font-size:13px;font-weight:700;">{{ $booking->vnpay_transaction_no ?? 'Đang cập nhật' }}</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Giá trị đơn</td>
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Số tiền đã thanh toán</td>
                                     <td style="padding:12px 14px;font-size:18px;font-weight:800;color:#16a34a;">
                                         {{ number_format((float) $booking->total_amount, 0, ',', '.') }} VNĐ
                                     </td>
                                 </tr>
-                                @if($balanceDue > 0)
-                                    <tr>
-                                        <td style="padding:12px 14px;background:#fffbeb;font-size:13px;color:#92400e;">Còn phải thanh toán</td>
-                                        <td style="padding:12px 14px;font-size:16px;font-weight:800;color:#b45309;background:#fffbeb;">
-                                            {{ number_format($balanceDue, 0, ',', '.') }} VNĐ
-                                            @if($booking->balance_due_at)
-                                                <span style="display:block;font-size:12px;font-weight:400;color:#92400e;margin-top:4px;">
-                                                    Hạn thanh toán: {{ $booking->balance_due_at->format('d/m/Y') }}
-                                                </span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endif
                             </table>
-
-                            @if($balanceDue > 0)
-                                <p style="margin:14px 0 0;font-size:13px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;">
-                                    Chỗ của Quý khách đã được giữ. Vui lòng thanh toán phần còn lại trước hạn ghi ở trên
-                                    &mdash; bấm &laquo;Xem chi tiết đơn hàng&raquo; bên dưới để thanh toán nốt.
-                                </p>
-                            @endif
 
                             <p style="margin:14px 0 0;font-size:13px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 14px;">
                                 Quý khách vui lòng có mặt tại điểm đón trước giờ khởi hành ít nhất 30 phút và mang theo giấy tờ tùy thân.

@@ -15,7 +15,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'adult_price',
     'child_price',
     'infant_price',
-    'deposit_percent',
     'thumbnail',
     'number_of_days',
     'number_of_nights',

@@ -160,17 +160,6 @@ class BookingController extends Controller
             $thongBaoMaGiam = $discount['notice'];
 
             /*
-             * Tiền cọc, chốt tại thời điểm đặt.
-             *
-             * Chép ra con số thay vì lưu tỷ lệ, cùng lý do với việc chép chính sách hủy vào đơn:
-             * điều hành sửa tỷ lệ cọc của tour tuần sau không được đổi nghĩa vụ của đơn đã bán.
-             *
-             * Tour không khai tỷ lệ thì `deposit_amount` để null, nghĩa là thu đủ ngay — đúng
-             * hành vi cũ, và mọi phép tính bên dưới đọc null như "không có cọc".
-             */
-            $tienCoc = $this->tinhTienCoc($tour, $totalAmount);
-
-            /*
              * X01 - Khách bấm đặt hai lần.
              *
              * Mạng chậm, khách bấm rồi không thấy gì nên bấm lại. Không chặn thì thành hai đơn
@@ -213,12 +202,6 @@ class BookingController extends Controller
                 'child_count' => $childCount,
                 'infant_count' => $infantCount,
                 'total_amount' => $totalAmount,
-                'deposit_amount' => $tienCoc,
-                // Hạn trả nốt: đúng hạn chốt danh sách của chuyến. Sau mốc đó công ty đã chốt
-                // phòng và suất ăn với nhà cung cấp, tức đã trả tiền thật cho chỗ của khách này.
-                'balance_due_at' => $tienCoc === null
-                    ? null
-                    : ($schedule->booking_deadline ?? $schedule->defaultBookingDeadline()),
                 'discount_code_id' => $discount['model']?->id,
                 'discount_code' => $discount['model']?->code,
                 'discount_amount' => $discount['amount'],
@@ -263,14 +246,9 @@ class BookingController extends Controller
             return $booking->load(['tour', 'schedule']);
         });
 
-        // Liên kết thanh toán thu ĐÚNG SỐ CỦA LẦN NÀY: tiền cọc nếu tour có cọc, còn không thì
-        // toàn bộ giá trị đơn.
-        $paymentUrl = $this->vnpayService->createPayment(
-            $booking,
-            $booking->deposit_amount !== null
-                ? (float) $booking->deposit_amount
-                : (float) $booking->total_amount,
-        );
+        // Đơn lẻ thu đủ một lần. Trả từng phần là chuyện của đơn đoàn, và ở đó tiền về qua sổ
+        // giao dịch do điều hành ghi chứ không qua cổng.
+        $paymentUrl = $this->vnpayService->createPayment($booking, (float) $booking->total_amount);
 
         // Đơn trùng thì không gửi thư lần hai. Nhận hai thư xác nhận cho một lần đặt làm khách
         // tưởng mình vừa đặt hai chuyến và gọi lên hỏi, đúng thứ mà luật chống trùng sinh ra để
@@ -279,20 +257,11 @@ class BookingController extends Controller
             $this->sendBookingCreatedMailAfterResponse($booking, $paymentUrl);
         }
 
-        $phaiTra = $booking->deposit_amount !== null
-            ? 'tiền cọc ' . number_format((float) $booking->deposit_amount, 0, ',', '.') . ' đ'
-            : 'toàn bộ';
-
         $thongBao = $laDonTrung
-            ? 'Đơn đặt tour của bạn đã được ghi nhận trước đó. Vui lòng thanh toán ' . $phaiTra
-                . ' trong ' . $this->holdService->holdMinutes() . ' phút để giữ chỗ.'
-            : 'Đặt tour thành công. Vui lòng thanh toán ' . $phaiTra . ' trong '
+            ? 'Đơn đặt tour của bạn đã được ghi nhận trước đó. Vui lòng thanh toán trong '
+                . $this->holdService->holdMinutes() . ' phút để giữ chỗ.'
+            : 'Đặt tour thành công. Vui lòng thanh toán trong '
                 . $this->holdService->holdMinutes() . ' phút để giữ chỗ.';
-
-        if ($booking->deposit_amount !== null && $booking->balance_due_at) {
-            $thongBao .= ' Phần còn lại thanh toán trước '
-                . $booking->balance_due_at->format('d/m/Y') . '.';
-        }
 
         if ($thongBaoMaGiam) {
             $thongBao = $thongBaoMaGiam . ' ' . $thongBao;
@@ -335,11 +304,37 @@ class BookingController extends Controller
                 'tour',
                 'schedule.guides:id,name,phone',
                 'passengers',
+                'payments',
                 'surcharges' => fn ($q) => $q->coHieuLuc()->latest('id'),
             ])
             ->where('customer_id', $request->user()->id)
             ->latest()
             ->get();
+
+        /*
+         * Kèm số đã thu, số còn thiếu và liên kết thanh toán cho từng đơn.
+         *
+         * Trước đây màn "Đơn của tôi" không có đường nào để trả tiền: khách đăng nhập, thấy đơn
+         * đang chờ thanh toán, và không có nút nào bấm — muốn trả phải quay ra trang tra cứu và
+         * nhập lại mã. Liên kết vốn chỉ có ở đó.
+         *
+         * `payments` nạp sẵn ở trên để không sinh một truy vấn cho mỗi đơn.
+         */
+        $bookings->each(function (Booking $booking) {
+            $conThieu = $this->paymentService->balanceDue($booking);
+
+            $booking->setAttribute('net_paid', $this->paymentService->netPaid($booking));
+            $booking->setAttribute('balance_due', $conThieu);
+
+            if ($conThieu > 0
+                && !$booking->isGroup()
+                && in_array($booking->status, ['pending', 'confirmed'], true)) {
+                $booking->setAttribute(
+                    'payment_url',
+                    $this->vnpayService->createPayment($booking, $conThieu),
+                );
+            }
+        });
 
         return response()->json([
             'success' => true,
@@ -371,11 +366,12 @@ class BookingController extends Controller
         $this->holdService->releaseIfOverdue($booking);
 
         /*
-         * Liên kết thanh toán cho phần CÒN THIẾU, không phải cho toàn bộ đơn.
+         * Liên kết thanh toán thu phần CÒN THIẾU, đọc từ sổ giao dịch.
          *
-         * Đơn có cọc thì sau khi cọc về, trạng thái đã là `confirmed` nhưng vẫn còn nợ phần còn
-         * lại — và đây là màn hình khách mở bằng mã tra cứu để trả nốt. Chỉ dựng liên kết khi
-         * status là `pending` như trước thì khách đã cọc không còn đường nào tự trả nốt.
+         * Đơn lẻ thu đủ một lần nên gần như luôn bằng tổng đơn. Không viết thẳng `total_amount`
+         * vì có một trường hợp thật khác: khách chuyển khoản thiếu, điều hành ghi vào sổ đúng số
+         * đã nhận rồi xác nhận đơn. Lúc ấy đơn `confirmed` mà vẫn còn nợ, và khách cần đường trả
+         * nốt đúng phần thiếu chứ không phải trả lại từ đầu.
          */
         $conThieu = $this->paymentService->balanceDue($booking);
 
@@ -570,10 +566,9 @@ class BookingController extends Controller
             : 0.0;
 
         $paidBooking = null;
-        $conThieuSauKhiThu = 0.0;
 
         if ($bookingId) {
-            $paidBooking = DB::transaction(function () use ($bookingId, $isSuccessful, $isValidSignature, $request, $soTienLanNay, &$conThieuSauKhiThu) {
+            $paidBooking = DB::transaction(function () use ($bookingId, $isSuccessful, $isValidSignature, $request, $soTienLanNay) {
                 $booking = Booking::query()
                     ->lockForUpdate()
                     ->find($bookingId);
@@ -620,7 +615,6 @@ class BookingController extends Controller
                          * hủy, tính tiền hoàn) sẽ tin rằng khách đã trả hết.
                          */
                         $this->ghiSoTienVe($booking, $soTienLanNay, $request->query('vnp_TransactionNo'));
-                        $conThieuSauKhiThu = $this->paymentService->balanceDue($booking->fresh());
 
                         return $booking->fresh(['tour', 'schedule', 'discountCode']);
                     }
@@ -641,7 +635,6 @@ class BookingController extends Controller
                     && $booking->status === 'confirmed'
                     && $this->paymentService->balanceDue($booking) > 0) {
                     $this->ghiSoTienVe($booking, $soTienLanNay, $request->query('vnp_TransactionNo'));
-                    $conThieuSauKhiThu = $this->paymentService->balanceDue($booking->fresh());
 
                     return $booking->fresh(['tour', 'schedule', 'discountCode']);
                 }
@@ -686,7 +679,6 @@ class BookingController extends Controller
                         // Ghi sổ sau khi đơn đã về `confirmed`: sổ từ chối khoản thu cho đơn đang
                         // ở trạng thái hủy, và ở đây đơn vừa được dựng lại nên khoản thu là thật.
                         $this->ghiSoTienVe($booking, $soTienLanNay, $request->query('vnp_TransactionNo'));
-                        $conThieuSauKhiThu = $this->paymentService->balanceDue($booking->fresh());
 
                         return $booking->fresh(['tour', 'schedule', 'discountCode']);
                     }
@@ -712,7 +704,7 @@ class BookingController extends Controller
         }
 
         if ($paidBooking) {
-            $this->sendBookingPaidMailAfterResponse($paidBooking, $conThieuSauKhiThu);
+            $this->sendBookingPaidMailAfterResponse($paidBooking);
         }
 
         if ($bookingId) {
@@ -829,16 +821,16 @@ class BookingController extends Controller
         }
     }
 
-    private function sendBookingPaidMailAfterResponse(Booking $booking, float $balanceDue = 0.0): void
+    private function sendBookingPaidMailAfterResponse(Booking $booking): void
     {
-        app()->terminating(function () use ($booking, $balanceDue) {
-            $this->sendBookingPaidMail($booking, $balanceDue);
+        app()->terminating(function () use ($booking) {
+            $this->sendBookingPaidMail($booking);
         });
     }
-    private function sendBookingPaidMail(Booking $booking, float $balanceDue = 0.0): void
+    private function sendBookingPaidMail(Booking $booking): void
     {
         try {
-            Mail::to($booking->customer_email)->send(new BookingPaidMail($booking, $balanceDue));
+            Mail::to($booking->customer_email)->send(new BookingPaidMail($booking));
         } catch (Throwable $exception) {
             Log::warning('Could not send paid booking confirmation email.', [
                 'booking_id' => $booking->id,
@@ -849,11 +841,11 @@ class BookingController extends Controller
     }
 
     /**
-     * Tiền cỡ nào là cọc, cỡ nào là trả nốt.
+     * Ghi khoản tiền cổng thanh toán vừa báo về vào sổ giao dịch.
      *
-     * Khoản đầu tiên của một đơn có cọc ghi là `deposit`; mọi khoản sau, và mọi khoản của đơn trả
-     * một lần, ghi là `balance`. Hai nhãn này chỉ để người đọc sổ hiểu chuyện gì đã xảy ra — cả
-     * hai đều thuộc nhóm THU nên mọi phép cộng đối xử với chúng như nhau.
+     * Luôn là `balance`: đơn lẻ thu đủ một lần, không có khoản nào trước nó. Nhãn `deposit` vẫn
+     * còn trong sổ nhưng chỉ đơn ĐOÀN dùng tới, và ở đó điều hành ghi tay theo thỏa thuận riêng.
+     * Cả hai nhãn đều thuộc nhóm THU nên mọi phép cộng đối xử với chúng như nhau.
      */
     private function ghiSoTienVe(Booking $booking, float $soTien, ?string $maGiaoDich): void
     {
@@ -861,12 +853,9 @@ class BookingController extends Controller
             return;
         }
 
-        $laLanDau = $this->paymentService->netPaid($booking) <= 0;
-        $chuaDu = round($soTien) < round((float) $booking->total_amount);
-
         $this->paymentService->record(
             $booking,
-            $laLanDau && $chuaDu ? 'deposit' : 'balance',
+            'balance',
             $soTien,
             'gateway',
             $maGiaoDich,
@@ -875,27 +864,6 @@ class BookingController extends Controller
             'Thanh toán qua VNPay',
             null,
         );
-    }
-
-    /**
-     * Tiền cọc của một đơn, hoặc null nếu tour thu đủ ngay.
-     *
-     * Làm tròn tới nghìn đồng: cổng thanh toán chỉ nhận số nguyên, và một hóa đơn cọc
-     * 4.567.891 đ trông như lỗi hệ thống chứ không như một con số ai đó đã tính.
-     */
-    private function tinhTienCoc(\App\Models\Tour $tour, float $totalAmount): ?float
-    {
-        $tyLe = (int) ($tour->deposit_percent ?? 0);
-
-        if ($tyLe <= 0 || $tyLe >= 100) {
-            return null;
-        }
-
-        $coc = round($totalAmount * $tyLe / 100 / 1000) * 1000;
-
-        // Cọc lớn hơn hoặc bằng giá trị đơn thì không còn là cọc. Xảy ra với đơn giá rất nhỏ
-        // sau khi làm tròn lên.
-        return $coc > 0 && $coc < $totalAmount ? $coc : null;
     }
 
     /**

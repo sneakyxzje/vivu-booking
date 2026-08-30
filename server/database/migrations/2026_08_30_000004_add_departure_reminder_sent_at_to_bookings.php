@@ -19,7 +19,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('bookings', function (Blueprint $table) {
-            $table->dateTime('departure_reminder_sent_at')->nullable()->after('balance_due_at');
+            $table->dateTime('departure_reminder_sent_at')->nullable()->after('expires_at');
         });
     }
 

@@ -57,18 +57,6 @@ export const buildTourPayload = (form: unknown) => {
   data.append("adult_price", String(Number(f.adult_price)));
   data.append("child_price", String(Number(f.child_price)));
   data.append("infant_price", String(Number(f.infant_price)));
-
-  /*
-   * Tỷ lệ cọc chỉ gửi khi có giá trị.
-   *
-   * `FormData` không có khái niệm null: gửi trường rỗng thì máy chủ nhận chuỗi "", và luật
-   * `nullable|integer` từ chối nó. Bỏ hẳn trường ra khỏi biểu mẫu mới là cách nói "không khai".
-   */
-  const tyLeCoc = String(f.deposit_percent ?? "").trim();
-  if (tyLeCoc !== "") {
-    data.append("deposit_percent", String(Number(tyLeCoc)));
-  }
-
   data.append("number_of_days", String(Number(f.number_of_days)));
   data.append("number_of_nights", String(Number(f.number_of_nights)));
   data.append("start_location", String(f.start_location ?? ""));

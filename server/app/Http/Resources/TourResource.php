@@ -17,9 +17,6 @@ class TourResource extends JsonResource
             'adult_price' => (float) ($this->adult_price ?? 0),
             'child_price' => (float) ($this->child_price ?? 0),
             'infant_price' => (float) ($this->infant_price ?? 0),
-            // null nghĩa là thu đủ ngay khi đặt. Giao diện đọc nó để nói trước cho khách biết
-            // họ sẽ phải trả bao nhiêu ở bước thanh toán.
-            'deposit_percent' => $this->deposit_percent === null ? null : (int) $this->deposit_percent,
             'thumbnail' => $this->thumbnail,
             'number_of_days' => (int) $this->number_of_days,
             'number_of_nights' => (int) $this->number_of_nights,

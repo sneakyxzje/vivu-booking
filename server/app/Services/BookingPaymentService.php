@@ -116,9 +116,25 @@ class BookingPaymentService
         });
     }
 
-    /** Số đã thu thực cho GIÁ TOUR: tổng các khoản thu trừ tổng các khoản hoàn. */
+    /**
+     * Số đã thu thực cho GIÁ TOUR: tổng các khoản thu trừ tổng các khoản hoàn.
+     *
+     * Cộng trên quan hệ đã nạp nếu có, để một màn hình liệt kê nhiều đơn không sinh hai truy vấn
+     * cho mỗi đơn. Đường GHI không bao giờ rơi vào nhánh ấy: `record()` luôn đọc lại đơn dưới
+     * khóa dòng, và bản đọc lại đó chưa nạp quan hệ nào — nên nó không thể cộng nhầm trên một
+     * danh sách cũ.
+     */
     public function netPaid(Booking $booking): float
     {
+        if ($booking->relationLoaded('payments')) {
+            $rows = $booking->getRelation('payments');
+
+            return round(
+                (float) $rows->whereIn('kind', BookingPayment::THU)->sum('amount')
+                - (float) $rows->where('kind', BookingPayment::HOAN)->sum('amount'),
+            );
+        }
+
         $thu = (float) $booking->payments()->whereIn('kind', BookingPayment::THU)->sum('amount');
         $hoan = (float) $booking->payments()->where('kind', BookingPayment::HOAN)->sum('amount');
 
@@ -128,6 +144,12 @@ class BookingPaymentService
     /** Tổng đã hoàn cho giá tour. Dùng để biết một khoản hoàn đã trả xong chưa. */
     public function refunded(Booking $booking): float
     {
+        if ($booking->relationLoaded('payments')) {
+            return round(
+                (float) $booking->getRelation('payments')->where('kind', BookingPayment::HOAN)->sum('amount'),
+            );
+        }
+
         return round((float) $booking->payments()->where('kind', BookingPayment::HOAN)->sum('amount'));
     }
 

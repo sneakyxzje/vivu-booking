@@ -6,7 +6,7 @@ import type {
   PassengerListResponse,
 } from "@/services/bookingService";
 import type { Booking } from "@/types";
-import { formatDateTime } from "@/utils/format";
+import { formatDateTime, formatPrice } from "@/utils/format";
 import { Modal } from "@/components/Modal";
 import {
   Ticket,
@@ -645,6 +645,21 @@ export const MyBookingsTab: React.FC = () => {
                   </span>
 
                   <div className="flex items-center gap-2">
+                    {/*
+                      Đường trả tiền ngay trên thẻ đơn.
+                      Trước đây màn này không có nút nào để thanh toán: khách đăng nhập, thấy đơn
+                      đang chờ trả tiền, rồi phải quay ra trang tra cứu và nhập lại mã đơn — liên
+                      kết vốn chỉ có ở đó.
+                    */}
+                    {item.payment_url && Number(item.balance_due ?? 0) > 0 && (
+                      <a
+                        href={item.payment_url}
+                        className="px-3.5 py-1.5 text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl transition-colors flex items-center gap-1.5"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        Thanh toán {formatPrice(Number(item.balance_due))}
+                      </a>
+                    )}
                     {coTheTuHuy(item) && (
                       <button
                         onClick={() => moFormHuy(item)}

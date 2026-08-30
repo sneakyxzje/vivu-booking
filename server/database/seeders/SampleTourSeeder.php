@@ -158,15 +158,6 @@ class SampleTourSeeder extends Seeder
                 'adult_price' => 4590000,
                 'child_price' => 3213000,
                 'infant_price' => 0,
-                /*
-                 * Tour duy nhất trong bộ mẫu có đặt cọc, để tính năng ấy nhìn thấy được khi chạy
-                 * thử. Đúng loại tour thực tế bán theo cọc: giá cao và có vé máy bay, nên bắt trả
-                 * hết trong mười phút giữ chỗ là gần như không ai đặt.
-                 *
-                 * Bốn tour còn lại để trống, tức thu đủ ngay — cũng cần có mặt trong dữ liệu mẫu
-                 * để so sánh hai luồng.
-                 */
-                'deposit_percent' => 30,
                 'thumbnail' => 'https://images.unsplash.com/photo-1540541338287-41700207dee6',
                 'number_of_days' => 3,
                 'number_of_nights' => 2,
@@ -206,7 +197,6 @@ class SampleTourSeeder extends Seeder
                         'adult_price' => $tourData['adult_price'],
                         'child_price' => $tourData['child_price'],
                         'infant_price' => $tourData['infant_price'],
-                        'deposit_percent' => $tourData['deposit_percent'] ?? null,
                         'thumbnail' => $tourData['thumbnail'],
                         'number_of_days' => $tourData['number_of_days'],
                         'number_of_nights' => $tourData['number_of_nights'],

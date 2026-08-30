@@ -18,6 +18,11 @@ export interface Booking {
   child_count?: number;
   infant_count?: number;
   total_amount: number;
+  /** Tổng đã thu thực, tính từ sổ giao dịch. Chỉ có ở các điểm cuối tính sẵn nó. */
+  net_paid?: number;
+  balance_due?: number;
+  /** Liên kết cổng thanh toán cho phần còn thiếu. Vắng mặt khi đơn đã trả đủ. */
+  payment_url?: string;
   discount_code_id?: number | null;
   discount_code?: string | null;
   discount_amount?: number;
@@ -27,9 +32,6 @@ export interface Booking {
   cancel_type?: "hold_expired" | "by_customer" | "by_company" | "force_majeure" | null;
   cancelled_at?: string | null;
   cancelled_by?: number | null;
-  reopen_reason?: string | null;
-  reopened_at?: string | null;
-  reopened_by?: number | null;
   // false nghĩa là ghế chết: đơn đã hủy sau hạn chốt nên chỗ chưa được trả về kho.
   seats_released?: boolean;
   seats_released_at?: string | null;

@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
-class DepositAndRefundLedgerTest extends TestCase
+class PaymentLedgerAndRefundTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -46,7 +46,7 @@ class DepositAndRefundLedgerTest extends TestCase
         ]);
 
         $this->khach = User::create([
-            'name' => 'Khach Coc',
+            'name' => 'Khach Le',
             'email' => 'khach-' . Str::random(5) . '@example.com',
             'password' => Hash::make('password123'),
             'role' => 'customer',
@@ -55,12 +55,11 @@ class DepositAndRefundLedgerTest extends TestCase
 
         $this->tour = Tour::create([
             'admin_id' => $this->admin->id,
-            'title' => 'Tour Co Coc',
-            'slug' => 'tour-co-coc-' . Str::random(5),
+            'title' => 'Tour Thu Du',
+            'slug' => 'tour-thu-du-' . Str::random(5),
             'adult_price' => 5_000_000,
             'child_price' => 3_500_000,
             'infant_price' => 0,
-            'deposit_percent' => 30,
             'number_of_days' => 3,
             'number_of_nights' => 2,
             'start_location' => 'Ha Noi',
@@ -114,68 +113,48 @@ class DepositAndRefundLedgerTest extends TestCase
         return $params;
     }
 
-    // --- Đặt cọc -------------------------------------------------------------------------------
+    // --- Thanh toán qua cổng ---------------------------------------------------------------------
 
-    public function test_don_cua_tour_co_coc_chot_lai_so_tien_coc(): void
-    {
-        $booking = $this->datTour();
-
-        // 30% của 5.000.000, làm tròn tới nghìn.
-        $this->assertSame(1_500_000.0, (float) $booking->deposit_amount);
-        $this->assertNotNull($booking->balance_due_at);
-    }
-
-    public function test_tour_khong_khai_ty_le_thi_thu_du_nhu_cu(): void
-    {
-        $this->tour->update(['deposit_percent' => null]);
-
-        $booking = $this->datTour();
-
-        $this->assertNull($booking->deposit_amount);
-    }
-
-    public function test_tra_coc_thi_don_xac_nhan_nhung_chua_dong_moc_da_thanh_toan(): void
+    public function test_tra_du_qua_cong_thi_ghi_so_va_dong_moc_da_thanh_toan(): void
     {
         Mail::fake();
-        $booking = $this->datTour();
-
-        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 1_500_000)));
-
-        $daSua = $booking->fresh();
-
-        $this->assertSame('confirmed', $daSua->status);
-        // Đóng `paid_at` khi mới thu 30% là nói với mọi luồng khác rằng khách đã trả hết.
-        $this->assertNull($daSua->paid_at);
-        $this->assertSame(1_500_000.0, app(BookingPaymentService::class)->netPaid($daSua));
-        $this->assertSame(3_500_000.0, app(BookingPaymentService::class)->balanceDue($daSua));
-        $this->assertSame('deposit', $daSua->payments()->first()->kind);
-    }
-
-    public function test_tra_not_phan_con_lai_thi_dong_moc_da_thanh_toan(): void
-    {
-        Mail::fake();
-        $booking = $this->datTour();
-
-        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 1_500_000)));
-        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking->fresh(), 3_500_000)));
-
-        $daSua = $booking->fresh();
-
-        $this->assertNotNull($daSua->paid_at);
-        $this->assertSame(5_000_000.0, app(BookingPaymentService::class)->netPaid($daSua));
-        $this->assertSame(0.0, app(BookingPaymentService::class)->balanceDue($daSua));
-        $this->assertSame(2, $daSua->payments()->count());
-    }
-
-    public function test_tra_du_mot_lan_cung_dong_moc_da_thanh_toan(): void
-    {
-        Mail::fake();
-        $this->tour->update(['deposit_percent' => null]);
         $booking = $this->datTour();
 
         $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 5_000_000)));
 
-        $this->assertNotNull($booking->fresh()->paid_at);
+        $daSua = $booking->fresh();
+
+        $this->assertSame('confirmed', $daSua->status);
+        $this->assertNotNull($daSua->paid_at);
+        // Đơn lẻ thu đủ một lần, nên khoản này ghi là `balance`; nhãn `deposit` chỉ đơn đoàn dùng.
+        $this->assertSame('balance', $daSua->payments()->first()->kind);
+        $this->assertSame(5_000_000.0, app(BookingPaymentService::class)->netPaid($daSua));
+        $this->assertSame(0.0, app(BookingPaymentService::class)->balanceDue($daSua));
+    }
+
+    /**
+     * `paid_at` do SỔ đóng, không phải do lượt quay về của cổng.
+     *
+     * Khác biệt lộ ra ở đúng tình huống này: khách chuyển khoản thiếu, điều hành ghi vào sổ đúng
+     * số đã nhận rồi vẫn xác nhận đơn. Nếu `paid_at` đóng theo trạng thái thì đơn ấy mang mốc "đã
+     * thanh toán" trong khi còn nợ, và mọi phép tính hoàn tiền về sau đọc sai.
+     */
+    public function test_thu_thieu_thi_chua_dong_moc_da_thanh_toan(): void
+    {
+        Mail::fake();
+        $booking = $this->datTour();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/admin/bookings/' . $booking->id . '/payments', [
+                'kind' => 'balance',
+                'amount' => 2_000_000,
+                'method' => 'bank_transfer',
+            ])->assertOk();
+
+        $daSua = $booking->fresh();
+
+        $this->assertNull($daSua->paid_at);
+        $this->assertSame(3_000_000.0, app(BookingPaymentService::class)->balanceDue($daSua));
     }
 
     public function test_ma_giao_dich_khac_nhau_giua_hai_lan_tra(): void
@@ -201,17 +180,60 @@ class DepositAndRefundLedgerTest extends TestCase
         $this->assertSame(42, app(VNPayService::class)->bookingIdFrom('42'));
     }
 
-    public function test_trang_tra_cuu_dua_ra_lien_ket_tra_not(): void
+    /**
+     * Đơn còn thiếu tiền thì trang tra cứu vẫn đưa ra liên kết thanh toán, đúng phần thiếu.
+     *
+     * Với đơn lẻ thu đủ một lần, tình huống này sinh ra từ việc khách chuyển khoản thiếu và điều
+     * hành ghi vào sổ đúng số đã nhận. Chỉ dựng liên kết cho đơn `pending` thì người đó không còn
+     * đường nào tự trả nốt.
+     */
+    public function test_don_con_thieu_tien_van_co_lien_ket_thanh_toan(): void
     {
         Mail::fake();
         $booking = $this->datTour();
-        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 1_500_000)));
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/admin/bookings/' . $booking->id . '/payments', [
+                'kind' => 'balance',
+                'amount' => 3_000_000,
+                'method' => 'bank_transfer',
+            ])->assertOk();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->putJson('/api/admin/bookings/' . $booking->id . '/confirm')->assertOk();
+
+        $this->app['auth']->forgetGuards();
+        $response = $this->getJson('/api/bookings/' . $booking->public_token)->assertOk();
+
+        $this->assertNotNull($response->json('data.payment_url'));
+        $this->assertSame(2_000_000.0, (float) $response->json('data.balance_due'));
+    }
+
+    public function test_don_da_tra_du_thi_khong_con_lien_ket_thanh_toan(): void
+    {
+        Mail::fake();
+        $booking = $this->datTour();
+        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 5_000_000)));
 
         $response = $this->getJson('/api/bookings/' . $booking->public_token)->assertOk();
 
-        // Chỉ dựng liên kết cho đơn `pending` thì khách đã cọc không còn đường nào tự trả nốt.
-        $this->assertNotNull($response->json('data.payment_url'));
-        $this->assertSame(3_500_000.0, (float) $response->json('data.balance_due'));
+        $this->assertNull($response->json('data.payment_url'));
+        $this->assertSame(0.0, (float) $response->json('data.balance_due'));
+    }
+
+    /** Màn "Đơn của tôi" cũng phải có đường trả tiền, không bắt khách quay ra trang tra cứu. */
+    public function test_man_don_cua_toi_kem_lien_ket_thanh_toan_cho_don_chua_tra(): void
+    {
+        Mail::fake();
+        $booking = $this->datTour();
+        $booking->update(['customer_id' => $this->khach->id]);
+
+        $response = $this->actingAs($this->khach, 'sanctum')
+            ->getJson('/api/my-bookings')
+            ->assertOk();
+
+        $this->assertNotNull($response->json('data.0.payment_url'));
+        $this->assertSame(5_000_000.0, (float) $response->json('data.0.balance_due'));
     }
 
     // --- Thu tiền thủ công ---------------------------------------------------------------------
@@ -220,12 +242,13 @@ class DepositAndRefundLedgerTest extends TestCase
     {
         Mail::fake();
         $booking = $this->datTour();
-        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 1_500_000)));
 
+        // Sổ giao dịch từng chỉ mở cho đơn đoàn. Đây là đường ghi nhận tiền về ngoài cổng
+        // thanh toán: khách chuyển khoản hoặc nộp tiền mặt tại văn phòng.
         $this->actingAs($this->admin, 'sanctum')
             ->postJson('/api/admin/bookings/' . $booking->id . '/payments', [
                 'kind' => 'balance',
-                'amount' => 3_500_000,
+                'amount' => 5_000_000,
                 'method' => 'bank_transfer',
                 'reference' => 'FT2609XXXX',
                 'note' => 'Khách chuyển khoản tại quầy',
@@ -239,14 +262,14 @@ class DepositAndRefundLedgerTest extends TestCase
     {
         Mail::fake();
         $booking = $this->datTour();
-        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 1_500_000)));
+        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 5_000_000)));
 
         $response = $this->actingAs($this->admin, 'sanctum')
             ->getJson('/api/admin/bookings/' . $booking->id . '/payments')
             ->assertOk();
 
-        $this->assertSame(1_500_000.0, (float) $response->json('data.net_paid'));
-        $this->assertSame(3_500_000.0, (float) $response->json('data.balance_due'));
+        $this->assertSame(5_000_000.0, (float) $response->json('data.net_paid'));
+        $this->assertSame(0.0, (float) $response->json('data.balance_due'));
         $this->assertCount(1, $response->json('data.entries'));
         $this->assertSame('gateway', $response->json('data.entries.0.method'));
     }
@@ -257,7 +280,7 @@ class DepositAndRefundLedgerTest extends TestCase
     {
         Mail::fake();
         $booking = $this->datTour();
-        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 1_500_000)));
+        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 5_000_000)));
 
         $this->actingAs($this->admin, 'sanctum')
             ->putJson('/api/admin/bookings/' . $booking->id . '/cancel', [
@@ -275,7 +298,7 @@ class DepositAndRefundLedgerTest extends TestCase
     {
         Mail::fake();
         $booking = $this->datTour();
-        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 1_500_000)));
+        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 5_000_000)));
 
         $this->actingAs($this->admin, 'sanctum')
             ->putJson('/api/admin/bookings/' . $booking->id . '/cancel', [
@@ -295,7 +318,7 @@ class DepositAndRefundLedgerTest extends TestCase
     {
         Mail::fake();
         $booking = $this->datTour();
-        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 1_500_000)));
+        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 5_000_000)));
 
         $this->actingAs($this->admin, 'sanctum')
             ->putJson('/api/admin/bookings/' . $booking->id . '/cancel', [
@@ -325,12 +348,13 @@ class DepositAndRefundLedgerTest extends TestCase
     {
         Mail::fake();
         $booking = $this->datTour();
-        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 1_500_000)));
+        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 5_000_000)));
 
+        // Đã thu 5 triệu, hoàn 6 triệu là chi ra nhiều hơn số từng nhận vào.
         $this->actingAs($this->admin, 'sanctum')
             ->postJson('/api/admin/bookings/' . $booking->id . '/payments', [
                 'kind' => 'refund',
-                'amount' => 2_000_000,
+                'amount' => 6_000_000,
             ])
             ->assertStatus(422);
 
@@ -342,7 +366,7 @@ class DepositAndRefundLedgerTest extends TestCase
         Mail::fake();
         $booking = $this->datTour();
         $booking->update(['customer_id' => $this->khach->id]);
-        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 1_500_000)));
+        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayQuayVe($booking, 5_000_000)));
         $this->app['auth']->forgetGuards();
 
         $this->actingAs($this->khach, 'sanctum')

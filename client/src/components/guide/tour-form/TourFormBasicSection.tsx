@@ -8,8 +8,6 @@ interface Props {
   adultPrice: string;
   childPrice: string;
   infantPrice: string;
-  /** Chuỗi rỗng nghĩa là thu đủ 100% ngay khi đặt. */
-  depositPercent: string;
   numberOfDays: string;
   numberOfNights: string;
   startLocation: string;
@@ -27,7 +25,6 @@ export const TourFormBasicSection: React.FC<Props> = ({
   adultPrice,
   childPrice,
   infantPrice,
-  depositPercent,
   numberOfDays,
   numberOfNights,
   startLocation,
@@ -107,28 +104,6 @@ export const TourFormBasicSection: React.FC<Props> = ({
           className={fieldClass}
         />
       </div>
-    </div>
-    <div>
-      <label className={labelClass}>Tỷ lệ đặt cọc (%)</label>
-      <input
-        name="deposit_percent"
-        type="number"
-        min={1}
-        max={99}
-        value={depositPercent}
-        onChange={onChange}
-        placeholder="Để trống nếu thu đủ ngay khi đặt"
-        className={fieldClass}
-      />
-      {/*
-        Nói rõ hệ quả của việc để trống, vì đó là lựa chọn mặc định và người điền cần biết mình
-        đang chọn gì. Tour dài ngày giá cao mà bắt trả hết trong mười phút giữ chỗ thì gần như
-        không ai đặt; tour trong ngày giá thấp thì chia làm hai lần lại phiền cả hai bên.
-      */}
-      <p className="mt-1.5 text-xs text-gray-500">
-        Để trống nghĩa là khách phải trả đủ 100% ngay khi đặt. Điền 30 thì khách chỉ cần trả 30%
-        để giữ chỗ, phần còn lại trả trước hạn chốt danh sách.
-      </p>
     </div>
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div>

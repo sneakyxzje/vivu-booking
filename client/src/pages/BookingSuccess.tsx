@@ -19,9 +19,6 @@ type Booking = {
   child_count?: number;
   infant_count?: number;
   total_amount: number;
-  /** Tiền cọc chốt lúc đặt. null nghĩa là tour thu đủ ngay. */
-  deposit_amount?: number | null;
-  balance_due_at?: string | null;
   /** Tổng đã thu thực, tính từ sổ giao dịch. Vắng mặt ở các đơn tạo trước khi có sổ. */
   net_paid?: number;
   balance_due?: number;
@@ -203,13 +200,12 @@ export default function BookingSuccess() {
   const pending = isPendingStatus(booking.status);
   const cancelled = isCancelledStatus(booking.status);
   /*
-   * Số đã thu và số còn thiếu đọc từ máy chủ, không suy ra từ trạng thái đơn.
+   * Số đã thu và số còn thiếu đọc từ sổ giao dịch, không suy ra từ trạng thái đơn.
    *
-   * Suy từ trạng thái được khi mọi đơn trả một lần: `confirmed` là đã trả đủ. Từ khi có đặt cọc
-   * thì không: một đơn `confirmed` có thể mới trả 30%, và cách tính cũ sẽ hiện "đã thanh toán
-   * 5.000.000, còn thiếu 0" cho người mới đóng 1.500.000.
+   * Suy từ trạng thái thì `confirmed` luôn có nghĩa là đã trả đủ — sai trong một trường hợp có
+   * thật: khách chuyển khoản thiếu, điều hành ghi vào sổ đúng số đã nhận rồi vẫn xác nhận đơn.
    *
-   * `?? ` giữ lại lối cũ cho các đơn tạo trước khi có sổ giao dịch.
+   * `??` giữ lối cũ cho các đơn tạo trước khi có sổ giao dịch.
    */
   const paidAmount = Number(booking.net_paid ?? (paid ? booking.total_amount : 0));
   const remainingAmount = Number(
@@ -322,8 +318,8 @@ export default function BookingSuccess() {
               </div>
 
               {/*
-                Khối thanh toán hiện cả khi đơn ĐÃ xác nhận mà còn nợ phần còn lại.
-                Chỉ hiện lúc `pending` thì khách đã đóng cọc không còn đường nào tự trả nốt.
+                Khối thanh toán hiện cả khi đơn ĐÃ xác nhận mà vẫn còn thiếu tiền — trường hợp
+                khách chuyển khoản thiếu và điều hành ghi vào sổ đúng số đã nhận.
               */}
               {booking.payment_url && (pending || remainingAmount > 0) && (
                 <div className="mt-8 p-5 bg-emerald-50 border border-emerald-100 rounded-lg space-y-4">
@@ -336,10 +332,7 @@ export default function BookingSuccess() {
                       <p className="text-xs text-emerald-700 leading-relaxed mt-0.5">
                         {pending
                           ? "Để hoàn tất đặt tour và giữ chỗ chính thức, vui lòng thanh toán qua cổng VNPay."
-                          : `Chỗ của bạn đã được giữ. Còn ${formatCurrency(remainingAmount)} cần thanh toán` +
-                            (booking.balance_due_at
-                              ? ` trước ${formatDateTime(booking.balance_due_at)}.`
-                              : ".")}
+                          : `Chỗ của bạn đã được giữ. Đơn còn thiếu ${formatCurrency(remainingAmount)}.`}
                       </p>
                     </div>
                   </div>
