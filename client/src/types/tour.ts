@@ -37,6 +37,18 @@ export interface TourImage {
   image_path: string;
 }
 
+/** Một điểm dừng của lịch trình, đúng các cột bảng `itinerary_checkpoints` có. */
+export interface ItineraryCheckpoint {
+  id: number;
+  tour_itinerary_id?: number;
+  name: string;
+  description?: string | null;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
+  sequence: number;
+  is_required_photo: boolean;
+}
+
 export interface TourItinerary {
   id: number;
   tour_id: number;
@@ -47,6 +59,8 @@ export interface TourItinerary {
   route_points?: string | null;
   rest_stops?: string | null;
   content: string;
+  /** Máy chủ kèm sẵn ở màn quản trị (`with('itineraries.checkpoints')`). */
+  checkpoints?: ItineraryCheckpoint[];
 }
 
 export interface Assignee {

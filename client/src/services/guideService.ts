@@ -64,9 +64,12 @@ export const buildTourPayload = (form: unknown) => {
   data.append("vehicle_info", String(f.vehicle_info ?? ""));
   data.append("pickup_location", String(f.pickup_location ?? ""));
 
-  if (f.thumbnail) {
-    data.append("thumbnail", String(f.thumbnail));
-  }
+  /*
+   * Gửi cả khi rỗng. Bỏ qua trường này lúc rỗng thì máy chủ không thấy khóa `thumbnail` trong
+   * payload và giữ nguyên ảnh cũ, nên nút "Bỏ ảnh bìa" ở màn sửa tour không bao giờ có tác
+   * dụng — ảnh biến mất khỏi biểu mẫu rồi hiện lại nguyên vẹn sau khi lưu.
+   */
+  data.append("thumbnail", String(f.thumbnail ?? ""));
 
   if (f.thumbnail_file instanceof File) {
     data.append("thumbnail_file", f.thumbnail_file);
@@ -88,7 +91,21 @@ export const buildTourPayload = (form: unknown) => {
 
   (
     (f.itineraries as
-      | { day_number: string; title: string; start_point?: string; end_point?: string; route_points?: string[]; rest_stops?: string; content: string }[]
+      | {
+          day_number: string;
+          title: string;
+          start_point?: string;
+          end_point?: string;
+          route_points?: string[];
+          rest_stops?: string;
+          content: string;
+          checkpoints?: {
+            id?: number;
+            name: string;
+            description?: string;
+            is_required_photo?: boolean;
+          }[];
+        }[]
       | undefined) ?? []
   ).forEach((item, index) => {
     if ("id" in item && item.id) {
@@ -107,6 +124,25 @@ export const buildTourPayload = (form: unknown) => {
     );
     data.append(`itineraries[${index}][rest_stops]`, item.rest_stops ?? "");
     data.append(`itineraries[${index}][content]`, item.content);
+
+    /*
+     * Điểm dừng. Trước đây payload bỏ qua hẳn phần này, nên mọi điểm dừng khai ở biểu mẫu tạo
+     * tour đều biến mất lúc lưu — trong khi máy chủ vẫn nhận và vẫn có bảng để ghi.
+     *
+     * `sequence` suy ra từ thứ tự hiển thị, không hỏi người dùng: thứ tự đã thấy trên màn hình
+     * rồi, hỏi lại một con số nữa chỉ tạo cơ hội cho hai chỗ nói khác nhau.
+     */
+    (item.checkpoints ?? [])
+      .filter((cp) => cp.name?.trim())
+      .forEach((cp, thuTu) => {
+        const goc = `itineraries[${index}][checkpoints][${thuTu}]`;
+
+        if (cp.id) data.append(`${goc}[id]`, String(cp.id));
+        data.append(`${goc}[name]`, cp.name.trim());
+        data.append(`${goc}[description]`, cp.description?.trim() ?? "");
+        data.append(`${goc}[sequence]`, String(thuTu + 1));
+        data.append(`${goc}[is_required_photo]`, cp.is_required_photo ? "1" : "0");
+      });
   });
 
   (
