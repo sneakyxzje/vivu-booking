@@ -391,6 +391,18 @@ class BusinessScenarioSeeder extends Seeder
         $this->don['xinHuy'] = $this->taoDon('S2', 'confirmed', 2, 0, 'Trang khách: bấm Yêu cầu hủy, đơn đã thanh toán nên phải chờ duyệt', 'F');
         $this->don['choDuyet'] = $this->taoDon('S1', 'confirmed', 2, 0, 'Đã có yêu cầu hủy chờ duyệt, vào màn Yêu cầu hủy của khách để duyệt', 'F');
 
+        /*
+         * S12 — đoàn thứ hai đang trên đường, phải có khách thật.
+         *
+         * Chuyến này dựng ra để có nơi nhờ người trông hộ, và trước đây không ai đặt nó. Kết quả
+         * là màn hình hiện "Đang di chuyển — 0/10 khách": một đoàn đang chạy mà không chở ai.
+         * Luồng thật không sinh ra nổi trạng thái ấy — lệnh chốt chuyến chỉ chốt khi đủ khách đã
+         * thanh toán, và chỉ chuyến đã chốt mới chuyển sang đang chạy — nên dữ liệu mẫu như vậy
+         * làm người xem tưởng hệ thống hỏng. Bốn khách, đúng bằng mức tối thiểu của chuyến.
+         */
+        $this->taoDon('S12', 'confirmed', 2, 0, 'Đoàn thứ hai đang đi: khách của người được nhờ trông hộ', 'H', ['Ngô Gia Bảo', 'Ngô Thị Lan']);
+        $this->taoDon('S12', 'confirmed', 2, 0, 'Đoàn thứ hai đang đi: đơn thứ hai cho đủ mức tối thiểu', 'H', ['Tạ Minh Quân', 'Tạ Thu Trang']);
+
         // Nhóm D: đơn của chuyến đang chạy, thử hủy từ cả trang khách lẫn trang quản trị.
         $this->don['chuyenDangChay'] = $this->taoDon('S6', 'confirmed', 2, 0, 'Thử hủy: phải bị chặn vì chuyến đang chạy', 'D', ['Nguyễn Văn An', 'Trần Thị Bình']);
         $this->taoDon('S6', 'confirmed', 2, 1, 'Điểm danh: đơn ba người, dùng để thử năm trạng thái', 'H', ['Lê Minh Cường', 'Phạm Thu Dung', 'Lê Bảo Duy']);

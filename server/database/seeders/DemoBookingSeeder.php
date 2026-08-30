@@ -235,41 +235,69 @@ class DemoBookingSeeder extends Seeder
     }
 
     /**
-     * Khách cho những chuyến đang trên đường.
+     * Chuyến đã chốt, đang chạy hoặc đã kết thúc thì phải có khách.
      *
-     * Một chuyến đang chạy mà không có đơn nào là chuyến chở không khí: hướng dẫn viên mở màn
-     * điểm danh ra thấy danh sách rỗng, và người xem không phân biệt được đó là tính năng hỏng
-     * hay là dữ liệu chưa có. Đơn ở đây khai đủ danh sách hành khách kèm tên, vì điểm danh làm
-     * việc trên từng người chứ không trên cả đơn.
+     * ## Vì sao đây là luật chứ không phải trang trí
+     *
+     * Một chuyến hiện "Đang di chuyển — 0/10 khách" là thứ luồng thật không sinh ra nổi. Chuyến
+     * chỉ được chốt khi số khách ĐÃ THANH TOÁN đạt mức tối thiểu, và chỉ chuyến đã chốt mới
+     * chuyển sang đang chạy rồi kết thúc. Đặt thẳng trạng thái trong seeder thì bỏ qua cả hai
+     * cửa ấy, và người xem màn hình sẽ tưởng hệ thống đếm sai chỗ.
+     *
+     * Nó còn làm hỏng việc trình bày: hướng dẫn viên mở màn điểm danh ra thấy danh sách rỗng,
+     * không ai phân biệt được tính năng hỏng với dữ liệu chưa có.
+     *
+     * Nên chuyến nào ở ba trạng thái ấy mà chưa đủ khách thì bù cho đủ mức tối thiểu, kèm danh
+     * sách hành khách có tên — điểm danh làm việc trên từng người, không trên cả đơn.
      *
      * @param  \Illuminate\Support\Collection<int, User>  $customers
      */
     private function donChoChuyenDangChay($customers): void
     {
-        $tenKhach = [
-            ['Nguyễn Hoàng Nam', 'Nguyễn Thu Hà'],
-            ['Trần Đức Thắng', 'Lý Ngọc Mai'],
-            ['Phạm Quang Huy', 'Đặng Kim Chi'],
+        $hoTen = [
+            'Nguyễn Hoàng Nam', 'Nguyễn Thu Hà', 'Trần Đức Thắng', 'Lý Ngọc Mai',
+            'Phạm Quang Huy', 'Đặng Kim Chi', 'Hoàng Anh Tuấn', 'Vũ Hải Yến',
+            'Đỗ Trung Kiên', 'Bùi Thanh Vân', 'Ngô Bá Long', 'Dương Mỹ Linh',
         ];
 
-        $dangChay = TourSchedule::query()
-            ->where('status', ScheduleStatus::InProgress)
+        $canKhach = TourSchedule::query()
+            ->whereIn('status', [
+                ScheduleStatus::Confirmed,
+                ScheduleStatus::InProgress,
+                ScheduleStatus::Completed,
+            ])
             ->with('tour')
             ->orderBy('id')
             ->get();
 
-        foreach ($dangChay as $thuTu => $schedule) {
+        $dem = 0;
+
+        foreach ($canKhach as $schedule) {
             $tour = $schedule->tour;
 
-            // Chuyến đã có khách rồi thì thôi — kịch bản nghiệp vụ dựng riêng cho nó.
-            if (!$tour || Booking::query()->where('tour_schedule_id', $schedule->id)->exists()) {
+            if (!$tour) {
                 continue;
             }
 
-            foreach ([0, 1] as $lan) {
-                $khach = $customers[($thuTu + $lan) % $customers->count()];
-                $ten = $tenKhach[($thuTu + $lan) % count($tenKhach)];
-                $luc = $schedule->start_date->copy()->subDays(9 + $lan);
+            $dangCo = (int) Booking::query()
+                ->where('tour_schedule_id', $schedule->id)
+                ->whereIn('status', ['confirmed', 'paid', 'deposit_paid', 'completed'])
+                ->sum('guests');
+
+            $canBu = min((int) $schedule->min_people, (int) $schedule->max_people) - $dangCo;
+
+            if ($canBu <= 0) {
+                continue;
+            }
+
+            // Chuyến đã đi xong thì đơn của nó cũng đã đóng lại, không còn nằm chờ gì nữa.
+            $trangThaiDon = $schedule->status === ScheduleStatus::Completed ? 'completed' : 'confirmed';
+
+            while ($canBu > 0) {
+                $soKhach = min(2, $canBu);
+                $khach = $customers[$dem % $customers->count()];
+                $ten = array_slice($hoTen, ($dem * 2) % count($hoTen), $soKhach);
+                $luc = $schedule->start_date->copy()->subDays(9 + ($dem % 5));
 
                 $booking = Booking::create([
                     'public_token' => (string) Str::uuid(),
@@ -278,32 +306,36 @@ class DemoBookingSeeder extends Seeder
                     'tour_schedule_id' => $schedule->id,
                     'customer_name' => $khach->name,
                     'customer_email' => $khach->email,
-                    'customer_phone' => '09' . str_pad((string) (33000000 + $thuTu * 971 + $lan), 8, '0', STR_PAD_LEFT),
+                    'customer_phone' => '09' . str_pad((string) (33000000 + $dem * 971), 8, '0', STR_PAD_LEFT),
                     'departure_date' => $schedule->start_date,
-                    'guests' => count($ten),
-                    'adult_count' => count($ten),
+                    'guests' => $soKhach,
+                    'adult_count' => $soKhach,
                     'child_count' => 0,
                     'infant_count' => 0,
-                    'total_amount' => count($ten) * (float) $tour->adult_price,
-                    'status' => 'confirmed',
+                    'total_amount' => $soKhach * (float) $tour->adult_price,
+                    'status' => $trangThaiDon,
                     'paid_at' => $luc->copy()->addMinutes(8),
                     'confirmed_at' => $luc->copy()->addMinutes(8),
-                    'note' => self::DEMO_NOTE . ' - đoàn đang trên đường',
+                    'completed_at' => $trangThaiDon === 'completed' ? $schedule->end_date : null,
+                    'note' => self::DEMO_NOTE . ' - khách của chuyến đã chốt',
                 ]);
 
                 $booking->created_at = $luc;
                 $booking->updated_at = $luc->copy()->addMinutes(8);
                 $booking->save();
 
-                foreach ($ten as $viTri => $hoTen) {
+                foreach (array_values($ten) as $viTri => $tenKhach) {
                     $booking->passengers()->create([
-                        'name' => mb_strtoupper($hoTen),
+                        'name' => mb_strtoupper($tenKhach),
                         'type' => 'adult',
-                        'identity_number' => '0380' . str_pad((string) (400000 + $thuTu * 137 + $lan * 11 + $viTri), 8, '0', STR_PAD_LEFT),
+                        'identity_number' => '0380' . str_pad((string) (400000 + $dem * 137 + $viTri), 8, '0', STR_PAD_LEFT),
                     ]);
                 }
 
-                $this->ghiSoVaNhatKy($booking, $lan === 0, $thuTu * 2 + $lan, $luc);
+                $this->ghiSoVaNhatKy($booking, $dem % 2 === 0, $dem, $luc);
+
+                $canBu -= $soKhach;
+                $dem++;
             }
         }
     }
