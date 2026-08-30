@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { MonthGrid } from "./date/MonthGrid";
 import type { OTrangThai } from "./date/MonthGrid";
+import { PopoverNoi } from "./date/PopoverNoi";
 import {
   TEN_THANG,
   cungNgay,
@@ -72,7 +73,8 @@ export const DateTimePicker: React.FC<Props> = ({
   const [nhap, setNhap] = useState(value);
   const [thangDangXem, setThangDangXem] = useState(() => thangMoDau(value, laNgaySinh));
 
-  const boc = useRef<HTMLDivElement>(null);
+  // Neo là chính cái nút: bảng lịch vẽ ở `body` nên phải bám theo tọa độ của nút trên màn hình.
+  const nut = useRef<HTMLButtonElement>(null);
 
   function thangMoDau(giaTri: string, ngaySinh: boolean) {
     const d = doiSangNgay(giaTri);
@@ -101,23 +103,8 @@ export const DateTimePicker: React.FC<Props> = ({
     setMo((v) => !v);
   };
 
-  useEffect(() => {
-    if (!mo) return;
-
-    const bamNgoai = (e: MouseEvent) => {
-      if (boc.current && !boc.current.contains(e.target as Node)) setMo(false);
-    };
-    const bamEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMo(false);
-    };
-
-    document.addEventListener("mousedown", bamNgoai);
-    document.addEventListener("keydown", bamEsc);
-    return () => {
-      document.removeEventListener("mousedown", bamNgoai);
-      document.removeEventListener("keydown", bamEsc);
-    };
-  }, [mo]);
+  // `useCallback` vì `PopoverNoi` gắn/gỡ trình nghe sự kiện theo tham chiếu hàm này.
+  const dong = useCallback(() => setMo(false), []);
 
   const daChon = doiSangNgay(nhap);
 
@@ -156,7 +143,7 @@ export const DateTimePicker: React.FC<Props> = ({
     "flex w-full items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm text-gray-800 transition-colors hover:bg-white focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:cursor-not-allowed disabled:opacity-60";
 
   return (
-    <div className={`relative ${className}`} ref={boc}>
+    <div className={`relative ${className}`}>
       {label && (
         <span className="mb-1 block text-[11px] font-semibold text-gray-500">
           {label}
@@ -165,6 +152,7 @@ export const DateTimePicker: React.FC<Props> = ({
       )}
 
       <button
+        ref={nut}
         type="button"
         disabled={disabled}
         onClick={doiTrangThaiMo}
@@ -198,12 +186,14 @@ export const DateTimePicker: React.FC<Props> = ({
         )}
       </button>
 
-      {mo && (
-        <div
-          role="dialog"
-          aria-label={label ?? "Chọn thời gian"}
-          className="absolute left-0 top-full z-50 mt-2 w-max max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white p-3 shadow-xl"
-        >
+      <PopoverNoi
+        mo={mo}
+        neo={nut}
+        onDong={dong}
+        nhan={label ?? "Chọn thời gian"}
+        className="w-max max-w-[calc(100vw-1rem)] p-3"
+      >
+        <div>
           {laNgaySinh ? (
             /*
               Chọn năm và tháng bằng ô danh sách, không bằng nút lùi từng tháng.
@@ -327,7 +317,7 @@ export const DateTimePicker: React.FC<Props> = ({
             </div>
           </div>
         </div>
-      )}
+      </PopoverNoi>
     </div>
   );
 };

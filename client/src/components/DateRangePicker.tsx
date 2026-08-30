@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { MonthGrid } from "./date/MonthGrid";
 import type { OTrangThai } from "./date/MonthGrid";
+import { PopoverNoi } from "./date/PopoverNoi";
 import {
   cungNgay,
   dauNgay,
@@ -244,7 +245,8 @@ export const DateRangePicker: React.FC<Props> = ({
     return new Date(goc.getFullYear(), goc.getMonth(), 1);
   });
 
-  const boc = useRef<HTMLDivElement>(null);
+  // Neo là chính cái nút: bảng vẽ ở `body` để không `overflow-hidden` nào cắt được nó.
+  const nut = useRef<HTMLButtonElement>(null);
   const danhSachMoc = presets === "future" ? MOC_TUONG_LAI : MOC_DUNG_SAN;
 
   /**
@@ -259,23 +261,8 @@ export const DateRangePicker: React.FC<Props> = ({
     setMo((v) => !v);
   };
 
-  useEffect(() => {
-    if (!mo) return;
-
-    const bamNgoai = (e: MouseEvent) => {
-      if (boc.current && !boc.current.contains(e.target as Node)) setMo(false);
-    };
-    const bamEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMo(false);
-    };
-
-    document.addEventListener("mousedown", bamNgoai);
-    document.addEventListener("keydown", bamEsc);
-    return () => {
-      document.removeEventListener("mousedown", bamNgoai);
-      document.removeEventListener("keydown", bamEsc);
-    };
-  }, [mo]);
+  // `useCallback` vì `PopoverNoi` gắn/gỡ trình nghe sự kiện theo tham chiếu hàm này.
+  const dong = useCallback(() => setMo(false), []);
 
   const tuNgay = useMemo(() => doiSangNgay(nhap.from), [nhap.from]);
   const denNgay = useMemo(() => doiSangNgay(nhap.to), [nhap.to]);
@@ -363,12 +350,13 @@ export const DateRangePicker: React.FC<Props> = ({
   const thangPhai = new Date(thangTrai.getFullYear(), thangTrai.getMonth() + 1, 1);
 
   return (
-    <div className={`relative ${className}`} ref={boc}>
+    <div className={`relative ${className}`}>
       {label && (
         <span className="mb-1 block text-[11px] font-semibold text-gray-500">{label}</span>
       )}
 
       <button
+        ref={nut}
         type="button"
         onClick={doiTrangThaiMo}
         aria-haspopup="dialog"
@@ -404,12 +392,14 @@ export const DateRangePicker: React.FC<Props> = ({
         )}
       </button>
 
-      {mo && (
-        <div
-          role="dialog"
-          aria-label="Chọn khoảng thời gian"
-          className="absolute left-0 top-full z-50 mt-2 flex max-w-[calc(100vw-2rem)] flex-col rounded-xl border border-gray-200 bg-white shadow-xl sm:flex-row"
-        >
+      <PopoverNoi
+        mo={mo}
+        neo={nut}
+        onDong={dong}
+        nhan="Chọn khoảng thời gian"
+        className="max-w-[calc(100vw-1rem)]"
+      >
+        <div className="flex flex-col sm:flex-row">
           {/* Mốc dựng sẵn. Bên trái, như mọi bộ chọn khoảng ngày người ta đã quen. */}
           <div className="flex shrink-0 flex-row gap-1 overflow-x-auto border-gray-100 p-2 sm:w-[150px] sm:flex-col sm:overflow-visible sm:border-r">
             {danhSachMoc.map((m) => (
@@ -522,7 +512,7 @@ export const DateRangePicker: React.FC<Props> = ({
             </div>
           </div>
         </div>
-      )}
+      </PopoverNoi>
     </div>
   );
 };
