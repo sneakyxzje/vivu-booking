@@ -166,16 +166,6 @@ const MOC_DUNG_SAN: { nhan: string; tinh: () => [Date, Date] }[] = [
       return [new Date(h.getFullYear(), 0, 1), h];
     },
   },
-  {
-    nhan: "1 năm qua",
-    tinh: () => {
-      const den = new Date();
-      const tu = new Date();
-      tu.setFullYear(tu.getFullYear() - 1);
-      tu.setDate(tu.getDate() + 1);
-      return [tu, den];
-    },
-  },
 ];
 
 /**
