@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\ScheduleStatus;
 use App\Models\Booking;
 use App\Models\BookingPayment;
 use App\Models\DiscountCode;
@@ -26,6 +27,16 @@ class DemoBookingSeeder extends Seeder
                 'tour-da-nang-hoi-an-4n3d',
                 'tour-sapa-fansipan-2n1d',
                 'tour-phu-quoc-3n2d',
+                // Các tuyến thêm sau. Không có đơn nào thì tour mở ra chỗ nào cũng là con số 0,
+                // và không so sánh được tour nào bán chạy - thứ mà bảng doanh thu sinh ra để trả lời.
+                'tour-ninh-binh-1n',
+                'tour-ha-giang-4n3d',
+                'tour-mien-tay-3n2d',
+                'tour-quy-nhon-4n3d',
+                'tour-con-dao-3n2d',
+                'tour-tay-nguyen-5n4d',
+                'tour-hue-quang-binh-rieng-4n3d',
+                'tour-xuyen-viet-6n5d',
             ])
             ->get()
             ->keyBy('slug');
@@ -91,11 +102,45 @@ class DemoBookingSeeder extends Seeder
             ['tour-sapa-fansipan-2n1d', 0, 'confirmed', 1, 0, true],
             ['tour-phu-quoc-3n2d', 2, 'confirmed', 2, 1, true],
             ['tour-phu-quoc-3n2d', 0, 'pending', 2, 0, false],
+
+            /*
+             * Tuyến thêm sau. Lượng đơn cố ý lệch nhau: tour một ngày bán đều và nhiều, cung dài
+             * ngày bán ít - có chênh lệch thì bảng "tour bán chạy" mới xếp ra được thứ tự, chứ
+             * mọi tour đúng hai đơn thì biểu đồ nào cũng phẳng.
+             */
+            ['tour-ninh-binh-1n', 3, 'confirmed', 4, 2, true],
+            ['tour-ninh-binh-1n', 2, 'confirmed', 2, 0, true],
+            ['tour-ninh-binh-1n', 1, 'confirmed', 6, 3, true],
+            ['tour-ninh-binh-1n', 1, 'confirmed', 2, 1, false],
+            ['tour-ninh-binh-1n', 0, 'confirmed', 3, 0, true],
+            ['tour-ninh-binh-1n', 0, 'pending', 2, 2, false],
+            ['tour-ninh-binh-1n', 2, 'cancelled', 2, 0, false],
+
+            ['tour-ha-giang-4n3d', 2, 'confirmed', 2, 0, true],
+            ['tour-ha-giang-4n3d', 0, 'confirmed', 4, 0, true],
+
+            ['tour-mien-tay-3n2d', 3, 'confirmed', 2, 1, true],
+            ['tour-mien-tay-3n2d', 1, 'confirmed', 2, 0, false],
+            ['tour-mien-tay-3n2d', 0, 'confirmed', 5, 2, true],
+
+            ['tour-quy-nhon-4n3d', 0, 'confirmed', 2, 0, true],
+            ['tour-quy-nhon-4n3d', 0, 'pending', 3, 1, false],
+
+            ['tour-con-dao-3n2d', 1, 'confirmed', 2, 0, true],
+            ['tour-con-dao-3n2d', 0, 'confirmed', 2, 2, true],
+
+            ['tour-tay-nguyen-5n4d', 0, 'confirmed', 2, 0, true],
+
+            // Tour riêng: một đoàn đặt trọn chuyến, nên đúng một đơn và đông người.
+            ['tour-hue-quang-binh-rieng-4n3d', 0, 'confirmed', 12, 4, false],
+
+            ['tour-xuyen-viet-6n5d', 0, 'confirmed', 2, 0, true],
+            ['tour-xuyen-viet-6n5d', 0, 'cancelled', 2, 0, false],
         ];
 
         foreach ($entries as $index => [$slug, $monthsAgo, $status, $adults, $children, $paidOnline]) {
             $tour = $tours->get($slug);
-            $schedule = $tour?->schedules->first();
+            $schedule = $tour ? $this->chonChuyen($tour, $status, $monthsAgo) : null;
 
             if (!$tour || !$schedule) {
                 continue;
@@ -123,6 +168,16 @@ class DemoBookingSeeder extends Seeder
                 'status' => $status,
                 'expires_at' => $status === 'pending' ? now()->addDay() : null,
                 'cancel_reason' => $status === 'cancelled' ? 'Khách bận việc đột xuất, không tham gia được' : null,
+                /*
+                 * Đơn hủy ở đây đều là hủy sớm, nên chỗ đã trả về kho.
+                 *
+                 * Bỏ trống thì cột này là `false`, tức "ghế chết" — chỗ vẫn bị chiếm dù đơn đã
+                 * hủy. Đó là một trạng thái có thật, nhưng nó chỉ sinh ra khi hủy SAU hạn chốt,
+                 * và để nó lọt vào đây thì lệnh đối chiếu số chỗ báo lệch ngay trên dữ liệu mẫu.
+                 * Mẫu ghế chết nằm ở BusinessScenarioSeeder, nơi có hẳn một chuyến dựng cho nó.
+                 */
+                'seats_released' => $status === 'cancelled',
+                'seats_released_at' => $status === 'cancelled' ? $createdAt->copy()->addDays(2) : null,
                 'vnpay_transaction_no' => ($status === 'confirmed' && $paidOnline) ? 'VNP' . (14500000 + $index * 331) : null,
                 'paid_at' => ($status === 'confirmed' && $paidOnline) ? $createdAt->copy()->addMinutes(6) : null,
                 'confirmed_at' => $status === 'confirmed' ? $createdAt->copy()->addMinutes(6) : null,
@@ -162,18 +217,10 @@ class DemoBookingSeeder extends Seeder
             }
         }
 
-        // Đồng bộ lại số chỗ đã đặt theo đơn còn hiệu lực
-        TourSchedule::query()->each(function (TourSchedule $schedule) {
-            $schedule->update([
-                'booked_people' => (int) Booking::query()
-                    ->where('tour_schedule_id', $schedule->id)
-                    ->whereIn('status', ['pending', 'confirmed'])
-                    ->sum('guests'),
-            ]);
-        });
-
         $this->donChuaThuDu($tours, $customers);
         $this->donDaHuyConNoHoan($tours, $customers);
+
+        $this->dongBoSoCho();
 
         // Điểm danh không seed ở đây nữa.
         //
@@ -184,6 +231,68 @@ class DemoBookingSeeder extends Seeder
         //
         // Dữ liệu điểm danh để thử tay nằm ở BusinessScenarioSeeder.
         unset($guide);
+    }
+
+    /**
+     * Đồng bộ số chỗ đã đặt, theo đúng công thức lệnh đối chiếu C05 dùng.
+     *
+     * Hai điểm từng sai ở đây, và cả hai đều làm `bookings:check-seat-consistency` báo lệch ngay
+     * trên dữ liệu vừa seed — tức lệnh chạy đúng nhưng dữ liệu mẫu thì không:
+     *
+     *   - Công thức cũ chỉ cộng đơn `pending` và `confirmed`, bỏ sót ghế chết (đơn đã hủy mà chỗ
+     *     chưa trả về kho).
+     *   - Nó chạy TRƯỚC hai hàm dựng đơn chưa thu đủ và đơn còn nợ hoàn, nên chỗ của những đơn
+     *     ấy không được cộng vào. Giờ gọi sau cùng, khi mọi đơn đã nằm yên trong bảng.
+     */
+    private function dongBoSoCho(): void
+    {
+        TourSchedule::query()->each(function (TourSchedule $schedule) {
+            $schedule->update([
+                'booked_people' => (int) Booking::query()
+                    ->where('tour_schedule_id', $schedule->id)
+                    ->where(function ($query) {
+                        $query->where('status', '!=', 'cancelled')
+                            ->orWhere(fn ($gheChet) => $gheChet
+                                ->where('status', 'cancelled')
+                                ->where('seats_released', false));
+                    })
+                    ->sum('guests'),
+            ]);
+        });
+    }
+
+    /**
+     * Chuyến nào hợp với đơn này.
+     *
+     * Trước đây luôn lấy chuyến đầu danh sách. Điều đó chỉ đúng khi mỗi tour có mỗi một chuyến
+     * sắp tới; từ khi danh mục có cả chuyến đã kết thúc, chuyến đầu tiên là chuyến của mấy tháng
+     * trước — nên đơn còn chờ thanh toán lại treo vào một chuyến đã đi xong, và màn nào đọc theo
+     * ngày khởi hành cũng hiện ra một thứ vô lý.
+     *
+     * Đơn của những tháng trước thuộc về chuyến đã kết thúc: đó cũng chính là đầu vào để chạy
+     * lệnh chốt đơn sau chuyến. Đơn mới thì gắn vào chuyến gần nhất còn đang bán.
+     */
+    private function chonChuyen(Tour $tour, string $status, int $monthsAgo): ?TourSchedule
+    {
+        $daKetThuc = $tour->schedules
+            ->where('status', ScheduleStatus::Completed)
+            ->sortByDesc('start_date');
+
+        $conBan = $tour->schedules
+            ->where('status', ScheduleStatus::Open)
+            ->where('start_date', '>', now())
+            ->sortBy('start_date');
+
+        // Đơn còn chờ thanh toán chỉ có nghĩa ở chuyến chưa khởi hành.
+        if ($status === 'pending') {
+            return $conBan->first() ?? $tour->schedules->first();
+        }
+
+        if ($monthsAgo >= 1 && $daKetThuc->isNotEmpty()) {
+            return $daKetThuc->first();
+        }
+
+        return $conBan->first() ?? $tour->schedules->first();
     }
 
     /**
