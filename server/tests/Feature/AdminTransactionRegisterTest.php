@@ -182,6 +182,41 @@ class AdminTransactionRegisterTest extends TestCase
         $this->assertSame(1_800_000, $response->json('data.totals.in'));
     }
 
+    /**
+     * Khai cả giờ thì máy chủ lọc tới giờ, không cắt bỏ.
+     *
+     * `whereDate()` bỏ qua phần giờ, nên nếu dùng nó thì bộ chọn khoảng thời gian cho người dùng
+     * chỉnh giờ rồi kết quả không đổi — giao diện hứa một thứ máy chủ không làm.
+     */
+    public function test_khai_ca_gio_thi_loc_toi_gio(): void
+    {
+        $hom = now()->toDateString();
+        $this->butToan($this->donA, 'balance', 3_000_000, 'gateway', $hom . ' 09:00:00');
+        $this->butToan($this->donB, 'balance', 1_800_000, 'cash', $hom . ' 16:00:00');
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/transactions?from=' . $hom . 'T12:00')
+            ->assertOk();
+
+        $this->assertCount(1, $response->json('data.data'));
+        $this->assertSame(1_800_000, $response->json('data.totals.in'));
+    }
+
+    /** Chỉ khai ngày thì lấy trọn ngày, nếu không mốc cuối rơi vào 0 giờ và mất cả ngày đó. */
+    public function test_chi_khai_ngay_thi_lay_tron_ngay(): void
+    {
+        $hom = now()->toDateString();
+        $this->butToan($this->donA, 'balance', 3_000_000, 'gateway', $hom . ' 09:00:00');
+        $this->butToan($this->donB, 'balance', 1_800_000, 'cash', $hom . ' 23:30:00');
+
+        $response = $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/transactions?from=' . $hom . '&to=' . $hom)
+            ->assertOk();
+
+        $this->assertCount(2, $response->json('data.data'));
+        $this->assertSame(4_800_000, $response->json('data.totals.in'));
+    }
+
     public function test_tim_theo_ten_khach(): void
     {
         $this->butToan($this->donA, 'balance', 3_000_000, 'gateway');

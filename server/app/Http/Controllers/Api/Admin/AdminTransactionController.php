@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BookingPayment;
+use App\Traits\LocKhoangThoiGian;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,6 +33,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class AdminTransactionController extends Controller
 {
+    use LocKhoangThoiGian;
+
     public function index(Request $request): JsonResponse
     {
         $filters = $this->docBoLoc($request);
@@ -126,8 +129,14 @@ class AdminTransactionController extends Controller
     private function truyVan(array $filters): Builder
     {
         return BookingPayment::query()
-            ->when($filters['from'] ?? null, fn ($q, $from) => $q->whereDate('paid_at', '>=', $from))
-            ->when($filters['to'] ?? null, fn ($q, $to) => $q->whereDate('paid_at', '<=', $to))
+            /*
+             * Có giờ thì so tới giờ, không có thì lấy trọn ngày.
+             *
+             * `whereDate` cắt bỏ phần giờ, nên nếu dùng nó thì bộ chọn khoảng thời gian cho người
+             * ta chỉnh giờ rồi lặng lẽ bỏ qua — giao diện hứa một thứ máy chủ không làm.
+             */
+            ->when($filters['from'] ?? null, fn ($q, $from) => $q->where('paid_at', '>=', $this->mocDau($from)))
+            ->when($filters['to'] ?? null, fn ($q, $to) => $q->where('paid_at', '<=', $this->mocCuoi($to)))
             ->when(
                 ($filters['direction'] ?? null) === 'in',
                 fn ($q) => $q->whereIn('kind', BookingPayment::VAO),

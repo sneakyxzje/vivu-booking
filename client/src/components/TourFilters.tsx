@@ -1,5 +1,6 @@
 import React from "react";
 import type { Category, Service } from "@/types";
+import { DateRangePicker } from "@/components/DateRangePicker";
 
 export const DURATION_OPTIONS = [
   { value: "all", label: "Tất cả" },
@@ -42,9 +43,15 @@ export const TourFilters: React.FC<TourFiltersProps> = ({
   setDepartureRange,
   onReset,
 }) => {
-  // Không cho chọn ngày trong quá khứ: chuyến đã khởi hành thì không còn đặt được.
-  const homNay = new Date().toISOString().slice(0, 10);
-
+  /*
+   * Không còn tự tính "hôm nay" ở đây.
+   *
+   * Dòng cũ là `new Date().toISOString().slice(0, 10)` — `toISOString()` đổi sang UTC, nên với
+   * giờ Việt Nam mọi thời điểm trước 7 giờ sáng đều ra ngày HÔM QUA. Người mở trang lúc 6 giờ
+   * sáng vẫn chọn được ngày hôm qua, còn máy chủ thì từ chối.
+   *
+   * `DateRangePicker` nhận thẳng một `Date` và chỉ đọc các thành phần giờ địa phương.
+   */
   return (
     <aside className="w-full lg:w-[320px] shrink-0">
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 sticky top-24">
@@ -61,38 +68,18 @@ export const TourFilters: React.FC<TourFiltersProps> = ({
         */}
         <div className="mb-8">
           <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wider">Ngày khởi hành</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="text-xs font-medium text-gray-500">Từ ngày</span>
-              <input
-                type="date"
-                min={homNay}
-                value={departureRange[0]}
-                onChange={(e) => setDepartureRange([e.target.value, departureRange[1]])}
-                className="mt-1 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white"
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-gray-500">Đến ngày</span>
-              <input
-                type="date"
-                // Chặn ngay ở ô nhập thay vì để máy chủ trả 422: người dùng thấy được giới hạn
-                // trước khi chọn thì không bao giờ chạm vào lỗi đó.
-                min={departureRange[0] || homNay}
-                value={departureRange[1]}
-                onChange={(e) => setDepartureRange([departureRange[0], e.target.value])}
-                className="mt-1 w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white"
-              />
-            </label>
-          </div>
-          {(departureRange[0] || departureRange[1]) && (
-            <button
-              onClick={() => setDepartureRange(["", ""])}
-              className="mt-3 text-xs font-bold text-primary-600 hover:text-primary-700 underline cursor-pointer"
-            >
-              Bỏ chọn ngày
-            </button>
-          )}
+          {/*
+            Mốc dựng sẵn hướng TỚI, không lùi lại: câu hỏi ở đây là "tôi muốn đi ngày nào".
+            `minDate` chặn ngay trên lịch thay vì để máy chủ trả 422 — người dùng thấy được giới
+            hạn trước khi chọn thì không bao giờ chạm vào lỗi đó.
+          */}
+          <DateRangePicker
+            presets="future"
+            minDate={new Date()}
+            placeholder="Chọn ngày bạn rảnh"
+            value={{ from: departureRange[0], to: departureRange[1] }}
+            onChange={(khoang) => setDepartureRange([khoang.from, khoang.to])}
+          />
           <p className="mt-3 text-xs text-gray-400">
             Chỉ hiện tour còn chỗ và chưa qua hạn chốt trong khoảng ngày này.
           </p>

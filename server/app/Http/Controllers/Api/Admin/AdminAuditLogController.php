@@ -7,7 +7,7 @@ use App\Enums\ScheduleAuditAction;
 use App\Http\Controllers\Controller;
 use App\Models\BookingAuditLog;
 use App\Models\ScheduleAuditLog;
-use Carbon\Carbon;
+use App\Traits\LocKhoangThoiGian;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,6 +26,8 @@ use Illuminate\Http\Request;
  */
 class AdminAuditLogController extends Controller
 {
+    use LocKhoangThoiGian;
+
     private const PER_PAGE_TOI_DA = 100;
 
     public function index(Request $request): JsonResponse
@@ -97,8 +99,8 @@ class AdminAuditLogController extends Controller
             ->with(['actor:id,name', 'booking:id,customer_name'])
             ->when(isset($loc['actor_id']), fn ($q) => $q->where('actor_id', $loc['actor_id']))
             ->when(isset($loc['booking_id']), fn ($q) => $q->where('booking_id', $loc['booking_id']))
-            ->when(isset($loc['from']), fn ($q) => $q->where('created_at', '>=', Carbon::parse($loc['from'])->startOfDay()))
-            ->when(isset($loc['to']), fn ($q) => $q->where('created_at', '<=', Carbon::parse($loc['to'])->endOfDay()));
+            ->when(isset($loc['from']), fn ($q) => $q->where('created_at', '>=', $this->mocDau($loc['from'])))
+            ->when(isset($loc['to']), fn ($q) => $q->where('created_at', '<=', $this->mocCuoi($loc['to'])));
 
         // schedule_id không phải cột của bảng này; lọc theo chuyến thì đi qua đơn thuộc chuyến đó.
         if (isset($loc['schedule_id'])) {
@@ -151,8 +153,8 @@ class AdminAuditLogController extends Controller
             ->when(isset($loc['actor_id']), fn ($q) => $q->where('actor_id', $loc['actor_id']))
             ->when(isset($loc['schedule_id']), fn ($q) => $q->where('tour_schedule_id', $loc['schedule_id']))
             ->when(isset($loc['action']), fn ($q) => $q->where('action', $loc['action']))
-            ->when(isset($loc['from']), fn ($q) => $q->where('created_at', '>=', Carbon::parse($loc['from'])->startOfDay()))
-            ->when(isset($loc['to']), fn ($q) => $q->where('created_at', '<=', Carbon::parse($loc['to'])->endOfDay()))
+            ->when(isset($loc['from']), fn ($q) => $q->where('created_at', '>=', $this->mocDau($loc['from'])))
+            ->when(isset($loc['to']), fn ($q) => $q->where('created_at', '<=', $this->mocCuoi($loc['to'])))
             // Lọc theo đơn thì nhật ký chuyến không có gì để trả về.
             ->when(isset($loc['booking_id']), fn ($q) => $q->whereRaw('1 = 0'));
     }

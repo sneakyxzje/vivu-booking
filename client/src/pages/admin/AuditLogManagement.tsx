@@ -4,6 +4,7 @@ import adminService from "@/services/adminService";
 import type { AuditLogEntry, AuditLogResponse } from "@/services/adminService";
 import { formatDateTime, formatPrice } from "@/utils/format";
 import Pagination from "@/components/common/Pagination";
+import { DateRangePicker } from "@/components/DateRangePicker";
 
 /**
  * Nhật ký hệ thống.
@@ -196,23 +197,20 @@ export default function AuditLogManagement() {
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">Từ ngày</label>
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">Đến ngày</label>
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
+          {/*
+            Có chọn giờ: khi đối soát một sự việc, câu hỏi thường là "chiều qua từ 14 giờ ai đã
+            đụng vào đơn này", không phải "cả ngày hôm qua".
+          */}
+          <div className="min-w-[260px]">
+            <DateRangePicker
+              label="Khoảng thời gian"
+              withTime
+              maxDate={new Date()}
+              value={{ from, to }}
+              onChange={(khoang) => {
+                setFrom(khoang.from);
+                setTo(khoang.to);
+              }}
             />
           </div>
 

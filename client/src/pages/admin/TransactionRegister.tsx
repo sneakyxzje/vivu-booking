@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Download, Loader2, Search } from "lucide-react";
 import adminService from "@/services/adminService";
 import type { TransactionFilters, TransactionRow } from "@/services/adminService";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { formatDateTime, formatPrice } from "@/utils/format";
 
 /**
@@ -148,25 +149,19 @@ export default function TransactionRegister() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-5">
-        <label className="block">
-          <span className="text-[11px] font-semibold text-gray-500">Từ ngày</span>
-          <input
-            type="date"
-            value={filters.from ?? ""}
-            onChange={(e) => setFilters((cu) => ({ ...cu, from: e.target.value }))}
-            className={`mt-1 ${inputClass}`}
+        {/*
+          Bật chọn giờ ở đây: đối chiếu sao kê hay cần cắt theo ca, và máy chủ lọc tới giờ thật
+          (xem trait LocKhoangThoiGian) chứ không cắt bỏ phần giờ.
+        */}
+        <div className="col-span-2">
+          <DateRangePicker
+            label="Khoảng thời gian"
+            withTime
+            maxDate={new Date()}
+            value={{ from: filters.from ?? "", to: filters.to ?? "" }}
+            onChange={(khoang) => setFilters((cu) => ({ ...cu, ...khoang }))}
           />
-        </label>
-        <label className="block">
-          <span className="text-[11px] font-semibold text-gray-500">Đến ngày</span>
-          <input
-            type="date"
-            min={filters.from || undefined}
-            value={filters.to ?? ""}
-            onChange={(e) => setFilters((cu) => ({ ...cu, to: e.target.value }))}
-            className={`mt-1 ${inputClass}`}
-          />
-        </label>
+        </div>
         <label className="block">
           <span className="text-[11px] font-semibold text-gray-500">Chiều tiền</span>
           <select

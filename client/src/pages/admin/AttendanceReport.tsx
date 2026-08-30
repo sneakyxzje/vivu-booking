@@ -4,6 +4,7 @@ import adminService from "@/services/adminService";
 import { formatDateTime } from "@/utils/format";
 import { statusClasses, statusLabel } from "@/utils/schedule";
 import Pagination from "@/components/common/Pagination";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import type { AttendanceReportData } from "@/services/adminService";
 
 /*
@@ -209,29 +210,19 @@ export default function AttendanceReport() {
           {/* Bộ Lọc Nâng Cao (Từ ngày -> Đến ngày, Trạng thái, Tìm kiếm) */}
           {activeTab === "schedules" && (
             <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 items-end bg-gray-50/70 p-4 rounded-2xl border border-gray-100">
-              {/* Lọc từ ngày */}
-              <div className="md:col-span-3">
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">
-                  Từ ngày
-                </label>
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:border-primary-500 shadow-xs"
-                />
-              </div>
-
-              {/* Lọc đến ngày */}
-              <div className="md:col-span-3">
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">
-                  Đến ngày
-                </label>
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:border-primary-500 shadow-xs"
+              {/*
+                Không chọn giờ ở đây: lọc theo NGÀY KHỞI HÀNH của chuyến, và một chuyến khởi hành
+                vào ngày nào là chuyện của ngày đó. Máy chủ cũng dùng `whereDate`, nên cho chỉnh
+                giờ sẽ là một ô không có tác dụng gì.
+              */}
+              <div className="md:col-span-6">
+                <DateRangePicker
+                  label="Khoảng ngày khởi hành"
+                  value={{ from: fromDate, to: toDate }}
+                  onChange={(khoang) => {
+                    setFromDate(khoang.from);
+                    setToDate(khoang.to);
+                  }}
                 />
               </div>
 
