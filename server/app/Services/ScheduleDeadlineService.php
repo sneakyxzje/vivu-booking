@@ -199,6 +199,29 @@ class ScheduleDeadlineService
             );
         }
 
+        /*
+         * Hạn chốt mới không được nằm ở quá khứ.
+         *
+         * Kéo vạch chỉ có hiệu lực từ lúc kéo trở đi. Một mốc đặt vào hôm qua tuyên bố một điều
+         * chưa từng đúng: hôm qua chuyến vẫn bán chỗ, vẫn cho sửa tên, khách hủy vẫn được trả chỗ.
+         * Ghi nó vào rồi ba tháng sau đọc nhật ký thì không dựng lại được chuyện đã xảy ra - mà đó
+         * đúng là câu hỏi bảng nhật ký sinh ra để trả lời.
+         *
+         * Khóa danh sách ngay vẫn làm được, chỉ là phải nói đúng thứ mình làm: đặt mốc vào thời
+         * điểm hiện tại. So với `startOfMinute()` vì ô chọn ngày giờ chỉ tới phút; không thì người
+         * chọn đúng phút hiện tại bấm mãi không lưu được mà không hiểu vì sao.
+         *
+         * Xóa hạn chốt riêng (`$moi` là null) thì không rơi vào luật này: đó là quay về mốc mặc
+         * định của hệ thống, không phải chọn một thời điểm.
+         */
+        if ($moi !== null && $moi->lt(now()->startOfMinute())) {
+            return sprintf(
+                'Hạn chốt mới (%s) nằm ở quá khứ. Muốn khóa danh sách ngay thì đặt vào thời điểm '
+                . 'hiện tại trở đi, còn muốn ngừng bán mà chưa khóa danh sách thì dùng nút "Đóng bán".',
+                $moi->format('d/m/Y H:i'),
+            );
+        }
+
         return null;
     }
 
@@ -259,16 +282,25 @@ class ScheduleDeadlineService
 
         if ($quaHanSau) {
             $canhBao[] = 'Hạn chốt mới nằm ở quá khứ nên có hiệu lực ngay: chuyến ngừng nhận đặt mới.';
+        }
 
+        /*
+         * Rút ngắn cũng phải cảnh báo, không riêng trường hợp mốc mới đã trôi qua.
+         *
+         * Đặt hạn chốt vào quá khứ nay bị chặn, nên nếu chỉ cảnh báo theo `$quaHanSau` thì đúng
+         * thao tác hay gặp nhất - kéo mốc về sát hôm nay - lại chẳng nhắc gì, trong khi nó tước
+         * quyền của khách y hệt, chỉ chậm hơn vài giờ.
+         */
+        if ($quaHanSau || $huong === 'earlier') {
             if ($trongDanhSach > 0) {
                 $canhBao[] = sprintf(
-                    '%d đơn đang trong danh sách đoàn sẽ không sửa được tên hành khách và không '
-                    . 'chuyển sang chuyến khác được nữa.',
+                    'Từ mốc mới trở đi, %d đơn trong danh sách đoàn không sửa được tên hành khách '
+                    . 'và không chuyển sang chuyến khác được nữa.',
                     $trongDanhSach,
                 );
             }
 
-            $canhBao[] = 'Từ giờ khách hủy thì chỗ không quay lại kho.';
+            $canhBao[] = 'Từ mốc mới trở đi, khách hủy thì chỗ không quay lại kho.';
         }
 
         if ($canMoBanTay) {
