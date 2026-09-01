@@ -169,7 +169,7 @@ class ScheduleDeadlineService
 
             $khoa->forceFill(['booking_deadline' => $moi])->save();
 
-            $this->auditLogger->log(
+            $nhatKy = $this->auditLogger->log(
                 $khoa,
                 ScheduleAuditAction::DeadlineChanged,
                 ['booking_deadline' => $cu?->toIso8601String()],
@@ -177,6 +177,24 @@ class ScheduleDeadlineService
                 $lyDo,
                 $actor,
             );
+
+            /*
+             * Không ghi được vết thì không đổi.
+             *
+             * ScheduleAuditLogger cố ý nuốt lỗi để một sự cố ở bảng nhật ký không kéo ngược nghiệp
+             * vụ về - đúng cho gần như mọi nơi gọi nó. Chỗ này là ngoại lệ: nhật ký CHÍNH LÀ cơ chế
+             * kiểm soát duy nhất đặt lên quyền dời hạn chốt. Dời xong mà không dòng nào ghi lại thì
+             * thao tác ấy vô hình, và vô hình còn tệ hơn là không làm được.
+             *
+             * Ném ở đây kéo cả giao dịch về, nên hạn chốt cũ giữ nguyên.
+             */
+            if (!$nhatKy) {
+                throw new BusinessRuleException(
+                    'Không ghi được nhật ký cho lần dời hạn chốt này nên hệ thống đã hủy thao tác. '
+                    . 'Thử lại, nếu vẫn lỗi thì báo bộ phận kỹ thuật.',
+                    500,
+                );
+            }
 
             return $khoa;
         });
