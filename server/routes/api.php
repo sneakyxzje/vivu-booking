@@ -69,21 +69,19 @@ use App\Http\Controllers\Api\Admin\AdminTransactionController;
 */
 
 /*
- * Cửa vào tài khoản — mỗi tuyến một hạn mức riêng, chặt hơn hạn mức chung 60 lượt/phút.
+ * Cửa vào tài khoản — mỗi tuyến một hạn mức riêng, chặt hơn trần chung của /api.
  *
- * Hạn mức chung đủ cho việc duyệt tour, nhưng với ô đăng nhập thì 60 lần thử mật khẩu mỗi phút là
- * 86.400 lần một ngày từ một địa chỉ. Bốn tuyến dưới đây đều là chỗ đoán được thứ gì đó của người
- * khác - mật khẩu, hoặc việc một địa chỉ email có tài khoản ở đây hay không - nên chúng phải trả
- * giá theo số lần thử.
+ * Trần chung đủ rộng cho việc bấm qua lại các màn hình, nhưng với ô đăng nhập thì rộng nghĩa là cho
+ * phép dò mật khẩu. Bốn tuyến dưới đây đều là chỗ đoán được thứ gì đó của người khác - mật khẩu,
+ * hoặc việc một địa chỉ email có tài khoản ở đây hay không - nên chúng phải trả giá theo số lần thử.
  *
- * Số lần đếm theo địa chỉ IP. Hai tuyến gửi thư để mức 5 lần mỗi 10 phút, vì một lần bấm đúng là
- * đã có thư trong hộp; bấm tới lần thứ sáu trong mười phút là đang thử người khác, không phải đang
- * chờ thư của mình.
+ * Con số cụ thể không nằm ở đây mà ở `config/rate_limit.php`, để nới hay tắt lúc thử tay chỉ phải
+ * sửa một chỗ. Tên nhóm đọc là hiểu: đổi luật của `email` là đổi cho cả ba tuyến gửi thư đi.
  */
-Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
-Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
-Route::post('/forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:5,10');
-Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:10,10');
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+Route::post('/forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:email');
+Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:reset');
 
 Route::get('/tours', [TourController::class, 'index']);
 Route::get('/tours/{id}', [TourController::class, 'show']);
@@ -105,7 +103,7 @@ Route::put('/group-bookings/{publicToken}/withdraw', [CustomerGroupBookingContro
 // Task X06a - API gửi lại mã tra cứu về email khách vãng lai.
 // Hạn mức riêng cùng lý do với nhóm tài khoản ở trên: đây là một đường dò xem email nào đã đặt tour.
 Route::post('/bookings/resend-code', [CustomerBookingController::class, 'resendLookupCode'])
-    ->middleware('throttle:5,10');
+    ->middleware('throttle:email');
 Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']);
 /*
  * G03 - Khai danh sách hành khách bằng mã tra cứu, không cần đăng nhập.
@@ -137,7 +135,7 @@ Route::get('/reviews/{tour}', [ReviewController::class, 'index']);
  * Hạn mức riêng vì đây là một ô nhập chữ tự do mở cho mọi người: không giới hạn thì nó là chỗ để
  * gửi thư rác hàng loạt vào hộp thư của điều hành.
  */
-Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,10');
+Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:email');
 
 Route::post('/newsletter', function (\Illuminate\Http\Request $request) {
     $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);

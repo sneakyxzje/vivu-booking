@@ -27,8 +27,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ['prefix' => 'api', 'middleware' => ['api', 'auth:sanctum']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Giới hạn tần suất gọi API (chống dò mật khẩu ở /api/login).
-        $middleware->throttleApi('60,1');
+        /*
+         * Trần chung cho toàn bộ /api.
+         *
+         * Truyền TÊN nhóm chứ không truyền thẳng "60,1": con số nằm ở `config/rate_limit.php`, khai
+         * cùng chỗ với hạn mức của /login và các tuyến gửi thư, và tắt được bằng một dòng .env khi
+         * ngồi thử tay. Nhóm này khai trong `AppServiceProvider`.
+         */
+        $middleware->throttleApi('api');
 
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
