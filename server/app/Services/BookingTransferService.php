@@ -331,6 +331,27 @@ class BookingTransferService
             throw new BusinessRuleException('Chuyến đích không ở trạng thái đang mở bán.');
         }
 
+        /*
+         * Chuyến đích cũng phải còn trước hạn chốt danh sách của chính nó.
+         *
+         * Trạng thái không thay được cho phép kiểm này. `CloseExpiredSchedules` chạy theo lịch, nên
+         * giữa lúc hạn chốt trôi qua - hoặc lúc điều hành rút ngắn nó - và lúc lệnh nền chạy, chuyến
+         * vẫn còn `open` trong cơ sở dữ liệu. Nhận thêm một đơn vào khoảng ấy làm `booked_people`
+         * vượt số suất đã chốt với nhà cung cấp, đúng thứ mà ghép chuyến chặn ở cả hai đầu.
+         *
+         * Luật này đứng TRƯỚC nhánh miễn trừ cho hãng bên dưới, và đó là chủ ý: hãng khởi xướng thì
+         * được miễn hạn báo trước của khách, không được miễn cam kết với nhà cung cấp.
+         */
+        $hanChotDich = $toSchedule->booking_deadline ?? $toSchedule->defaultBookingDeadline();
+
+        if ($hanChotDich && now()->gte($hanChotDich)) {
+            throw new BusinessRuleException(sprintf(
+                'Chuyến đích đã qua hạn chốt danh sách ngày %s nên không nhận thêm khách được. '
+                    . 'Chọn chuyến khác, hoặc dời hạn chốt của chuyến đích nếu nhà cung cấp còn nhận.',
+                Carbon::parse($hanChotDich)->format('d/m/Y H:i'),
+            ));
+        }
+
         $conTrong = (int) $toSchedule->max_people - (int) $toSchedule->booked_people;
 
         if ($conTrong < (int) $booking->guests) {

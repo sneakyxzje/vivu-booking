@@ -302,6 +302,40 @@ class BookingTransferTest extends TestCase
         $this->assertFalse($duBaoGhep['can_merge']);
     }
 
+    /**
+     * Hạn chốt phải chặn ở CẢ HAI đầu, không riêng chuyến gốc.
+     *
+     * Chuyến đích quá hạn mà vẫn còn `open` là chuyện thường: lệnh nền đóng chuyến chạy theo lịch,
+     * còn điều hành rút ngắn hạn chốt thì có hiệu lực ngay. Trong khoảng giữa hai mốc ấy, nhận
+     * thêm một đơn làm số chỗ đã bán vượt số suất đã chốt với nhà cung cấp - khách có vé mà không
+     * có phòng, và không ai thấy sai ở đâu vì cả hai màn hình đều báo thành công.
+     */
+    public function test_chuyen_dich_qua_han_chot_thi_khong_nhan_them_khach(): void
+    {
+        $don = $this->taoDon();
+        $this->chuyenDich->update(['booking_deadline' => now()->subHour()]);
+
+        $this->expectException(\App\Exceptions\BusinessRuleException::class);
+
+        $this->service()->transfer($don, $this->chuyenDich->fresh(), 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
+    }
+
+    /** Hãng khởi xướng được miễn hạn báo trước, nhưng hạn chốt của chuyến đích thì không ai miễn. */
+    public function test_hang_khoi_xuong_cung_khong_lach_duoc_han_chot_chuyen_dich(): void
+    {
+        $don = $this->taoDon();
+        $this->chuyenDich->update(['booking_deadline' => now()->subHour()]);
+
+        $duBao = $this->service()->preview($don, $this->chuyenDich->fresh(), 'company');
+
+        $this->assertFalse($duBao['can_transfer']);
+        $this->assertStringContainsString('hạn chốt', $duBao['blocked_reason']);
+
+        // Và số chỗ hai đầu không được nhúc nhích.
+        $this->assertSame(2, (int) $this->chuyenGoc->fresh()->booked_people);
+        $this->assertSame(0, (int) $this->chuyenDich->fresh()->booked_people);
+    }
+
     public function test_chuyen_dich_da_dong_ban_thi_tu_choi(): void
     {
         $don = $this->taoDon();
