@@ -385,9 +385,13 @@ class BookingDeadlineScenarioSeeder extends Seeder
                 $don->status,
             ));
         }
-        $cmd->line('   Khai danh sách hành khách (không cần đăng nhập): /booking-success/<public_token>');
+        $cmd->line('   Link khai hành khách (không cần đăng nhập), dán thẳng vào trình duyệt:');
         foreach (['som', 'vua', 'sat'] as $khoa) {
-            $cmd->line('     ' . $ma($khoa) . '  ' . $this->don[$khoa]->public_token);
+            $cmd->line(sprintf(
+                '     %-6s /bookings/%s/passengers',
+                $ma($khoa),
+                $this->don[$khoa]->public_token,
+            ));
         }
         $cmd->newLine();
 
@@ -397,64 +401,238 @@ class BookingDeadlineScenarioSeeder extends Seeder
         ));
         $cmd->newLine();
 
-        $cmd->comment(' 14 BƯỚC — làm lần lượt từ trên xuống');
-        foreach ($this->cacBuoc($a, $b, $ma) as $so => $viec) {
-            $cmd->line(sprintf('  %2d. %s', $so + 1, $viec));
-        }
-        $cmd->newLine();
+        $cmd->comment(' CÁCH ĐỌC 14 BƯỚC DƯỚI ĐÂY');
+        $cmd->line('   "bây giờ"  = lúc BẠN đang bấm, không phải lúc chạy seeder.');
+        $cmd->line('   Mốc trong ngoặc là ví dụ tính lúc seed (' . now()->format('d/m/Y H:i') . '),');
+        $cmd->line('   chạy sau vài tiếng thì con số lệch đi, nhưng cách làm thì không đổi.');
+        $cmd->line('   Thư gửi khách nằm ở storage/logs/laravel.log khi MAIL_MAILER=log; cả ba đơn');
+        $cmd->line('   dùng chung email ' . $this->khach->email . ', phân biệt bằng số đơn trong thân thư.');
 
-        $cmd->comment(' MẸO: thư gửi khách nằm ở storage/logs/laravel.log khi MAIL_MAILER=log.');
-        $cmd->line('   Cả ba đơn dùng chung email ' . $this->khach->email . ', phân biệt bằng số đơn trong thân thư.');
+        foreach ($this->cacBuoc($a, $b, $ma) as $i => $buoc) {
+            $cmd->newLine();
+            $cmd->comment(sprintf('  BƯỚC %d — %s', $i + 1, $buoc['ten']));
+
+            foreach ($buoc['lam'] as $j => $dong) {
+                $cmd->line('     ' . ($j === 0 ? 'Làm:  ' : '       ') . $dong);
+            }
+
+            foreach ($buoc['dung'] as $j => $dong) {
+                $cmd->line('     ' . ($j === 0 ? 'Đúng: ' : '       ') . $dong);
+            }
+
+            foreach ($buoc['vi'] ?? [] as $j => $dong) {
+                $cmd->line('     ' . ($j === 0 ? 'Vì:   ' : '       ') . $dong);
+            }
+        }
+
         $cmd->newLine();
     }
 
     /**
+     * Mười bốn bước, mỗi bước nói đúng ba điều: làm gì, thấy gì là đúng, và vì sao.
+     *
+     * Mọi mốc thời gian đều viết ra thành một giá trị cụ thể. Câu kiểu "rút về còn 2 giờ nữa" đọc
+     * xong vẫn phải đoán là 2 giờ tính từ đâu, mà đoán sai một mốc thì cả bước sau đó ra kết quả
+     * khác hẳn và người thử tưởng hệ thống hỏng.
+     *
      * @param  \Closure(string): string  $ma
-     * @return array<int, string>
+     * @return array<int, array{ten: string, lam: array<int, string>, dung: array<int, string>, vi?: array<int, string>}>
      */
     private function cacBuoc(TourSchedule $a, TourSchedule $b, \Closure $ma): array
     {
+        $sua = fn (TourSchedule $c): string => sprintf(
+            '/admin/schedules -> tìm chuyến #%d -> nút "Sửa hạn chốt"',
+            $c->id,
+        );
+
+        $gio = fn (Carbon $luc): string => $luc->format('d/m/Y H:i');
+
+        $mocGoc = $gio($a->booking_deadline);
+        $sauKhoiHanh = $gio($a->start_date->copy()->addDay());
+        $homQua = $gio(now()->subDay()->setTime(8, 0));
+        $haiTiengNua = $gio(now()->addHours(2));
+        $phutNay = $gio(now());
+        $giaHanToi = $gio($a->start_date->copy()->subDays(2));
+        $rutHaiNgay = $gio($a->booking_deadline->copy()->subDays(2));
+
         return [
-            "Mở /admin/schedules, xem Chuyến A #{$a->id}: đang mở bán, {$a->booked_people}/{$a->max_people} khách, hạn chốt "
-                . $a->booking_deadline->format('d/m/Y H:i') . '. Đây là mốc gốc để so mọi bước sau.',
-
-            'Mở trang tour phía khách, chọn Chuyến A: phải đặt được (còn trong hạn chốt, còn chỗ).',
-
-            'Mở link khai hành khách của CẢ BA đơn ' . $ma('som') . ', ' . $ma('vua') . ', ' . $ma('sat')
-                . ': cả ba đều sửa được tên, dù đặt cách nhau một tháng. Đây là mốc đối chứng của tiêu chí '
-                . '"một hạn chốt cho mọi khách".',
-
-            "Chuyến A -> \"Sửa hạn chốt\" -> chọn một ngày SAU ngày khởi hành -> phải bị chặn (hạn chốt phải trước ngày đi).",
-
-            'Vẫn hộp thoại đó -> chọn ngày hôm qua -> phải bị chặn vì mốc nằm ở quá khứ. '
-                . 'Đây là luật mới: khóa danh sách ngay thì đặt mốc = thời điểm hiện tại, không lùi về sau lưng.',
-
-            'Chọn một mốc hợp lệ nhưng để TRỐNG ô lý do -> nút lưu không bấm được; gọi thẳng API cũng trả 422.',
-
-            'Rút hạn chốt Chuyến A về "còn 2 giờ nữa", ghi lý do thật -> đọc bảng xem trước: phải liệt kê '
-                . "{$a->booked_people} khách đang trong danh sách. Lưu, rồi kiểm hai thứ: (a) 3 thư trong laravel.log, "
-                . '(b) đúng 1 dòng ở /admin/audit-logs với giá trị cũ, mới và lý do.',
-
-            'Rút tiếp hạn chốt Chuyến A về thời điểm hiện tại -> mở lại link khai hành khách của cả ba đơn: '
-                . 'CẢ BA cùng mất quyền sửa một lúc. Khách đặt sớm không được ưu ái, khách đặt muộn không bị phạt.',
-
-            'Quay ra trang khách, thử đặt thêm một đơn vào Chuyến A -> bị từ chối "đã quá hạn đăng ký".',
-
-            'Thử chuyển đơn ' . $ma('som') . " sang Chuyến B #{$b->id} -> bị chặn vì chuyến NGUỒN đã quá hạn chốt: "
-                . 'suất ở chuyến A đã trả tiền cho nhà cung cấp, không rút lại được.',
-
-            'Gia hạn Chuyến A về lại tương lai (ghi lý do) -> 3 thư nữa + dòng nhật ký thứ hai. '
-                . 'Lưu ý chuyến KHÔNG tự mở bán lại: phải bấm "Mở bán" thì khách mới đặt tiếp được.',
-
-            'Chuyển đơn ' . $ma('som') . " sang Chuyến B #{$b->id} -> lần này thành công. "
-                . "Kiểm số chỗ hai đầu: Chuyến A giảm 2, Chuyến B tăng 2.",
-
-            "Đưa Chuyến B vào thế quá hạn: sửa hạn chốt B thành thời điểm hiện tại, đợi một phút. "
-                . 'Rồi thử chuyển đơn ' . $ma('vua') . ' sang B -> bị chặn vì chuyến ĐÍCH đã quá hạn chốt.',
-
-            'Rút hạn chốt Chuyến A về hiện tại lần nữa, rồi hủy đơn ' . $ma('vua')
-                . ' -> chỗ KHÔNG quay lại kho (ghế chết): booked_people của A không giảm. '
-                . 'Cuối cùng mở /admin/audit-logs lọc theo Chuyến A: mọi lần dời mốc đều có dòng, không dòng nào sửa hay xóa được.',
+            [
+                'ten' => 'Nhìn mốc gốc, chưa đụng vào gì',
+                'lam' => [
+                    '/admin/schedules -> tìm chuyến #' . $a->id,
+                    'Rồi mở trang tour phía khách, chọn chuyến khởi hành ' . $gio($a->start_date),
+                ],
+                'dung' => [
+                    sprintf('Chuyến #%d: Đang mở bán, %d/%d khách, hạn chốt %s',
+                        $a->id, $a->booked_people, $a->max_people, $mocGoc),
+                    'Trang khách: chuyến này đặt được bình thường.',
+                ],
+            ],
+            [
+                'ten' => 'Ba đơn đều sửa được tên — đây là mốc đối chứng',
+                'lam' => [
+                    'Mở link khai hành khách của cả ba đơn: ' . $ma('som') . ', ' . $ma('vua') . ', ' . $ma('sat'),
+                    '(link in ở phần trên, dạng /bookings/<public_token>/passengers)',
+                ],
+                'dung' => ['Cả ba đơn đều sửa được tên hành khách.'],
+                'vi' => [
+                    'Ba đơn này đặt cách nhau một tháng. Bước 7 sẽ cho thấy chúng mất quyền sửa',
+                    'cùng một lúc — hệ thống không xét ai đặt trước ai đặt sau.',
+                ],
+            ],
+            [
+                'ten' => 'Hạn chốt sau ngày khởi hành -> bị chặn',
+                'lam' => [
+                    $sua($a),
+                    'Chọn hạn chốt = ' . $sauKhoiHanh . '  (sau ngày đi)',
+                ],
+                'dung' => ['Máy chủ từ chối: "Hạn chốt phải trước ngày khởi hành ..."'],
+                'vi' => ['Sau ngày đi thì mốc này không còn nghĩa gì: khách đặt được tới lúc xe lăn bánh.'],
+            ],
+            [
+                'ten' => 'Hạn chốt đã trôi qua -> bị chặn',
+                'lam' => [
+                    $sua($a),
+                    'Chọn hạn chốt = ' . $homQua . '  (hôm qua)',
+                ],
+                'dung' => ['Máy chủ từ chối: "Hạn chốt mới (...) nằm ở quá khứ ..."'],
+                'vi' => [
+                    'Luật KHÔNG phải "lùi nhiều thì cấm, lùi ít thì cho". Chỉ có một câu hỏi:',
+                    'mốc mới nằm TRƯỚC hay SAU thời điểm bạn bấm lưu.',
+                    '   ' . $mocGoc . ' -> ' . $rutHaiNgay . '   ĐƯỢC (vẫn ở tương lai, dù đã rút 2 ngày)',
+                    '   ' . $mocGoc . ' -> ' . $haiTiengNua . '   ĐƯỢC (còn 2 tiếng nữa mới tới)',
+                    '   ' . $mocGoc . ' -> ' . $homQua . '   KHÔNG (đã trôi qua rồi)',
+                    'Đặt mốc vào hôm qua là tuyên bố một điều chưa từng đúng: hôm qua chuyến vẫn',
+                    'bán chỗ, vẫn cho sửa tên. Muốn khóa NGAY thì dùng bước 7.',
+                ],
+            ],
+            [
+                'ten' => 'Bỏ trống ô lý do -> không lưu được',
+                'lam' => [
+                    $sua($a),
+                    'Chọn một mốc hợp lệ (ví dụ ' . $rutHaiNgay . ') nhưng để trống ô "Lý do dời hạn"',
+                ],
+                'dung' => [
+                    'Nút "Đồng ý, lưu hạn chốt mới" mờ đi, không bấm được.',
+                    'Gọi thẳng API không kèm reason cũng trả 422.',
+                ],
+            ],
+            [
+                'ten' => 'Rút hạn chốt xuống còn 2 tiếng nữa (lần dời thật đầu tiên)',
+                'lam' => [
+                    $sua($a),
+                    'Chọn hạn chốt = HÔM NAY, giờ hiện tại cộng 2 tiếng  (lúc seed là ' . $haiTiengNua . ')',
+                    'Lý do: gõ một câu thật, ví dụ "Nha xe chot ghe som hon mot ngay"',
+                    'Đọc bảng xem trước rồi mới bấm lưu.',
+                ],
+                'dung' => [
+                    sprintf('Bảng xem trước nói: %d đơn / %d khách đang trong danh sách đoàn.',
+                        count($this->don), $a->booked_people),
+                    'Sau khi lưu: 3 thư mới trong storage/logs/laravel.log.',
+                    '/admin/audit-logs có ĐÚNG 1 dòng, ghi mốc cũ ' . $mocGoc . ' -> mốc mới, kèm lý do.',
+                ],
+                'vi' => ['"2 tiếng nữa" là tính từ BÂY GIỜ, không phải từ hạn chốt cũ.'],
+            ],
+            [
+                'ten' => 'Khóa danh sách ngay: đặt hạn chốt = phút hiện tại',
+                'lam' => [
+                    $sua($a),
+                    'Chọn hạn chốt = đúng ngày giờ hiện tại  (lúc seed là ' . $phutNay . ')',
+                    'Ghi lý do, lưu. Đợi sang phút kế tiếp.',
+                    'Rồi mở lại link khai hành khách của cả ba đơn ở bước 2.',
+                ],
+                'dung' => [
+                    'CẢ BA đơn cùng mất quyền sửa tên, không đơn nào được ưu ái.',
+                    'Khách thấy: "Đã qua hạn chốt danh sách... liên hệ bộ phận điều hành".',
+                ],
+                'vi' => [
+                    'Đây là cách khóa danh sách ngay hôm nay, thay cho việc đặt mốc vào quá khứ.',
+                    'Điều hành vẫn sửa được danh sách; chỉ khách là không.',
+                ],
+            ],
+            [
+                'ten' => 'Chuyến A không nhận đặt mới nữa',
+                'lam' => ['Ra trang tour phía khách, thử đặt một đơn mới vào chuyến ' . $gio($a->start_date)],
+                'dung' => ['Chuyến hiện "Đã quá hạn đăng ký", không chọn để đặt được.'],
+            ],
+            [
+                'ten' => 'Không chuyển đơn ra khỏi chuyến đã quá hạn',
+                'lam' => [
+                    '/admin/bookings -> tìm ' . $ma('som') . ' -> mở chi tiết -> "Chuyển chuyến"',
+                    'Trong hộp thoại, mục "1. Trao đổi với khách": bấm "Ghi nhận cuộc liên hệ",',
+                    'chọn kết quả "Khách đồng ý", lưu. Đây là căn cứ bắt buộc, thiếu nó thì máy chủ',
+                    'từ chối trước cả khi xét tới hạn chốt.',
+                    'Rồi chọn chuyến đích #' . $b->id . ' và bấm chuyển.',
+                ],
+                'dung' => [
+                    'Bị chặn: "Chuyến hiện tại đã qua hạn chốt danh sách ngày ..."',
+                    'Trong danh sách chuyến đích, MỌI chuyến đều báo không chuyển được — lỗi nằm ở',
+                    'chuyến nguồn chứ không ở chuyến nào cụ thể.',
+                ],
+                'vi' => ['Suất ở chuyến A đã trả tiền cho nhà cung cấp rồi, không rút lại được.'],
+            ],
+            [
+                'ten' => 'Chạy lệnh nền để chuyến tự đóng bán',
+                'lam' => ['Ở terminal: php artisan schedules:close-expired'],
+                'dung' => ['Chuyến #' . $a->id . ' chuyển từ "Đang mở bán" sang "Đã đóng bán".'],
+                'vi' => [
+                    'Ngoài đời lệnh này chạy theo lịch. Không gọi tay thì chuyến vẫn "mở bán" dù đã',
+                    'quá hạn — và bước 11 sẽ không thấy được cái bẫy của nó.',
+                ],
+            ],
+            [
+                'ten' => 'Gia hạn: chuyến KHÔNG tự mở bán lại',
+                'lam' => [
+                    $sua($a),
+                    'Chọn hạn chốt = ' . $giaHanToi . '  (kéo về tương lai)',
+                    'Ghi lý do, lưu.',
+                ],
+                'dung' => [
+                    'Thêm 3 thư nữa trong laravel.log, và dòng nhật ký thứ hai ở /admin/audit-logs.',
+                    'Chuyến VẪN "Đã đóng bán" -> phải bấm "Mở bán" thì khách mới đặt lại được.',
+                ],
+                'vi' => ['Mở bán lại là quyết định của người, không phải hệ quả tự động của việc dời mốc.'],
+            ],
+            [
+                'ten' => 'Chuyển đơn sang chuyến B — lần này được',
+                'lam' => [
+                    '/admin/bookings -> ' . $ma('som') . ' -> "Chuyển chuyến" -> chọn chuyến #' . $b->id,
+                    'Căn cứ ghi ở bước 9 vẫn dùng lại được, vì lần đó chuyển không thành.',
+                ],
+                'dung' => [
+                    'Chuyển thành công.',
+                    sprintf('Số chỗ: chuyến #%d còn %d khách, chuyến #%d có 2 khách.',
+                        $a->id, $a->booked_people - 2, $b->id),
+                ],
+            ],
+            [
+                'ten' => 'Chuyến ĐÍCH quá hạn cũng không nhận khách',
+                'lam' => [
+                    $sua($b) . '  (chuyến B, không phải A)',
+                    'Chọn hạn chốt = đúng ngày giờ hiện tại, ghi lý do, lưu. Đợi sang phút kế tiếp.',
+                    'Rồi thử chuyển đơn ' . $ma('vua') . ' sang chuyến #' . $b->id,
+                    '(đơn này chưa có căn cứ nào, nên phải ghi một cuộc liên hệ riêng cho nó)',
+                ],
+                'dung' => ['Bị chặn: "Chuyến đích đã qua hạn chốt danh sách ngày ..."'],
+                'vi' => [
+                    'Nhận thêm khách vào chuyến đã chốt danh sách là vượt số suất đã đặt với nhà',
+                    'cung cấp — dù khách ấy đến từ đâu.',
+                ],
+            ],
+            [
+                'ten' => 'Hủy sau hạn chốt sinh ghế chết, và đọc lại nhật ký',
+                'lam' => [
+                    $sua($a) . ' -> đặt hạn chốt = ngày giờ hiện tại, ghi lý do, lưu.',
+                    'Ghi lại số khách của chuyến #' . $a->id . ' đang hiện trên màn hình.',
+                    '/admin/bookings -> ' . $ma('vua') . ' -> "Hủy đơn" -> đọc bảng dự báo -> xác nhận.',
+                    'Cuối cùng mở /admin/audit-logs, lọc theo chuyến #' . $a->id . '.',
+                ],
+                'dung' => [
+                    'Bảng dự báo cảnh báo chỗ sẽ KHÔNG quay lại kho.',
+                    'Sau khi hủy: số khách của chuyến không giảm (đó là ghế chết).',
+                    'Nhật ký có đủ mọi lần dời mốc, mỗi dòng đủ cũ/mới/ai/lý do, không sửa xóa được.',
+                ],
+            ],
         ];
     }
 }
