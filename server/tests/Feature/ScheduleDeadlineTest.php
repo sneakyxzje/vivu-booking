@@ -5,15 +5,18 @@ namespace Tests\Feature;
 use App\Enums\ScheduleAuditAction;
 use App\Enums\ScheduleStatus;
 use App\Enums\TourType;
+use App\Mail\ScheduleDeadlineChangedMail;
 use App\Models\Booking;
 use App\Models\ScheduleAuditLog;
 use App\Models\Tour;
 use App\Models\TourSchedule;
 use App\Models\User;
+use App\Notifications\Alert;
 use App\Services\ScheduleDeadlineService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -464,6 +467,126 @@ class ScheduleDeadlineTest extends TestCase
             $impact['warnings'],
             fn (string $dong) => str_contains($dong, 'Số tiền hoàn của mọi đơn không đổi'),
         ));
+    }
+
+    // --- Thông báo ----------------------------------------------------------------------
+
+    /**
+     * Dời hạn chốt thì mọi khách của chuyến đều được báo.
+     *
+     * Rút hạn chốt là tước quyền của khách đang có: từ mốc mới họ không tự sửa được tên hành khách,
+     * không xin đổi chuyến được, hủy thì mất chỗ. Làm việc ấy trong im lặng thì khách chỉ biết lúc
+     * bấm không được, và lúc đó thứ họ nghĩ đầu tiên là hệ thống hỏng.
+     *
+     * Đơn đang giữ chỗ chưa trả tiền cũng nhận thư: quyền khai danh sách hành khách của họ đóng lại
+     * theo đúng mốc này. Đơn đã hủy thì không - họ không còn đi nữa.
+     */
+    public function test_doi_han_chot_thi_bao_cho_moi_khach_cua_chuyen(): void
+    {
+        Mail::fake();
+
+        $daTraTien = $this->taoDon($this->chuyen);
+        $dangGiuCho = $this->taoDon($this->chuyen, 'pending');
+        $this->taoDon($this->chuyen, 'cancelled');
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => $this->chuyen->booking_deadline->copy()->subDays(2)->toDateTimeString(),
+            'reason' => 'Nha xe chot ghe som hon mot ngay.',
+        ])->assertOk();
+
+        // Đúng hai thư: đơn đã hủy không nằm trong số đó.
+        Mail::assertQueued(ScheduleDeadlineChangedMail::class, 2);
+
+        Mail::assertQueued(
+            ScheduleDeadlineChangedMail::class,
+            fn (ScheduleDeadlineChangedMail $thu) => $thu->hasTo($daTraTien->customer_email),
+        );
+        Mail::assertQueued(
+            ScheduleDeadlineChangedMail::class,
+            fn (ScheduleDeadlineChangedMail $thu) => $thu->hasTo($dangGiuCho->customer_email),
+        );
+    }
+
+    /**
+     * Thư phải dựng được thật, không chỉ được xếp hàng.
+     *
+     * `Mail::fake()` không đụng tới tệp blade, nên một lỗi cú pháp trong đó đi lọt qua mọi bài trên
+     * và chỉ lộ ra ở hộp thư của khách. Bài này dựng thư ra chuỗi và đọc lại hai câu bắt buộc phải
+     * có: mốc mới, và lời trấn an rằng tiền hoàn không đổi.
+     */
+    public function test_thu_bao_dung_duoc_va_noi_dung_dung_huong(): void
+    {
+        $don = $this->taoDon($this->chuyen);
+
+        $noiDung = (new ScheduleDeadlineChangedMail(
+            $don,
+            now()->addDays(17),
+            now()->addDays(15),
+            'Nha xe chot ghe som hon mot ngay.',
+        ))->render();
+
+        $this->assertStringContainsString('hạn chốt danh sách', $noiDung);
+        $this->assertStringContainsString(now()->addDays(15)->format('d/m/Y'), $noiDung);
+        $this->assertStringContainsString('Nha xe chot ghe som hon mot ngay.', $noiDung);
+
+        // Rút ngắn thì phải nói thẳng là khách sắp mất quyền tự sửa, không nói vòng.
+        $this->assertStringContainsString('không tự sửa được nữa', $noiDung);
+        $this->assertStringContainsString('không đổi', $noiDung);
+    }
+
+    /** Người cầm danh sách đoàn đi gặp nhà cung cấp cũng phải biết mốc vừa dịch. */
+    public function test_huong_dan_vien_cua_chuyen_cung_duoc_bao(): void
+    {
+        Mail::fake();
+
+        $huongDanVien = User::create([
+            'name' => 'Huong Dan Vien Test',
+            'email' => 'hdv-' . Str::random(6) . '@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'guide',
+            'status' => 'active',
+        ]);
+
+        $this->chuyen->guides()->attach($huongDanVien->id);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => $this->chuyen->booking_deadline->copy()->subDays(2)->toDateTimeString(),
+            'reason' => 'Nha xe chot ghe som hon mot ngay.',
+        ])->assertOk();
+
+        $data = $huongDanVien->notifications()
+            ->where('type', Alert::class)
+            ->get()
+            ->firstWhere(fn ($tb) => $tb->data['kind'] === Alert::HAN_CHOT_DOI)
+            ?->data;
+
+        $this->assertNotNull($data, 'Hướng dẫn viên phụ trách chuyến phải được báo.');
+        $this->assertStringContainsString('Nha xe chot ghe som hon', $data['body']);
+    }
+
+    /**
+     * Thao tác bị từ chối thì tuyệt đối không có thư nào bay đi.
+     *
+     * Thư báo một thay đổi không xảy ra là loại sai không đính chính được: nó đã nằm trong hộp thư
+     * của khách rồi.
+     */
+    public function test_thao_tac_bi_tu_choi_thi_khong_ai_nhan_thu(): void
+    {
+        Mail::fake();
+
+        $this->taoDon($this->chuyen);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => $this->chuyen->booking_deadline->copy()->subDay()->toDateTimeString(),
+        ])->assertStatus(422);
+
+        Mail::assertNothingQueued();
     }
 
     // --- Không đặt mốc vào quá khứ -------------------------------------------------------

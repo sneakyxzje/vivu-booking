@@ -6,11 +6,16 @@ use App\Enums\BookingStatus;
 use App\Enums\ScheduleAuditAction;
 use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
+use App\Mail\ScheduleDeadlineChangedMail;
 use App\Models\Booking;
 use App\Models\TourSchedule;
 use App\Models\User;
+use App\Notifications\Alert;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 /**
  * Dời hạn chốt danh sách của một chuyến khởi hành.
@@ -42,6 +47,7 @@ class ScheduleDeadlineService
 
     public function __construct(
         private readonly ScheduleAuditLogger $auditLogger,
+        private readonly Notifier $notifier,
     ) {
     }
 
@@ -196,8 +202,90 @@ class ScheduleDeadlineService
                 );
             }
 
+            /*
+             * Báo cho khách - sau khi mọi thứ đã ghi xong thật.
+             *
+             * `afterCommit` chứ không gọi thẳng: form sửa tour bọc cả lần lưu trong một giao dịch
+             * lớn hơn, nên đường ghi ấy vẫn có thể quay lại sau khi service này trả về. Gửi thư báo
+             * một thay đổi rồi thay đổi ấy biến mất là loại sai khó đính chính nhất, vì thư đã nằm
+             * trong hộp thư của khách rồi.
+             *
+             * Khách nhận mốc CÓ HIỆU LỰC chứ không phải giá trị cột: xóa hạn chốt riêng nghĩa là
+             * quay về mốc mặc định, và khách quan tâm tới ngày thật chứ không quan tâm cột nào rỗng.
+             */
+            $hieuLucCu = $cu ?? $khoa->defaultBookingDeadline();
+            $hieuLucMoi = $moi ?? $khoa->defaultBookingDeadline();
+
+            DB::afterCommit(
+                fn () => $this->baoChoNguoiLienQuan($khoa, $hieuLucCu, $hieuLucMoi, $lyDo),
+            );
+
             return $khoa;
         });
+    }
+
+    /**
+     * Báo cho khách của chuyến, và cho hướng dẫn viên đang phụ trách.
+     *
+     * Không có công tắc "sửa mà không báo", và đó là chủ ý. Hạn chốt quyết định tới lúc nào khách
+     * còn tự sửa tên hành khách, còn xin đổi chuyến, còn hủy mà được trả chỗ. Dịch nó đi trong im
+     * lặng thì khách chỉ biết vào lúc bấm không được - tức lúc đã muộn, và lúc đó việc đầu tiên họ
+     * nghĩ là hệ thống hỏng.
+     *
+     * Thư hỏng thì ghi log rồi đi tiếp: hạn chốt đã đổi và đã có vết trong nhật ký, một máy chủ thư
+     * trục trặc không được phép làm hỏng việc đã xong. Ngược lại với nhật ký, nơi không ghi được
+     * thì cả thao tác bị hủy - nhật ký là bằng chứng, còn thư là lời báo.
+     */
+    private function baoChoNguoiLienQuan(
+        TourSchedule $schedule,
+        ?Carbon $cu,
+        ?Carbon $moi,
+        ?string $lyDo,
+    ): void {
+        $schedule->loadMissing(['tour:id,title', 'guides']);
+
+        $donHang = Booking::query()
+            ->where('tour_schedule_id', $schedule->getKey())
+            // Kể cả đơn đang giữ chỗ chưa trả tiền: quyền khai và sửa danh sách hành khách của họ
+            // cũng đóng lại theo đúng mốc này.
+            ->whereIn('status', [...BookingStatus::manifestValues(), BookingStatus::Pending->value])
+            ->with(['customer:id,email', 'tour:id,title'])
+            ->get();
+
+        foreach ($donHang as $don) {
+            $email = $don->customer?->email ?: $don->customer_email;
+
+            if (!$email) {
+                continue;
+            }
+
+            try {
+                Mail::to($email)->send(new ScheduleDeadlineChangedMail($don, $cu, $moi, $lyDo));
+            } catch (Throwable $e) {
+                Log::warning('Không gửi được thư báo dời hạn chốt.', [
+                    'tour_schedule_id' => $schedule->getKey(),
+                    'booking_id' => $don->getKey(),
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Hướng dẫn viên là người cầm danh sách đoàn đi gặp nhà cung cấp, nên mốc dịch thì họ phải
+        // biết - không thì họ vẫn hứa với khách theo mốc cũ.
+        foreach ($schedule->guides as $huongDanVien) {
+            $this->notifier->toiNguoiDung(
+                $huongDanVien,
+                Alert::HAN_CHOT_DOI,
+                sprintf('Chuyến #%d vừa đổi hạn chốt danh sách', $schedule->getKey()),
+                sprintf(
+                    '%s · %s%s',
+                    $schedule->tour?->title ?? 'Tour',
+                    $moi ? 'chốt lúc ' . $moi->format('H:i d/m/Y') : 'không còn hạn chốt',
+                    $lyDo ? ' · ' . $lyDo : '',
+                ),
+                '/guide/tours',
+            );
+        }
     }
 
     /** Lý do không sửa được, hoặc null khi sửa được. */
