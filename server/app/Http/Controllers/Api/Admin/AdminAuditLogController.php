@@ -171,7 +171,11 @@ class AdminAuditLogController extends Controller
                 'id' => 'schedule-' . $log->id,
                 'source' => 'schedule',
                 'subject_id' => $log->tour_schedule_id,
-                'subject_label' => 'Chuyến #' . $log->tour_schedule_id,
+                // Chuyến bị xóa thì dòng nhật ký ở lại với tour_schedule_id rỗng - vẫn phải đọc
+                // được, vì ai sửa/lúc nào/từ đâu sang đâu/vì sao đều còn nguyên trong chính dòng đó.
+                'subject_label' => $log->tour_schedule_id
+                    ? 'Chuyến #' . $log->tour_schedule_id
+                    : 'Chuyến đã xóa',
                 'subject_note' => $log->schedule?->start_date
                     ? 'khởi hành ' . $log->schedule->start_date->format('d/m/Y H:i')
                     : $log->schedule?->tour?->title,

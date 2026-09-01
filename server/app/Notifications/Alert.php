@@ -34,6 +34,16 @@ class Alert extends Notification
     public const XIN_BAN_GIAO = 'handover_requested';
     public const SU_CO = 'incident_reported';
 
+    /* --- Việc cả hai vai đều cần biết ---------------------------------------------------- */
+
+    /**
+     * Hạn chốt danh sách của một chuyến vừa bị dời.
+     *
+     * Gửi cho hướng dẫn viên phụ trách chuyến ấy: họ là người cầm danh sách đi gặp nhà cung cấp,
+     * không biết mốc đã dịch thì vẫn hứa với khách theo mốc cũ.
+     */
+    public const HAN_CHOT_DOI = 'deadline_changed';
+
     /* --- Việc hướng dẫn viên cần biết ---------------------------------------------------- */
 
     /** Được phân công một chuyến mới. */

@@ -40,7 +40,11 @@ import {
   getEndDate,
   toDateTimeLocalValue,
 } from "@/utils/format";
-import { statusLabel, statusClasses } from "@/utils/schedule";
+import {
+  LY_DO_DOI_HAN_TOI_THIEU,
+  statusLabel,
+  statusClasses,
+} from "@/utils/schedule";
 import Pagination from "@/components/common/Pagination";
 import { DateTimePicker } from "@/components/DateTimePicker";
 
@@ -1829,7 +1833,7 @@ export default function ScheduleManagement() {
 
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">
-                Lý do dời hạn
+                Lý do dời hạn <span className="text-red-500">*</span>
               </label>
               <textarea
                 rows={2}
@@ -1839,8 +1843,9 @@ export default function ScheduleManagement() {
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
               />
               <p className="text-[11px] text-gray-400 mt-1">
-                Không bắt buộc, nhưng có thì nhật ký về sau đọc mới hiểu được vì
-                sao mốc bị dời.
+                Bắt buộc, ít nhất {LY_DO_DOI_HAN_TOI_THIEU} ký tự. Ba tháng nữa
+                người đọc nhật ký cần biết vì sao mốc bị dời, và lúc đó không ai
+                nhớ lại giúp được.
               </p>
             </div>
 
@@ -1866,7 +1871,8 @@ export default function ScheduleManagement() {
                   deadlineSaving ||
                   deadlineLoading ||
                   !deadlineImpact?.impact.can_change ||
-                  deadlineImpact?.impact.direction === "unchanged"
+                  deadlineImpact?.impact.direction === "unchanged" ||
+                  deadlineReason.trim().length < LY_DO_DOI_HAN_TOI_THIEU
                 }
                 className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40"
               >

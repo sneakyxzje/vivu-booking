@@ -30,6 +30,14 @@ export const tourStatusLabel: Record<Tour["status"], string> = {
   full: "Hết chỗ",
 };
 
+/**
+ * Độ dài tối thiểu của lý do dời hạn chốt danh sách.
+ *
+ * Khớp với `ScheduleDeadlineService::LY_DO_TOI_THIEU` ở máy chủ. Máy chủ mới là nơi luật có hiệu
+ * lực; con số ở đây chỉ để nút lưu không mời người dùng bấm vào một thứ chắc chắn bị từ chối.
+ */
+export const LY_DO_DOI_HAN_TOI_THIEU = 10;
+
 export const getAvailableSlots = (schedule?: TourSchedule | null): number =>
   schedule ? Math.max(0, schedule.max_people - schedule.booked_people) : 0;
 

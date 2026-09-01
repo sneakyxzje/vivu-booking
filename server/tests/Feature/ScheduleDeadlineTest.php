@@ -5,15 +5,18 @@ namespace Tests\Feature;
 use App\Enums\ScheduleAuditAction;
 use App\Enums\ScheduleStatus;
 use App\Enums\TourType;
+use App\Mail\ScheduleDeadlineChangedMail;
 use App\Models\Booking;
 use App\Models\ScheduleAuditLog;
 use App\Models\Tour;
 use App\Models\TourSchedule;
 use App\Models\User;
+use App\Notifications\Alert;
 use App\Services\ScheduleDeadlineService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -156,6 +159,71 @@ class ScheduleDeadlineTest extends TestCase
     }
 
     /**
+     * Không ghi lý do thì không đổi được hạn chốt.
+     *
+     * Nhật ký có đủ ai/lúc nào/từ đâu sang đâu mà thiếu *vì sao* thì ba tháng sau nó chỉ tố cáo
+     * được một người chứ không giải thích được một quyết định. Luật nằm ở service nên cả hai
+     * đường ghi cùng chịu.
+     */
+    public function test_khong_ghi_ly_do_thi_khong_doi_duoc_han_chot(): void
+    {
+        $cu = $this->chuyen->booking_deadline;
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => $cu->copy()->addDay()->toDateTimeString(),
+        ])->assertStatus(422);
+
+        $this->assertTrue(
+            $this->chuyen->fresh()->booking_deadline->equalTo($cu),
+            'Từ chối vì thiếu lý do thì hạn chốt phải giữ nguyên.',
+        );
+
+        $this->assertSame(
+            0,
+            ScheduleAuditLog::query()->where('tour_schedule_id', $this->chuyen->id)->count(),
+        );
+    }
+
+    /** Lý do cụt ngủn cũng không tính: "ok" không trả lời được câu hỏi nào. */
+    public function test_ly_do_qua_ngan_thi_khong_duoc_nhan(): void
+    {
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => $this->chuyen->booking_deadline->copy()->addDay()->toDateTimeString(),
+            'reason' => '  ok  ',
+        ])->assertStatus(422);
+    }
+
+    /** Đường ghi thứ hai cũng không lách được: form sửa tour đổi hạn chốt thì cũng phải khai lý do. */
+    public function test_form_sua_tour_doi_han_chot_ma_khong_khai_ly_do_thi_bi_tu_choi(): void
+    {
+        $cu = $this->chuyen->booking_deadline;
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/tours/' . $this->tour->id, [
+            'title' => $this->tour->title,
+            'adult_price' => 2_000_000,
+            'child_price' => 1_000_000,
+            'infant_price' => 0,
+            'number_of_days' => 2,
+            'number_of_nights' => 1,
+            'start_location' => 'Ha Noi',
+            'schedules' => [[
+                'id' => $this->chuyen->id,
+                'start_date' => $this->chuyen->start_date->toDateTimeString(),
+                'max_people' => 20,
+                'booking_deadline' => $cu->copy()->subDay()->toDateTimeString(),
+            ]],
+        ])->assertStatus(422);
+
+        $this->assertTrue($this->chuyen->fresh()->booking_deadline->equalTo($cu));
+    }
+
+    /**
      * Hạn chốt có hai đường ghi: form sửa tour và endpoint sửa nhanh.
      *
      * Luật nằm ở một đường mà thiếu ở đường kia chính là khuôn của mấy lỗi gần đây, nên bài này
@@ -192,6 +260,47 @@ class ScheduleDeadlineTest extends TestCase
         $this->assertNotNull($log, 'Sửa hạn chốt từ form tour cũng phải để lại vết.');
         $this->assertSame('Nha xe doi chot som.', $log->reason);
         $this->assertTrue($this->chuyen->fresh()->booking_deadline->equalTo($moi));
+    }
+
+    /**
+     * Biểu mẫu tour không gửi hạn chốt thì hạn chốt phải còn nguyên.
+     *
+     * Lỗi cũ: thiếu trường thì controller tự điền "khởi hành trừ ba ngày" rồi ghi đè. Nên một lần
+     * lưu tour chỉ để sửa tiêu đề cũng xóa mất mốc điều hành đã thương lượng với nhà cung cấp, âm
+     * thầm và không có gì báo lại - trong khi mốc ấy điều khiển năm quy tắc khác nhau.
+     */
+    public function test_form_sua_tour_khong_gui_han_chot_thi_giu_nguyen(): void
+    {
+        $rieng = $this->chuyen->start_date->copy()->subDays(10);
+        $this->chuyen->forceFill(['booking_deadline' => $rieng])->save();
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/tours/' . $this->tour->id, [
+            'title' => 'Ten tour vua doi',
+            'adult_price' => 2_000_000,
+            'child_price' => 1_000_000,
+            'infant_price' => 0,
+            'number_of_days' => 2,
+            'number_of_nights' => 1,
+            'start_location' => 'Ha Noi',
+            'schedules' => [[
+                'id' => $this->chuyen->id,
+                'start_date' => $this->chuyen->start_date->toDateTimeString(),
+                'max_people' => 20,
+            ]],
+        ])->assertOk();
+
+        $this->assertTrue(
+            $this->chuyen->fresh()->booking_deadline->equalTo($rieng),
+            'Không gửi hạn chốt thì không được đụng vào hạn chốt.',
+        );
+
+        $this->assertSame(
+            0,
+            ScheduleAuditLog::query()->where('tour_schedule_id', $this->chuyen->id)->count(),
+            'Không đổi gì thì cũng không có dòng nhật ký nào.',
+        );
     }
 
     // --- Luật chặn ----------------------------------------------------------------------
@@ -328,7 +437,7 @@ class ScheduleDeadlineTest extends TestCase
         ));
     }
 
-    public function test_xem_truoc_khi_rut_han_chot_ve_qua_khu(): void
+    public function test_xem_truoc_khi_rut_ngan_han_chot(): void
     {
         $this->taoDon($this->chuyen, khach: 4);
 
@@ -336,16 +445,17 @@ class ScheduleDeadlineTest extends TestCase
 
         $impact = $this->getJson(
             '/api/admin/schedules/' . $this->chuyen->id . '/deadline-impact'
-            . '?booking_deadline=' . urlencode(now()->subHour()->toDateTimeString())
+            . '?booking_deadline=' . urlencode(now()->addHours(2)->toDateTimeString())
         )->assertOk()->json('data.impact');
 
         $this->assertSame('earlier', $impact['direction']);
-        $this->assertTrue($impact['will_be_past']);
+        $this->assertTrue($impact['can_change']);
         $this->assertSame(1, $impact['manifest_bookings']);
 
+        // Rút ngắn tước quyền của khách đang có, nên phải nói ra bao nhiêu đơn bị chạm tới.
         $this->assertNotEmpty(array_filter(
             $impact['warnings'],
-            fn (string $dong) => str_contains($dong, 'có hiệu lực ngay'),
+            fn (string $dong) => str_contains($dong, 'không sửa được tên hành khách'),
         ));
 
         // Hai câu trấn an luôn phải có mặt, vì đây là hai điều người bấm hay lo nhất.
@@ -357,5 +467,182 @@ class ScheduleDeadlineTest extends TestCase
             $impact['warnings'],
             fn (string $dong) => str_contains($dong, 'Số tiền hoàn của mọi đơn không đổi'),
         ));
+    }
+
+    // --- Thông báo ----------------------------------------------------------------------
+
+    /**
+     * Dời hạn chốt thì mọi khách của chuyến đều được báo.
+     *
+     * Rút hạn chốt là tước quyền của khách đang có: từ mốc mới họ không tự sửa được tên hành khách,
+     * không xin đổi chuyến được, hủy thì mất chỗ. Làm việc ấy trong im lặng thì khách chỉ biết lúc
+     * bấm không được, và lúc đó thứ họ nghĩ đầu tiên là hệ thống hỏng.
+     *
+     * Đơn đang giữ chỗ chưa trả tiền cũng nhận thư: quyền khai danh sách hành khách của họ đóng lại
+     * theo đúng mốc này. Đơn đã hủy thì không - họ không còn đi nữa.
+     */
+    public function test_doi_han_chot_thi_bao_cho_moi_khach_cua_chuyen(): void
+    {
+        Mail::fake();
+
+        $daTraTien = $this->taoDon($this->chuyen);
+        $dangGiuCho = $this->taoDon($this->chuyen, 'pending');
+        $this->taoDon($this->chuyen, 'cancelled');
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => $this->chuyen->booking_deadline->copy()->subDays(2)->toDateTimeString(),
+            'reason' => 'Nha xe chot ghe som hon mot ngay.',
+        ])->assertOk();
+
+        // Đúng hai thư: đơn đã hủy không nằm trong số đó.
+        Mail::assertQueued(ScheduleDeadlineChangedMail::class, 2);
+
+        Mail::assertQueued(
+            ScheduleDeadlineChangedMail::class,
+            fn (ScheduleDeadlineChangedMail $thu) => $thu->hasTo($daTraTien->customer_email),
+        );
+        Mail::assertQueued(
+            ScheduleDeadlineChangedMail::class,
+            fn (ScheduleDeadlineChangedMail $thu) => $thu->hasTo($dangGiuCho->customer_email),
+        );
+    }
+
+    /**
+     * Thư phải dựng được thật, không chỉ được xếp hàng.
+     *
+     * `Mail::fake()` không đụng tới tệp blade, nên một lỗi cú pháp trong đó đi lọt qua mọi bài trên
+     * và chỉ lộ ra ở hộp thư của khách. Bài này dựng thư ra chuỗi và đọc lại hai câu bắt buộc phải
+     * có: mốc mới, và lời trấn an rằng tiền hoàn không đổi.
+     */
+    public function test_thu_bao_dung_duoc_va_noi_dung_dung_huong(): void
+    {
+        $don = $this->taoDon($this->chuyen);
+
+        $noiDung = (new ScheduleDeadlineChangedMail(
+            $don,
+            now()->addDays(17),
+            now()->addDays(15),
+            'Nha xe chot ghe som hon mot ngay.',
+        ))->render();
+
+        $this->assertStringContainsString('hạn chốt danh sách', $noiDung);
+        $this->assertStringContainsString(now()->addDays(15)->format('d/m/Y'), $noiDung);
+        $this->assertStringContainsString('Nha xe chot ghe som hon mot ngay.', $noiDung);
+
+        // Rút ngắn thì phải nói thẳng là khách sắp mất quyền tự sửa, không nói vòng.
+        $this->assertStringContainsString('không tự sửa được nữa', $noiDung);
+        $this->assertStringContainsString('không đổi', $noiDung);
+    }
+
+    /** Người cầm danh sách đoàn đi gặp nhà cung cấp cũng phải biết mốc vừa dịch. */
+    public function test_huong_dan_vien_cua_chuyen_cung_duoc_bao(): void
+    {
+        Mail::fake();
+
+        $huongDanVien = User::create([
+            'name' => 'Huong Dan Vien Test',
+            'email' => 'hdv-' . Str::random(6) . '@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'guide',
+            'status' => 'active',
+        ]);
+
+        $this->chuyen->guides()->attach($huongDanVien->id);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => $this->chuyen->booking_deadline->copy()->subDays(2)->toDateTimeString(),
+            'reason' => 'Nha xe chot ghe som hon mot ngay.',
+        ])->assertOk();
+
+        $data = $huongDanVien->notifications()
+            ->where('type', Alert::class)
+            ->get()
+            ->firstWhere(fn ($tb) => $tb->data['kind'] === Alert::HAN_CHOT_DOI)
+            ?->data;
+
+        $this->assertNotNull($data, 'Hướng dẫn viên phụ trách chuyến phải được báo.');
+        $this->assertStringContainsString('Nha xe chot ghe som hon', $data['body']);
+    }
+
+    /**
+     * Thao tác bị từ chối thì tuyệt đối không có thư nào bay đi.
+     *
+     * Thư báo một thay đổi không xảy ra là loại sai không đính chính được: nó đã nằm trong hộp thư
+     * của khách rồi.
+     */
+    public function test_thao_tac_bi_tu_choi_thi_khong_ai_nhan_thu(): void
+    {
+        Mail::fake();
+
+        $this->taoDon($this->chuyen);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => $this->chuyen->booking_deadline->copy()->subDay()->toDateTimeString(),
+        ])->assertStatus(422);
+
+        Mail::assertNothingQueued();
+    }
+
+    // --- Không đặt mốc vào quá khứ -------------------------------------------------------
+
+    /**
+     * Hạn chốt đặt vào hôm qua là tuyên bố một điều chưa từng đúng.
+     *
+     * Hôm qua chuyến vẫn bán chỗ, vẫn cho sửa tên, khách hủy vẫn được trả chỗ. Ghi một mốc như thế
+     * vào cơ sở dữ liệu thì nhật ký mất khả năng dựng lại chuyện đã xảy ra - đúng thứ duy nhất nó
+     * sinh ra để làm.
+     */
+    public function test_khong_dat_duoc_han_chot_vao_qua_khu(): void
+    {
+        $cu = $this->chuyen->booking_deadline;
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => now()->subHour()->toDateTimeString(),
+            'reason' => 'Nha xe bao chot som tu hom qua.',
+        ])->assertStatus(422);
+
+        $this->assertTrue($this->chuyen->fresh()->booking_deadline->equalTo($cu));
+    }
+
+    /** Xem trước phải nói trước, không để người dùng bấm lưu rồi mới biết bị chặn. */
+    public function test_xem_truoc_bao_truoc_rang_moc_qua_khu_bi_chan(): void
+    {
+        Sanctum::actingAs($this->dieuHanh);
+
+        $impact = $this->getJson(
+            '/api/admin/schedules/' . $this->chuyen->id . '/deadline-impact'
+            . '?booking_deadline=' . urlencode(now()->subHour()->toDateTimeString())
+        )->assertOk()->json('data.impact');
+
+        $this->assertFalse($impact['can_change']);
+        $this->assertStringContainsString('quá khứ', $impact['blocked_reason']);
+    }
+
+    /**
+     * Khóa danh sách ngay vẫn làm được, chỉ là phải nói đúng thứ mình làm.
+     *
+     * Nhà cung cấp chốt sớm hơn thỏa thuận là chuyện có thật, và lúc ấy điều hành cần khóa danh
+     * sách ngay hôm nay. Luật chặn mốc quá khứ không được phép chặn luôn việc đó.
+     */
+    public function test_van_khoa_duoc_danh_sach_ngay_bang_moc_hien_tai(): void
+    {
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => now()->addMinute()->toDateTimeString(),
+            'reason' => 'Khach san chot phong sang nay, khoa danh sach luon.',
+        ])->assertOk();
+
+        $this->assertTrue(
+            $this->chuyen->fresh()->booking_deadline->lte(now()->addMinute()),
+        );
     }
 }

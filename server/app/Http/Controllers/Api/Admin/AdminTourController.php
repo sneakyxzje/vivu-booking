@@ -351,10 +351,10 @@ class AdminTourController extends Controller
                 // end_date tự tính: start + (number_of_days - 1) ngày
                 $endDate = $startDate->copy()->addDays(max(0, $numberOfDay - 1));
 
-                // booking_deadline: nếu không truyền thì mặc định start - 3 ngày
+                // booking_deadline: không truyền thì lấy mốc mặc định của hệ thống.
                 $bookingDeadline = isset($item['booking_deadline'])
                     ? Carbon::parse($item['booking_deadline'])
-                    : $startDate->copy()->subDays(3);
+                    : TourSchedule::hanChotMacDinhTu($startDate);
 
                 $created = $tour->schedules()->create([
                     'start_date'       => $startDate,
@@ -524,16 +524,23 @@ class AdminTourController extends Controller
                 $startDate = Carbon::parse($item['start_date']);
                 $endDate   = $startDate->copy()->addDays(max(0, $numberOfDay - 1));
 
-                $bookingDeadline = isset($item['booking_deadline'])
+                /*
+                 * Hạn chốt chỉ đụng tới khi biểu mẫu thực sự gửi trường ấy lên.
+                 *
+                 * Trước đây thiếu trường thì mặc định về "khởi hành trừ ba ngày" rồi ghi đè. Nên
+                 * một lần lưu tour chỉ để sửa tiêu đề cũng xóa mất mốc điều hành đã thương lượng
+                 * với nhà cung cấp - âm thầm, và cái mốc bị mất ấy điều khiển năm quy tắc khác.
+                 */
+                $coGuiHanChot = array_key_exists('booking_deadline', $item);
+                $hanChotMoi = $coGuiHanChot && $item['booking_deadline'] !== null
                     ? Carbon::parse($item['booking_deadline'])
-                    : $startDate->copy()->subDays(3);
+                    : null;
 
                 $payload = [
-                    'start_date'       => $startDate,
-                    'end_date'         => $endDate,
-                    'max_people'       => $item['max_people'],
-                    'min_people'       => $item['min_people'] ?? ($schedule?->min_people ?? 1),
-                    'booking_deadline' => $bookingDeadline,
+                    'start_date' => $startDate,
+                    'end_date'   => $endDate,
+                    'max_people' => $item['max_people'],
+                    'min_people' => $item['min_people'] ?? ($schedule?->min_people ?? 1),
                 ];
 
                 if ($schedule) {
@@ -551,22 +558,18 @@ class AdminTourController extends Controller
                     }
 
                     /*
-                     * Hạn chốt tách khỏi payload và đi qua service riêng.
+                     * Hạn chốt không nằm trong payload và đi qua service riêng.
                      *
                      * Dời hạn chốt không phải sửa một con số: nó đổi cùng lúc quyền bán chỗ, sửa
                      * tên hành khách, chuyển chuyến, ghép chuyến, và việc chỗ có về kho khi khách
                      * hủy hay không. Việc đó phải để lại vết. Ghi thẳng vào payload thì giá trị cũ
-                     * mất trước khi kịp ghi nhật ký, nên phải bỏ ra khỏi đây.
+                     * mất trước khi kịp ghi nhật ký, nên nó phải đứng ngoài.
                      */
-                    $hanChotMoi = $payload['booking_deadline'];
-                    unset($payload['booking_deadline']);
-
                     $schedule->update($payload);
 
                     // Chuyến đã khóa vận hành thì bỏ qua, không ghi và cũng không báo lỗi: guard
-                    // ở trên đã chặn trường hợp người dùng cố ý gửi hạn chốt mới, phần còn lại
-                    // chỉ là giá trị mặc định mà form gửi kèm.
-                    if (! $schedule->isOperationallyLocked()) {
+                    // ở trên đã chặn trường hợp người dùng cố ý gửi hạn chốt mới.
+                    if ($coGuiHanChot && ! $schedule->isOperationallyLocked()) {
                         $this->scheduleDeadline->change(
                             $schedule,
                             $hanChotMoi,
@@ -583,6 +586,8 @@ class AdminTourController extends Controller
 
                 $created = $tour->schedules()->create([
                     ...$payload,
+                    // Chuyến mới dựng thì chưa có gì để giữ, thiếu hạn chốt là lấy mốc mặc định.
+                    'booking_deadline' => $hanChotMoi ?? TourSchedule::hanChotMacDinhTu($startDate),
                     'booked_people' => 0,
                     'status'        => $item['status'] ?? 'open',
                 ]);

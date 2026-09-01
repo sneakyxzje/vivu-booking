@@ -15,3 +15,6 @@ build/
 *.log
 .DS_Store
 AGENT.md
+
+# Tài liệu ôn bảo vệ — dùng riêng, có bảng tỷ lệ đóng góp từng người
+docs/bao-ve/

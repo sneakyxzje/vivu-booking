@@ -6,7 +6,8 @@ import { TourFormBasicSection } from "@/components/guide/tour-form/TourFormBasic
 import { TourFormMediaSection } from "@/components/guide/tour-form/TourFormMediaSection";
 import { TourFormItinerarySection } from "@/components/guide/tour-form/TourFormItinerarySection";
 import { TourFormScheduleSection } from "@/components/guide/tour-form/TourFormScheduleSection";
-import { khoaChuyenMoi, ngayRong } from "@/components/guide/tour-form/formHelpers";
+import { daDoiHanChot, khoaChuyenMoi, ngayRong } from "@/components/guide/tour-form/formHelpers";
+import { LY_DO_DOI_HAN_TOI_THIEU } from "@/utils/schedule";
 import { TourFormTaxonomySection } from "@/components/guide/tour-form/TourFormTaxonomySection";
 import { TourFormSidebar } from "@/components/guide/tour-form/TourFormSidebar";
 import {
@@ -257,6 +258,9 @@ export const CreateTourForm: React.FC = () => {
               max_people: String(item.max_people ?? 10),
               min_people: String(item.min_people ?? 5),
               booking_deadline: toDateTimeLocalValue(item.booking_deadline),
+              // Giữ bản gốc để biết hạn chốt có thực sự bị dời hay không: dời thì máy chủ đòi lý do.
+              booking_deadline_goc: toDateTimeLocalValue(item.booking_deadline),
+              booking_deadline_reason: "",
               status: String(item.status ?? "open"),
               guide_ids: (item.guides ?? []).map((guide) => String(guide.id)),
             })) ?? [],
@@ -403,6 +407,15 @@ export const CreateTourForm: React.FC = () => {
       )
     ) {
       buoc3.push("Có chuyến đặt hạn chốt không trước giờ khởi hành");
+    }
+    if (
+      form.schedules.some(
+        (item) =>
+          daDoiHanChot(item) &&
+          (item.booking_deadline_reason ?? "").trim().length < LY_DO_DOI_HAN_TOI_THIEU,
+      )
+    ) {
+      buoc3.push("Có chuyến dời hạn chốt mà chưa ghi lý do");
     }
     if (form.schedules.some((item) => Number(item.max_people) < 1)) {
       buoc3.push("Có chuyến chưa đặt sức chứa");

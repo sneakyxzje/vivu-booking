@@ -102,9 +102,15 @@ class AdminAuditLogTest extends TestCase
         $log->forceFill(['created_at' => $luc])->save();
     }
 
+    /**
+     * Ghi thẳng một dòng nhật ký chuyến với thời điểm chỉ định.
+     *
+     * Đặt `created_at` ngay lúc chèn chứ không chèn xong rồi sửa lại: dòng nhật ký chuyến là bất
+     * biến, `ScheduleAuditLog` chặn mọi lần cập nhật kể cả của bài kiểm thử.
+     */
     private function ghiNhatKyChuyen($luc): void
     {
-        $log = ScheduleAuditLog::query()->create([
+        (new ScheduleAuditLog())->forceFill([
             'tour_schedule_id' => $this->chuyen->id,
             'actor_id' => $this->quanTri->id,
             'actor_role' => 'admin',
@@ -112,9 +118,8 @@ class AdminAuditLogTest extends TestCase
             'old_values' => ['booking_deadline' => now()->addDays(17)->toIso8601String()],
             'new_values' => ['booking_deadline' => now()->addDays(19)->toIso8601String()],
             'reason' => 'Khach san cho them phong.',
-        ]);
-
-        $log->forceFill(['created_at' => $luc])->save();
+            'created_at' => $luc,
+        ])->save();
     }
 
     // --- Gộp hai nguồn ------------------------------------------------------------------
@@ -252,5 +257,63 @@ class AdminAuditLogTest extends TestCase
         $this->assertArrayHasKey('refund_amount', $log->new_values);
         $this->assertArrayHasKey('refund_percent', $log->new_values);
         $this->assertArrayHasKey('seats_released', $log->new_values);
+    }
+
+    // --- Bất biến -----------------------------------------------------------------------
+
+    /**
+     * Nhật ký chuyến ghi rồi là xong.
+     *
+     * Đây là cơ chế kiểm soát duy nhất đặt lên quyền dời hạn chốt của quản trị viên. Một dòng sửa
+     * được thì chính người bị nó ghi lại cũng sửa được nó, và cả cơ chế thành trang trí.
+     */
+    public function test_khong_sua_duoc_dong_nhat_ky_chuyen(): void
+    {
+        $this->ghiNhatKyChuyen(now()->subHour());
+        $log = ScheduleAuditLog::query()->latest('id')->firstOrFail();
+
+        $this->expectException(\RuntimeException::class);
+
+        $log->forceFill(['reason' => 'Ly do khac han.'])->save();
+    }
+
+    public function test_khong_xoa_duoc_dong_nhat_ky_chuyen(): void
+    {
+        $this->ghiNhatKyChuyen(now()->subHour());
+        $log = ScheduleAuditLog::query()->latest('id')->firstOrFail();
+
+        $this->expectException(\RuntimeException::class);
+
+        $log->delete();
+    }
+
+    /**
+     * Xóa chuyến không được xóa theo nhật ký của nó.
+     *
+     * Form sửa tour xóa thẳng những chuyến bị bỏ khỏi danh sách mà chưa có khách, nên một chuyến
+     * từng bị dời hạn chốt vài lần rồi tụt về 0 khách hoàn toàn có thể biến mất. Nhật ký mà đi theo
+     * thì nó mất đúng vào lúc không ai để ý, chứ không phải lúc có người bấm nút xóa.
+     */
+    public function test_xoa_chuyen_thi_nhat_ky_cua_no_van_con(): void
+    {
+        $this->ghiNhatKyChuyen(now()->subHour());
+
+        $this->chuyen->delete();
+
+        $log = ScheduleAuditLog::query()->latest('id')->first();
+
+        $this->assertNotNull($log, 'Xóa chuyến không được kéo theo nhật ký của nó.');
+        $this->assertNull($log->tour_schedule_id);
+        $this->assertSame('Khach san cho them phong.', $log->reason);
+        $this->assertSame($this->quanTri->id, $log->actor_id);
+
+        // Và màn hình nhật ký vẫn đọc được dòng ấy, không vỡ vì thiếu chuyến.
+        Sanctum::actingAs($this->quanTri);
+
+        $rows = $this->getJson('/api/admin/audit-logs')->assertOk()->json('data.data');
+        $dong = collect($rows)->firstWhere('source', 'schedule');
+
+        $this->assertNotNull($dong);
+        $this->assertSame('Chuyến đã xóa', $dong['subject_label']);
     }
 }

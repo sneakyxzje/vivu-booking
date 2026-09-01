@@ -6,11 +6,16 @@ use App\Enums\BookingStatus;
 use App\Enums\ScheduleAuditAction;
 use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
+use App\Mail\ScheduleDeadlineChangedMail;
 use App\Models\Booking;
 use App\Models\TourSchedule;
 use App\Models\User;
+use App\Notifications\Alert;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 /**
  * Dời hạn chốt danh sách của một chuyến khởi hành.
@@ -32,8 +37,17 @@ use Illuminate\Support\Facades\DB;
  */
 class ScheduleDeadlineService
 {
+    /**
+     * Độ dài tối thiểu của lý do dời hạn chốt.
+     *
+     * Không phải con số thần thánh gì: nó chỉ chặn "ok", "." và dấu cách. Câu hỏi mà nhật ký phải
+     * trả lời được là *vì sao mốc bị dời*, và một ký tự thì không trả lời được câu nào.
+     */
+    private const LY_DO_TOI_THIEU = 10;
+
     public function __construct(
         private readonly ScheduleAuditLogger $auditLogger,
+        private readonly Notifier $notifier,
     ) {
     }
 
@@ -103,11 +117,14 @@ class ScheduleDeadlineService
      *
      * Khóa dòng rồi đọc lại trước khi kiểm tra: hai người cùng sửa một chuyến thì người sau phải
      * thấy giá trị người trước vừa ghi, không phải giá trị lúc họ mở màn hình.
+     *
+     * `$lyDo` không có giá trị mặc định: mọi nơi gọi phải nghĩ tới nó. Lý do rỗng chỉ được chấp
+     * nhận khi hạn chốt không thực sự đổi, xem phần kiểm bên dưới.
      */
     public function change(
         TourSchedule $schedule,
         ?Carbon $moi,
-        ?string $lyDo = null,
+        ?string $lyDo,
         ?User $actor = null,
     ): TourSchedule {
         return DB::transaction(function () use ($schedule, $moi, $lyDo, $actor) {
@@ -134,9 +151,31 @@ class ScheduleDeadlineService
                 return $khoa;
             }
 
+            /*
+             * Lý do bắt buộc, và bắt buộc ở đây chứ không ở luật validate của controller.
+             *
+             * Ở controller thì mỗi đường ghi phải tự nhớ, mà quên một đường chính là khuôn của
+             * phần lớn lỗi đã gặp trong dự án này. Ở đây thì nút "Sửa hạn chốt" lẫn form sửa tour
+             * đều không đi vòng được.
+             *
+             * Đặt SAU phép so bằng bên trên là chủ ý: form sửa tour gửi lại toàn bộ danh sách
+             * chuyến mỗi lần lưu, nên phần lớn lần gọi tới đây không đổi gì. Đòi lý do cho một lần
+             * lưu không đổi gì thì luật này chỉ tổ phiền, và người dùng sẽ gõ bừa cho xong - lúc ấy
+             * cột `reason` có chữ nhưng vẫn không trả lời được câu hỏi nào.
+             */
+            $lyDo = $lyDo !== null ? trim($lyDo) : null;
+
+            if ($lyDo === null || mb_strlen($lyDo) < self::LY_DO_TOI_THIEU) {
+                throw new BusinessRuleException(sprintf(
+                    'Phải ghi lý do dời hạn chốt, ít nhất %d ký tự. Ba tháng nữa, người đọc nhật ký '
+                    . 'cần biết vì sao mốc bị dời và lúc đó không ai nhớ lại giúp được.',
+                    self::LY_DO_TOI_THIEU,
+                ));
+            }
+
             $khoa->forceFill(['booking_deadline' => $moi])->save();
 
-            $this->auditLogger->log(
+            $nhatKy = $this->auditLogger->log(
                 $khoa,
                 ScheduleAuditAction::DeadlineChanged,
                 ['booking_deadline' => $cu?->toIso8601String()],
@@ -145,8 +184,108 @@ class ScheduleDeadlineService
                 $actor,
             );
 
+            /*
+             * Không ghi được vết thì không đổi.
+             *
+             * ScheduleAuditLogger cố ý nuốt lỗi để một sự cố ở bảng nhật ký không kéo ngược nghiệp
+             * vụ về - đúng cho gần như mọi nơi gọi nó. Chỗ này là ngoại lệ: nhật ký CHÍNH LÀ cơ chế
+             * kiểm soát duy nhất đặt lên quyền dời hạn chốt. Dời xong mà không dòng nào ghi lại thì
+             * thao tác ấy vô hình, và vô hình còn tệ hơn là không làm được.
+             *
+             * Ném ở đây kéo cả giao dịch về, nên hạn chốt cũ giữ nguyên.
+             */
+            if (!$nhatKy) {
+                throw new BusinessRuleException(
+                    'Không ghi được nhật ký cho lần dời hạn chốt này nên hệ thống đã hủy thao tác. '
+                    . 'Thử lại, nếu vẫn lỗi thì báo bộ phận kỹ thuật.',
+                    500,
+                );
+            }
+
+            /*
+             * Báo cho khách - sau khi mọi thứ đã ghi xong thật.
+             *
+             * `afterCommit` chứ không gọi thẳng: form sửa tour bọc cả lần lưu trong một giao dịch
+             * lớn hơn, nên đường ghi ấy vẫn có thể quay lại sau khi service này trả về. Gửi thư báo
+             * một thay đổi rồi thay đổi ấy biến mất là loại sai khó đính chính nhất, vì thư đã nằm
+             * trong hộp thư của khách rồi.
+             *
+             * Khách nhận mốc CÓ HIỆU LỰC chứ không phải giá trị cột: xóa hạn chốt riêng nghĩa là
+             * quay về mốc mặc định, và khách quan tâm tới ngày thật chứ không quan tâm cột nào rỗng.
+             */
+            $hieuLucCu = $cu ?? $khoa->defaultBookingDeadline();
+            $hieuLucMoi = $moi ?? $khoa->defaultBookingDeadline();
+
+            DB::afterCommit(
+                fn () => $this->baoChoNguoiLienQuan($khoa, $hieuLucCu, $hieuLucMoi, $lyDo),
+            );
+
             return $khoa;
         });
+    }
+
+    /**
+     * Báo cho khách của chuyến, và cho hướng dẫn viên đang phụ trách.
+     *
+     * Không có công tắc "sửa mà không báo", và đó là chủ ý. Hạn chốt quyết định tới lúc nào khách
+     * còn tự sửa tên hành khách, còn xin đổi chuyến, còn hủy mà được trả chỗ. Dịch nó đi trong im
+     * lặng thì khách chỉ biết vào lúc bấm không được - tức lúc đã muộn, và lúc đó việc đầu tiên họ
+     * nghĩ là hệ thống hỏng.
+     *
+     * Thư hỏng thì ghi log rồi đi tiếp: hạn chốt đã đổi và đã có vết trong nhật ký, một máy chủ thư
+     * trục trặc không được phép làm hỏng việc đã xong. Ngược lại với nhật ký, nơi không ghi được
+     * thì cả thao tác bị hủy - nhật ký là bằng chứng, còn thư là lời báo.
+     */
+    private function baoChoNguoiLienQuan(
+        TourSchedule $schedule,
+        ?Carbon $cu,
+        ?Carbon $moi,
+        ?string $lyDo,
+    ): void {
+        $schedule->loadMissing(['tour:id,title', 'guides']);
+
+        $donHang = Booking::query()
+            ->where('tour_schedule_id', $schedule->getKey())
+            // Kể cả đơn đang giữ chỗ chưa trả tiền: quyền khai và sửa danh sách hành khách của họ
+            // cũng đóng lại theo đúng mốc này.
+            ->whereIn('status', [...BookingStatus::manifestValues(), BookingStatus::Pending->value])
+            ->with(['customer:id,email', 'tour:id,title'])
+            ->get();
+
+        foreach ($donHang as $don) {
+            $email = $don->customer?->email ?: $don->customer_email;
+
+            if (!$email) {
+                continue;
+            }
+
+            try {
+                Mail::to($email)->send(new ScheduleDeadlineChangedMail($don, $cu, $moi, $lyDo));
+            } catch (Throwable $e) {
+                Log::warning('Không gửi được thư báo dời hạn chốt.', [
+                    'tour_schedule_id' => $schedule->getKey(),
+                    'booking_id' => $don->getKey(),
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Hướng dẫn viên là người cầm danh sách đoàn đi gặp nhà cung cấp, nên mốc dịch thì họ phải
+        // biết - không thì họ vẫn hứa với khách theo mốc cũ.
+        foreach ($schedule->guides as $huongDanVien) {
+            $this->notifier->toiNguoiDung(
+                $huongDanVien,
+                Alert::HAN_CHOT_DOI,
+                sprintf('Chuyến #%d vừa đổi hạn chốt danh sách', $schedule->getKey()),
+                sprintf(
+                    '%s · %s%s',
+                    $schedule->tour?->title ?? 'Tour',
+                    $moi ? 'chốt lúc ' . $moi->format('H:i d/m/Y') : 'không còn hạn chốt',
+                    $lyDo ? ' · ' . $lyDo : '',
+                ),
+                '/guide/tours',
+            );
+        }
     }
 
     /** Lý do không sửa được, hoặc null khi sửa được. */
@@ -163,6 +302,29 @@ class ScheduleDeadlineService
             return sprintf(
                 'Hạn chốt phải trước ngày khởi hành %s.',
                 $schedule->start_date->format('d/m/Y H:i'),
+            );
+        }
+
+        /*
+         * Hạn chốt mới không được nằm ở quá khứ.
+         *
+         * Kéo vạch chỉ có hiệu lực từ lúc kéo trở đi. Một mốc đặt vào hôm qua tuyên bố một điều
+         * chưa từng đúng: hôm qua chuyến vẫn bán chỗ, vẫn cho sửa tên, khách hủy vẫn được trả chỗ.
+         * Ghi nó vào rồi ba tháng sau đọc nhật ký thì không dựng lại được chuyện đã xảy ra - mà đó
+         * đúng là câu hỏi bảng nhật ký sinh ra để trả lời.
+         *
+         * Khóa danh sách ngay vẫn làm được, chỉ là phải nói đúng thứ mình làm: đặt mốc vào thời
+         * điểm hiện tại. So với `startOfMinute()` vì ô chọn ngày giờ chỉ tới phút; không thì người
+         * chọn đúng phút hiện tại bấm mãi không lưu được mà không hiểu vì sao.
+         *
+         * Xóa hạn chốt riêng (`$moi` là null) thì không rơi vào luật này: đó là quay về mốc mặc
+         * định của hệ thống, không phải chọn một thời điểm.
+         */
+        if ($moi !== null && $moi->lt(now()->startOfMinute())) {
+            return sprintf(
+                'Hạn chốt mới (%s) nằm ở quá khứ. Muốn khóa danh sách ngay thì đặt vào thời điểm '
+                . 'hiện tại trở đi, còn muốn ngừng bán mà chưa khóa danh sách thì dùng nút "Đóng bán".',
+                $moi->format('d/m/Y H:i'),
             );
         }
 
@@ -226,16 +388,25 @@ class ScheduleDeadlineService
 
         if ($quaHanSau) {
             $canhBao[] = 'Hạn chốt mới nằm ở quá khứ nên có hiệu lực ngay: chuyến ngừng nhận đặt mới.';
+        }
 
+        /*
+         * Rút ngắn cũng phải cảnh báo, không riêng trường hợp mốc mới đã trôi qua.
+         *
+         * Đặt hạn chốt vào quá khứ nay bị chặn, nên nếu chỉ cảnh báo theo `$quaHanSau` thì đúng
+         * thao tác hay gặp nhất - kéo mốc về sát hôm nay - lại chẳng nhắc gì, trong khi nó tước
+         * quyền của khách y hệt, chỉ chậm hơn vài giờ.
+         */
+        if ($quaHanSau || $huong === 'earlier') {
             if ($trongDanhSach > 0) {
                 $canhBao[] = sprintf(
-                    '%d đơn đang trong danh sách đoàn sẽ không sửa được tên hành khách và không '
-                    . 'chuyển sang chuyến khác được nữa.',
+                    'Từ mốc mới trở đi, %d đơn trong danh sách đoàn không sửa được tên hành khách '
+                    . 'và không chuyển sang chuyến khác được nữa.',
                     $trongDanhSach,
                 );
             }
 
-            $canhBao[] = 'Từ giờ khách hủy thì chỗ không quay lại kho.';
+            $canhBao[] = 'Từ mốc mới trở đi, khách hủy thì chỗ không quay lại kho.';
         }
 
         if ($canMoBanTay) {
