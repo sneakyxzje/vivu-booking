@@ -89,7 +89,8 @@ Ba vai trò: **khách hàng**, **hướng dẫn viên**, **điều hành kiêm q
 - Chuyến khởi hành có **vòng đời đầy đủ 6 trạng thái**: mở bán → đóng bán → đã chốt → đang khởi
   hành → đã kết thúc, và đã hủy. Chuyển sai bị từ chối ở tầng dịch vụ.
 - Đặt `min_people`, `booking_deadline`, `max_people` cho từng chuyến.
-- **Dời hạn chốt danh sách** kèm **xem trước tác động** và ghi nhật ký.
+- **Dời hạn chốt danh sách** kèm **xem trước tác động**, bắt buộc ghi lý do, nhật ký bất biến, và
+  **tự động báo cho toàn bộ khách của chuyến** — không có tùy chọn sửa mà không thông báo.
 
 ### Phân công hướng dẫn viên
 

@@ -21,7 +21,7 @@ rồi mọi lập luận về sau đều dựa trên con số không có căn c�
 
 Một người dẫn đoàn 45 khách là quyết định của điều hành. Có thể liều, nhưng là việc của họ.
 
-Cùng nguyên tắc với [16 - Dời hạn chốt danh sách](16-sua-han-chot.md) mục 12: hệ thống hỗ trợ
+Cùng nguyên tắc với [16 - Dời hạn chốt danh sách](16-sua-han-chot.md) mục 13: hệ thống hỗ trợ
 quyết định, không quyết định thay.
 
 Bài `test_khong_ap_nguong_so_khach_tren_moi_huong_dan_vien` giữ điều này khỏi bị thêm vào sau.
