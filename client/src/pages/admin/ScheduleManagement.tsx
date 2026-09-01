@@ -26,9 +26,20 @@ import type {
   ScheduleManifestResponse,
   MergeCandidatesResponse,
 } from "@/services/adminService";
-import type { Tour, Guide, ExtendedSchedule, GuideDecline, GuideSuitability } from "@/types";
+import type {
+  Tour,
+  Guide,
+  ExtendedSchedule,
+  GuideDecline,
+  GuideSuitability,
+} from "@/types";
 import { Toast } from "@/components/admin/CustomAlert";
-import { formatDateTime, formatPrice, getEndDate, toDateTimeLocalValue } from "@/utils/format";
+import {
+  formatDateTime,
+  formatPrice,
+  getEndDate,
+  toDateTimeLocalValue,
+} from "@/utils/format";
 import { statusLabel, statusClasses } from "@/utils/schedule";
 import Pagination from "@/components/common/Pagination";
 import { DateTimePicker } from "@/components/DateTimePicker";
@@ -41,7 +52,8 @@ const conSong = (s: ExtendedSchedule) => {
   return status !== "cancelled" && status !== "completed";
 };
 
-const thieuNguoiDan = (s: ExtendedSchedule) => conSong(s) && (s.guides ?? []).length === 0;
+const thieuNguoiDan = (s: ExtendedSchedule) =>
+  conSong(s) && (s.guides ?? []).length === 0;
 
 const quaHanConMoBan = (s: ExtendedSchedule, bayGio: number) =>
   (s.status || "open") === "open" &&
@@ -62,7 +74,8 @@ const quaHanConMoBan = (s: ExtendedSchedule, bayGio: number) =>
 const thieuKhachToiThieu = (s: ExtendedSchedule, bayGio: number) => {
   if (!conSong(s)) return false;
   if (s.status === "confirmed" || s.status === "in_progress") return false;
-  if (!s.booking_deadline || new Date(s.booking_deadline).getTime() >= bayGio) return false;
+  if (!s.booking_deadline || new Date(s.booking_deadline).getTime() >= bayGio)
+    return false;
 
   return (s.paid_people ?? 0) < (s.min_people || 1);
 };
@@ -86,9 +99,13 @@ export default function ScheduleManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   // State phân công Hướng dẫn viên
-  const [assigningScheduleId, setAssigningScheduleId] = useState<number | null>(null);
+  const [assigningScheduleId, setAssigningScheduleId] = useState<number | null>(
+    null,
+  );
   // Phân công nhiều hướng dẫn viên cho một chuyến, sửa trong hộp thoại riêng.
-  const [guideDialogScheduleId, setGuideDialogScheduleId] = useState<number | null>(null);
+  const [guideDialogScheduleId, setGuideDialogScheduleId] = useState<
+    number | null
+  >(null);
   const [pendingGuideIds, setPendingGuideIds] = useState<number[]>([]);
   // Ai đã từ chối chuyến đang mở hộp thoại, kèm lý do.
   const [declines, setDeclines] = useState<GuideDecline[]>([]);
@@ -96,8 +113,11 @@ export default function ScheduleManagement() {
   const [suitability, setSuitability] = useState<GuideSuitability[]>([]);
 
   // Bàn giao giữa chừng. Tách khỏi phân công vì bắt buộc kèm lý do và tình trạng đoàn.
-  const [handoverScheduleId, setHandoverScheduleId] = useState<number | null>(null);
-  const [handoverPanel, setHandoverPanel] = useState<HandoverPanelResponse | null>(null);
+  const [handoverScheduleId, setHandoverScheduleId] = useState<number | null>(
+    null,
+  );
+  const [handoverPanel, setHandoverPanel] =
+    useState<HandoverPanelResponse | null>(null);
   const [handoverForm, setHandoverForm] = useState({
     from_guide_id: 0,
     to_guide_id: 0,
@@ -114,29 +134,42 @@ export default function ScheduleManagement() {
    * hai chỗ dựng cùng một hộp thoại chọn người thay; sửa luật ở một chỗ mà quên chỗ kia là chuyện
    * sớm muộn.
    */
-  const [handoverRequests, setHandoverRequests] = useState<PendingHandoverRequest[]>([]);
+  const [handoverRequests, setHandoverRequests] = useState<
+    PendingHandoverRequest[]
+  >([]);
 
   // State Hủy chuyến
   // K - Hủy chuyến. Mỗi đơn đã thanh toán phải có một phương án trước khi hủy được.
-  const [cancellingScheduleId, setCancellingScheduleId] = useState<number | null>(null);
+  const [cancellingScheduleId, setCancellingScheduleId] = useState<
+    number | null
+  >(null);
   const [cancelReasonInput, setCancelReasonInput] = useState("");
-  const [cancelPreview, setCancelPreview] = useState<ScheduleCancelPreviewResponse | null>(null);
+  const [cancelPreview, setCancelPreview] =
+    useState<ScheduleCancelPreviewResponse | null>(null);
   const [cancelPreviewLoading, setCancelPreviewLoading] = useState(false);
-  const [cancelPlans, setCancelPlans] = useState<Record<number, CancelPlan>>({});
+  const [cancelPlans, setCancelPlans] = useState<Record<number, CancelPlan>>(
+    {},
+  );
   const [cancelSaving, setCancelSaving] = useState(false);
   const [cancelError, setCancelError] = useState("");
 
   // G05 - Kiểm tra danh sách đoàn trước khi gửi nhà cung cấp
-  const [manifestScheduleId, setManifestScheduleId] = useState<number | null>(null);
+  const [manifestScheduleId, setManifestScheduleId] = useState<number | null>(
+    null,
+  );
   const [dangXuatDanhSach, setDangXuatDanhSach] = useState(false);
-  const [manifest, setManifest] = useState<ScheduleManifestResponse | null>(null);
+  const [manifest, setManifest] = useState<ScheduleManifestResponse | null>(
+    null,
+  );
   const [manifestLoading, setManifestLoading] = useState(false);
   // Nhóm đang mở xem chi tiết. Mở sẵn tất cả thì đoàn đông thành một bức tường chữ.
   const [openGroupIds, setOpenGroupIds] = useState<number[]>([]);
 
   // L03 - Ghép chuyến
   const [mergeScheduleId, setMergeScheduleId] = useState<number | null>(null);
-  const [mergeData, setMergeData] = useState<MergeCandidatesResponse | null>(null);
+  const [mergeData, setMergeData] = useState<MergeCandidatesResponse | null>(
+    null,
+  );
   const [mergeLoading, setMergeLoading] = useState(false);
   const [mergeTargetId, setMergeTargetId] = useState<number | null>(null);
   const [mergeReason, setMergeReason] = useState("");
@@ -144,10 +177,13 @@ export default function ScheduleManagement() {
   const [mergeError, setMergeError] = useState("");
 
   // Dời hạn chốt danh sách. Xem docs/nghiep-vu/16-sua-han-chot.md.
-  const [deadlineScheduleId, setDeadlineScheduleId] = useState<number | null>(null);
+  const [deadlineScheduleId, setDeadlineScheduleId] = useState<number | null>(
+    null,
+  );
   const [deadlineValue, setDeadlineValue] = useState("");
   const [deadlineReason, setDeadlineReason] = useState("");
-  const [deadlineImpact, setDeadlineImpact] = useState<DeadlineImpactResponse | null>(null);
+  const [deadlineImpact, setDeadlineImpact] =
+    useState<DeadlineImpactResponse | null>(null);
   const [deadlineLoading, setDeadlineLoading] = useState(false);
   const [deadlineSaving, setDeadlineSaving] = useState(false);
   const [deadlineError, setDeadlineError] = useState("");
@@ -191,7 +227,7 @@ export default function ScheduleManagement() {
         tour_title: tour.title,
         tour_id: tour.id,
         number_of_days: tour.number_of_days,
-      }))
+      })),
     );
   }, [tours]);
 
@@ -229,7 +265,11 @@ export default function ScheduleManagement() {
     for (const schedule of filteredSchedules) {
       let nhom = theoTour.get(schedule.tour_id);
       if (!nhom) {
-        nhom = { tour_id: schedule.tour_id, tour_title: schedule.tour_title, schedules: [] };
+        nhom = {
+          tour_id: schedule.tour_id,
+          tour_title: schedule.tour_title,
+          schedules: [],
+        };
         theoTour.set(schedule.tour_id, nhom);
       }
       nhom.schedules.push(schedule);
@@ -237,20 +277,26 @@ export default function ScheduleManagement() {
 
     return [...theoTour.values()].map((nhom) => {
       const schedules = [...nhom.schedules].sort(
-        (a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime(),
+        (a, b) =>
+          new Date(a.start_date).getTime() - new Date(b.start_date).getTime(),
       );
 
       /*
        * Đếm theo thứ tự vòng đời chứ không theo thứ tự gặp phải, để dãy nhãn trên mỗi hàng tour
        * luôn đọc cùng một chiều: mở bán → đóng bán → chốt → đang chạy → xong → hủy.
        */
-      const dem = schedules.reduce<Partial<Record<ScheduleStatus, number>>>((tong, s) => {
-        const status = (s.status || "open") as ScheduleStatus;
-        tong[status] = (tong[status] ?? 0) + 1;
-        return tong;
-      }, {});
+      const dem = schedules.reduce<Partial<Record<ScheduleStatus, number>>>(
+        (tong, s) => {
+          const status = (s.status || "open") as ScheduleStatus;
+          tong[status] = (tong[status] ?? 0) + 1;
+          return tong;
+        },
+        {},
+      );
 
-      const demTrangThai = THU_TU_TRANG_THAI.filter((status) => dem[status]).map((status) => ({
+      const demTrangThai = THU_TU_TRANG_THAI.filter(
+        (status) => dem[status],
+      ).map((status) => ({
         status,
         soLuong: dem[status] as number,
       }));
@@ -267,14 +313,19 @@ export default function ScheduleManagement() {
        * dẫn, đã qua hạn chốt danh sách mà vẫn đang mở bán, hoặc **không đủ khách tối thiểu**.
        */
       const canXuLy = schedules.filter(
-        (s) => thieuNguoiDan(s) || quaHanConMoBan(s, bayGio) || thieuKhachToiThieu(s, bayGio),
+        (s) =>
+          thieuNguoiDan(s) ||
+          quaHanConMoBan(s, bayGio) ||
+          thieuKhachToiThieu(s, bayGio),
       ).length;
 
       /*
        * Chuyến thiếu khách tách riêng, vì nó là loại việc khác hẳn: hai cái kia sửa bằng một
        * thao tác, còn cái này buộc phải chọn giữa hủy chuyến và chạy lỗ.
        */
-      const thieuKhach = schedules.filter((s) => thieuKhachToiThieu(s, bayGio)).length;
+      const thieuKhach = schedules.filter((s) =>
+        thieuKhachToiThieu(s, bayGio),
+      ).length;
 
       return { ...nhom, schedules, demTrangThai, sapToi, canXuLy, thieuKhach };
     });
@@ -293,7 +344,9 @@ export default function ScheduleManagement() {
 
   const toggleTour = (tourId: number) =>
     setExpandedTourIds((truoc) =>
-      truoc.includes(tourId) ? truoc.filter((id) => id !== tourId) : [...truoc, tourId],
+      truoc.includes(tourId)
+        ? truoc.filter((id) => id !== tourId)
+        : [...truoc, tourId],
     );
 
   /*
@@ -340,7 +393,12 @@ export default function ScheduleManagement() {
     setHandoverScheduleId(scheduleId);
     setHandoverPanel(null);
     setHandoverError("");
-    setHandoverForm({ from_guide_id: 0, to_guide_id: 0, reason: "", handover_note: "" });
+    setHandoverForm({
+      from_guide_id: 0,
+      to_guide_id: 0,
+      reason: "",
+      handover_note: "",
+    });
 
     try {
       const data = await adminService.getHandoverPanel(scheduleId);
@@ -362,13 +420,17 @@ export default function ScheduleManagement() {
     setHandoverError("");
 
     try {
-      const message = await adminService.handoverGuide(handoverScheduleId, handoverForm);
+      const message = await adminService.handoverGuide(
+        handoverScheduleId,
+        handoverForm,
+      );
 
       setHandoverScheduleId(null);
       setToast({ message, type: "success", isOpen: true });
       loadData();
     } catch (err) {
-      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      const response = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data;
       setHandoverError(response?.message || "Không bàn giao được.");
     } finally {
       setHandoverSaving(false);
@@ -428,17 +490,23 @@ export default function ScheduleManagement() {
              * người là cả đoàn nhìn như chưa ai xác nhận, cho tới lần tải lại trang.
              */
             const truoc = new Map(
-              (item.guides ?? []).map((g) => [g.id, g.pivot?.accepted_at ?? null]),
+              (item.guides ?? []).map((g) => [
+                g.id,
+                g.pivot?.accepted_at ?? null,
+              ]),
             );
 
             return {
               ...item,
               guides: guides
                 .filter((g) => guideIds.includes(g.id))
-                .map((g) => ({ ...g, pivot: { accepted_at: truoc.get(g.id) ?? null } })),
+                .map((g) => ({
+                  ...g,
+                  pivot: { accepted_at: truoc.get(g.id) ?? null },
+                })),
             };
           }),
-        }))
+        })),
       );
 
       setGuideDialogScheduleId(null);
@@ -453,8 +521,8 @@ export default function ScheduleManagement() {
       });
     } catch (error: unknown) {
       const message =
-        (error as { response?: { data?: { message?: string } } }).response?.data?.message ??
-        "Không thể phân công hướng dẫn viên.";
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message ?? "Không thể phân công hướng dẫn viên.";
       setToast({ message, type: "error", isOpen: true });
     } finally {
       setAssigningScheduleId(null);
@@ -467,7 +535,11 @@ export default function ScheduleManagement() {
     reason?: string,
   ) => {
     try {
-      const updatedSchedule = await adminService.updateScheduleStatus(scheduleId, nextStatus, reason);
+      const updatedSchedule = await adminService.updateScheduleStatus(
+        scheduleId,
+        nextStatus,
+        reason,
+      );
 
       if (!updatedSchedule) {
         throw new Error("Missing updated schedule response");
@@ -489,8 +561,8 @@ export default function ScheduleManagement() {
       });
     } catch (error: unknown) {
       const message =
-        (error as { response?: { data?: { message?: string } } }).response?.data?.message ??
-        "Không thể cập nhật trạng thái chuyến khởi hành.";
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message ?? "Không thể cập nhật trạng thái chuyến khởi hành.";
       setToast({ message, type: "error", isOpen: true });
     }
   };
@@ -549,7 +621,11 @@ export default function ScheduleManagement() {
       await adminService.exportScheduleManifest(manifestScheduleId);
     } catch (err) {
       console.error("Lỗi xuất danh sách đoàn:", err);
-      setToast({ isOpen: true, type: "error", message: "Không tạo được tệp danh sách đoàn." });
+      setToast({
+        isOpen: true,
+        type: "error",
+        message: "Không tạo được tệp danh sách đoàn.",
+      });
     } finally {
       setDangXuatDanhSach(false);
     }
@@ -589,7 +665,8 @@ export default function ScheduleManagement() {
   };
 
   const confirmMerge = async () => {
-    if (!mergeScheduleId || !mergeTargetId || mergeReason.trim().length < 10) return;
+    if (!mergeScheduleId || !mergeTargetId || mergeReason.trim().length < 10)
+      return;
 
     setMergeSaving(true);
     setMergeError("");
@@ -605,7 +682,8 @@ export default function ScheduleManagement() {
       setToast({ message, type: "success", isOpen: true });
       loadData();
     } catch (err) {
-      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      const response = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data;
       setMergeError(response?.message || "Không ghép được chuyến.");
     } finally {
       setMergeSaving(false);
@@ -646,7 +724,10 @@ export default function ScheduleManagement() {
       setDeadlineLoading(true);
 
       try {
-        const data = await adminService.getDeadlineImpact(scheduleId, value || null);
+        const data = await adminService.getDeadlineImpact(
+          scheduleId,
+          value || null,
+        );
         if (!daHuy) setDeadlineImpact(data);
       } catch {
         if (!daHuy) setDeadlineImpact(null);
@@ -678,7 +759,8 @@ export default function ScheduleManagement() {
       setToast({ message, type: "success", isOpen: true });
       loadData();
     } catch (err) {
-      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      const response = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data;
       setDeadlineError(response?.message || "Không đổi được hạn chốt.");
     } finally {
       setDeadlineSaving(false);
@@ -710,7 +792,8 @@ export default function ScheduleManagement() {
       setToast({ message, type: "success", isOpen: true });
       loadData();
     } catch (err) {
-      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
+      const response = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data;
       setCancelError(response?.message || "Không hủy được chuyến.");
     } finally {
       setCancelSaving(false);
@@ -726,7 +809,8 @@ export default function ScheduleManagement() {
             Quản lý Chuyến khởi hành
           </h1>
           <p className="text-sm text-gray-500">
-            Quản lý chi tiết vòng đời chuyến đi, theo dõi thời hạn đăng ký, chốt chuyến chạy và hủy chuyến.
+            Quản lý chi tiết vòng đời chuyến đi, theo dõi thời hạn đăng ký, chốt
+            chuyến chạy và hủy chuyến.
           </p>
         </div>
       </div>
@@ -744,11 +828,14 @@ export default function ScheduleManagement() {
         >
           <AlertTriangle className="h-4 w-4 text-amber-700" />
           <span className="font-bold text-amber-900">
-            {handoverRequests.length} yêu cầu bàn giao đang chờ bạn cử người thay
+            {handoverRequests.length} yêu cầu bàn giao đang chờ bạn cử người
+            thay
           </span>
           <span className="text-xs text-amber-800">
             {handoverRequests[0].requester_name}
-            {handoverRequests.length > 1 ? ` và ${handoverRequests.length - 1} người nữa` : ""}
+            {handoverRequests.length > 1
+              ? ` và ${handoverRequests.length - 1} người nữa`
+              : ""}
           </span>
           <span className="ml-auto text-xs font-semibold text-amber-900 underline">
             Xử lý ngay
@@ -834,9 +921,18 @@ export default function ScheduleManagement() {
                 const dangMoNhom = expandedTourIds.includes(nhom.tour_id);
 
                 return (
-                  <tbody key={nhom.tour_id} className="border-b border-gray-100">
+                  <tbody
+                    key={nhom.tour_id}
+                    className="border-b border-gray-100"
+                  >
                     {/* HÀNG TOUR — bấm để mở/đóng các chuyến bên dưới */}
-                    <tr className={dangMoNhom ? "bg-slate-50" : "hover:bg-slate-50/60 transition-colors"}>
+                    <tr
+                      className={
+                        dangMoNhom
+                          ? "bg-slate-50"
+                          : "hover:bg-slate-50/60 transition-colors"
+                      }
+                    >
                       {/*
                         Nút mở/đóng và liên kết sang trang tour là hai phần tử cạnh nhau, không
                         lồng nhau: một thẻ <a> nằm trong <button> là HTML sai và trình duyệt xử lý
@@ -844,71 +940,73 @@ export default function ScheduleManagement() {
                       */}
                       <td colSpan={7} className="p-0">
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-3.5">
-                        <button
-                          type="button"
-                          onClick={() => toggleTour(nhom.tour_id)}
-                          aria-expanded={dangMoNhom}
-                          className="flex flex-1 min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-left cursor-pointer"
-                        >
-                          <ChevronDown
-                            className={`h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 ${dangMoNhom ? "" : "-rotate-90"}`}
-                          />
+                          <button
+                            type="button"
+                            onClick={() => toggleTour(nhom.tour_id)}
+                            aria-expanded={dangMoNhom}
+                            className="flex flex-1 min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-left cursor-pointer"
+                          >
+                            <ChevronDown
+                              className={`h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 ${dangMoNhom ? "" : "-rotate-90"}`}
+                            />
 
-                          <span className="font-bold text-gray-900 text-sm">{nhom.tour_title}</span>
+                            <span className="font-bold text-gray-900 text-sm">
+                              {nhom.tour_title}
+                            </span>
 
-                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
-                            {nhom.schedules.length} chuyến
-                          </span>
+                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
+                              {nhom.schedules.length} chuyến
+                            </span>
 
-                          {/*
+                            {/*
                             Đếm theo trạng thái, dùng lại đúng bảng màu của hàng chuyến bên dưới,
                             để hai tầng không nói hai thứ tiếng.
                           */}
-                          {nhom.demTrangThai.map(({ status, soLuong }) => (
-                            <span
-                              key={status}
-                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusClasses[status]}`}
-                            >
-                              {soLuong} {statusLabel[status].toLowerCase()}
-                            </span>
-                          ))}
+                            {nhom.demTrangThai.map(({ status, soLuong }) => (
+                              <span
+                                key={status}
+                                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusClasses[status]}`}
+                              >
+                                {soLuong} {statusLabel[status].toLowerCase()}
+                              </span>
+                            ))}
 
-                          {nhom.canXuLy > 0 && (
-                            <span
-                              className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800"
-                              title="Chuyến chưa phân công hướng dẫn viên, quá hạn chốt mà vẫn mở bán, hoặc chưa đủ khách tối thiểu"
-                            >
-                              {nhom.canXuLy} cần xử lý
-                            </span>
-                          )}
+                            {nhom.canXuLy > 0 && (
+                              <span
+                                className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800"
+                                title="Chuyến chưa phân công hướng dẫn viên, quá hạn chốt mà vẫn mở bán, hoặc chưa đủ khách tối thiểu"
+                              >
+                                {nhom.canXuLy} cần xử lý
+                              </span>
+                            )}
 
-                          {/*
+                            {/*
                             Thiếu khách tách thành nhãn riêng, màu nặng hơn: hai loại việc kia sửa
                             bằng một thao tác, còn cái này buộc phải chọn giữa hủy chuyến và chạy
                             lỗ — và chọn muộn thì mất luôn quyền hủy.
                           */}
-                          {nhom.thieuKhach > 0 && (
-                            <span
-                              className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-800"
-                              title="Đã qua hạn chốt mà số khách đã thanh toán chưa đạt mức tối thiểu"
-                            >
-                              {nhom.thieuKhach} chưa đủ khách
-                            </span>
-                          )}
-                        </button>
+                            {nhom.thieuKhach > 0 && (
+                              <span
+                                className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-800"
+                                title="Đã qua hạn chốt mà số khách đã thanh toán chưa đạt mức tối thiểu"
+                              >
+                                {nhom.thieuKhach} chưa đủ khách
+                              </span>
+                            )}
+                          </button>
 
-                        <span className="text-xs text-gray-500 whitespace-nowrap">
-                          {nhom.sapToi
-                            ? `Gần nhất: ${formatDateTime(nhom.sapToi.start_date)}`
-                            : "Không còn chuyến sắp tới"}
-                        </span>
+                          <span className="text-xs text-gray-500 whitespace-nowrap">
+                            {nhom.sapToi
+                              ? `Gần nhất: ${formatDateTime(nhom.sapToi.start_date)}`
+                              : "Không còn chuyến sắp tới"}
+                          </span>
 
-                        <Link
-                          to={`/admin/tours/${nhom.tour_id}`}
-                          className="shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-primary-600 hover:bg-primary-50 transition-colors"
-                        >
-                          Xem tour
-                        </Link>
+                          <Link
+                            to={`/admin/tours/${nhom.tour_id}`}
+                            className="shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-primary-600 hover:bg-primary-50 transition-colors"
+                          >
+                            Xem tour
+                          </Link>
                         </div>
                       </td>
                     </tr>
@@ -918,10 +1016,15 @@ export default function ScheduleManagement() {
                         const status = schedule.status || "open";
                         const deadline = schedule.booking_deadline;
                         const minPeople = schedule.min_people || 5;
-                        const isOverdue = deadline ? new Date(deadline) < new Date() : false;
+                        const isOverdue = deadline
+                          ? new Date(deadline) < new Date()
+                          : false;
 
                         return (
-                          <tr key={schedule.id} className="border-t border-gray-100 hover:bg-slate-50/50 transition-colors text-sm text-gray-700">
+                          <tr
+                            key={schedule.id}
+                            className="border-t border-gray-100 hover:bg-slate-50/50 transition-colors text-sm text-gray-700"
+                          >
                             {/* Mã chuyến */}
                             <td className="py-4 px-5 font-bold text-primary-700 font-mono">
                               #{schedule.id}
@@ -936,7 +1039,11 @@ export default function ScheduleManagement() {
                                     {formatDateTime(schedule.start_date)}
                                   </p>
                                   <p className="text-xs text-gray-400 mt-0.5">
-                                    Đến: {getEndDate(schedule.start_date, schedule.number_of_days)}
+                                    Đến:{" "}
+                                    {getEndDate(
+                                      schedule.start_date,
+                                      schedule.number_of_days,
+                                    )}
                                   </p>
                                 </div>
                               </div>
@@ -946,18 +1053,26 @@ export default function ScheduleManagement() {
                             <td className="py-4 px-5 whitespace-nowrap">
                               {deadline ? (
                                 <div className="flex items-center gap-1.5">
-                                  <Clock className={`h-3.5 w-3.5 ${isOverdue && status === "open" ? "text-amber-500 animate-pulse" : "text-gray-400"}`} />
+                                  <Clock
+                                    className={`h-3.5 w-3.5 ${isOverdue && status === "open" ? "text-amber-500 animate-pulse" : "text-gray-400"}`}
+                                  />
                                   <div>
-                                    <p className={`font-semibold ${isOverdue && status === "open" ? "text-amber-600" : "text-gray-955"}`}>
+                                    <p
+                                      className={`font-semibold ${isOverdue && status === "open" ? "text-amber-600" : "text-gray-955"}`}
+                                    >
                                       {formatDateTime(deadline)}
                                     </p>
                                     {isOverdue && status === "open" && (
-                                      <span className="inline-block text-[10px] bg-amber-50 text-amber-700 px-1 py-0.5 rounded font-bold uppercase tracking-wider mt-0.5">Quá hạn</span>
+                                      <span className="inline-block text-[10px] bg-amber-50 text-amber-700 px-1 py-0.5 rounded font-bold uppercase tracking-wider mt-0.5">
+                                        Quá hạn
+                                      </span>
                                     )}
                                   </div>
                                 </div>
                               ) : (
-                                <span className="text-gray-400">Không giới hạn</span>
+                                <span className="text-gray-400">
+                                  Không giới hạn
+                                </span>
                               )}
                             </td>
 
@@ -967,7 +1082,8 @@ export default function ScheduleManagement() {
                                 <Users className="h-3.5 w-3.5 text-gray-400" />
                                 <div>
                                   <p className="font-bold text-gray-900">
-                                    {schedule.booked_people} / {schedule.max_people} khách
+                                    {schedule.booked_people} /{" "}
+                                    {schedule.max_people} khách
                                   </p>
                                   {/*
                                     Số ĐÃ TRẢ TIỀN mới quyết định chuyến có chốt được không. Khi
@@ -976,7 +1092,8 @@ export default function ScheduleManagement() {
                                   */}
                                   {thieuKhachToiThieu(schedule, Date.now()) ? (
                                     <p className="text-xs font-bold text-rose-600 mt-0.5">
-                                      Mới {schedule.paid_people ?? 0}/{minPeople} khách đã trả tiền
+                                      Mới {schedule.paid_people ?? 0}/
+                                      {minPeople} khách đã trả tiền
                                     </p>
                                   ) : (
                                     <p className="text-xs text-gray-400 mt-0.5">
@@ -997,7 +1114,9 @@ export default function ScheduleManagement() {
                             <td className="py-4 px-5">
                               <div className="flex flex-wrap items-center gap-1 min-w-44">
                                 {(schedule.guides ?? []).length === 0 ? (
-                                  <span className="text-xs text-gray-400">Chưa phân công</span>
+                                  <span className="text-xs text-gray-400">
+                                    Chưa phân công
+                                  </span>
                                 ) : (
                                   (schedule.guides ?? []).map((guide) => (
                                     /*
@@ -1030,7 +1149,10 @@ export default function ScheduleManagement() {
 
                                 <button
                                   type="button"
-                                  disabled={status === "cancelled" || status === "completed"}
+                                  disabled={
+                                    status === "cancelled" ||
+                                    status === "completed"
+                                  }
                                   onClick={() => openGuideDialog(schedule)}
                                   className="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 disabled:cursor-not-allowed disabled:text-gray-300 transition-colors"
                                 >
@@ -1043,16 +1165,21 @@ export default function ScheduleManagement() {
                             <td className="py-4 px-5 whitespace-nowrap">
                               <div className="flex flex-col gap-1 items-start">
                                 <span
-                                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusClasses[status] || statusClasses.open
-                                    }`}
+                                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                                    statusClasses[status] || statusClasses.open
+                                  }`}
                                 >
                                   {statusLabel[status]}
                                 </span>
-                                {status === "cancelled" && schedule.cancelled_reason && (
-                                  <span className="text-xs text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 font-medium max-w-40 truncate" title={schedule.cancelled_reason}>
-                                    Lý do: {schedule.cancelled_reason}
-                                  </span>
-                                )}
+                                {status === "cancelled" &&
+                                  schedule.cancelled_reason && (
+                                    <span
+                                      className="text-xs text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 font-medium max-w-40 truncate"
+                                      title={schedule.cancelled_reason}
+                                    >
+                                      Lý do: {schedule.cancelled_reason}
+                                    </span>
+                                  )}
                               </div>
                             </td>
 
@@ -1069,9 +1196,10 @@ export default function ScheduleManagement() {
                             */}
                             <td className="py-4 px-5 text-right whitespace-nowrap">
                               <div className="flex items-center gap-2 justify-end">
-                                {(status === "completed" || status === "cancelled") && (
+                                {(status === "completed" ||
+                                  status === "cancelled") && (
                                   <span className="text-caption-sm text-muted-soft italic">
-                                    Đã kết thúc vòng đời
+                                    Đã hoàn thành
                                   </span>
                                 )}
 
@@ -1084,83 +1212,138 @@ export default function ScheduleManagement() {
                                       chỗ: gửi cho nhà cung cấp được chưa, và nhóm này gồm những ai.
                                     */
                                     ...(status !== "cancelled"
-                                      ? [{
-                                          label: "Danh sách đoàn",
-                                          onClick: () => openManifestCheck(schedule.id),
-                                          icon: <Users className="w-4 h-4" />,
-                                        }]
+                                      ? [
+                                          {
+                                            label: "Danh sách đoàn",
+                                            onClick: () =>
+                                              openManifestCheck(schedule.id),
+                                            icon: <Users className="w-4 h-4" />,
+                                          },
+                                        ]
                                       : []),
 
                                     {
                                       label: "Xem điểm danh",
-                                      onClick: () => navigate(`/admin/tour-schedules/${schedule.id}/attendance`),
-                                      icon: <ClipboardCheck className="w-4 h-4" />,
+                                      onClick: () =>
+                                        navigate(
+                                          `/admin/tour-schedules/${schedule.id}/attendance`,
+                                        ),
+                                      icon: (
+                                        <ClipboardCheck className="w-4 h-4" />
+                                      ),
                                     },
 
                                     ...(status === "open"
-                                      ? [{
-                                          label: "Đóng bán",
-                                          onClick: () => handleUpdateStatus(schedule.id, "closed"),
-                                          icon: <Lock className="w-4 h-4" />,
-                                        }]
+                                      ? [
+                                          {
+                                            label: "Đóng bán",
+                                            onClick: () =>
+                                              handleUpdateStatus(
+                                                schedule.id,
+                                                "closed",
+                                              ),
+                                            icon: <Lock className="w-4 h-4" />,
+                                          },
+                                        ]
                                       : []),
 
                                     ...(status === "closed"
-                                      ? [{
-                                          label: "Mở bán lại",
-                                          onClick: () => handleUpdateStatus(schedule.id, "open"),
-                                          icon: <Unlock className="w-4 h-4" />,
-                                        }]
+                                      ? [
+                                          {
+                                            label: "Mở bán lại",
+                                            onClick: () =>
+                                              handleUpdateStatus(
+                                                schedule.id,
+                                                "open",
+                                              ),
+                                            icon: (
+                                              <Unlock className="w-4 h-4" />
+                                            ),
+                                          },
+                                        ]
                                       : []),
 
                                     /* Dời hạn chốt. Chuyến đã chạy hoặc đã xong thì mốc này hết nghĩa. */
-                                    ...(status === "open" || status === "closed" || status === "confirmed"
-                                      ? [{
-                                          label: "Sửa hạn chốt danh sách",
-                                          onClick: () => openDeadlineDialog(schedule),
-                                          icon: <Clock className="w-4 h-4" />,
-                                        }]
+                                    ...(status === "open" ||
+                                    status === "closed" ||
+                                    status === "confirmed"
+                                      ? [
+                                          {
+                                            label: "Sửa hạn chốt danh sách",
+                                            onClick: () =>
+                                              openDeadlineDialog(schedule),
+                                            icon: <Clock className="w-4 h-4" />,
+                                          },
+                                        ]
                                       : []),
 
                                     ...(status === "open" || status === "closed"
-                                      ? [{
-                                          label: "Chốt chuyến",
-                                          onClick: () => handleUpdateStatus(schedule.id, "confirmed"),
-                                          icon: <CheckCircle2 className="w-4 h-4" />,
-                                          variant: "success" as const,
-                                        }]
+                                      ? [
+                                          {
+                                            label: "Chốt chuyến",
+                                            onClick: () =>
+                                              handleUpdateStatus(
+                                                schedule.id,
+                                                "confirmed",
+                                              ),
+                                            icon: (
+                                              <CheckCircle2 className="w-4 h-4" />
+                                            ),
+                                            variant: "success" as const,
+                                          },
+                                        ]
                                       : []),
 
                                     /* L03 - Ghép chuyến: chỉ có nghĩa khi chưa khởi hành và ít khách. */
-                                    ...(status === "open" || status === "closed" || status === "confirmed"
-                                      ? [{
-                                          label: "Ghép chuyến",
-                                          onClick: () => openMergeDialog(schedule.id),
-                                          icon: <GitMerge className="w-4 h-4" />,
-                                        }]
+                                    ...(status === "open" ||
+                                    status === "closed" ||
+                                    status === "confirmed"
+                                      ? [
+                                          {
+                                            label: "Ghép chuyến",
+                                            onClick: () =>
+                                              openMergeDialog(schedule.id),
+                                            icon: (
+                                              <GitMerge className="w-4 h-4" />
+                                            ),
+                                          },
+                                        ]
                                       : []),
 
                                     /* Bàn giao: chỉ có nghĩa khi đoàn sắp hoặc đã lên đường và đang có
                                        người phụ trách để mà giao. */
-                                    ...((status === "confirmed" || status === "in_progress") &&
+                                    ...((status === "confirmed" ||
+                                      status === "in_progress") &&
                                     (schedule.guides ?? []).length > 0
-                                      ? [{
-                                          label: "Bàn giao hướng dẫn viên",
-                                          onClick: () => openHandoverDialog(schedule.id),
-                                          icon: <RotateCcw className="w-4 h-4" />,
-                                          variant: "warning" as const,
-                                        }]
+                                      ? [
+                                          {
+                                            label: "Bàn giao hướng dẫn viên",
+                                            onClick: () =>
+                                              openHandoverDialog(schedule.id),
+                                            icon: (
+                                              <RotateCcw className="w-4 h-4" />
+                                            ),
+                                            variant: "warning" as const,
+                                          },
+                                        ]
                                       : []),
 
                                     /* Nguy hiểm nằm cuối, TableActions tự chèn đường kẻ tách phía trên. */
-                                    ...(status === "open" || status === "closed" || status === "confirmed"
-                                      ? [{
-                                          label: "Hủy chuyến",
-                                          hint: "Phải gán phương án cho từng đơn đã thu tiền",
-                                          onClick: () => openCancelDialog(schedule.id),
-                                          icon: <AlertTriangle className="w-4 h-4" />,
-                                          variant: "danger" as const,
-                                        }]
+                                    ...(status === "open" ||
+                                    status === "closed" ||
+                                    status === "confirmed"
+                                      ? [
+                                          {
+                                            label: "Hủy chuyến",
+                                            hint: "Phải gán phương án cho từng đơn đã thu tiền",
+                                            onClick: () =>
+                                              openCancelDialog(schedule.id),
+                                            icon: (
+                                              <AlertTriangle className="w-4 h-4" />
+                                            ),
+                                            variant: "danger" as const,
+                                          },
+                                        ]
                                       : []),
                                   ]}
                                 />
@@ -1197,7 +1380,6 @@ export default function ScheduleManagement() {
         </div>
       )}
 
-
       {/* Bàn giao hướng dẫn viên giữa chừng */}
       {handoverScheduleId !== null && (
         <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
@@ -1207,12 +1389,14 @@ export default function ScheduleManagement() {
                 Bàn giao hướng dẫn viên — chuyến #{handoverScheduleId}
               </h4>
               <p className="text-xs text-gray-500 mt-0.5">
-                Người cũ mất quyền ghi ngay khi lưu. Dữ liệu họ đã ghi giữ nguyên, chỉ chuyển
-                quyền ghi tiếp.
+                Người cũ mất quyền ghi ngay khi lưu. Dữ liệu họ đã ghi giữ
+                nguyên, chỉ chuyển quyền ghi tiếp.
               </p>
             </div>
 
-            {!handoverPanel && <p className="text-sm text-gray-500">Đang tải...</p>}
+            {!handoverPanel && (
+              <p className="text-sm text-gray-500">Đang tải...</p>
+            )}
 
             {canNhoTrongHo && (
               <div
@@ -1230,15 +1414,18 @@ export default function ScheduleManagement() {
                 <p className="text-xs mt-0.5">
                   {khongCoAiNhoDuoc ? (
                     <>
-                      Đoàn đang trên đường và không có hướng dẫn viên nào khác đang dẫn đoàn cùng
-                      lúc để nhờ. Hãy bấm <strong>Sửa</strong> ở cột hướng dẫn viên phân công thêm
+                      Đoàn đang trên đường và không có hướng dẫn viên nào khác
+                      đang dẫn đoàn cùng lúc để nhờ. Hãy bấm{" "}
+                      <strong>Sửa</strong> ở cột hướng dẫn viên phân công thêm
                       một người cho chuyến, rồi quay lại đây.
                     </>
                   ) : (
                     <>
-                      Gỡ người dẫn duy nhất ra thì đoàn không có ai cho tới khi người mới tới nơi.
-                      Nên chỉ chọn được người <strong>đang dẫn một đoàn khác</strong> — họ đã ở
-                      ngoài đường. Người đó sẽ tạm giữ hai đoàn, hệ thống đánh dấu để bạn xử lý tiếp.
+                      Gỡ người dẫn duy nhất ra thì đoàn không có ai cho tới khi
+                      người mới tới nơi. Nên chỉ chọn được người{" "}
+                      <strong>đang dẫn một đoàn khác</strong> — họ đã ở ngoài
+                      đường. Người đó sẽ tạm giữ hai đoàn, hệ thống đánh dấu để
+                      bạn xử lý tiếp.
                     </>
                   )}
                 </p>
@@ -1256,11 +1443,16 @@ export default function ScheduleManagement() {
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">Người giao</label>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        Người giao
+                      </label>
                       <select
                         value={handoverForm.from_guide_id}
                         onChange={(e) =>
-                          setHandoverForm((truoc) => ({ ...truoc, from_guide_id: Number(e.target.value) }))
+                          setHandoverForm((truoc) => ({
+                            ...truoc,
+                            from_guide_id: Number(e.target.value),
+                          }))
                         }
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
                       >
@@ -1273,18 +1465,25 @@ export default function ScheduleManagement() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-gray-700 mb-1">Người nhận</label>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                        Người nhận
+                      </label>
                       <select
                         value={handoverForm.to_guide_id}
                         onChange={(e) =>
-                          setHandoverForm((truoc) => ({ ...truoc, to_guide_id: Number(e.target.value) }))
+                          setHandoverForm((truoc) => ({
+                            ...truoc,
+                            to_guide_id: Number(e.target.value),
+                          }))
                         }
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
                       >
                         {nguoiThayChonDuoc.map((g) => (
                           <option key={g.id} value={g.id}>
                             {g.name}
-                            {g.leading_other_group ? " — đang dẫn đoàn khác" : ""}
+                            {g.leading_other_group
+                              ? " — đang dẫn đoàn khác"
+                              : ""}
                           </option>
                         ))}
                       </select>
@@ -1298,7 +1497,12 @@ export default function ScheduleManagement() {
                   </label>
                   <input
                     value={handoverForm.reason}
-                    onChange={(e) => setHandoverForm((truoc) => ({ ...truoc, reason: e.target.value }))}
+                    onChange={(e) =>
+                      setHandoverForm((truoc) => ({
+                        ...truoc,
+                        reason: e.target.value,
+                      }))
+                    }
                     placeholder="VD: Hướng dẫn viên cũ bị sốt cao, phải về sớm..."
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
                   />
@@ -1312,13 +1516,17 @@ export default function ScheduleManagement() {
                     rows={3}
                     value={handoverForm.handover_note}
                     onChange={(e) =>
-                      setHandoverForm((truoc) => ({ ...truoc, handover_note: e.target.value }))
+                      setHandoverForm((truoc) => ({
+                        ...truoc,
+                        handover_note: e.target.value,
+                      }))
                     }
                     placeholder="Đoàn đang ở đâu, đã điểm danh tới chặng nào, khách nào cần để ý, việc gì đang dở..."
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
                   />
                   <p className="mt-1 text-[11px] text-gray-400">
-                    Ít nhất 20 ký tự. Người nhận chỉ có đúng đoạn này để bắt nhịp với đoàn.
+                    Ít nhất 20 ký tự. Người nhận chỉ có đúng đoạn này để bắt
+                    nhịp với đoàn.
                   </p>
                 </div>
 
@@ -1329,7 +1537,10 @@ export default function ScheduleManagement() {
                       Đã bàn giao trước đó
                     </p>
                     {handoverPanel.handovers.map((bg) => (
-                      <div key={bg.id} className="rounded-lg border border-gray-200 p-2.5 text-xs">
+                      <div
+                        key={bg.id}
+                        className="rounded-lg border border-gray-200 p-2.5 text-xs"
+                      >
                         <p className="font-semibold text-gray-900">
                           {bg.from_guide?.name} → {bg.to_guide?.name}
                           <span className="ml-2 font-normal text-gray-500">
@@ -1337,7 +1548,9 @@ export default function ScheduleManagement() {
                           </span>
                         </p>
                         <p className="text-gray-600">{bg.reason}</p>
-                        <p className="mt-0.5 text-gray-500">{bg.handover_note}</p>
+                        <p className="mt-0.5 text-gray-500">
+                          {bg.handover_note}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -1389,8 +1602,8 @@ export default function ScheduleManagement() {
                 Hướng dẫn viên — chuyến #{guideDialogScheduleId}
               </h4>
               <p className="text-xs text-gray-500 mt-0.5">
-                Chọn được nhiều người. Đoàn đông thì cần thêm người dẫn, bao nhiêu là đủ do bạn
-                quyết — hệ thống không tính hộ theo số khách.
+                Chọn được nhiều người. Đoàn đông thì cần thêm người dẫn, bao
+                nhiêu là đủ do bạn quyết — hệ thống không tính hộ theo số khách.
               </p>
               <Link
                 to="/admin/guides"
@@ -1413,7 +1626,9 @@ export default function ScheduleManagement() {
             */}
             <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2">
               {suitability.length === 0 && (
-                <p className="px-1 py-2 text-xs text-gray-500">Đang tải danh sách...</p>
+                <p className="px-1 py-2 text-xs text-gray-500">
+                  Đang tải danh sách...
+                </p>
               )}
 
               {suitability.map((ung) => {
@@ -1445,7 +1660,9 @@ export default function ScheduleManagement() {
 
                     <span className="min-w-0 flex-1 space-y-0.5">
                       <span className="flex flex-wrap items-center gap-1.5">
-                        <span className="font-medium text-gray-800">{ung.name}</span>
+                        <span className="font-medium text-gray-800">
+                          {ung.name}
+                        </span>
 
                         {ung.matches.map((hop) => (
                           <span
@@ -1470,7 +1687,10 @@ export default function ScheduleManagement() {
                       )}
 
                       {ung.warnings.map((canBiet) => (
-                        <span key={canBiet} className="block text-[11px] text-amber-700">
+                        <span
+                          key={canBiet}
+                          className="block text-[11px] text-amber-700"
+                        >
                           {canBiet}
                         </span>
                       ))}
@@ -1499,8 +1719,13 @@ export default function ScheduleManagement() {
                 </p>
                 {declines.map((tc) => (
                   <div key={tc.id} className="text-xs text-rose-900">
-                    <span className="font-semibold">{tc.guide_name ?? "Không rõ"}</span>
-                    <span className="text-rose-700/70"> · {formatDateTime(tc.declined_at)}</span>
+                    <span className="font-semibold">
+                      {tc.guide_name ?? "Không rõ"}
+                    </span>
+                    <span className="text-rose-700/70">
+                      {" "}
+                      · {formatDateTime(tc.declined_at)}
+                    </span>
                     <p className="text-rose-800/90">{tc.reason}</p>
                   </div>
                 ))}
@@ -1508,9 +1733,10 @@ export default function ScheduleManagement() {
             )}
 
             <p className="text-[11px] text-gray-400">
-              Xếp theo mức hợp với tour: chuyên đúng loại hình và quen tuyến lên trước, đang gánh
-              nhiều chuyến thì lùi xuống. Chỉ đúng một thứ thật sự chặn — trùng lịch, vì một người
-              không đứng ở hai đoàn cùng lúc. Phần còn lại chỉ là gợi ý, bạn vẫn quyết.
+              Xếp theo mức hợp với tour: chuyên đúng loại hình và quen tuyến lên
+              trước, đang gánh nhiều chuyến thì lùi xuống. Chỉ đúng một thứ thật
+              sự chặn — trùng lịch, vì một người không đứng ở hai đoàn cùng lúc.
+              Phần còn lại chỉ là gợi ý, bạn vẫn quyết.
             </p>
 
             <div className="flex justify-end gap-2">
@@ -1524,11 +1750,15 @@ export default function ScheduleManagement() {
               </button>
               <button
                 type="button"
-                onClick={() => assignGuides(guideDialogScheduleId, pendingGuideIds)}
+                onClick={() =>
+                  assignGuides(guideDialogScheduleId, pendingGuideIds)
+                }
                 disabled={assigningScheduleId === guideDialogScheduleId}
                 className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40"
               >
-                {assigningScheduleId === guideDialogScheduleId ? "Đang lưu..." : "Lưu phân công"}
+                {assigningScheduleId === guideDialogScheduleId
+                  ? "Đang lưu..."
+                  : "Lưu phân công"}
               </button>
             </div>
           </div>
@@ -1544,13 +1774,16 @@ export default function ScheduleManagement() {
                 Hạn chốt danh sách — chuyến #{deadlineScheduleId}
               </h4>
               <p className="text-xs text-gray-500 mt-0.5">
-                Đây là mốc gửi danh sách khách cho khách sạn và nhà xe. Dời mốc này là dời cùng
-                lúc quyền bán chỗ, sửa tên hành khách, chuyển chuyến và ghép chuyến.
+                Đây là mốc gửi danh sách khách cho khách sạn và nhà xe. Dời mốc
+                này là dời cùng lúc quyền bán chỗ, sửa tên hành khách, chuyển
+                chuyến và ghép chuyến.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Hạn chốt mới</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Hạn chốt mới
+              </label>
               <DateTimePicker
                 withTime
                 value={deadlineValue}
@@ -1562,7 +1795,9 @@ export default function ScheduleManagement() {
               </p>
             </div>
 
-            {deadlineLoading && <p className="text-sm text-gray-500">Đang tính tác động...</p>}
+            {deadlineLoading && (
+              <p className="text-sm text-gray-500">Đang tính tác động...</p>
+            )}
 
             {deadlineImpact && !deadlineImpact.impact.can_change && (
               <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
@@ -1580,7 +1815,10 @@ export default function ScheduleManagement() {
 
                 <ul className="space-y-1.5">
                   {deadlineImpact.impact.warnings.map((dong) => (
-                    <li key={dong} className="text-xs text-amber-900 flex gap-2">
+                    <li
+                      key={dong}
+                      className="text-xs text-amber-900 flex gap-2"
+                    >
                       <span className="text-amber-500 shrink-0">•</span>
                       <span>{dong}</span>
                     </li>
@@ -1590,7 +1828,9 @@ export default function ScheduleManagement() {
             )}
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Lý do dời hạn</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">
+                Lý do dời hạn
+              </label>
               <textarea
                 rows={2}
                 value={deadlineReason}
@@ -1599,7 +1839,8 @@ export default function ScheduleManagement() {
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
               />
               <p className="text-[11px] text-gray-400 mt-1">
-                Không bắt buộc, nhưng có thì nhật ký về sau đọc mới hiểu được vì sao mốc bị dời.
+                Không bắt buộc, nhưng có thì nhật ký về sau đọc mới hiểu được vì
+                sao mốc bị dời.
               </p>
             </div>
 
@@ -1645,20 +1886,28 @@ export default function ScheduleManagement() {
                 Ghép chuyến #{mergeScheduleId} vào chuyến khác
               </h4>
               <p className="text-xs text-gray-500 mt-0.5">
-                Toàn bộ đơn đã thanh toán sẽ chuyển sang chuyến đích, giá giữ nguyên. Chuyến này
-                sau đó chuyển thành đã hủy.
+                Toàn bộ đơn đã thanh toán sẽ chuyển sang chuyến đích, giá giữ
+                nguyên. Chuyến này sau đó chuyển thành đã hủy.
               </p>
             </div>
 
-            {mergeLoading && <p className="text-sm text-gray-500">Đang tìm chuyến phù hợp...</p>}
+            {mergeLoading && (
+              <p className="text-sm text-gray-500">
+                Đang tìm chuyến phù hợp...
+              </p>
+            )}
 
             {mergeData && mergeData.candidates.length === 0 && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-1">
                 <p className="font-semibold">Không có chuyến nào ghép được.</p>
                 <p className="text-xs">
-                  Chuyến đích phải cùng tour, còn đủ chỗ, lệch ngày không quá 2 ngày, và{" "}
-                  <strong>cả hai chuyến đều còn trước hạn chốt danh sách</strong> — vì mục đích của
-                  ghép là gửi một danh sách đúng cho nhà cung cấp, thay vì gửi hai rồi đi vá.
+                  Chuyến đích phải cùng tour, còn đủ chỗ, lệch ngày không quá 2
+                  ngày, và{" "}
+                  <strong>
+                    cả hai chuyến đều còn trước hạn chốt danh sách
+                  </strong>{" "}
+                  — vì mục đích của ghép là gửi một danh sách đúng cho nhà cung
+                  cấp, thay vì gửi hai rồi đi vá.
                 </p>
               </div>
             )}
@@ -1688,10 +1937,12 @@ export default function ScheduleManagement() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-gray-600">
-                      Chuyển {item.transferring} đơn ({item.transferring_guests} khách)
+                      Chuyển {item.transferring} đơn ({item.transferring_guests}{" "}
+                      khách)
                       {item.cancelling > 0 && (
                         <span className="text-amber-800 font-semibold">
-                          {" "}· hủy {item.cancelling} đơn chưa thanh toán
+                          {" "}
+                          · hủy {item.cancelling} đơn chưa thanh toán
                         </span>
                       )}
                     </p>
@@ -1712,7 +1963,8 @@ export default function ScheduleManagement() {
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
               />
               <p className="text-[11px] text-gray-400 mt-1">
-                Khách sẽ đọc được nội dung này khi được thông báo đổi ngày khởi hành.
+                Khách sẽ đọc được nội dung này khi được thông báo đổi ngày khởi
+                hành.
               </p>
             </div>
 
@@ -1734,7 +1986,11 @@ export default function ScheduleManagement() {
               <button
                 type="button"
                 onClick={confirmMerge}
-                disabled={mergeSaving || !mergeTargetId || mergeReason.trim().length < 10}
+                disabled={
+                  mergeSaving ||
+                  !mergeTargetId ||
+                  mergeReason.trim().length < 10
+                }
                 className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40"
               >
                 {mergeSaving ? "Đang ghép..." : "Xác nhận ghép"}
@@ -1753,24 +2009,27 @@ export default function ScheduleManagement() {
                 Danh sách đoàn — chuyến #{manifestScheduleId}
               </h4>
               <p className="text-xs text-gray-500 mt-0.5">
-                Mỗi đơn là một nhóm, thường do một người đứng ra đăng ký cho cả nhà hoặc cả phòng
-                ban. Bấm vào nhóm để xem nhóm đó gồm những ai.
+                Mỗi đơn là một nhóm, thường do một người đứng ra đăng ký cho cả
+                nhà hoặc cả phòng ban. Bấm vào nhóm để xem nhóm đó gồm những ai.
               </p>
             </div>
 
-            {manifestLoading && <p className="text-sm text-gray-500">Đang tải danh sách...</p>}
+            {manifestLoading && (
+              <p className="text-sm text-gray-500">Đang tải danh sách...</p>
+            )}
 
             {manifest && (
               <>
                 {manifest.can_export_manifest ? (
                   <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
-                    {manifest.total_groups} nhóm, {manifest.total_guests} khách, đã khai đủ. Gửi
-                    được cho khách sạn và nhà xe.
+                    {manifest.total_groups} nhóm, {manifest.total_guests} khách,
+                    đã khai đủ. Gửi được cho khách sạn và nhà xe.
                   </div>
                 ) : (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
-                    {manifest.total_groups} nhóm, đã khai {manifest.total_declared} trên{" "}
-                    {manifest.total_guests} khách. Chưa gửi được danh sách đoàn.
+                    {manifest.total_groups} nhóm, đã khai{" "}
+                    {manifest.total_declared} trên {manifest.total_guests}{" "}
+                    khách. Chưa gửi được danh sách đoàn.
                   </div>
                 )}
 
@@ -1787,17 +2046,23 @@ export default function ScheduleManagement() {
                   disabled={dangXuatDanhSach}
                   className="w-full rounded-lg border border-primary-200 bg-primary-50 px-4 py-2.5 text-sm font-bold text-primary-700 hover:bg-primary-100 disabled:opacity-50 transition-colors"
                 >
-                  {dangXuatDanhSach ? "Đang tạo tệp..." : "Tải danh sách đoàn (Excel)"}
+                  {dangXuatDanhSach
+                    ? "Đang tạo tệp..."
+                    : "Tải danh sách đoàn (Excel)"}
                 </button>
 
                 {manifest.groups.length === 0 && (
-                  <p className="text-sm text-gray-500">Chuyến này chưa có đơn nào.</p>
+                  <p className="text-sm text-gray-500">
+                    Chuyến này chưa có đơn nào.
+                  </p>
                 )}
 
                 <div className="space-y-2">
                   {manifest.groups.map((nhom) => {
                     const dangMo = openGroupIds.includes(nhom.booking_id);
-                    const nguoiLienHe = nhom.passengers.find((khach) => khach.is_contact);
+                    const nguoiLienHe = nhom.passengers.find(
+                      (khach) => khach.is_contact,
+                    );
 
                     return (
                       <div
@@ -1816,18 +2081,26 @@ export default function ScheduleManagement() {
                             <span className="flex items-center gap-2">
                               <span
                                 className={`font-mono ${
-                                  nhom.missing > 0 ? "text-amber-700 font-bold" : "text-gray-500"
+                                  nhom.missing > 0
+                                    ? "text-amber-700 font-bold"
+                                    : "text-gray-500"
                                 }`}
                               >
                                 {nhom.declared}/{nhom.guests} người
                               </span>
-                              <span className="text-gray-400">{dangMo ? "▾" : "▸"}</span>
+                              <span className="text-gray-400">
+                                {dangMo ? "▾" : "▸"}
+                              </span>
                             </span>
                           </div>
 
                           <p className="mt-0.5 flex flex-wrap gap-x-3 text-gray-500">
-                            {nhom.customer_phone && <span>{nhom.customer_phone}</span>}
-                            {nguoiLienHe && <span>Liên hệ đoàn: {nguoiLienHe.name}</span>}
+                            {nhom.customer_phone && (
+                              <span>{nhom.customer_phone}</span>
+                            )}
+                            {nguoiLienHe && (
+                              <span>Liên hệ đoàn: {nguoiLienHe.name}</span>
+                            )}
                           </p>
 
                           {nhom.warnings.map((warning) => (
@@ -1847,15 +2120,24 @@ export default function ScheduleManagement() {
                               <table className="w-full text-xs">
                                 <thead>
                                   <tr className="text-left text-gray-500">
-                                    <th className="pb-1 font-semibold">Họ tên</th>
+                                    <th className="pb-1 font-semibold">
+                                      Họ tên
+                                    </th>
                                     <th className="pb-1 font-semibold">Loại</th>
-                                    <th className="pb-1 font-semibold">Ngày sinh</th>
-                                    <th className="pb-1 font-semibold">Giấy tờ</th>
+                                    <th className="pb-1 font-semibold">
+                                      Ngày sinh
+                                    </th>
+                                    <th className="pb-1 font-semibold">
+                                      Giấy tờ
+                                    </th>
                                   </tr>
                                 </thead>
                                 <tbody className="align-top">
                                   {nhom.passengers.map((khach) => (
-                                    <tr key={khach.id} className="border-t border-gray-200">
+                                    <tr
+                                      key={khach.id}
+                                      className="border-t border-gray-200"
+                                    >
                                       <td className="py-1.5 pr-2 font-semibold text-gray-900">
                                         {khach.name}
                                         {khach.is_contact && (
@@ -1928,13 +2210,16 @@ export default function ScheduleManagement() {
                   Hủy chuyến #{cancellingScheduleId}
                 </h4>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Lỗi không thuộc về khách, nên mỗi đơn đã thanh toán phải được hoàn đủ 100% hoặc
-                  chuyển miễn phí sang chuyến khác. Không áp bảng phí hủy.
+                  Lỗi không thuộc về khách, nên mỗi đơn đã thanh toán phải được
+                  hoàn đủ 100% hoặc chuyển miễn phí sang chuyến khác. Không áp
+                  bảng phí hủy.
                 </p>
               </div>
             </div>
 
-            {cancelPreviewLoading && <p className="text-sm text-gray-500">Đang tính tác động...</p>}
+            {cancelPreviewLoading && (
+              <p className="text-sm text-gray-500">Đang tính tác động...</p>
+            )}
 
             {cancelPreview && !cancelPreview.impact.can_cancel && (
               <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
@@ -1946,15 +2231,24 @@ export default function ScheduleManagement() {
               <>
                 <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-1">
                   <p>
-                    <strong>{cancelPreview.impact.total_paid_bookings} đơn đã thanh toán</strong>{" "}
-                    ({cancelPreview.impact.total_paid_guests} khách), tổng đã thu{" "}
-                    <strong>{formatPrice(cancelPreview.impact.total_refund_if_all_refunded)}</strong>.
+                    <strong>
+                      {cancelPreview.impact.total_paid_bookings} đơn đã thanh
+                      toán
+                    </strong>{" "}
+                    ({cancelPreview.impact.total_paid_guests} khách), tổng đã
+                    thu{" "}
+                    <strong>
+                      {formatPrice(
+                        cancelPreview.impact.total_refund_if_all_refunded,
+                      )}
+                    </strong>
+                    .
                   </p>
                   {cancelPreview.impact.unpaid_bookings > 0 && (
                     <p className="text-xs">
-                      Ngoài ra {cancelPreview.impact.unpaid_bookings} đơn chưa thanh toán (
-                      {cancelPreview.impact.unpaid_guests} khách) sẽ được hủy tự động, không cần
-                      chọn phương án.
+                      Ngoài ra {cancelPreview.impact.unpaid_bookings} đơn chưa
+                      thanh toán ({cancelPreview.impact.unpaid_guests} khách) sẽ
+                      được hủy tự động, không cần chọn phương án.
                     </p>
                   )}
                 </div>
@@ -1982,7 +2276,8 @@ export default function ScheduleManagement() {
                               BK-{don.booking_id} · {don.customer_name}
                             </span>
                             <span className="text-gray-500">
-                              {don.guests} khách · đã thu {formatPrice(don.paid_amount)}
+                              {don.guests} khách · đã thu{" "}
+                              {formatPrice(don.paid_amount)}
                             </span>
                           </div>
 
@@ -2008,7 +2303,10 @@ export default function ScheduleManagement() {
                             <label className="flex cursor-pointer items-center gap-1.5">
                               <input
                                 type="radio"
-                                disabled={cancelPreview.impact.transfer_options.length === 0}
+                                disabled={
+                                  cancelPreview.impact.transfer_options
+                                    .length === 0
+                                }
                                 checked={plan?.action === "transfer"}
                                 onChange={() =>
                                   setCancelPlans((truoc) => ({
@@ -2017,7 +2315,8 @@ export default function ScheduleManagement() {
                                       booking_id: don.booking_id,
                                       action: "transfer",
                                       to_schedule_id:
-                                        cancelPreview.impact.transfer_options[0]?.schedule_id ?? null,
+                                        cancelPreview.impact.transfer_options[0]
+                                          ?.schedule_id ?? null,
                                     },
                                   }))
                                 }
@@ -2040,19 +2339,27 @@ export default function ScheduleManagement() {
                                 }
                                 className="rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-primary-400"
                               >
-                                {cancelPreview.impact.transfer_options.map((item) => (
-                                  <option key={item.schedule_id} value={item.schedule_id}>
-                                    #{item.schedule_id} · {formatDateTime(item.start_date)} · còn{" "}
-                                    {item.remaining_seats} chỗ
-                                  </option>
-                                ))}
+                                {cancelPreview.impact.transfer_options.map(
+                                  (item) => (
+                                    <option
+                                      key={item.schedule_id}
+                                      value={item.schedule_id}
+                                    >
+                                      #{item.schedule_id} ·{" "}
+                                      {formatDateTime(item.start_date)} · còn{" "}
+                                      {item.remaining_seats} chỗ
+                                    </option>
+                                  ),
+                                )}
                               </select>
                             )}
                           </div>
 
-                          {cancelPreview.impact.transfer_options.length === 0 && (
+                          {cancelPreview.impact.transfer_options.length ===
+                            0 && (
                             <p className="text-[11px] text-gray-400">
-                              Không có chuyến nào nhận được khách, nên chỉ còn cách hoàn tiền.
+                              Không có chuyến nào nhận được khách, nên chỉ còn
+                              cách hoàn tiền.
                             </p>
                           )}
                         </div>

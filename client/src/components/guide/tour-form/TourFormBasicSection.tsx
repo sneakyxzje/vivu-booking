@@ -22,7 +22,9 @@ interface Props {
   endLocation: string;
   vehicleInfo: string;
   pickupLocation: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onChange: (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
   /** Đặt thẳng một trường, cho các nút gợi ý không đi qua sự kiện của ô nhập. */
   onSet: (name: string, value: string) => void;
 }
@@ -68,7 +70,16 @@ const OTien: React.FC<{
   labelClass: string;
   fieldClass: string;
   onChange: Props["onChange"];
-}> = ({ nhan, ten, giaTri, goiY, batBuoc, labelClass, fieldClass, onChange }) => (
+}> = ({
+  nhan,
+  ten,
+  giaTri,
+  goiY,
+  batBuoc,
+  labelClass,
+  fieldClass,
+  onChange,
+}) => (
   <div>
     <label className={labelClass}>
       {nhan} {batBuoc && <span className="text-red-500">*</span>}
@@ -114,13 +125,14 @@ export const TourFormBasicSection: React.FC<Props> = ({
 }) => {
   const soNgay = Number(numberOfDays);
   const soDem = Number(numberOfNights);
-  const demSai = Number.isFinite(soNgay) && Number.isFinite(soDem) && soDem > soNgay;
+  const demSai =
+    Number.isFinite(soNgay) && Number.isFinite(soDem) && soDem > soNgay;
 
   return (
     <div className="space-y-5">
       <Nhom
-        tieuDe="Tour này là gì"
-        moTa="Tên và phần mô tả khách đọc đầu tiên khi tìm thấy tour."
+        tieuDe="Thông tin"
+        moTa="Tên và phần mô tả"
         icon={<Tag className="h-4 w-4" />}
       >
         <div className="space-y-4">
@@ -138,7 +150,8 @@ export const TourFormBasicSection: React.FC<Props> = ({
               className={fieldClass}
             />
             <p className="mt-1 text-[11px] text-gray-400">
-              Nêu điểm đến và thời lượng ngay trong tên — đó là hai thứ khách lọc trước tiên.
+              Nêu điểm đến và thời lượng ngay trong tên — đó là hai thứ khách
+              lọc trước tiên.
             </p>
           </div>
 
@@ -199,7 +212,9 @@ export const TourFormBasicSection: React.FC<Props> = ({
                 soDem !== soNgay - 1 && (
                   <button
                     type="button"
-                    onClick={() => onSet("number_of_nights", String(soNgay - 1))}
+                    onClick={() =>
+                      onSet("number_of_nights", String(soNgay - 1))
+                    }
                     className="mt-1 text-[11px] font-semibold text-primary-600 hover:underline"
                   >
                     Dùng {soNgay}N{soNgay - 1}Đ như thường lệ
@@ -301,7 +316,9 @@ export const TourFormBasicSection: React.FC<Props> = ({
         {Number(adultPrice) > 0 && !childPrice && (
           <button
             type="button"
-            onClick={() => onSet("child_price", String(Math.round(Number(adultPrice) * 0.7)))}
+            onClick={() =>
+              onSet("child_price", String(Math.round(Number(adultPrice) * 0.7)))
+            }
             className="mt-1 text-xs font-semibold text-primary-600 hover:underline"
           >
             Điền giá trẻ em bằng 70% giá người lớn

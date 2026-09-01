@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, Filter, Coins, RotateCcw, Server, User } from "lucide-react";
+import {
+  CalendarDays,
+  Filter,
+  Coins,
+  RotateCcw,
+  Server,
+  User,
+} from "lucide-react";
 import adminService from "@/services/adminService";
 import type { AuditLogEntry, AuditLogResponse } from "@/services/adminService";
 import { formatDateTime, formatPrice } from "@/utils/format";
@@ -66,7 +73,8 @@ const hienGiaTri = (khoa: string, giaTri: unknown): string => {
   if (khoa === "status" && typeof giaTri === "string") {
     return nhanTrangThai[giaTri] ?? giaTri;
   }
-  if (khoa === "initiated_by") return giaTri === "company" ? "Công ty" : "Khách";
+  if (khoa === "initiated_by")
+    return giaTri === "company" ? "Công ty" : "Khách";
 
   if (Array.isArray(giaTri)) return giaTri.join(", ");
   if (typeof giaTri === "object") return JSON.stringify(giaTri);
@@ -158,10 +166,13 @@ export default function AuditLogManagement() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Nhật ký hệ thống</h1>
+        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+          Nhật ký hệ thống
+        </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Mọi can thiệp vào đơn hàng và vào chuyến khởi hành: ai làm, lúc nào, giá trị trước và
-          sau, vì sao. Dữ liệu chỉ ghi thêm, không sửa và không xóa.
+          Mọi can thiệp vào đơn hàng và vào chuyến khởi hành: ai làm, lúc nào,
+          giá trị trước và sau, vì sao. Dữ liệu chỉ ghi thêm, không sửa và không
+          xóa.
         </p>
       </div>
 
@@ -169,7 +180,9 @@ export default function AuditLogManagement() {
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">Nguồn</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              Nguồn
+            </label>
             <select
               value={scope}
               onChange={(e) => setScope(e.target.value as typeof scope)}
@@ -182,7 +195,9 @@ export default function AuditLogManagement() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">Thao tác</label>
+            <label className="block text-xs font-bold text-gray-700 mb-1">
+              Thao tác
+            </label>
             <select
               value={action}
               onChange={(e) => setAction(e.target.value)}
@@ -242,15 +257,18 @@ export default function AuditLogManagement() {
         {moneyOnly && (
           <p className="text-[11px] text-amber-700 flex items-center gap-1.5">
             <Filter className="h-3 w-3" />
-            Đang lọc hủy đơn, duyệt hoàn, mở lại đơn và chuyển chuyến. Nhật ký chuyến không hiện ở
-            đây vì dời hạn chốt không làm đổi tiền của đơn nào.
+            Đang lọc hủy đơn, duyệt hoàn, mở lại đơn và chuyển chuyến. Nhật ký
+            chuyến không hiện ở đây vì dời hạn chốt không làm đổi tiền của đơn
+            nào.
           </p>
         )}
       </div>
 
       {/* DÒNG THỜI GIAN */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-100">
-        {loading && <p className="p-6 text-sm text-gray-500">Đang tải nhật ký...</p>}
+        {loading && (
+          <p className="p-6 text-sm text-gray-500">Đang tải nhật ký...</p>
+        )}
 
         {!loading && data?.data.length === 0 && (
           <p className="p-6 text-sm text-gray-500">
@@ -263,7 +281,10 @@ export default function AuditLogManagement() {
             const thayDoi = ghepCapThayDoi(entry);
 
             return (
-              <div key={entry.id} className="p-4 hover:bg-gray-50/60 transition-colors">
+              <div
+                key={entry.id}
+                className="p-4 hover:bg-gray-50/60 transition-colors"
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
@@ -280,12 +301,14 @@ export default function AuditLogManagement() {
                     {entry.subject_label}
                   </span>
 
-                  <span className="text-sm font-bold text-gray-900">{entry.action_label}</span>
+                  <span className="text-sm font-bold text-gray-900">
+                    {entry.action_label}
+                  </span>
 
                   {entry.touches_money && (
                     <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
                       <Coins className="h-3 w-3" />
-                      Chạm tiền
+                      Tiền
                     </span>
                   )}
 
