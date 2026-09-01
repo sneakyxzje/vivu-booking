@@ -1,9 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import type { Booking, BookingLedger } from "@/types";
 import adminService from "@/services/adminService";
 import type {
   BookingAuditEntry,
   BookingContractInfo,
+  BookingListSummary,
   CancelPreview,
   ContactLog,
   TransferOption,
@@ -24,6 +25,28 @@ const METHOD_LABEL: Record<string, string> = {
   gateway: "Cổng thanh toán",
 };
 
+/*
+ * Năm trạng thái mà luồng hiện tại sinh ra được, khớp với `BookingStatus::liveValues()`.
+ *
+ * Trước đây bảng chỉ vẽ ba trạng thái đầu, nên đơn của mọi chuyến đã đi xong hiện ra một cái nhãn
+ * màu vàng rỗng không chữ — trông như dữ liệu hỏng, trong khi đơn hoàn toàn bình thường.
+ */
+const NHAN_TRANG_THAI: Record<string, string> = {
+  pending: "Chờ xác nhận",
+  confirmed: "Đã xác nhận",
+  cancelled: "Đã hủy",
+  completed: "Đã hoàn thành",
+  no_show: "Không có mặt",
+};
+
+const MAU_TRANG_THAI: Record<string, string> = {
+  pending: "bg-amber-50 text-amber-700 border-amber-200",
+  confirmed: "bg-blue-50 text-blue-700 border-blue-200",
+  cancelled: "bg-rose-50 text-rose-700 border-rose-200",
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  no_show: "bg-slate-100 text-slate-600 border-slate-300",
+};
+
 export default function BookingManagement() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,9 +55,17 @@ export default function BookingManagement() {
   const [totalBookingsCount, setTotalBookingsCount] = useState(0);
 
   const [search, setSearch] = useState("");
+  /**
+   * Từ khóa đã ngừng gõ — đây mới là thứ gửi lên máy chủ.
+   *
+   * Tách khỏi `search` vì mỗi ký tự gõ vào là một lượt gọi mạng nếu không đợi. Ô nhập vẫn phản hồi
+   * tức thì theo `search`, chỉ có truy vấn là chậm lại một nhịp.
+   */
+  const [tuKhoaTim, setTuKhoaTim] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("latest");
+  const [summary, setSummary] = useState<BookingListSummary | null>(null);
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -106,85 +137,99 @@ export default function BookingManagement() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
 
-  // Fetch dữ liệu từ Backend API (Có phân trang)
+  /*
+   * Đợi người dùng gõ xong rồi mới hỏi máy chủ.
+   *
+   * 350ms là khoảng giữa hai phím của người gõ bình thường: ngắn hơn thì mỗi ký tự một truy vấn,
+   * dài hơn thì cảm giác như màn hình bị treo.
+   */
   useEffect(() => {
-    const fetchBookings = async () => {
+    const hen = setTimeout(() => {
+      setTuKhoaTim(search.trim());
+      // Đổi từ khóa thì kết quả là một danh sách khác hẳn; đứng lại ở trang 5 của danh sách cũ chỉ
+      // ra một trang trống.
+      setCurrentPage(1);
+    }, 350);
+
+    return () => clearTimeout(hen);
+  }, [search]);
+
+  /*
+   * Danh sách lấy từ máy chủ, kèm nguyên bộ lọc.
+   *
+   * Mọi tham số đều phải đi cùng nhau mỗi lần gọi, kể cả khi người dùng chỉ bấm sang trang khác:
+   * trang 2 của "đơn đã hủy, giá giảm dần" không phải trang 2 của danh sách mặc định.
+   */
+  useEffect(() => {
+    let daHuy = false;
+
+    const tai = async () => {
       setLoading(true);
       try {
-        const res = await adminService.getBookings(currentPage);
+        const res = await adminService.getBookings({
+          page: currentPage,
+          q: tuKhoaTim,
+          status: statusFilter,
+          payment: paymentFilter,
+          sort: sortBy,
+        });
+
+        // Người dùng đã gõ tiếp trong lúc chờ: kết quả này đã cũ, bỏ đi. Không có chốt này thì hai
+        // lượt gọi về không đúng thứ tự sẽ dán kết quả của từ khóa cũ đè lên từ khóa mới.
+        if (daHuy) return;
+
         if (res) {
           setBookings(res.data || []);
           setTotalPages(res.last_page || 1);
           setTotalBookingsCount(res.total || 0);
+          setSummary(res.summary ?? null);
         }
       } catch (err) {
-        console.error("Lỗi lấy danh sách đơn đặt: ", err);
+        if (!daHuy) console.error("Lỗi lấy danh sách đơn đặt: ", err);
       } finally {
-        setLoading(false);
+        if (!daHuy) setLoading(false);
       }
     };
-    fetchBookings();
-  }, [currentPage]);
 
-  // Tính toán số liệu thống kê nhanh trên trang hiện tại
-  const stats = useMemo(() => {
-    const total = totalBookingsCount;
-    const pending = bookings.filter((b) => b.status === "pending").length;
-    const confirmed = bookings.filter((b) => b.status === "confirmed").length;
-    const cancelled = bookings.filter((b) => b.status === "cancelled").length;
-    const paid = bookings.filter((b) => b.vnpay_transaction_no !== null).length;
-    // Doanh thu = tổng giá trị các đơn đã xác nhận (thống nhất với dashboard admin & guide)
-    const revenue = bookings
-      .filter((b) => b.status === "confirmed")
-      .reduce((sum, b) => sum + Number(b.total_amount), 0);
+    tai();
 
-    return { total, pending, confirmed, cancelled, paid, revenue };
-  }, [bookings, totalBookingsCount]);
+    return () => {
+      daHuy = true;
+    };
+  }, [currentPage, tuKhoaTim, statusFilter, paymentFilter, sortBy]);
 
-  // Bộ lọc và tìm kiếm trên danh sách hiện tại
-  const filteredBookings = useMemo(() => {
-    let result = [...bookings];
+  /** Đổi bộ lọc thì luôn quay về trang 1, vì số trang của danh sách mới khác hẳn. */
+  const doiBoLoc = (dat: () => void) => {
+    dat();
+    setCurrentPage(1);
+  };
 
-    // Tìm kiếm
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (b) =>
-          `BK-${b.id}`.toLowerCase().includes(q) ||
-          b.customer_name.toLowerCase().includes(q) ||
-          b.customer_email.toLowerCase().includes(q) ||
-          (b.customer_phone && b.customer_phone.includes(q)) ||
-          (b.tour && b.tour.title.toLowerCase().includes(q))
-      );
-    }
+  const xoaBoLoc = () => {
+    setSearch("");
+    setTuKhoaTim("");
+    setStatusFilter("all");
+    setPaymentFilter("all");
+    setSortBy("latest");
+    setCurrentPage(1);
+  };
 
-    // Lọc theo trạng thái đặt
-    if (statusFilter !== "all") {
-      result = result.filter((b) => b.status === statusFilter);
-    }
+  /*
+   * Số liệu do máy chủ tính trên toàn bộ bộ lọc.
+   *
+   * Trước đây phần này đếm trên mười dòng của trang đang xem, và nhãn trên ô ghi thẳng "(Trang
+   * này)" — màn hình biết mình đang nói một con số vô nghĩa và chọn cách chú thích thay vì sửa.
+   */
+  const stats = summary ?? {
+    total: totalBookingsCount,
+    pending: 0,
+    confirmed: 0,
+    cancelled: 0,
+    paid: 0,
+    revenue: 0,
+  };
 
-    // Lọc theo trạng thái thanh toán
-    if (paymentFilter !== "all") {
-      if (paymentFilter === "paid") {
-        result = result.filter((b) => b.vnpay_transaction_no !== null);
-      } else {
-        result = result.filter((b) => b.vnpay_transaction_no === null);
-      }
-    }
-
-    // Sắp xếp
-    if (sortBy === "latest") {
-      result.sort((a, b) => b.id - a.id);
-    } else if (sortBy === "oldest") {
-      result.sort((a, b) => a.id - b.id);
-    } else if (sortBy === "amount-desc") {
-      result.sort((a, b) => Number(b.total_amount) - Number(a.total_amount));
-    } else if (sortBy === "amount-asc") {
-      result.sort((a, b) => Number(a.total_amount) - Number(b.total_amount));
-    }
-
-    return result;
-  }, [bookings, search, statusFilter, paymentFilter, sortBy]);
+  const dangLoc =
+    tuKhoaTim !== "" || statusFilter !== "all" || paymentFilter !== "all";
 
   // Xem chi tiết đơn hàng (Gọi API chi tiết để lấy thông tin sâu hơn như payment log)
   const openDetails = async (booking: Booking) => {
@@ -594,7 +639,9 @@ export default function BookingManagement() {
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Tổng Đơn Đặt (Tất cả)</p>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              {dangLoc ? "Đơn khớp bộ lọc" : "Tổng đơn đặt"}
+            </p>
             <h3 className="text-xl font-bold text-gray-900 mt-1">{stats.total} đơn</h3>
           </div>
         </div>
@@ -611,7 +658,7 @@ export default function BookingManagement() {
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Chờ xác nhận (Trang này)</p>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Chờ xác nhận</p>
             <h3 className="text-xl font-bold text-gray-900 mt-1">{stats.pending} đơn</h3>
           </div>
         </div>
@@ -629,7 +676,7 @@ export default function BookingManagement() {
             </svg>
           </div>
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Đơn đã hủy (Trang này)</p>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Đơn đã hủy</p>
             <h3 className="text-xl font-bold text-gray-900 mt-1">{stats.cancelled} đơn</h3>
           </div>
         </div>
@@ -652,7 +699,7 @@ export default function BookingManagement() {
             </span>
             <input
               type="text"
-              placeholder="Tìm mã đơn, tên khách hàng, số điện thoại, tour..."
+              placeholder="Tìm mã đơn (BK-19), tên khách, email, số điện thoại, tên tour..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50"
@@ -663,13 +710,17 @@ export default function BookingManagement() {
           <div className="md:col-span-2">
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => doiBoLoc(() => setStatusFilter(e.target.value))}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white cursor-pointer"
             >
               <option value="all">Tất cả trạng thái duyệt</option>
               <option value="pending">Chờ xác nhận</option>
               <option value="confirmed">Đã xác nhận</option>
               <option value="cancelled">Đã hủy</option>
+              {/* Hai trạng thái sau chuyến. Thiếu chúng thì lọc kiểu gì cũng không ra đơn của các
+                  chuyến đã đi xong, mà đó lại là phần lớn dữ liệu của một công ty chạy lâu năm. */}
+              <option value="completed">Đã hoàn thành</option>
+              <option value="no_show">Khách không có mặt</option>
             </select>
           </div>
 
@@ -677,11 +728,11 @@ export default function BookingManagement() {
           <div className="md:col-span-2.5">
             <select
               value={paymentFilter}
-              onChange={(e) => setPaymentFilter(e.target.value)}
+              onChange={(e) => doiBoLoc(() => setPaymentFilter(e.target.value))}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white cursor-pointer"
             >
               <option value="all">Tất cả thanh toán</option>
-              <option value="paid">Đã thanh toán (Qua VNPAY)</option>
+              <option value="paid">Đã thanh toán</option>
               <option value="unpaid">Chưa thanh toán</option>
             </select>
           </div>
@@ -690,31 +741,43 @@ export default function BookingManagement() {
           <div className="md:col-span-2">
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
+              onChange={(e) => doiBoLoc(() => setSortBy(e.target.value))}
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white cursor-pointer"
             >
               <option value="latest">Mới nhất trước</option>
               <option value="oldest">Cũ nhất trước</option>
               <option value="amount-desc">Tổng giá giảm dần</option>
               <option value="amount-asc">Tổng giá tăng dần</option>
+              {/* Câu hỏi thường trực của điều hành: đoàn nào sắp đi. */}
+              <option value="departure-asc">Ngày khởi hành gần nhất</option>
+              <option value="departure-desc">Ngày khởi hành xa nhất</option>
             </select>
           </div>
 
           {/* Xóa lọc nhanh */}
           <div className="md:col-span-1.5 flex">
             <button
-              onClick={() => {
-                setSearch("");
-                setStatusFilter("all");
-                setPaymentFilter("all");
-                setSortBy("latest");
-              }}
+              onClick={xoaBoLoc}
               className="w-full py-2 text-sm text-gray-500 hover:text-primary-600 bg-gray-50 border border-gray-100 rounded-md font-medium hover:bg-primary-50 transition-colors cursor-pointer"
             >
               Xóa bộ lọc
             </button>
           </div>
         </div>
+
+        {/* Nói rõ đang xem tập nào: người lọc xong hay quên mất là mình đang lọc. */}
+        {dangLoc && (
+          <p className="text-xs text-gray-500">
+            Đang lọc — <span className="font-semibold text-gray-700">{totalBookingsCount} đơn</span> khớp
+            {tuKhoaTim && (
+              <>
+                {" "}
+                với từ khóa <span className="font-semibold text-gray-700">"{tuKhoaTim}"</span>
+              </>
+            )}
+            . Mọi con số ở trên tính theo đúng bộ lọc này.
+          </p>
+        )}
       </div>
 
       {/* DATA TABLE */}
@@ -739,15 +802,19 @@ export default function BookingManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 text-sm">
-                {filteredBookings.length === 0 ? (
+                {bookings.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="p-12 text-center text-gray-400">
-                      Không tìm thấy đơn đặt hàng nào phù hợp với bộ lọc.
+                      {dangLoc
+                        ? "Không có đơn nào khớp bộ lọc. Thử xóa bớt điều kiện."
+                        : "Chưa có đơn đặt tour nào."}
                     </td>
                   </tr>
                 ) : (
-                  filteredBookings.map((booking) => {
-                    const isPaid = booking.vnpay_transaction_no !== null;
+                  bookings.map((booking) => {
+                    // Đã thu tiền hay chưa đọc `paid_at`, không đọc mã cổng thanh toán: khách
+                    // chuyển khoản rồi điều hành ghi nhận tay cũng là đã trả tiền.
+                    const isPaid = booking.paid_at !== null;
                     return (
                       <tr key={booking.id} className="hover:bg-gray-50/50 transition-colors">
                         {/* Mã đơn */}
@@ -808,23 +875,21 @@ export default function BookingManagement() {
                               }`}
                           >
                             <span className={`w-1.5 h-1.5 rounded-full ${isPaid ? "bg-emerald-500" : "bg-gray-400"}`}></span>
-                            {isPaid ? "Đã trả qua VNPAY" : "Chưa thanh toán"}
+                            {isPaid
+                              ? booking.vnpay_transaction_no
+                                ? "Đã trả qua VNPAY"
+                                : "Đã trả, ghi nhận tay"
+                              : "Chưa thanh toán"}
                           </span>
                         </td>
 
                         {/* Trạng thái duyệt */}
                         <td className="py-3.5 px-6 text-center">
                           <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${booking.status === "confirmed"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : booking.status === "cancelled"
-                                ? "bg-rose-50 text-rose-700 border-rose-200"
-                                : "bg-amber-50 text-amber-700 border-amber-200"
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${MAU_TRANG_THAI[booking.status] ?? MAU_TRANG_THAI.pending
                               }`}
                           >
-                            {booking.status === "confirmed" && "Đã xác nhận"}
-                            {booking.status === "cancelled" && "Đã hủy"}
-                            {booking.status === "pending" && "Chờ xác nhận"}
+                            {NHAN_TRANG_THAI[booking.status] ?? booking.status}
                           </span>
                         </td>
 

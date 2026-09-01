@@ -41,6 +41,34 @@ export interface PaginatedResponse<T> {
   last_page: number;
 }
 
+/** Bộ lọc của danh sách đơn phía điều hành. Rỗng nghĩa là không lọc theo tiêu chí đó. */
+export interface BookingListFilters {
+  page?: number;
+  q?: string;
+  status?: string;
+  payment?: string;
+  sort?: string;
+}
+
+/**
+ * Các con số trên đầu trang danh sách đơn.
+ *
+ * Tính trên TOÀN BỘ bộ lọc đang xem chứ không riêng trang hiện tại — lọc ra 40 đơn đã hủy mà ô
+ * thống kê ghi 3 thì con số ấy không dùng được vào việc gì.
+ */
+export interface BookingListSummary {
+  total: number;
+  pending: number;
+  confirmed: number;
+  cancelled: number;
+  paid: number;
+  revenue: number;
+}
+
+export type BookingListResponse = PaginatedResponse<Booking> & {
+  summary: BookingListSummary;
+};
+
 export interface AdminDashboardData {
   summary: Record<string, number>;
   booking_summary: {
@@ -893,9 +921,28 @@ const adminService = {
   },
 
   // --- BOOKINGS ---
-  getBookings: async (page = 1): Promise<PaginatedResponse<Booking> | null> => {
-    const response = await api.get(`/admin/bookings?page=${page}`);
-    return extractObject<PaginatedResponse<Booking>>(response);
+  /**
+   * Danh sách đơn. Tìm, lọc và sắp xếp đều do máy chủ làm.
+   *
+   * Trước đây hàm này chỉ nhận số trang, còn màn hình tự lọc mười dòng vừa tải về — nên gõ mã một
+   * đơn ở trang sau là "không tìm thấy". Mọi tham số dưới đây phải đi kèm mỗi lần gọi, kể cả khi
+   * người dùng chỉ bấm sang trang khác.
+   */
+  getBookings: async (
+    boLoc: BookingListFilters = {},
+  ): Promise<BookingListResponse | null> => {
+    const response = await api.get("/admin/bookings", {
+      params: {
+        page: boLoc.page ?? 1,
+        // Bỏ hẳn tham số rỗng thay vì gửi chuỗi trống: máy chủ coi "không có" là không lọc, còn
+        // chuỗi trống thì lọt vào luật validate và thành một bộ lọc khớp mọi thứ.
+        ...(boLoc.q ? { q: boLoc.q } : {}),
+        ...(boLoc.status && boLoc.status !== "all" ? { status: boLoc.status } : {}),
+        ...(boLoc.payment && boLoc.payment !== "all" ? { payment: boLoc.payment } : {}),
+        ...(boLoc.sort ? { sort: boLoc.sort } : {}),
+      },
+    });
+    return extractObject<BookingListResponse>(response);
   },
 
   getBookingById: async (id: number): Promise<Booking | null> => {

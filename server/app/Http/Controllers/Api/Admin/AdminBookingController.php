@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Enums\BookingAuditAction;
+use App\Enums\BookingStatus;
 use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
@@ -17,11 +18,13 @@ use App\Services\BookingHoldService;
 use App\Services\BookingPolicyService;
 use App\Services\CancellationPolicyService;
 use App\Services\ScheduleLifecycleService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 class AdminBookingController extends Controller
@@ -36,13 +39,165 @@ class AdminBookingController extends Controller
     ) {
     }
 
+    /**
+     * Danh sách đơn — tìm, lọc và sắp xếp đều ở máy chủ.
+     *
+     * ## Vì sao không để trình duyệt tự lọc
+     *
+     * Điểm cuối này vốn trả về đúng mười đơn mới nhất, còn màn hình thì lọc và sắp xếp chính mười
+     * dòng ấy. Nhìn dữ liệu mẫu thì không thấy gì sai, nhưng với dữ liệu thật thì đó là một cái bẫy:
+     *
+     *   - Gõ "BK-19" ra "không tìm thấy" nếu đơn ấy nằm ở trang 4. Người dùng kết luận đơn không
+     *     tồn tại, trong khi nó vẫn ở đó.
+     *   - "Tổng giá giảm dần" chỉ sắp trong mười dòng đang nhìn thấy. Đơn to nhất của trang 1 không
+     *     phải đơn to nhất của cửa hàng, mà màn hình không nói ra điều đó.
+     *   - Lọc "đã hủy" ra ba đơn rồi bấm sang trang 2 thì bộ lọc chạy lại trên mười dòng khác — số
+     *     kết quả nhảy lung tung theo trang.
+     *
+     * Cùng nguyên tắc đã áp ở sổ giao dịch: thứ tự và con số phải tính trên TOÀN BỘ bộ lọc, không
+     * phải trên trang đang xem.
+     */
     public function index(Request $request): JsonResponse
     {
-        $bookings = Booking::with(['tour:id,title', 'customer:id,name,email,phone', 'schedule:id,start_date'])
-            ->latest()
-            ->paginate(10);
+        $filters = $this->docBoLoc($request);
 
-        return $this->success($bookings, 'Lấy danh sách đơn đặt hàng thành công');
+        $bookings = $this->sapXep($this->truyVan($filters), $filters['sort'] ?? null)
+            ->with(['tour:id,title', 'customer:id,name,email,phone', 'schedule:id,start_date'])
+            ->paginate($filters['per_page'] ?? 10)
+            ->withQueryString();
+
+        return $this->success($bookings->toArray() + [
+            'summary' => $this->tongKet($filters),
+        ], 'Lấy danh sách đơn đặt hàng thành công');
+    }
+
+    /** @return array<string, mixed> */
+    private function docBoLoc(Request $request): array
+    {
+        return $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(BookingStatus::liveValues())],
+            'payment' => ['nullable', Rule::in(['paid', 'unpaid'])],
+            'sort' => ['nullable', Rule::in(self::THU_TU)],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+    }
+
+    /** Các kiểu sắp xếp màn hình được phép yêu cầu. */
+    private const THU_TU = [
+        'latest',
+        'oldest',
+        'amount-desc',
+        'amount-asc',
+        'departure-asc',
+        'departure-desc',
+    ];
+
+    /**
+     * Truy vấn gốc, dùng chung cho cả danh sách lẫn phần tổng.
+     *
+     * Một chỗ duy nhất: hai nơi mà mỗi nơi tự dựng bộ lọc thì sớm muộn con số tổng sẽ không khớp
+     * với danh sách ngay bên dưới nó, và không ai biết bên nào đúng.
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    private function truyVan(array $filters): Builder
+    {
+        return Booking::query()
+            ->when($filters['q'] ?? null, fn (Builder $q, string $tuKhoa) => $this->timKiem($q, $tuKhoa))
+            ->when($filters['status'] ?? null, fn (Builder $q, string $trangThai) => $q->where('status', $trangThai))
+            /*
+             * "Đã thanh toán" đọc `paid_at`, không đọc `vnpay_transaction_no`.
+             *
+             * Cột kia chỉ có khi tiền về qua cổng. Khách chuyển khoản rồi điều hành ghi nhận tay là
+             * đường thu tiền có thật và phổ biến, mà lọc theo mã cổng thì những đơn ấy nằm hết ở
+             * nhóm "chưa thanh toán" - tức bộ lọc nói sai về chính số tiền đã nằm trong tài khoản.
+             */
+            ->when(($filters['payment'] ?? null) === 'paid', fn (Builder $q) => $q->whereNotNull('paid_at'))
+            ->when(($filters['payment'] ?? null) === 'unpaid', fn (Builder $q) => $q->whereNull('paid_at'));
+    }
+
+    /**
+     * Tìm theo đúng những thứ người ta cầm trên tay khi tra một đơn.
+     *
+     * Mã đơn đi đường riêng: "BK-19" là mã hiển thị, còn cột `id` không có tiền tố. Gõ đúng một mã
+     * đơn thì trả về đúng đơn ấy, không kèm mọi đơn có số 19 nằm đâu đó trong số điện thoại - người
+     * gõ mã đơn là người đã biết mình tìm gì.
+     */
+    private function timKiem(Builder $query, string $tuKhoa): Builder
+    {
+        $tuKhoa = trim($tuKhoa);
+
+        if (preg_match('/^bk[-\s]?(\d+)$/i', $tuKhoa, $khop)) {
+            return $query->whereKey((int) $khop[1]);
+        }
+
+        return $query->where(function (Builder $sub) use ($tuKhoa) {
+            $sub->where('customer_name', 'like', "%{$tuKhoa}%")
+                ->orWhere('customer_email', 'like', "%{$tuKhoa}%")
+                ->orWhere('customer_phone', 'like', "%{$tuKhoa}%")
+                ->orWhereHas('tour', fn (Builder $t) => $t->where('title', 'like', "%{$tuKhoa}%"));
+
+            // Gõ trần một con số thì nó vừa có thể là mã đơn, vừa có thể là một mẩu số điện thoại.
+            // Nhận cả hai, vì bắt người dùng đoán ý máy là chỗ dễ bỏ cuộc nhất.
+            if (ctype_digit($tuKhoa)) {
+                $sub->orWhere('id', (int) $tuKhoa);
+            }
+        });
+    }
+
+    /**
+     * Thứ tự luôn có mốc phụ là `id`.
+     *
+     * Hai đơn cùng số tiền, hoặc cùng ngày khởi hành, mà không có mốc phụ thì cơ sở dữ liệu được
+     * tự do xếp khác nhau ở mỗi lần chạy - và phân trang trên một thứ tự không ổn định làm đơn nhảy
+     * qua nhảy lại giữa các trang, có đơn hiện hai lần, có đơn không bao giờ hiện.
+     */
+    private function sapXep(Builder $query, ?string $kieu): Builder
+    {
+        return match ($kieu) {
+            'oldest' => $query->orderBy('id'),
+            'amount-desc' => $query->orderByDesc('total_amount')->orderByDesc('id'),
+            'amount-asc' => $query->orderBy('total_amount')->orderByDesc('id'),
+            'departure-asc' => $query->orderBy('departure_date')->orderByDesc('id'),
+            'departure-desc' => $query->orderByDesc('departure_date')->orderByDesc('id'),
+            // Mặc định là mới nhất trước. Xếp theo `id` chứ không `created_at`: đơn seed hoặc đơn
+            // nhập tay có thể trùng giây, mà `id` thì không bao giờ trùng.
+            default => $query->orderByDesc('id'),
+        };
+    }
+
+    /**
+     * Các con số trên đầu trang, tính trên toàn bộ bộ lọc đang xem.
+     *
+     * Trước đây chúng đếm trên mười dòng của trang hiện tại, và nhãn trên giao diện ghi thẳng
+     * "(Trang này)" - tức là màn hình biết mình đang nói một con số vô nghĩa và chọn cách chú thích
+     * thay vì sửa. Lọc ra 40 đơn đã hủy mà ô thống kê ghi "3 đơn" thì con số ấy không dùng được vào
+     * việc gì.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return array<string, int|float>
+     */
+    private function tongKet(array $filters): array
+    {
+        $dem = fn (?string $trangThai = null): int => $this->truyVan($filters)
+            ->when($trangThai, fn (Builder $q, string $tt) => $q->where('status', $tt))
+            ->count();
+
+        return [
+            'total' => $dem(),
+            'pending' => $dem(BookingStatus::Pending->value),
+            'confirmed' => $dem(BookingStatus::Confirmed->value),
+            'cancelled' => $dem(BookingStatus::Cancelled->value),
+            'paid' => $this->truyVan($filters)->whereNotNull('paid_at')->count(),
+            // Doanh thu theo đúng định nghĩa của enum: gồm cả đơn đã đi xong và đơn khách không có
+            // mặt, vì tiền của hai nhóm ấy đã thu và không hoàn.
+            'revenue' => round(
+                (float) $this->truyVan($filters)
+                    ->whereIn('status', BookingStatus::revenueValues())
+                    ->sum('total_amount')
+            ),
+        ];
     }
 
     /**

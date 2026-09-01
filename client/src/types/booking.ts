@@ -1,6 +1,17 @@
 import type { Tour, TourSchedule } from "./tour";
 
-export type BookingStatus = "pending" | "confirmed" | "cancelled";
+/**
+ * Năm trạng thái mà luồng hiện tại sinh ra được — khớp `BookingStatus::liveValues()` ở máy chủ.
+ *
+ * Thiếu `completed` và `no_show` thì mọi màn hình đọc đơn của chuyến đã đi xong đều rơi vào nhánh
+ * mặc định mà TypeScript không kêu một tiếng nào.
+ */
+export type BookingStatus =
+  | "pending"
+  | "confirmed"
+  | "cancelled"
+  | "completed"
+  | "no_show";
 
 export interface Booking {
   id: number;
