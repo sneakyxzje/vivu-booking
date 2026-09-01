@@ -15,9 +15,11 @@ import {
   GIO_MAC_DINH,
   SO_KHACH_TOI_DA_MAC_DINH,
   SO_KHACH_TOI_THIEU_MAC_DINH,
+  daDoiHanChot,
   hanChotMacDinh,
   taoChuyen,
 } from "./formHelpers";
+import { LY_DO_DOI_HAN_TOI_THIEU } from "@/utils/schedule";
 import { DateTimePicker } from "@/components/DateTimePicker";
 import {
   TEN_THANG,
@@ -718,6 +720,42 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                             </select>
                           </div>
                         </div>
+
+                        {/*
+                          Dời hạn chốt của một chuyến đã tồn tại là thao tác phải giải trình.
+
+                          Mốc ấy điều khiển năm quy tắc khác nhau — bán chỗ, sửa tên hành khách,
+                          chuyển chuyến, ghép chuyến, và chỗ có về kho khi khách hủy hay không —
+                          nên máy chủ từ chối lưu nếu không kèm lý do. Ô này chỉ hiện đúng lúc đó,
+                          không hỏi những chuyến không đổi gì.
+                        */}
+                        {daDoiHanChot(item) && (
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                            <label className="mb-1 flex items-center gap-1.5 text-[11px] font-bold text-amber-800">
+                              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                              Lý do dời hạn chốt <span className="text-red-500">*</span>
+                            </label>
+                            <textarea
+                              rows={2}
+                              value={item.booking_deadline_reason ?? ""}
+                              onChange={(e) =>
+                                capNhat(item.uid, { booking_deadline_reason: e.target.value })
+                              }
+                              placeholder="VD: Nhà xe chốt sớm hơn một ngày so với thỏa thuận cũ."
+                              className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs outline-none focus:border-amber-400"
+                            />
+                            <p className="mt-1 text-[11px] text-amber-700">
+                              Chuyến này đã có trên hệ thống, hạn chốt đang đổi từ{" "}
+                              <strong>
+                                {item.booking_deadline_goc
+                                  ? hienThiNgay(item.booking_deadline_goc, true)
+                                  : "mốc mặc định"}
+                              </strong>
+                              . Ghi ít nhất {LY_DO_DOI_HAN_TOI_THIEU} ký tự — nhật ký hệ thống giữ
+                              lại đúng câu này.
+                            </p>
+                          </div>
+                        )}
 
                         {/*
                           Hướng dẫn viên — chọn được nhiều người.

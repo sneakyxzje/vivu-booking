@@ -48,9 +48,20 @@ export const taoChuyen = (
   min_people: macDinh?.toiThieu ?? SO_KHACH_TOI_THIEU_MAC_DINH,
   max_people: macDinh?.toiDa ?? SO_KHACH_TOI_DA_MAC_DINH,
   booking_deadline: hanChotMacDinh(batDau),
+  booking_deadline_reason: "",
   status: macDinh?.trangThai ?? "open",
   guide_ids: [],
 });
+
+/**
+ * Chuyến đã có trên máy chủ và hạn chốt của nó vừa bị dời.
+ *
+ * Máy chủ đòi lý do đúng lúc này chứ không phải mọi lần lưu: biểu mẫu gửi lại toàn bộ danh sách
+ * chuyến mỗi lần bấm lưu, mà phần lớn chúng không đổi gì. Hỏi lý do cho cả những chuyến không đổi
+ * thì người dùng sẽ gõ bừa cho xong, và cột lý do trong nhật ký thành vô nghĩa.
+ */
+export const daDoiHanChot = (item: ScheduleFormItem): boolean =>
+  Boolean(item.id) && (item.booking_deadline ?? "") !== (item.booking_deadline_goc ?? "");
 
 export const ngayRong = (thuTu: number): ItineraryFormItem => ({
   day_number: String(thuTu),

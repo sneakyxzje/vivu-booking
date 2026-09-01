@@ -153,6 +153,7 @@ export const buildTourPayload = (form: unknown) => {
           max_people: string;
           min_people?: string;
           booking_deadline?: string;
+          booking_deadline_reason?: string;
           status?: string;
           guide_ids?: string[];
         }[]
@@ -167,6 +168,14 @@ export const buildTourPayload = (form: unknown) => {
     data.append(`schedules[${index}][min_people]`, String(item.min_people ?? 1));
     if (item.booking_deadline) {
       data.append(`schedules[${index}][booking_deadline]`, item.booking_deadline);
+    }
+    // Chỉ có mặt khi người dùng thực sự dời hạn chốt của một chuyến đã tồn tại; máy chủ đòi nó
+    // đúng lúc ấy và bỏ qua ở mọi lúc khác.
+    if (item.booking_deadline_reason?.trim()) {
+      data.append(
+        `schedules[${index}][booking_deadline_reason]`,
+        item.booking_deadline_reason.trim(),
+      );
     }
     if (item.status) {
       data.append(`schedules[${index}][status]`, item.status);

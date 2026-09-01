@@ -32,6 +32,14 @@ use Illuminate\Support\Facades\DB;
  */
 class ScheduleDeadlineService
 {
+    /**
+     * Độ dài tối thiểu của lý do dời hạn chốt.
+     *
+     * Không phải con số thần thánh gì: nó chỉ chặn "ok", "." và dấu cách. Câu hỏi mà nhật ký phải
+     * trả lời được là *vì sao mốc bị dời*, và một ký tự thì không trả lời được câu nào.
+     */
+    private const LY_DO_TOI_THIEU = 10;
+
     public function __construct(
         private readonly ScheduleAuditLogger $auditLogger,
     ) {
@@ -103,11 +111,14 @@ class ScheduleDeadlineService
      *
      * Khóa dòng rồi đọc lại trước khi kiểm tra: hai người cùng sửa một chuyến thì người sau phải
      * thấy giá trị người trước vừa ghi, không phải giá trị lúc họ mở màn hình.
+     *
+     * `$lyDo` không có giá trị mặc định: mọi nơi gọi phải nghĩ tới nó. Lý do rỗng chỉ được chấp
+     * nhận khi hạn chốt không thực sự đổi, xem phần kiểm bên dưới.
      */
     public function change(
         TourSchedule $schedule,
         ?Carbon $moi,
-        ?string $lyDo = null,
+        ?string $lyDo,
         ?User $actor = null,
     ): TourSchedule {
         return DB::transaction(function () use ($schedule, $moi, $lyDo, $actor) {
@@ -132,6 +143,28 @@ class ScheduleDeadlineService
             // danh sách chuyến mỗi lần lưu, nên phần lớn lần gọi tới đây là không có thay đổi.
             if ($this->bangNhau($cu, $moi)) {
                 return $khoa;
+            }
+
+            /*
+             * Lý do bắt buộc, và bắt buộc ở đây chứ không ở luật validate của controller.
+             *
+             * Ở controller thì mỗi đường ghi phải tự nhớ, mà quên một đường chính là khuôn của
+             * phần lớn lỗi đã gặp trong dự án này. Ở đây thì nút "Sửa hạn chốt" lẫn form sửa tour
+             * đều không đi vòng được.
+             *
+             * Đặt SAU phép so bằng bên trên là chủ ý: form sửa tour gửi lại toàn bộ danh sách
+             * chuyến mỗi lần lưu, nên phần lớn lần gọi tới đây không đổi gì. Đòi lý do cho một lần
+             * lưu không đổi gì thì luật này chỉ tổ phiền, và người dùng sẽ gõ bừa cho xong - lúc ấy
+             * cột `reason` có chữ nhưng vẫn không trả lời được câu hỏi nào.
+             */
+            $lyDo = $lyDo !== null ? trim($lyDo) : null;
+
+            if ($lyDo === null || mb_strlen($lyDo) < self::LY_DO_TOI_THIEU) {
+                throw new BusinessRuleException(sprintf(
+                    'Phải ghi lý do dời hạn chốt, ít nhất %d ký tự. Ba tháng nữa, người đọc nhật ký '
+                    . 'cần biết vì sao mốc bị dời và lúc đó không ai nhớ lại giúp được.',
+                    self::LY_DO_TOI_THIEU,
+                ));
             }
 
             $khoa->forceFill(['booking_deadline' => $moi])->save();

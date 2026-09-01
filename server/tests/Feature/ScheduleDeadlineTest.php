@@ -156,6 +156,71 @@ class ScheduleDeadlineTest extends TestCase
     }
 
     /**
+     * Không ghi lý do thì không đổi được hạn chốt.
+     *
+     * Nhật ký có đủ ai/lúc nào/từ đâu sang đâu mà thiếu *vì sao* thì ba tháng sau nó chỉ tố cáo
+     * được một người chứ không giải thích được một quyết định. Luật nằm ở service nên cả hai
+     * đường ghi cùng chịu.
+     */
+    public function test_khong_ghi_ly_do_thi_khong_doi_duoc_han_chot(): void
+    {
+        $cu = $this->chuyen->booking_deadline;
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => $cu->copy()->addDay()->toDateTimeString(),
+        ])->assertStatus(422);
+
+        $this->assertTrue(
+            $this->chuyen->fresh()->booking_deadline->equalTo($cu),
+            'Từ chối vì thiếu lý do thì hạn chốt phải giữ nguyên.',
+        );
+
+        $this->assertSame(
+            0,
+            ScheduleAuditLog::query()->where('tour_schedule_id', $this->chuyen->id)->count(),
+        );
+    }
+
+    /** Lý do cụt ngủn cũng không tính: "ok" không trả lời được câu hỏi nào. */
+    public function test_ly_do_qua_ngan_thi_khong_duoc_nhan(): void
+    {
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->patchJson('/api/admin/schedules/' . $this->chuyen->id . '/deadline', [
+            'booking_deadline' => $this->chuyen->booking_deadline->copy()->addDay()->toDateTimeString(),
+            'reason' => '  ok  ',
+        ])->assertStatus(422);
+    }
+
+    /** Đường ghi thứ hai cũng không lách được: form sửa tour đổi hạn chốt thì cũng phải khai lý do. */
+    public function test_form_sua_tour_doi_han_chot_ma_khong_khai_ly_do_thi_bi_tu_choi(): void
+    {
+        $cu = $this->chuyen->booking_deadline;
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/tours/' . $this->tour->id, [
+            'title' => $this->tour->title,
+            'adult_price' => 2_000_000,
+            'child_price' => 1_000_000,
+            'infant_price' => 0,
+            'number_of_days' => 2,
+            'number_of_nights' => 1,
+            'start_location' => 'Ha Noi',
+            'schedules' => [[
+                'id' => $this->chuyen->id,
+                'start_date' => $this->chuyen->start_date->toDateTimeString(),
+                'max_people' => 20,
+                'booking_deadline' => $cu->copy()->subDay()->toDateTimeString(),
+            ]],
+        ])->assertStatus(422);
+
+        $this->assertTrue($this->chuyen->fresh()->booking_deadline->equalTo($cu));
+    }
+
+    /**
      * Hạn chốt có hai đường ghi: form sửa tour và endpoint sửa nhanh.
      *
      * Luật nằm ở một đường mà thiếu ở đường kia chính là khuôn của mấy lỗi gần đây, nên bài này

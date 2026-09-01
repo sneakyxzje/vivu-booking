@@ -46,6 +46,15 @@ export interface ScheduleFormItem {
   max_people: string;
   min_people: string;
   booking_deadline: string;
+  /**
+   * Hạn chốt lúc nạp tour về, chỉ để so xem người dùng có thực sự dời nó hay không.
+   *
+   * Chuyến mới mở từ lịch thì không có: chưa có gì trên máy chủ để so, và tạo mới thì không phải
+   * là "dời hạn chốt" nên cũng không phải giải trình.
+   */
+  booking_deadline_goc?: string;
+  /** Lý do dời hạn chốt. Máy chủ đòi khi mốc của một chuyến đã tồn tại thực sự đổi. */
+  booking_deadline_reason?: string;
   status: string;
   /** Nhiều hướng dẫn viên cho một chuyến. Giữ dạng chuỗi cho khớp value của ô chọn. */
   guide_ids: string[];
