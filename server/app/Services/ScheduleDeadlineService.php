@@ -137,18 +137,28 @@ class ScheduleDeadlineService
                 throw new BusinessRuleException('Không tìm thấy chuyến khởi hành.');
             }
 
+            $cu = $khoa->booking_deadline;
+
+            /*
+             * Không đổi gì thì dừng ngay ở đây — trước cả luật chặn.
+             *
+             * Form sửa tour gửi lại toàn bộ danh sách chuyến mỗi lần lưu, nên phần lớn lần gọi tới
+             * đây là gửi lại đúng cái mốc đang có. Kiểm luật trước phép so bằng thì một chuyến có
+             * hạn chốt đã trôi qua - chuyện hoàn toàn bình thường với chuyến sắp khởi hành - làm
+             * hỏng mọi lần lưu tour, kèm câu "hạn chốt mới nằm ở quá khứ" nói về một chuyến người
+             * dùng không hề đụng tới.
+             *
+             * Luật chặn nói về việc DỜI mốc. Không dời thì không có gì để chặn, và cũng không có gì
+             * để ghi nhật ký.
+             */
+            if ($this->bangNhau($cu, $moi)) {
+                return $khoa;
+            }
+
             $canTro = $this->lyDoChan($khoa, $moi);
 
             if ($canTro !== null) {
                 throw new BusinessRuleException($canTro);
-            }
-
-            $cu = $khoa->booking_deadline;
-
-            // Không đổi gì thì không ghi một dòng nhật ký rỗng. Form sửa tour gửi lại toàn bộ
-            // danh sách chuyến mỗi lần lưu, nên phần lớn lần gọi tới đây là không có thay đổi.
-            if ($this->bangNhau($cu, $moi)) {
-                return $khoa;
             }
 
             /*
@@ -158,10 +168,9 @@ class ScheduleDeadlineService
              * phần lớn lỗi đã gặp trong dự án này. Ở đây thì nút "Sửa hạn chốt" lẫn form sửa tour
              * đều không đi vòng được.
              *
-             * Đặt SAU phép so bằng bên trên là chủ ý: form sửa tour gửi lại toàn bộ danh sách
-             * chuyến mỗi lần lưu, nên phần lớn lần gọi tới đây không đổi gì. Đòi lý do cho một lần
-             * lưu không đổi gì thì luật này chỉ tổ phiền, và người dùng sẽ gõ bừa cho xong - lúc ấy
-             * cột `reason` có chữ nhưng vẫn không trả lời được câu hỏi nào.
+             * Đặt sau phép so bằng ở trên, cùng lý do với luật chặn: một lần lưu không đổi gì thì
+             * không phải giải trình gì. Đòi lý do cho nó chỉ tổ phiền, và người dùng sẽ gõ bừa cho
+             * xong - lúc ấy cột `reason` có chữ nhưng vẫn không trả lời được câu hỏi nào.
              */
             $lyDo = $lyDo !== null ? trim($lyDo) : null;
 

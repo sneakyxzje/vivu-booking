@@ -303,6 +303,61 @@ class ScheduleDeadlineTest extends TestCase
         );
     }
 
+    /**
+     * Chuyến có hạn chốt đã trôi qua không được làm hỏng lần lưu tour.
+     *
+     * Đây là tình huống rất thường: chuyến khởi hành tuần sau thì hạn chốt của nó đã qua từ mấy hôm
+     * trước. Biểu mẫu tour gửi lại nguyên mốc ấy cho MỌI chuyến, nên nếu luật "không đặt vào quá
+     * khứ" chạy trước phép so bằng thì mỗi lần sửa tour là một lần chết — kèm câu báo lỗi nói về
+     * một chuyến người dùng còn chẳng mở ra xem.
+     */
+    public function test_chuyen_co_han_chot_da_qua_khong_chan_lan_luu_tour(): void
+    {
+        $daQua = $this->taoChuyen([
+            'start_date' => now()->addDays(2),
+            'end_date' => now()->addDays(3),
+            'booking_deadline' => now()->subHours(3),
+        ]);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/tours/' . $this->tour->id, [
+            'title' => 'Ten tour vua doi lan nua',
+            'adult_price' => 2_000_000,
+            'child_price' => 1_000_000,
+            'infant_price' => 0,
+            'number_of_days' => 2,
+            'number_of_nights' => 1,
+            'start_location' => 'Ha Noi',
+            'schedules' => [
+                [
+                    'id' => $daQua->id,
+                    'start_date' => $daQua->start_date->toDateTimeString(),
+                    'max_people' => 20,
+                    // Gửi lại đúng mốc đang có, y như biểu mẫu vẫn làm.
+                    'booking_deadline' => $daQua->booking_deadline->toDateTimeString(),
+                ],
+                [
+                    'id' => $this->chuyen->id,
+                    'start_date' => $this->chuyen->start_date->toDateTimeString(),
+                    'max_people' => 20,
+                    'booking_deadline' => $this->chuyen->booking_deadline->toDateTimeString(),
+                ],
+            ],
+        ])->assertOk();
+
+        $this->assertTrue(
+            $daQua->fresh()->booking_deadline->equalTo($daQua->booking_deadline),
+            'Mốc đã qua phải giữ nguyên, không bị đụng tới.',
+        );
+
+        $this->assertSame(
+            0,
+            ScheduleAuditLog::query()->whereIn('tour_schedule_id', [$daQua->id, $this->chuyen->id])->count(),
+            'Không đổi gì thì không có dòng nhật ký nào.',
+        );
+    }
+
     // --- Luật chặn ----------------------------------------------------------------------
 
     public function test_chuyen_dang_chay_thi_khong_sua_duoc_han_chot(): void
