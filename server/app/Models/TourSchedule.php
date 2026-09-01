@@ -219,9 +219,20 @@ class TourSchedule extends Model
             return null;
         }
 
-        return $this->start_date->copy()->subDays(
-            (int) config('booking.booking_deadline_days', 3)
-        );
+        return self::hanChotMacDinhTu($this->start_date);
+    }
+
+    /**
+     * Hạn chốt mặc định suy ra từ một giờ khởi hành bất kỳ.
+     *
+     * Tách khỏi `defaultBookingDeadline()` vì lúc dựng chuyến mới thì chưa có bản ghi nào để hỏi,
+     * mà số ngày ấy chỉ được phép nằm ở đúng một chỗ: form sửa tour trước đây tự viết `subDays(3)`,
+     * nên đổi `booking.booking_deadline_days` xong vẫn còn một đường ghi giữ nguyên con số cũ.
+     */
+    public static function hanChotMacDinhTu(\DateTimeInterface $startDate): \Illuminate\Support\Carbon
+    {
+        return \Illuminate\Support\Carbon::instance($startDate)
+            ->subDays((int) config('booking.booking_deadline_days', 3));
     }
 
     /** Số chỗ còn trống. */

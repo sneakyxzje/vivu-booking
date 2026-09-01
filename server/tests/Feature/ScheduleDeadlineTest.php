@@ -194,6 +194,47 @@ class ScheduleDeadlineTest extends TestCase
         $this->assertTrue($this->chuyen->fresh()->booking_deadline->equalTo($moi));
     }
 
+    /**
+     * Biểu mẫu tour không gửi hạn chốt thì hạn chốt phải còn nguyên.
+     *
+     * Lỗi cũ: thiếu trường thì controller tự điền "khởi hành trừ ba ngày" rồi ghi đè. Nên một lần
+     * lưu tour chỉ để sửa tiêu đề cũng xóa mất mốc điều hành đã thương lượng với nhà cung cấp, âm
+     * thầm và không có gì báo lại - trong khi mốc ấy điều khiển năm quy tắc khác nhau.
+     */
+    public function test_form_sua_tour_khong_gui_han_chot_thi_giu_nguyen(): void
+    {
+        $rieng = $this->chuyen->start_date->copy()->subDays(10);
+        $this->chuyen->forceFill(['booking_deadline' => $rieng])->save();
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/tours/' . $this->tour->id, [
+            'title' => 'Ten tour vua doi',
+            'adult_price' => 2_000_000,
+            'child_price' => 1_000_000,
+            'infant_price' => 0,
+            'number_of_days' => 2,
+            'number_of_nights' => 1,
+            'start_location' => 'Ha Noi',
+            'schedules' => [[
+                'id' => $this->chuyen->id,
+                'start_date' => $this->chuyen->start_date->toDateTimeString(),
+                'max_people' => 20,
+            ]],
+        ])->assertOk();
+
+        $this->assertTrue(
+            $this->chuyen->fresh()->booking_deadline->equalTo($rieng),
+            'Không gửi hạn chốt thì không được đụng vào hạn chốt.',
+        );
+
+        $this->assertSame(
+            0,
+            ScheduleAuditLog::query()->where('tour_schedule_id', $this->chuyen->id)->count(),
+            'Không đổi gì thì cũng không có dòng nhật ký nào.',
+        );
+    }
+
     // --- Luật chặn ----------------------------------------------------------------------
 
     public function test_chuyen_dang_chay_thi_khong_sua_duoc_han_chot(): void
