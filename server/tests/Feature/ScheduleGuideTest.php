@@ -197,6 +197,70 @@ class ScheduleGuideTest extends TestCase
         $this->assertCount(1, $this->chuyen->fresh()->guides);
     }
 
+    // --- Đường đọc: ai đang rảnh --------------------------------------------------------
+
+    /**
+     * Bài này bịt một lỗi 500 từng có thật.
+     *
+     * `availableGuides()` gọi `$this->scheduleOverlaps(...)`, một phương thức không tồn tại ở bất
+     * kỳ đâu trong dự án. Nên mỗi lần biểu mẫu tour hỏi "ai đang rảnh" là một lần 500 — mà cả bộ
+     * test vẫn xanh, vì không bài nào chạm tới điểm cuối này.
+     */
+    private function hoiAiRanh($batDau, int $soNgay = 3): array
+    {
+        Sanctum::actingAs($this->dieuHanh);
+
+        $res = $this->getJson(sprintf(
+            '/api/admin/available-guides?start_date=%s&number_of_days=%d',
+            \Illuminate\Support\Carbon::parse($batDau)->toDateString(),
+            $soNgay,
+        ))->assertOk();
+
+        return collect($res->json('data'))->pluck('id')->all();
+    }
+
+    public function test_diem_cuoi_ai_dang_ranh_tra_ve_duoc(): void
+    {
+        $nguoi = $this->taoNguoi('guide');
+
+        $this->assertContains($nguoi->id, $this->hoiAiRanh(now()->addDays(40)));
+    }
+
+    /**
+     * Đường đọc phải loại đúng người mà đường ghi sẽ từ chối.
+     *
+     * Hai phía lệch nhau là khuôn lỗi mà chú thích của `ScheduleGuideService::lyDoChan()` nói tới:
+     * danh sách mời người dùng chọn một người, rồi lúc bấm lưu mới báo không được.
+     */
+    public function test_nguoi_vuong_lich_khong_hien_trong_danh_sach_ranh(): void
+    {
+        $ban = $this->taoNguoi('guide');
+        $ranh = $this->taoNguoi('guide');
+
+        $this->chuyen->guides()->sync([$ban->id]);
+
+        $ids = $this->hoiAiRanh($this->chuyen->start_date);
+
+        $this->assertNotContains($ban->id, $ids, 'Người đang bận không được mời chọn.');
+        $this->assertContains($ranh->id, $ids);
+
+        // Và đúng người ấy bị đường ghi từ chối — hai phía cùng một luật.
+        $this->putJson(
+            '/api/admin/tour-schedules/' . $this->taoChuyen($this->chuyen->start_date)->id . '/assign-guide',
+            ['guide_ids' => [$ban->id]],
+        )->assertStatus(422);
+    }
+
+    /** Người bận chuyến cách đó mười ngày thì vẫn rảnh cho khoảng đang hỏi. */
+    public function test_ban_o_khoang_khac_thi_van_nam_trong_danh_sach_ranh(): void
+    {
+        $nguoi = $this->taoNguoi('guide');
+
+        $this->taoChuyen(now()->addDays(40))->guides()->sync([$nguoi->id]);
+
+        $this->assertContains($nguoi->id, $this->hoiAiRanh($this->chuyen->start_date));
+    }
+
     public function test_tai_khoan_ngung_hoat_dong_thi_khong_gan_duoc(): void
     {
         $nghi = $this->taoNguoi('guide', 'inactive');

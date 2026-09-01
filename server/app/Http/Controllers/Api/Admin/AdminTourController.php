@@ -198,9 +198,24 @@ class AdminTourController extends Controller
             ->with('assignedSchedules.tour:id,number_of_days')
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'phone', 'status'])
+            /*
+             * Trùng lịch hỏi qua ScheduleGuideService, không tự tính ở đây.
+             *
+             * Chỗ này từng gọi `$this->scheduleOverlaps(...)` — một phương thức không tồn tại ở đâu
+             * cả, nên mỗi lần biểu mẫu tour hỏi "ai đang rảnh" là một lần lỗi 500. Đúng cái khuôn
+             * mà chú thích của `ScheduleGuideService::lyDoChan()` đã cảnh báo: luật có ở đường ghi
+             * mà đường đọc thì tự viết lại một bản riêng.
+             *
+             * Nay hai phía dùng chung `periodOf()` và `overlaps()`, là đúng hai phép mà
+             * `conflictFor()` bên đường ghi dựa vào — thêm luật ở đó thì đường này tự có theo.
+             */
             ->filter(function (User $guide) use ($start, $end) {
                 return ! $guide->assignedSchedules->contains(
-                    fn (TourSchedule $schedule) => $this->scheduleOverlaps($start, $end, $schedule)
+                    fn (TourSchedule $schedule) => ScheduleGuideService::overlaps(
+                        $start,
+                        $end,
+                        ...$this->scheduleGuides->periodOf($schedule),
+                    )
                 );
             })
             ->values()
