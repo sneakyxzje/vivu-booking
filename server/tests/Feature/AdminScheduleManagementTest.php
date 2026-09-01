@@ -250,6 +250,101 @@ class AdminScheduleManagementTest extends TestCase
     // ─── Helper ─────────────────────────────────────────────────────────────
 
     /** Payload cơ bản để cập nhật tour (không thay đổi thông tin tour). */
+    // ─── Chuyến đã qua giai đoạn bán ────────────────────────────────────────
+
+    private function taoChuyenCoSan(string $status, $start): TourSchedule
+    {
+        $start = \Illuminate\Support\Carbon::parse($start);
+
+        return TourSchedule::factory()->create([
+            'tour_id' => $this->tour->id,
+            'start_date' => $start,
+            'end_date' => $start->copy()->addDays(2),
+            'booking_deadline' => $start->copy()->subDays(3),
+            'max_people' => 20,
+            'min_people' => 5,
+            'booked_people' => 8,
+            'status' => $status,
+        ]);
+    }
+
+    /**
+     * Tour có chuyến đã chốt vẫn lưu được, và chuyến ấy không bị mở bán lại.
+     *
+     * Biểu mẫu gửi lại nguyên trạng thái nó đọc được lúc mở form, nên mọi lần lưu đều chết ở luật
+     * `in:open,closed` với câu "The selected schedules.0.status is invalid" — một câu không nói cho
+     * người dùng biết họ làm sai chỗ nào, mà thật ra họ có sửa gì đâu.
+     *
+     * Nửa sau của bài mới là phần quan trọng: nới luật validate mà không chặn chỗ ghi thì lỗi chỉ
+     * đổi mặt — lưu được, nhưng một chuyến đã chốt danh sách lặng lẽ quay về "đang mở bán".
+     */
+    public function test_luu_tour_co_chuyen_da_chot_thi_giu_nguyen_trang_thai(): void
+    {
+        $chuyen = $this->taoChuyenCoSan(ScheduleStatus::Confirmed->value, now()->addDays(30));
+
+        $this->putJson("/api/admin/tours/{$this->tour->id}", array_merge(
+            $this->baseTourPayload(),
+            [
+                'schedules' => [[
+                    'id' => $chuyen->id,
+                    'start_date' => $chuyen->start_date->toDateTimeString(),
+                    'max_people' => 20,
+                    'min_people' => 5,
+                    'status' => ScheduleStatus::Confirmed->value,
+                ]],
+            ]
+        ), $this->authHeader())->assertOk();
+
+        $this->assertSame(
+            ScheduleStatus::Confirmed,
+            $chuyen->fresh()->status,
+            'Lưu tour không được mở bán lại một chuyến đã chốt.',
+        );
+    }
+
+    /** Chuyến đã kết thúc: gửi lại đúng giá trị cũ thì không phải là sửa, nên không bị chặn. */
+    public function test_luu_tour_co_chuyen_da_ket_thuc_khong_bi_tu_choi(): void
+    {
+        $chuyen = $this->taoChuyenCoSan(ScheduleStatus::Completed->value, now()->subDays(30));
+
+        $this->putJson("/api/admin/tours/{$this->tour->id}", array_merge(
+            $this->baseTourPayload(),
+            [
+                'schedules' => [[
+                    'id' => $chuyen->id,
+                    'start_date' => $chuyen->start_date->toDateTimeString(),
+                    'max_people' => 20,
+                    'min_people' => 5,
+                    'booking_deadline' => $chuyen->booking_deadline->toDateTimeString(),
+                    'status' => ScheduleStatus::Completed->value,
+                ]],
+            ]
+        ), $this->authHeader())->assertOk();
+
+        $this->assertSame(ScheduleStatus::Completed, $chuyen->fresh()->status);
+    }
+
+    /** Nhưng đổi thật một con số của chuyến đã kết thúc thì vẫn bị từ chối. */
+    public function test_doi_that_thong_tin_chuyen_da_ket_thuc_thi_bi_tu_choi(): void
+    {
+        $chuyen = $this->taoChuyenCoSan(ScheduleStatus::Completed->value, now()->subDays(30));
+
+        $this->putJson("/api/admin/tours/{$this->tour->id}", array_merge(
+            $this->baseTourPayload(),
+            [
+                'schedules' => [[
+                    'id' => $chuyen->id,
+                    'start_date' => $chuyen->start_date->toDateTimeString(),
+                    'max_people' => 20,
+                    'min_people' => 9,
+                    'status' => ScheduleStatus::Completed->value,
+                ]],
+            ]
+        ), $this->authHeader())->assertStatus(422);
+
+        $this->assertSame(5, (int) $chuyen->fresh()->min_people);
+    }
+
     private function baseTourPayload(): array
     {
         return [

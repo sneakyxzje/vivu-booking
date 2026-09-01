@@ -27,6 +27,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Http\Resources\TourResource;
 
@@ -466,7 +467,18 @@ class AdminTourController extends Controller
             'schedules.*.booking_deadline' => ['nullable', 'date'],
             // Lý do dời hạn chốt, không bắt buộc. Có thì được ghi vào nhật ký chuyến.
             'schedules.*.booking_deadline_reason' => ['nullable', 'string', 'max:500'],
-            'schedules.*.status' => ['nullable', 'string', 'in:open,closed'],
+            /*
+             * Nhận cả sáu trạng thái, không riêng open/closed.
+             *
+             * Biểu mẫu gửi lại nguyên trạng thái nó đọc được lúc mở form. Tour nào có một chuyến đã
+             * chốt hoặc đã đi xong thì lần lưu nào cũng chết ở đây với "The selected
+             * schedules.0.status is invalid" — một câu không nói cho người dùng biết họ vừa làm sai
+             * cái gì, mà thật ra họ có làm gì đâu.
+             *
+             * Nhận vào không có nghĩa là ghi xuống: chỗ áp trạng thái bên dưới chỉ lấy open/closed,
+             * và chỉ cho chuyến còn đang bán.
+             */
+            'schedules.*.status' => ['nullable', 'string', Rule::in(ScheduleStatus::values())],
             'schedules.*.guide_ids' => ['nullable', 'array'],
             'schedules.*.guide_ids.*' => ['integer', 'exists:users,id'],
         ]);
@@ -525,15 +537,14 @@ class AdminTourController extends Controller
                     : null;
 
                 // Guard: không cho sửa thông tin vận hành khi chuyến đang chạy/đã kết thúc/đã hủy.
-                if ($schedule && $schedule->isOperationallyLocked()) {
-                    if (isset($item['min_people']) || isset($item['booking_deadline'])) {
-                        throw ValidationException::withMessages([
-                            'schedules' => sprintf(
-                                'Không thể sửa thông tin chuyến khi trạng thái là "%s".',
-                                $schedule->status->label(),
-                            ),
-                        ]);
-                    }
+                if ($schedule && $schedule->isOperationallyLocked() && $this->coDoiThongTinVanHanh($schedule, $item)) {
+                    throw ValidationException::withMessages([
+                        'schedules' => sprintf(
+                            'Không thể sửa thông tin chuyến khởi hành %s khi trạng thái là "%s".',
+                            $schedule->start_date->format('d/m/Y'),
+                            $schedule->status->label(),
+                        ),
+                    ]);
                 }
 
                 $startDate = Carbon::parse($item['start_date']);
@@ -565,11 +576,23 @@ class AdminTourController extends Controller
                         ]);
                     }
 
-                    // Chỉ cập nhật status nếu chưa khóa vận hành (open/closed).
-                    if (! $schedule->isOperationallyLocked()) {
+                    /*
+                     * Trạng thái chỉ nhận từ biểu mẫu khi chuyến còn ở giai đoạn bán.
+                     *
+                     * Biểu mẫu gửi lại nguyên trạng thái nó đọc được lúc mở form. Chuyến đã chốt
+                     * chạy mà tin theo con số ấy thì một lần bấm "Lưu tour" lặng lẽ mở bán lại một
+                     * chuyến đã chốt danh sách — `isOperationallyLocked()` không đỡ được, vì
+                     * `confirmed` không nằm trong nhóm đó.
+                     *
+                     * Sau khi chốt, vòng đời do nơi khác điều khiển: lệnh nền, nút đổi trạng thái ở
+                     * màn quản lý chuyến, và luồng hủy chuyến.
+                     */
+                    $trangThaiMoi = $item['status'] ?? null;
+
+                    if ($this->conDangBan($schedule) && in_array($trangThaiMoi, ['open', 'closed'], true)) {
                         $payload['status'] = $schedule->booked_people >= (int) $item['max_people']
                             ? 'closed'
-                            : ($item['status'] ?? 'open');
+                            : $trangThaiMoi;
                     }
 
                     /*
@@ -735,6 +758,43 @@ class AdminTourController extends Controller
         }
 
         $itinerary->checkpoints()->whereKeyNot($keptIds)->delete();
+    }
+
+    /** Chuyến còn ở giai đoạn bán, tức trạng thái của nó do biểu mẫu tour quyết được. */
+    private function conDangBan(TourSchedule $schedule): bool
+    {
+        return in_array($schedule->status, [ScheduleStatus::Open, ScheduleStatus::Closed], true);
+    }
+
+    /**
+     * Biểu mẫu có thực sự đổi thông tin vận hành của chuyến đã khóa này không.
+     *
+     * Chỉ cần trường CÓ MẶT là chặn thì sai: biểu mẫu gửi lại toàn bộ giá trị nó đọc được lúc mở
+     * ra, kể cả của những chuyến người dùng không đụng tới. Sửa một dòng mô tả tour cũng bị từ chối,
+     * kèm một thông báo nói về chuyến nào đó đã kết thúc từ tháng trước.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    private function coDoiThongTinVanHanh(TourSchedule $schedule, array $item): bool
+    {
+        $minMoi = $item['min_people'] ?? null;
+
+        if ($minMoi !== null && (int) $minMoi !== (int) $schedule->min_people) {
+            return true;
+        }
+
+        if (! array_key_exists('booking_deadline', $item)) {
+            return false;
+        }
+
+        $hanMoi = $item['booking_deadline'] !== null ? Carbon::parse($item['booking_deadline']) : null;
+        $hanCu = $schedule->booking_deadline;
+
+        if ($hanMoi === null || $hanCu === null) {
+            return $hanMoi !== $hanCu;
+        }
+
+        return ! $hanMoi->equalTo($hanCu);
     }
 
     private function validateScheduleRules(array $schedules): ?string

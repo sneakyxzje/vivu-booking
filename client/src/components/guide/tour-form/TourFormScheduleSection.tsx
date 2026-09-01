@@ -19,7 +19,7 @@ import {
   hanChotMacDinh,
   taoChuyen,
 } from "./formHelpers";
-import { LY_DO_DOI_HAN_TOI_THIEU } from "@/utils/schedule";
+import { LY_DO_DOI_HAN_TOI_THIEU, statusLabel } from "@/utils/schedule";
 import { DateTimePicker } from "@/components/DateTimePicker";
 import {
   TEN_THANG,
@@ -74,7 +74,19 @@ const nhanNgay = (batDau: string) => {
 const NHAN_TRANG_THAI: Record<string, { chu: string; lop: string }> = {
   open: { chu: "Đang mở bán", lop: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
   closed: { chu: "Tạm đóng", lop: "bg-gray-100 text-gray-600 ring-gray-200" },
+  confirmed: { chu: "Đã chốt chuyến", lop: "bg-blue-50 text-blue-700 ring-blue-200" },
+  in_progress: { chu: "Đang khởi hành", lop: "bg-amber-50 text-amber-700 ring-amber-200" },
+  completed: { chu: "Đã kết thúc", lop: "bg-indigo-50 text-indigo-700 ring-indigo-200" },
+  cancelled: { chu: "Đã hủy", lop: "bg-rose-50 text-rose-700 ring-rose-200" },
 };
+
+/**
+ * Chuyến còn ở giai đoạn bán, tức trạng thái của nó sửa được từ biểu mẫu này.
+ *
+ * Khớp với `AdminTourController::conDangBan()`. Sau khi chốt chạy thì vòng đời do lệnh nền và màn
+ * quản lý chuyến điều khiển, biểu mẫu tour không có tiếng nói ở đó.
+ */
+const conDangBan = (status: string): boolean => status === "open" || status === "closed";
 
 interface Props {
   fieldClass: string;
@@ -710,14 +722,35 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                             <label className="mb-1 block text-[11px] font-bold text-gray-600">
                               Trạng thái mở bán
                             </label>
-                            <select
-                              value={item.status}
-                              onChange={(e) => capNhat(item.uid, { status: e.target.value })}
-                              className={`${fieldClass} !py-2 text-xs`}
-                            >
-                              <option value="open">Đang mở bán</option>
-                              <option value="closed">Tạm đóng bán</option>
-                            </select>
+                            {/*
+                              Chuyến đã qua giai đoạn bán thì chỉ đọc.
+
+                              Vòng đời sau khi chốt do nơi khác điều khiển — lệnh nền, màn quản lý
+                              chuyến, luồng hủy chuyến — nên bày một ô chọn hai giá trị ở đây là hứa
+                              một thứ máy chủ sẽ không làm. Trước đây ô này còn hiện trống trơn vì
+                              "confirmed" không khớp option nào.
+                            */}
+                            {conDangBan(item.status) ? (
+                              <select
+                                value={item.status}
+                                onChange={(e) => capNhat(item.uid, { status: e.target.value })}
+                                className={`${fieldClass} !py-2 text-xs`}
+                              >
+                                <option value="open">Đang mở bán</option>
+                                <option value="closed">Tạm đóng bán</option>
+                              </select>
+                            ) : (
+                              <>
+                                <div
+                                  className={`${fieldClass} !py-2 text-xs bg-gray-50 text-gray-500`}
+                                >
+                                  {statusLabel[item.status as keyof typeof statusLabel] ?? item.status}
+                                </div>
+                                <p className="mt-1 text-[11px] text-gray-400">
+                                  Đổi trạng thái ở màn quản lý chuyến.
+                                </p>
+                              </>
+                            )}
                           </div>
                         </div>
 
