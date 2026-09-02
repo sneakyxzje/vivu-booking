@@ -101,6 +101,15 @@ class CheckSeatConsistency extends Command
                             ->where('seats_released', false);
                     });
             })
-            ->sum('guests');
+            /*
+             * Cộng theo SỐ GHẾ, đúng đơn vị mà `booked_people` đang đếm: em bé đi cùng bố mẹ không
+             * chiếm chỗ nào nên không được tính vào đây.
+             *
+             * Lùi về `guests` khi `seats` bằng 0, giống hệt `Booking::seatsTaken()`. Đây là bản SQL
+             * của cùng một luật, cần có vì câu hỏi này đặt ra cho cả một bảng chứ không cho từng
+             * bản ghi - cùng lý do `scopeBookable` tồn tại bên cạnh `isBookable()`. Nhánh lùi ấy
+             * đón các đơn dựng thẳng vào cơ sở dữ liệu mà không qua luồng đặt chỗ.
+             */
+            ->sum(DB::raw('CASE WHEN seats > 0 THEN seats ELSE guests END'));
     }
 }

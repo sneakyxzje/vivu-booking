@@ -146,9 +146,16 @@ class BookingController extends Controller
             $childCount = (int) ($data['child_count'] ?? 0);
             $infantCount = (int) ($data['infant_count'] ?? 0);
             $totalGuests = $adultCount + $childCount + $infantCount;
+            /*
+             * Em bé đi cùng không chiếm ghế, nên kho chỗ trừ theo SỐ GHẾ chứ không theo số người.
+             *
+             * Trước đây cả hai là một, tức mỗi em bé ăn mất một chỗ bán được của chuyến - trái với
+             * chính định nghĩa ở `PassengerPolicyService`, và làm số suất báo cho nhà xe lệch đi.
+             */
+            $soGhe = Booking::tinhSoGhe($adultCount, $childCount);
             $availableSeats = $schedule->max_people - $schedule->booked_people;
 
-            if ($totalGuests > $availableSeats) {
+            if ($soGhe > $availableSeats) {
                 throw ValidationException::withMessages([
                     'adult_count' => 'Số chỗ còn lại không đủ cho booking này.',
                 ]);
@@ -201,6 +208,7 @@ class BookingController extends Controller
                 'customer_phone' => $data['customer_phone'] ?? null,
                 'departure_date' => $schedule->start_date,
                 'guests' => $totalGuests,
+                'seats' => $soGhe,
                 'adult_count' => $adultCount,
                 'child_count' => $childCount,
                 'infant_count' => $infantCount,
@@ -233,7 +241,7 @@ class BookingController extends Controller
                 $discount['model']->increment('used_count');
             }
 
-            $schedule->increment('booked_people', $totalGuests);
+            $schedule->increment('booked_people', $soGhe);
             $schedule->refresh();
 
             if ($schedule->booked_people >= $schedule->max_people) {

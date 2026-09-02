@@ -66,6 +66,7 @@ class ScheduleMergeService
             'can_merge' => $coThe,
             'blocked_reason' => $lyDo,
             'transferring' => $chuyenDi->count(),
+            // Số NGƯỜI cho màn hình đọc; số ghế dùng để kiểm sức chứa ở `assertCanMerge`.
             'transferring_guests' => (int) $chuyenDi->sum('guests'),
             'cancelling' => $huyDi->count(),
             'remaining_seats' => (int) $to->max_people - (int) $to->booked_people,
@@ -107,7 +108,7 @@ class ScheduleMergeService
             $chuyenDi = $this->bookingsToTransfer($nguon);
             $huyDi = $this->bookingsToCancel($nguon);
 
-            $tongKhachChuyen = (int) $chuyenDi->sum('guests');
+            $tongKhachChuyen = (int) $chuyenDi->sum(fn (Booking $don) => $don->seatsTaken());
 
             // Kiểm lại số chỗ trên bản ghi vừa khóa. Giữa lúc xem trước và lúc bấm, chuyến đích
             // hoàn toàn có thể vừa nhận thêm khách.
@@ -308,7 +309,7 @@ class ScheduleMergeService
         }
 
         // 3. Chuyến đích còn đủ chỗ cho toàn bộ khách của chuyến nguồn.
-        $canChuyen = (int) $this->bookingsToTransfer($from)->sum('guests');
+        $canChuyen = (int) $this->bookingsToTransfer($from)->sum(fn (Booking $don) => $don->seatsTaken());
         $conTrong = (int) $to->max_people - (int) $to->booked_people;
 
         if ($conTrong < $canChuyen) {

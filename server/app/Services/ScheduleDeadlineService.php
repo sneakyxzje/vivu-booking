@@ -76,7 +76,7 @@ class ScheduleDeadlineService
         $gheChet = Booking::query()
             ->where('tour_schedule_id', $schedule->getKey())
             ->withHeldSeats()
-            ->get(['id', 'guests']);
+            ->get(['id', 'guests', 'seats']);
 
         $canMoBanTay = $huong === 'later'
             && !$quaHanSau
@@ -97,7 +97,7 @@ class ScheduleDeadlineService
             'manifest_guests' => $trongDanhSach['guests'],
             'pending_bookings' => $choThanhToan['bookings'],
             'held_seat_bookings' => $gheChet->count(),
-            'held_seats' => (int) $gheChet->sum('guests'),
+            'held_seats' => (int) $gheChet->sum(fn (Booking $don) => $don->seatsTaken()),
             'needs_manual_reopen' => $canMoBanTay,
             'can_change' => $canTro === null,
             'blocked_reason' => $canTro,

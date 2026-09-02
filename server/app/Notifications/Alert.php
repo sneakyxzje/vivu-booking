@@ -34,6 +34,14 @@ class Alert extends Notification
     public const XIN_BAN_GIAO = 'handover_requested';
     public const SU_CO = 'incident_reported';
 
+    /**
+     * Chuyến tới hạn chốt danh sách mà chưa đủ số khách tối thiểu.
+     *
+     * Hệ thống cố ý không tự hủy: chạy lỗ một chuyến nhỏ để giữ khách quen, hay hủy và đền bù, là
+     * quyết định kinh doanh của con người. Thông báo này để con người ấy kịp quyết.
+     */
+    public const CHUYEN_THIEU_KHACH = 'schedule_understaffed';
+
     /* --- Việc cả hai vai đều cần biết ---------------------------------------------------- */
 
     /**

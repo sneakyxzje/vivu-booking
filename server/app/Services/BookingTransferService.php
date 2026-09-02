@@ -129,7 +129,8 @@ class BookingTransferService
             $tongCu = (float) $locked->total_amount;
             $tongMoi = $this->recalculateTotal($locked, $chuyenDich);
             $phi = $this->transferFee($locked, $initiatedBy, $nhomLyDo);
-            $soKhach = (int) $locked->guests;
+            // Số GHẾ chuyển theo đơn, không phải số người: em bé đi cùng không chiếm chỗ ở đầu nào.
+            $soKhach = $locked->seatsTaken();
 
             // Trả chỗ ở chuyến gốc trước rồi mới lấy chỗ ở chuyến đích. Ngược lại thì có lúc
             // cùng một đơn đang chiếm chỗ ở cả hai chuyến, và nếu giao dịch hỏng giữa chừng thì
@@ -361,11 +362,11 @@ class BookingTransferService
 
         $conTrong = (int) $toSchedule->max_people - (int) $toSchedule->booked_people;
 
-        if ($conTrong < (int) $booking->guests) {
+        if ($conTrong < $booking->seatsTaken()) {
             throw new BusinessRuleException(sprintf(
                 'Chuyến đích chỉ còn %d chỗ, không đủ cho %d khách của đơn này.',
                 max(0, $conTrong),
-                (int) $booking->guests,
+                $booking->seatsTaken(),
             ));
         }
 

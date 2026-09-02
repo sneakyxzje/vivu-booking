@@ -218,7 +218,7 @@ class VNPayCallbackService
             true,
         );
 
-        if (!$chuyenConNhan || $booking->guests > $conTrong) {
+        if (!$chuyenConNhan || $booking->seatsTaken() > $conTrong) {
             Log::warning('Thanh toán thành công cho đơn đã quá hạn nhưng không còn chỗ — cần hoàn tiền thủ công.', [
                 'booking_id' => $booking->id,
                 'transaction_no' => $maGiaoDich,
@@ -228,7 +228,7 @@ class VNPayCallbackService
             return $this->ketQua(null, true, self::RSP_THANH_CONG, $booking->id);
         }
 
-        $schedule->increment('booked_people', $booking->guests);
+        $schedule->increment('booked_people', $booking->seatsTaken());
         $schedule->refresh();
 
         if ($schedule->booked_people >= $schedule->max_people) {

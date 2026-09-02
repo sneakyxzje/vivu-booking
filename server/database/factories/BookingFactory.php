@@ -20,8 +20,9 @@ use Illuminate\Support\Str;
  *
  * Hai điều factory này tự lo, vì để nơi gọi tự nhớ thì sớm muộn cũng có chỗ quên:
  *
- *   - `guests` luôn bằng tổng ba con số lứa tuổi (`soKhach()`). Đó là con số hệ thống trừ vào kho
- *     chỗ của chuyến; để nó lệch với tổng là dựng sẵn một bất biến đã vỡ.
+ *   - `guests` luôn bằng tổng ba con số lứa tuổi (`soKhach()`), và `seats` bằng người lớn cộng trẻ
+ *     em - em bé không chiếm ghế riêng. `seats` là con số hệ thống trừ vào kho chỗ của chuyến; để
+ *     nó lệch với cơ cấu khách là dựng sẵn một bất biến đã vỡ.
  *   - Các mốc thời gian nằm đúng thứ tự: trả tiền sau khi đặt, không phải trước. Việc dọn này chạy
  *     ở `afterMaking` nên gọi `datLuc()` trước hay sau `daThanhToan()` đều ra cùng kết quả.
  */
@@ -53,6 +54,7 @@ class BookingFactory extends Factory
             'customer_phone' => '09' . $this->faker->numerify('########'),
 
             'guests' => 1,
+            'seats' => 1,
             'adult_count' => 1,
             'child_count' => 0,
             'infant_count' => 0,
@@ -72,6 +74,9 @@ class BookingFactory extends Factory
     {
         return $this->afterMaking(function (Booking $don): void {
             $this->apGiaTheoTour($don);
+            // Tính ở đây chứ không chỉ trong `soKhach()`: nơi gọi hoàn toàn có thể đặt thẳng
+            // `adult_count` qua `create([...])`, và đường ấy cũng phải ra đúng số ghế.
+            $don->seats = Booking::tinhSoGhe((int) $don->adult_count, (int) $don->child_count);
             $this->donDepMocThoiGian($don);
         });
     }
@@ -86,7 +91,7 @@ class BookingFactory extends Factory
         ]);
     }
 
-    /** Số khách theo từng lứa tuổi. `guests` suy ra từ đây, không khai riêng. */
+    /** Số khách theo từng lứa tuổi. `guests` và `seats` suy ra từ đây, không khai riêng. */
     public function soKhach(int $nguoiLon, int $treEm = 0, int $emBe = 0): static
     {
         return $this->state(fn (): array => [
@@ -94,6 +99,7 @@ class BookingFactory extends Factory
             'child_count' => $treEm,
             'infant_count' => $emBe,
             'guests' => $nguoiLon + $treEm + $emBe,
+            'seats' => Booking::tinhSoGhe($nguoiLon, $treEm),
         ]);
     }
 

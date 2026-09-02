@@ -52,6 +52,41 @@ class SeatConsistencyCommandTest extends TestCase
         ]);
     }
 
+    /**
+     * Em bé đi cùng bố mẹ không ăn một chỗ của chuyến.
+     *
+     * `PassengerPolicyService` vẫn định nghĩa em bé dưới hai tuổi là khách không chiếm ghế riêng,
+     * nhưng luồng đặt chỗ lại cộng cả `infant_count` vào số trừ khỏi kho. Xe 30 chỗ nhận đoàn có
+     * em bé thì mất đúng bấy nhiêu chỗ bán được, và số suất báo cho nhà xe cũng lệch theo.
+     */
+    public function test_em_be_khong_chiem_cho_cua_chuyen(): void
+    {
+        $chuyen = $this->taoChuyen(0);
+
+        $this->postJson('/api/bookings', [
+            'tour_id' => $chuyen->tour_id,
+            'tour_schedule_id' => $chuyen->id,
+            'customer_name' => 'Gia Dinh Co Em Be',
+            'customer_email' => 'giadinh-' . Str::random(5) . '@example.com',
+            'adult_count' => 2,
+            'child_count' => 1,
+            'infant_count' => 2,
+        ])->assertStatus(201);
+
+        $don = Booking::query()->latest('id')->firstOrFail();
+
+        $this->assertSame(5, (int) $don->guests, 'Vẫn là năm người đi, danh sách đoàn cần đủ.');
+        $this->assertSame(3, (int) $don->seats, 'Nhưng chỉ ba ghế: hai người lớn và một trẻ em.');
+        $this->assertSame(
+            3,
+            (int) $chuyen->fresh()->booked_people,
+            'Kho chỗ trừ theo ghế, không theo đầu người.',
+        );
+
+        // Và lệnh đối chiếu phải đồng ý với con số ấy.
+        $this->artisan('bookings:check-seat-consistency')->assertSuccessful();
+    }
+
     public function test_khong_bao_gi_khi_so_cho_khop(): void
     {
         $schedule = $this->taoChuyen(daGhi: 5);

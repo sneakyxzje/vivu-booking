@@ -8,6 +8,8 @@ use App\Exceptions\BusinessRuleException;
 use App\Mail\BookingConfirmedMail;
 use App\Models\Booking;
 use App\Models\TourSchedule;
+use App\Notifications\Alert;
+use App\Services\Notifier;
 use App\Services\ScheduleLifecycleService;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -43,6 +45,7 @@ class ConfirmReadySchedules extends Command
     public function handle(): int
     {
         $window = now()->addHours((int) config('booking.confirm_window_hours', 24));
+        $hanMacDinh = (int) config('booking.booking_deadline_days', 3);
 
         $query = TourSchedule::query()
             ->whereIn('status', [
@@ -50,9 +53,26 @@ class ConfirmReadySchedules extends Command
                 ScheduleStatus::Closed->value,
             ])
             ->where('start_date', '>', now())
-            // Chỉ những chuyến đã tới hoặc sắp tới hạn chốt danh sách.
-            ->whereNotNull('booking_deadline')
-            ->where('booking_deadline', '<=', $window);
+            /*
+             * Chỉ những chuyến đã tới hoặc sắp tới hạn chốt danh sách — kể cả chuyến KHÔNG đặt hạn
+             * chốt riêng.
+             *
+             * Bộ lọc cũ là `whereNotNull('booking_deadline')`, nên chuyến nào để trống cột ấy không
+             * bao giờ được xét. Cả hệ thống coi những chuyến đó có hạn chốt mặc định (xem
+             * `defaultBookingDeadline`), nên riêng ở đây chúng rơi vào một lỗ: không bao giờ được
+             * chốt, và cũng không bao giờ bị hỏi đã đủ khách tối thiểu chưa.
+             *
+             * Hạn mặc định là `start_date` trừ N ngày, nên "hạn mặc định đã tới cửa sổ xét" tương
+             * đương `start_date` sớm hơn cửa sổ cộng N ngày — viết được thành điều kiện SQL thường.
+             */
+            ->where(function ($q) use ($window, $hanMacDinh) {
+                $q->where(function ($co) use ($window) {
+                    $co->whereNotNull('booking_deadline')->where('booking_deadline', '<=', $window);
+                })->orWhere(function ($khong) use ($window, $hanMacDinh) {
+                    $khong->whereNull('booking_deadline')
+                        ->where('start_date', '<=', $window->copy()->addDays($hanMacDinh));
+                });
+            });
 
         if ($query->clone()->doesntExist()) {
             $this->info('Không có chuyến nào tới hạn chốt danh sách.');
@@ -76,6 +96,8 @@ class ConfirmReadySchedules extends Command
                         $minPeople,
                         $minPeople - $paidPeople,
                     ));
+
+                    $this->baoThieuKhach($schedule, $paidPeople, $minPeople);
 
                     $notEnough++;
 
@@ -111,6 +133,46 @@ class ConfirmReadySchedules extends Command
         $this->info("Đã chốt {$confirmed} chuyến, {$notEnough} chuyến chưa đủ khách.");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Báo cho điều hành rằng chuyến này tới hạn chốt mà chưa đủ khách.
+     *
+     * Trước đây chỗ này chỉ `warn()` ra console rồi `continue`. Không ai ngồi đọc console của một
+     * lệnh chạy mỗi phút, nên trên thực tế `min_people` chưa bao giờ được thực thi: chuyến hai
+     * khách vẫn lăn bánh, và không có bước nào bắt ai đó quyết định chạy hay hủy.
+     *
+     * Hệ thống cố ý KHÔNG tự hủy chuyến. Chạy lỗ một chuyến nhỏ để giữ khách quen, hay hủy và đền
+     * bù, là quyết định kinh doanh của con người — việc của lệnh này là đảm bảo con người ấy biết
+     * mà quyết, đúng lúc còn kịp.
+     *
+     * Đánh dấu đã báo để mỗi chuyến chỉ nhận một thông báo. Lệnh chạy mỗi phút, và một thông báo
+     * mỗi phút cho tới ngày khởi hành là cách chắc chắn nhất để người ta bỏ qua mọi thông báo.
+     */
+    private function baoThieuKhach(TourSchedule $schedule, int $daCo, int $canCo): void
+    {
+        if ($schedule->understaffed_alert_sent_at !== null) {
+            return;
+        }
+
+        $schedule->forceFill(['understaffed_alert_sent_at' => now()])->save();
+
+        $hanChot = $schedule->booking_deadline ?? $schedule->defaultBookingDeadline();
+
+        app(Notifier::class)->toiDieuHanh(
+            Alert::CHUYEN_THIEU_KHACH,
+            sprintf('Chuyến #%d chưa đủ khách tối thiểu', $schedule->id),
+            sprintf(
+                '%s · khởi hành %s · mới có %d trên %d khách đã thanh toán%s. Cần quyết định cho '
+                    . 'chạy hay hủy chuyến và đền bù.',
+                $schedule->tour?->title ?? 'Tour',
+                $schedule->start_date?->format('d/m/Y') ?? 'chưa rõ',
+                $daCo,
+                $canCo,
+                $hanChot ? ', hạn chốt ' . $hanChot->format('d/m/Y H:i') : '',
+            ),
+            '/admin/schedules/' . $schedule->id,
+        );
     }
 
     /** Tổng số khách của các đơn đã trả tiền trên chuyến này. */

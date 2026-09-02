@@ -328,7 +328,7 @@ class ScheduleCancellationService
 
         $this->holdService->releaseDiscountUsage($don);
 
-        $schedule->decrement('booked_people', min((int) $don->guests, (int) $schedule->booked_people));
+        $schedule->decrement('booked_people', min($don->seatsTaken(), (int) $schedule->booked_people));
         $schedule->refresh();
 
         $this->auditLogger->logStatusChange(
@@ -399,7 +399,7 @@ class ScheduleCancellationService
         $this->holdService->releaseDiscountUsage($don);
 
         // Đánh dấu seats_released thôi chưa đủ: phải trừ thật thì lệnh đối chiếu số chỗ mới khớp.
-        $schedule->decrement('booked_people', min((int) $don->guests, (int) $schedule->booked_people));
+        $schedule->decrement('booked_people', min($don->seatsTaken(), (int) $schedule->booked_people));
         $schedule->refresh();
 
         $this->auditLogger->logStatusChange(

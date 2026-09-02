@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
     'customer_phone',
     'departure_date',
     'guests',
+    'seats',
     'adult_count',
     'child_count',
     'infant_count',
@@ -72,6 +73,26 @@ class Booking extends Model
     public function scopeWithHeldSeats($query)
     {
         return $query->where('status', 'cancelled')->where('seats_released', false);
+    }
+
+    /**
+     * Số ghế đơn này chiếm của chuyến.
+     *
+     * Khác `guests`, là số NGƯỜI đi: em bé dưới hai tuổi ngồi cùng bố mẹ nên không chiếm ghế riêng.
+     * Xem `PassengerPolicyService` và migration 2026_09_02_000002.
+     *
+     * Đọc qua hàm này thay vì đọc thẳng cột, để đơn tạo trước migration - cột `seats` bằng 0 vì
+     * chưa được backfill - vẫn lùi về `guests` thay vì tuyên bố mình không chiếm chỗ nào.
+     */
+    public function seatsTaken(): int
+    {
+        return (int) ($this->seats ?: $this->guests);
+    }
+
+    /** Số ghế tính từ cơ cấu khách: người lớn và trẻ em chiếm ghế, em bé thì không. */
+    public static function tinhSoGhe(int $adult, int $child): int
+    {
+        return $adult + $child;
     }
 
     public function isOverdue(): bool

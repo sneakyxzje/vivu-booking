@@ -635,10 +635,26 @@ class AdminTourController extends Controller
                 $keptScheduleIds[] = $created->id;
             }
 
-            $tour->schedules()
-                ->whereNotIn('id', $keptScheduleIds)
-                ->where('booked_people', 0)
-                ->delete();
+            /*
+             * Dọn các chuyến bị bỏ khỏi biểu mẫu — nhưng chỉ khi biểu mẫu THỰC SỰ nói về lịch.
+             *
+             * Trường `schedules` là tùy chọn, nên một yêu cầu chỉ sửa tiêu đề mà không gửi mảng ấy
+             * lên sẽ có `$keptScheduleIds` rỗng. Câu lệnh cũ chạy trong trường hợp đó là xóa sạch
+             * mọi chuyến chưa có khách của tour, do một thao tác không liên quan gì tới lịch.
+             *
+             * Điều kiện cũ cũng sai chỗ khác: `booked_people = 0` KHÔNG có nghĩa là chưa ai từng
+             * đặt. Một chuyến chỉ còn đơn đã hủy cũng bằng 0, và khóa ngoại `tour_schedule_id` là
+             * `nullOnDelete` — xóa chuyến đi thì các đơn cũ mất luôn ngày khởi hành, mất căn cứ
+             * hạn chốt, và lịch sử của chúng không dựng lại được nữa.
+             *
+             * Nên chỉ xóa chuyến chưa từng có đơn nào trỏ tới.
+             */
+            if ($request->has('schedules')) {
+                $tour->schedules()
+                    ->whereNotIn('id', $keptScheduleIds)
+                    ->whereDoesntHave('bookings')
+                    ->delete();
+            }
 
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $image) {

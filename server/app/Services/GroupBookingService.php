@@ -211,6 +211,9 @@ class GroupBookingService
                 'customer_phone' => $fresh->contact_phone,
                 'departure_date' => $schedule->start_date,
                 'guests' => $finalGuests,
+                // Giá đoàn không chia loại khách nên cả đoàn ghi vào `adult_count`, và mọi người
+                // đều chiếm một ghế. Vẫn ghi cột này để kho chỗ có một nguồn duy nhất để đọc.
+                'seats' => $finalGuests,
                 // Giá đoàn là một giá thương lượng cho mỗi đầu người, không chia người lớn
                 // trẻ em như giá niêm yết. Ghi cả đoàn vào adult_count để tổng các cột khớp
                 // với guests - các màn đọc số liệu không phải xử lý riêng đơn đoàn.
@@ -367,6 +370,7 @@ class GroupBookingService
 
             $fresh->forceFill([
                 'guests' => $newGuests,
+                'seats' => $newGuests,
                 'adult_count' => $newGuests,
                 'total_amount' => $tongMoi,
             ])->save();

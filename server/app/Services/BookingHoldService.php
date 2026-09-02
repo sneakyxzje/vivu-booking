@@ -246,7 +246,8 @@ class BookingHoldService
             'seats_released_at' => now(),
         ])->save();
 
-        $schedule->decrement('booked_people', min($booking->guests, (int) $schedule->booked_people));
+        // Trả đúng số GHẾ đã chiếm, không phải số người: em bé đi cùng chưa từng ăn chỗ nào.
+        $schedule->decrement('booked_people', min($booking->seatsTaken(), (int) $schedule->booked_people));
         $schedule->refresh();
 
         // Còn chỗ trống không phải lý do đủ để bán tiếp. Đơn chưa thanh toán luôn được trả chỗ,

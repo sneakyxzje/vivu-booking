@@ -22,14 +22,27 @@ class CloseExpiredSchedules extends Command
 
     public function handle(): int
     {
+        $hanMacDinh = (int) config('booking.booking_deadline_days', 3);
+
         $schedules = TourSchedule::query()
             ->where('status', ScheduleStatus::Open->value)
-            ->where(function ($query) {
+            ->where(function ($query) use ($hanMacDinh) {
                 $query
                     ->where(function ($query) {
                         $query
                             ->whereNotNull('booking_deadline')
                             ->where('booking_deadline', '<=', now());
+                    })
+                    /*
+                     * Chuyến không đặt hạn chốt riêng vẫn có hạn mặc định, và vẫn phải đóng bán khi
+                     * qua mốc ấy. Thiếu nhánh này thì chúng ở lại trạng thái `open` mãi mãi: khách
+                     * không đặt được (`isBookable()` chặn) nhưng mọi màn hình lọc theo cột trạng
+                     * thái vẫn mời họ vào.
+                     */
+                    ->orWhere(function ($query) use ($hanMacDinh) {
+                        $query
+                            ->whereNull('booking_deadline')
+                            ->where('start_date', '<=', now()->addDays($hanMacDinh));
                     })
                     ->orWhereColumn('booked_people', '>=', 'max_people');
             })
