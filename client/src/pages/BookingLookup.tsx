@@ -65,7 +65,9 @@ export const BookingLookup: React.FC = () => {
       setResendEmail("");
       setResendPhone("");
     } catch {
-      setResendErrorMessage("Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
+      setResendErrorMessage(
+        "Không thể kết nối đến máy chủ. Vui lòng thử lại sau.",
+      );
     } finally {
       setResending(false);
     }
@@ -88,8 +90,8 @@ export const BookingLookup: React.FC = () => {
               Tra cứu đơn đặt tour
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-gray-500">
-              Nhập mã tra cứu được gửi trong email xác nhận đặt tour để xem trạng thái đơn,
-              thông tin điểm đón và thanh toán. Bạn không cần đăng nhập.
+              Nhập mã tra cứu được gửi trong email xác nhận đặt tour để xem
+              trạng thái đơn, thông tin điểm đón và thanh toán.
             </p>
           </div>
 
@@ -128,10 +130,9 @@ export const BookingLookup: React.FC = () => {
           </form>
 
           {/* TASK X06b: Phần Khôi Phục / Gửi Lại Mã Tra Cứu Dành Cho Khách Vãng Lai */}
-          <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-5 space-y-3">
+          <div className="rounded-md border border-blue-100 bg-blue-50/50 p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-lg">📧</span>
                 <p className="text-sm font-bold text-gray-800">
                   Quên hoặc không nhận được mã tra cứu?
                 </p>
@@ -151,9 +152,13 @@ export const BookingLookup: React.FC = () => {
 
             {/* Form Gửi Lại Mã Tra Cứu */}
             {showResendForm && (
-              <form onSubmit={handleResendSubmit} className="mt-3 pt-3 border-t border-blue-100 space-y-3.5 animate-fade-in">
+              <form
+                onSubmit={handleResendSubmit}
+                className="mt-3 pt-3 border-t border-blue-100 space-y-3.5 animate-fade-in"
+              >
                 <p className="text-xs text-gray-600">
-                  Nhập Email và Số điện thoại bạn đã dùng khi đặt tour. Hệ thống sẽ kiểm tra và gửi lại mã tra cứu về hộp thư của bạn.
+                  Nhập Email và Số điện thoại bạn đã dùng khi đặt tour. Hệ thống
+                  sẽ kiểm tra và gửi lại mã tra cứu về hộp thư của bạn.
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -200,9 +205,11 @@ export const BookingLookup: React.FC = () => {
                 <button
                   type="submit"
                   disabled={resending || !resendEmail.trim()}
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs shadow-xs disabled:opacity-50 transition-colors"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-md bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs shadow-xs disabled:opacity-50 transition-colors"
                 >
-                  {resending ? "Đang gửi email..." : "📩 Gửi danh sách mã về Email"}
+                  {resending
+                    ? "Đang gửi email..."
+                    : "Gửi danh sách mã về Email"}
                 </button>
               </form>
             )}
@@ -210,17 +217,28 @@ export const BookingLookup: React.FC = () => {
 
           {/* Gợi ý hướng dẫn */}
           <div className="border-t border-gray-100 pt-5 text-sm text-gray-500">
-            <p className="font-semibold text-gray-700">Gợi ý tìm kiếm mã tra cứu:</p>
+            <p className="font-semibold text-gray-700">
+              Gợi ý tìm kiếm mã tra cứu:
+            </p>
             <ul className="mt-2 list-disc space-y-1 pl-5 leading-relaxed text-xs">
-              <li>Mã tra cứu nằm trong Email xác nhận được tự động gửi ngay sau khi đặt tour thành công.</li>
+              <li>
+                Mã tra cứu nằm trong Email xác nhận được tự động gửi ngay sau
+                khi đặt tour thành công.
+              </li>
               <li>
                 Nếu bạn đặt tour bằng tài khoản đã đăng nhập, xem trực tiếp tại{" "}
-                <Link to="/my-bookings" className="font-semibold text-primary-600 hover:underline">
+                <Link
+                  to="/my-bookings"
+                  className="font-semibold text-primary-600 hover:underline"
+                >
                   Đơn của tôi
                 </Link>
                 .
               </li>
-              <li>Cần hỗ trợ gấp, vui lòng liên hệ hotline tổng đài: <strong>1900 1234</strong>.</li>
+              <li>
+                Cần hỗ trợ gấp, vui lòng liên hệ hotline tổng đài:{" "}
+                <strong>1900 1234</strong>.
+              </li>
             </ul>
           </div>
         </div>

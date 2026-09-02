@@ -160,8 +160,12 @@ export default function PassengerDeclaration() {
               Giữ lại giá trị của một ô đã bị ẩn thì nó còn hiện trên danh sách đoàn và trên hợp
               đồng, mà không ai sửa được nữa — tệ hơn là bỏ hẳn.
             */
-            id_type: row.type === "adult" && row.identity_number.trim() ? row.id_type : null,
-            identity_number: row.type === "adult" ? row.identity_number.trim() || null : null,
+            id_type:
+              row.type === "adult" && row.identity_number.trim()
+                ? row.id_type
+                : null,
+            identity_number:
+              row.type === "adult" ? row.identity_number.trim() || null : null,
             phone: row.type === "infant" ? null : row.phone.trim() || null,
             special_request: row.special_request.trim() || null,
             is_contact: row.is_contact,
@@ -348,7 +352,9 @@ export default function PassengerDeclaration() {
                   <label className="field-label">
                     Điện thoại
                     {row.type === "child" && (
-                      <span className="ml-1 font-normal text-muted">(nếu có)</span>
+                      <span className="ml-1 font-normal text-muted">
+                        (nếu có)
+                      </span>
                     )}
                   </label>
                   <input
@@ -433,11 +439,6 @@ export default function PassengerDeclaration() {
           >
             {saving ? "Đang lưu..." : "Lưu danh sách"}
           </button>
-
-          {/* Khai một phần vẫn lưu được: có tên ai thì điền tên người đó trước. */}
-          <span className="text-body-sm text-muted">
-            Chưa đủ thông tin cũng lưu được, quay lại điền nốt sau.
-          </span>
         </div>
       )}
 
