@@ -136,7 +136,8 @@ Edge case:
 
 | Tình huống | Xử lý |
 | --- | --- |
-| Số hành khách khai báo ít hơn `guests` | Cảnh báo và chặn xuất danh sách đoàn cho tới khi khai đủ |
+| Số hành khách khai báo ít hơn `guests` | Vẫn lưu. Màn hình khai hiện "2 / 4 người" là đủ, không thêm dòng cảnh báo |
+| Người lớn chưa có số giấy tờ | Cảnh báo — khách sạn cần thông tin này để khai báo lưu trú. Trẻ em và em bé không tính, các cháu khai theo người lớn cùng phòng |
 | Trùng số căn cước giữa hai hành khách trong cùng đơn | Từ chối |
 | Hộ chiếu hết hạn trước ngày về với tour nước ngoài | Cảnh báo, yêu cầu xác nhận của điều hành |
 | Đổi người đi thay hoàn toàn | Coi là chuyển nhượng suất, cần điều hành duyệt, có thể thu phí đổi tên |

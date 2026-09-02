@@ -343,7 +343,14 @@ class PassengerPolicyTest extends TestCase
         ));
     }
 
-    public function test_khai_thieu_nguoi_thi_canh_bao_nhung_van_luu_duoc(): void
+    /**
+     * Khai được bao nhiêu lưu bấy nhiêu, và không bị nhắc vì chưa khai đủ.
+     *
+     * Khách đặt cho cả nhà rồi mới đi hỏi từng người số giấy tờ - lưu dở là chuyện bình thường,
+     * không phải lỗi. Màn hình vẫn hiện "2 / 4 người" để họ biết còn thiếu ai; thêm một dòng cảnh
+     * báo cho cùng một sự thật chỉ là nói hai lần.
+     */
+    public function test_khai_thieu_nguoi_van_luu_duoc_va_khong_bi_nhac(): void
     {
         $don = $this->taoDon(guests: 4);
         Sanctum::actingAs($this->khach);
@@ -352,10 +359,12 @@ class PassengerPolicyTest extends TestCase
             'passengers' => $this->danhSach(),
         ])->assertOk();
 
-        $canhBao = $response->json('data.warnings');
+        $this->assertSame(2, $don->passengers()->count(), 'Khai hai người thì lưu đúng hai người.');
 
-        $this->assertNotEmpty($canhBao);
-        $this->assertStringContainsString('2 trên 4', $canhBao[0]);
+        $this->assertEmpty(
+            array_filter($response->json('data.warnings'), fn (string $dong) => str_contains($dong, 'trên 4')),
+            'Chưa khai đủ không còn là một dòng cảnh báo.',
+        );
     }
 
     /**

@@ -202,10 +202,14 @@ class PassengerPolicyService
     }
 
     /**
-     * G05 - Cảnh báo khi danh sách khai chưa đủ so với số khách đã đặt.
+     * G05 - Những gì còn thiếu trong danh sách hành khách, nói cho người khai biết.
      *
-     * Không chặn việc lưu, vì khách thường đặt trước rồi mới hỏi đủ thông tin của cả nhà. Nhưng
-     * phải hiện rõ, và theo tài liệu 02 mục 3.1 thì chặn xuất danh sách đoàn cho tới khi khai đủ.
+     * Không chặn việc lưu: khách đặt cho cả nhà rồi mới đi hỏi từng người, lưu dở là chuyện bình
+     * thường chứ không phải lỗi.
+     *
+     * Cố ý KHÔNG nhắc "mới khai 2 trên 4". Màn hình khai đã hiện sẵn "2 / 4 người" ngay trên đầu,
+     * thêm một dòng cảnh báo cho cùng một sự thật là nói hai lần - và một dòng đỏ không tắt được
+     * dạy người dùng bỏ qua mọi dòng đỏ khác.
      *
      * @return array<int, string>
      */
