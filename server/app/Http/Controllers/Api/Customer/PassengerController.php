@@ -75,18 +75,42 @@ class PassengerController extends Controller
 
     // --- Lối vào bằng mã tra cứu, không cần đăng nhập -------------------------------------
 
-    public function publicIndex(string $publicToken): JsonResponse
+    /**
+     * Xem danh sách bằng mã tra cứu.
+     *
+     * Số giấy tờ trả về dạng che, trừ khi người xem nhập đúng địa chỉ thư đã dùng khi đặt. Mã tra
+     * cứu đi trong thư, mà thư thì được chuyển tiếp và mở trên máy dùng chung — nó đủ để hỏi "đơn
+     * này thế nào", không đủ để đọc căn cước của cả đoàn.
+     */
+    public function publicIndex(Request $request, string $publicToken): JsonResponse
     {
         $booking = $this->timTheoMa($publicToken);
 
-        return $booking
-            ? $this->success($this->danhSach($booking), 'Lấy danh sách hành khách thành công')
-            : $this->error('Không tìm thấy đơn với mã tra cứu này.', 404);
+        if (!$booking) {
+            return $this->error('Không tìm thấy đơn với mã tra cứu này.', 404);
+        }
+
+        return $this->success(
+            $this->danhSach($booking, $booking->khopEmail($request->query('email'))),
+            'Lấy danh sách hành khách thành công',
+        );
     }
 
+    /**
+     * Sửa danh sách bằng mã tra cứu — phải kèm đúng địa chỉ thư đã đặt.
+     *
+     * Sửa danh sách là đổi tên và giấy tờ của những người sẽ lên xe. Ai nhặt được đường dẫn trong
+     * một thư chuyển tiếp cũng làm được việc đó là quá rộng, nên đây là chỗ mã tra cứu cần thêm một
+     * yếu tố nữa. Người thật luôn có sẵn nó.
+     */
     public function publicUpdate(Request $request, string $publicToken): JsonResponse
     {
-        $validated = $request->validate(PassengerPolicyService::validationRules());
+        $validated = $request->validate(
+            PassengerPolicyService::validationRules() + [
+                'customer_email' => ['required', 'email'],
+            ],
+            ['customer_email.required' => 'Nhập địa chỉ email bạn đã dùng khi đặt tour để xác nhận.'],
+        );
 
         $booking = $this->timTheoMa($publicToken);
 
@@ -94,7 +118,17 @@ class PassengerController extends Controller
             return $this->error('Không tìm thấy đơn với mã tra cứu này.', 404);
         }
 
-        return $this->success($this->ghiDanhSach($booking, $validated['passengers']), 'Đã lưu danh sách hành khách.');
+        if (!$booking->khopEmail($validated['customer_email'])) {
+            return $this->error(
+                'Email không khớp với đơn này. Vui lòng nhập đúng địa chỉ đã dùng khi đặt tour.',
+                403,
+            );
+        }
+
+        return $this->success(
+            $this->ghiDanhSach($booking, $validated['passengers']),
+            'Đã lưu danh sách hành khách.',
+        );
     }
 
     // --- Phần dùng chung -------------------------------------------------------------------
@@ -104,11 +138,21 @@ class PassengerController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function danhSach(Booking $booking): array
+    private function danhSach(Booking $booking, bool $hienDayDu = true): array
     {
         $quyen = $this->passengerPolicy->editability($booking);
         $hanChot = $booking->schedule?->booking_deadline
             ?? $booking->schedule?->defaultBookingDeadline();
+
+        $hanhKhach = $booking->passengers()->get();
+
+        if (!$hienDayDu) {
+            $hanhKhach = $hanhKhach->map(function ($nguoi) {
+                $nguoi->identity_number = Booking::cheSoGiayTo($nguoi->identity_number);
+
+                return $nguoi;
+            });
+        }
 
         return [
             'booking' => [
@@ -119,7 +163,9 @@ class PassengerController extends Controller
                 'contact_phone' => $booking->customer_phone,
                 'status' => $booking->status,
             ],
-            'passengers' => $booking->passengers()->get(),
+            'passengers' => $hanhKhach,
+            // Để giao diện biết mà mời người xem nhập email nếu họ cần đọc đầy đủ.
+            'identity_masked' => !$hienDayDu,
             'guests' => (int) $booking->guests,
             'adult_count' => (int) $booking->adult_count,
             'child_count' => (int) $booking->child_count,

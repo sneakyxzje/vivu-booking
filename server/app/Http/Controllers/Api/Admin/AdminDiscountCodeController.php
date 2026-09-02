@@ -81,6 +81,9 @@ class AdminDiscountCodeController extends Controller
             'minimum_order_amount' => ['nullable', 'numeric', 'min:0'],
             'max_discount_amount' => ['nullable', 'numeric', 'min:0'],
             'usage_limit' => ['nullable', 'integer', 'min:1'],
+            // Số lần MỘT khách được dùng mã này. Để trống là không giới hạn theo người - đúng cho
+            // mã khuyến mãi chung, sai cho mã "dành cho khách mới".
+            'per_customer_limit' => ['nullable', 'integer', 'min:1'],
             'starts_at' => ['nullable', 'date'],
             'expires_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
             'is_active' => ['nullable', 'boolean'],

@@ -10,6 +10,62 @@ use Tests\TestCase;
 
 class AdminUserManagementTest extends TestCase
 {
+    /**
+     * Khóa tài khoản phải chặn được cả việc đặt tour.
+     *
+     * Phép kiểm "còn hoạt động" vốn chỉ nằm trong `RoleMiddleware`, mà tuyến đặt tour là tuyến công
+     * khai nên không đi qua nó. Người bị khóa vẫn gửi kèm token cũ và vẫn đặt được — tức hình phạt
+     * duy nhất của việc khóa tài khoản không chạm tới hành vi đáng lo nhất.
+     */
+    public function test_tai_khoan_bi_khoa_thi_khong_dat_tour_duoc(): void
+    {
+        $khach = \App\Models\User::create([
+            'name' => 'Khach Bi Khoa',
+            'email' => 'bikhoa-' . \Illuminate\Support\Str::random(5) . '@example.com',
+            'password' => \Illuminate\Support\Facades\Hash::make('password123'),
+            'role' => 'customer',
+            'status' => 'inactive',
+        ]);
+
+        $tour = \App\Models\Tour::factory()->create(['status' => 'active']);
+        $chuyen = \App\Models\TourSchedule::factory()->create([
+            'tour_id' => $tour->id,
+            'start_date' => now()->addDays(20),
+            'booking_deadline' => now()->addDays(15),
+            'max_people' => 10,
+            'booked_people' => 0,
+            'status' => \App\Enums\ScheduleStatus::Open->value,
+        ]);
+
+        \Laravel\Sanctum\Sanctum::actingAs($khach);
+
+        $this->postJson('/api/bookings', [
+            'tour_id' => $tour->id,
+            'tour_schedule_id' => $chuyen->id,
+            'customer_name' => 'Khach Bi Khoa',
+            'customer_email' => $khach->email,
+            'adult_count' => 1,
+        ])->assertStatus(403);
+
+        $this->assertSame(0, \App\Models\Booking::query()->count());
+    }
+
+    /** Và cả các tuyến chỉ có auth:sanctum, vốn không đi qua kiểm tra vai trò. */
+    public function test_tai_khoan_bi_khoa_thi_khong_xem_duoc_ho_so(): void
+    {
+        $khach = \App\Models\User::create([
+            'name' => 'Khach Bi Khoa',
+            'email' => 'bikhoa-' . \Illuminate\Support\Str::random(5) . '@example.com',
+            'password' => \Illuminate\Support\Facades\Hash::make('password123'),
+            'role' => 'customer',
+            'status' => 'inactive',
+        ]);
+
+        \Laravel\Sanctum\Sanctum::actingAs($khach);
+
+        $this->getJson('/api/me')->assertStatus(403);
+    }
+
     use RefreshDatabase;
 
     private function taoNguoi(string $role, string $status = 'active'): User

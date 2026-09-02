@@ -94,6 +94,53 @@ class DiscountCodeAtCheckoutTest extends TestCase
     }
 
     /**
+     * Một khách không dùng được mã quá số lần cho phép.
+     *
+     * `usage_limit` đếm tổng lượt của cả mã, không đếm theo người — nên một mã "giảm cho khách mới"
+     * phát 100 lượt có thể bị đúng một người dùng cả 100 lần. Nhận diện theo địa chỉ thư đã đặt,
+     * vì khách vãng lai không có tài khoản để đếm.
+     */
+    public function test_mot_khach_khong_dung_ma_qua_so_lan_cho_phep(): void
+    {
+        $ma = $this->taoMa(['per_customer_limit' => 1]);
+        $email = 'khach-quen@example.com';
+
+        $lanDau = $this->payload($ma->code);
+        $lanDau['customer_email'] = $email;
+
+        $this->postJson('/api/bookings', $lanDau)->assertStatus(201);
+        $this->assertEquals(3_600_000, (float) Booking::query()->latest('id')->first()->total_amount);
+
+        // Cùng người, cùng mã, đơn thứ hai: vẫn đặt được nhưng theo giá gốc.
+        $lanHai = $this->payload($ma->code);
+        $lanHai['customer_email'] = $email;
+
+        $phanHoi = $this->postJson('/api/bookings', $lanHai)->assertStatus(201);
+
+        $donHai = Booking::query()->latest('id')->first();
+
+        $this->assertEquals(4_000_000, (float) $donHai->total_amount);
+        $this->assertEquals(0, (float) $donHai->discount_amount);
+        $this->assertStringContainsString('đủ số lần', $phanHoi->json('data.discount_notice'));
+    }
+
+    /** Người khác vẫn dùng được mã ấy bình thường. */
+    public function test_gioi_han_theo_nguoi_khong_chan_khach_khac(): void
+    {
+        $ma = $this->taoMa(['per_customer_limit' => 1]);
+
+        $mot = $this->payload($ma->code);
+        $mot['customer_email'] = 'nguoi-mot@example.com';
+        $this->postJson('/api/bookings', $mot)->assertStatus(201);
+
+        $hai = $this->payload($ma->code);
+        $hai['customer_email'] = 'nguoi-hai@example.com';
+        $this->postJson('/api/bookings', $hai)->assertStatus(201);
+
+        $this->assertEquals(3_600_000, (float) Booking::query()->latest('id')->first()->total_amount);
+    }
+
+    /**
      * Bài quan trọng nhất của X03. Mã hết lượt trong lúc khách điền thông tin thì vẫn tạo đơn,
      * theo giá gốc, và nói rõ lý do.
      */

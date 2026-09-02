@@ -109,6 +109,13 @@ class ContractPrintController extends Controller
      * Đọc `adult_count` / `child_count` / `infant_count` của đơn chứ không chia đều `total_amount`
      * cho số khách: ba loại khách ba mức giá, chia đều thì hợp đồng ghi sai đơn giá.
      *
+     * **Đơn giá đọc từ ĐƠN, không đọc qua tour.** Đơn chép lại bảng giá tại thời điểm đặt, đúng như
+     * nó chép chính sách hủy. Đọc `tours.adult_price` tại thời điểm in nghĩa là mỗi lần điều hành
+     * sửa giá tour, mọi hợp đồng in ra sau đó có bảng đơn giá mới nhân số khách cũ, còn dòng tổng
+     * cộng vẫn là con số chốt lúc đặt — hai số trong cùng một văn bản không cộng ra nhau.
+     *
+     * Đơn tạo trước khi có ba cột ấy thì lùi về giá tour, vì đó là thông tin duy nhất còn lại.
+     *
      * Đơn cũ không tách loại khách thì gộp thành một dòng, chấp nhận đơn giá là giá trung bình -
      * thà đọc được còn hơn in ra ba dòng đều bằng không.
      *
@@ -116,10 +123,12 @@ class ContractPrintController extends Controller
      */
     private function dongGia($booking, $tour): array
     {
+        $donGia = fn (string $cot): float => (float) ($booking->{$cot} ?? $tour->{$cot} ?? 0);
+
         $loai = [
-            ['label' => 'Người lớn', 'count' => (int) ($booking->adult_count ?? 0), 'unit' => (float) ($tour->adult_price ?? 0)],
-            ['label' => 'Trẻ em', 'count' => (int) ($booking->child_count ?? 0), 'unit' => (float) ($tour->child_price ?? 0)],
-            ['label' => 'Em bé', 'count' => (int) ($booking->infant_count ?? 0), 'unit' => (float) ($tour->infant_price ?? 0)],
+            ['label' => 'Người lớn', 'count' => (int) ($booking->adult_count ?? 0), 'unit' => $donGia('adult_price')],
+            ['label' => 'Trẻ em', 'count' => (int) ($booking->child_count ?? 0), 'unit' => $donGia('child_price')],
+            ['label' => 'Em bé', 'count' => (int) ($booking->infant_count ?? 0), 'unit' => $donGia('infant_price')],
         ];
 
         $dong = [];

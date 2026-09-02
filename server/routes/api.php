@@ -173,7 +173,14 @@ Route::post('/newsletter', function (\Illuminate\Http\Request $request) {
 | AUTHENTICATED ROUTES
 |--------------------------------------------------------------------------
 */
-Route::middleware('auth:sanctum')->group(function () {
+/*
+ * Mọi tuyến sau khi đăng nhập đều đi qua `account.active`.
+ *
+ * Phép kiểm "tài khoản còn hoạt động" vốn chỉ nằm trong `RoleMiddleware`, tức chỉ chạy ở các tuyến
+ * có khai vai trò. Những tuyến chỉ có `auth:sanctum` — xem hồ sơ, đổi mật khẩu, viết đánh giá —
+ * không đi qua nó, nên một tài khoản vừa bị khóa vẫn dùng được miễn là còn giữ token cũ.
+ */
+Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
 
     // dùng chung cho tất cả user login
     Route::get('/me', [AuthController::class, 'me']);

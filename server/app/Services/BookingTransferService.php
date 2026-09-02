@@ -151,6 +151,11 @@ class BookingTransferService
                 'departure_date' => $chuyenDich->start_date,
                 'total_amount' => $tongMoi + $phi,
                 'transfer_count' => (int) $locked->transfer_count + 1,
+                // Đơn giá chép lại theo tour ĐÍCH, vì tổng tiền vừa được tính lại theo bảng giá của
+                // nó. Giữ nguyên giá cũ thì hợp đồng in ra có đơn giá của một tour khác.
+                'adult_price' => $chuyenDich->tour?->adult_price ?? $locked->adult_price,
+                'child_price' => $chuyenDich->tour?->child_price ?? $locked->child_price,
+                'infant_price' => $chuyenDich->tour?->infant_price ?? $locked->infant_price,
             ])->save();
 
             /*

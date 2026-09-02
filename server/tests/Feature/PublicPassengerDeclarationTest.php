@@ -113,7 +113,7 @@ class PublicPassengerDeclarationTest extends TestCase
      */
     public function test_khach_vang_lai_khai_duoc_danh_sach_bang_ma_tra_cuu(): void
     {
-        $this->putJson($this->duong(), ['passengers' => $this->haiNguoiLonMotTre()])
+        $this->putJson($this->duong(), ['passengers' => $this->haiNguoiLonMotTre(), 'customer_email' => 'daidien@example.com'])
             ->assertOk();
 
         $this->assertSame(3, $this->don->passengers()->count());
@@ -138,11 +138,67 @@ class PublicPassengerDeclarationTest extends TestCase
         $this->getJson('/api/bookings/' . Str::uuid() . '/passengers')->assertStatus(404);
     }
 
+    // --- Mã tra cứu thôi là chưa đủ để chạm dữ liệu cá nhân --------------------------------
+
+    /**
+     * Chỉ cầm mã tra cứu thì đọc được đơn, nhưng số giấy tờ hiện dạng che.
+     *
+     * Mã là chuỗi ngẫu nhiên khó đoán, nhưng nó đi trong thư — mà thư thì được chuyển tiếp, mở trên
+     * máy dùng chung, còn lại trong lịch sử trình duyệt. Đủ để hỏi "đơn này thế nào", không đủ để
+     * đọc căn cước của từng người trong đoàn.
+     */
+    public function test_khong_co_email_thi_so_giay_to_bi_che(): void
+    {
+        $this->putJson($this->duong(), [
+            'passengers' => [[
+                'name' => 'Nguyễn Văn A',
+                'type' => 'adult',
+                'identity_number' => '012345678901',
+            ]],
+            'customer_email' => 'daidien@example.com',
+        ])->assertOk();
+
+        $ds = $this->getJson($this->duong())->assertOk()->json('data');
+
+        $this->assertTrue($ds['identity_masked']);
+        $this->assertSame('••••••••8901', $ds['passengers'][0]['identity_number']);
+    }
+
+    /** Nhập đúng email đã đặt thì đọc được đầy đủ. */
+    public function test_dung_email_thi_doc_duoc_day_du(): void
+    {
+        $this->putJson($this->duong(), [
+            'passengers' => [[
+                'name' => 'Nguyễn Văn A',
+                'type' => 'adult',
+                'identity_number' => '012345678901',
+            ]],
+            'customer_email' => 'daidien@example.com',
+        ])->assertOk();
+
+        $ds = $this->getJson($this->duong() . '?email=daidien@example.com')->assertOk()->json('data');
+
+        $this->assertFalse($ds['identity_masked']);
+        $this->assertSame('012345678901', $ds['passengers'][0]['identity_number']);
+    }
+
+    /** Cầm được đường dẫn nhưng không biết email thì không sửa được danh sách. */
+    public function test_email_sai_thi_khong_sua_duoc_danh_sach(): void
+    {
+        $this->putJson($this->duong(), [
+            'passengers' => $this->haiNguoiLonMotTre(),
+            'customer_email' => 'nguoi-khac@example.com',
+        ])->assertStatus(403);
+
+        $this->assertSame(0, $this->don->passengers()->count());
+    }
+
     /** Khai một phần vẫn lưu được — có tên ai thì điền tên người đó trước. */
     public function test_khai_mot_phan_van_luu_duoc(): void
     {
         $this->putJson($this->duong(), [
             'passengers' => [['name' => 'Nguyễn Văn A', 'type' => 'adult']],
+            'customer_email' => 'daidien@example.com',
         ])->assertOk();
 
         $this->assertSame(1, $this->don->passengers()->count());
@@ -160,7 +216,7 @@ class PublicPassengerDeclarationTest extends TestCase
     {
         $this->chuyen->update(['booking_deadline' => now()->subHour()]);
 
-        $response = $this->putJson($this->duong(), ['passengers' => $this->haiNguoiLonMotTre()])
+        $response = $this->putJson($this->duong(), ['passengers' => $this->haiNguoiLonMotTre(), 'customer_email' => 'daidien@example.com'])
             ->assertStatus(422);
 
         $this->assertStringContainsString('hạn chốt', $response->json('message'));
@@ -180,7 +236,7 @@ class PublicPassengerDeclarationTest extends TestCase
             'start_date' => now()->subDay(),
         ]);
 
-        $this->putJson($this->duong(), ['passengers' => $this->haiNguoiLonMotTre()])
+        $this->putJson($this->duong(), ['passengers' => $this->haiNguoiLonMotTre(), 'customer_email' => 'daidien@example.com'])
             ->assertStatus(422);
     }
 

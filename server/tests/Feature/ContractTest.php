@@ -238,6 +238,36 @@ class ContractTest extends TestCase
     }
 
     /**
+     * Sửa giá tour KHÔNG được làm đổi hợp đồng của đơn đã bán.
+     *
+     * Bản in vốn đọc `tours.adult_price` tại thời điểm IN, còn dòng tổng cộng là `total_amount`
+     * chốt lúc đặt. Điều hành sửa bảng giá một lần là mọi hợp đồng in ra sau đó có bảng đơn giá
+     * không cộng ra nổi dòng tổng của chính nó — trong một văn bản hai bên ký.
+     */
+    public function test_sua_gia_tour_khong_lam_doi_don_gia_tren_hop_dong(): void
+    {
+        $don = $this->taoDon();
+        $don->forceFill([
+            'adult_price' => 2_000_000,
+            'child_price' => 1_400_000,
+            'infant_price' => 0,
+        ])->save();
+
+        // Sau khi khách đã đặt, công ty tăng giá tour.
+        $this->tour->forceFill(['adult_price' => 9_900_000, 'child_price' => 8_800_000])->save();
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $url = $this->postJson('/api/admin/bookings/' . $don->id . '/contract')->json('data.print_url');
+
+        $this->get($url)
+            ->assertOk()
+            ->assertSee('2.000.000')
+            ->assertSee('1.400.000')
+            ->assertDontSee('9.900.000');
+    }
+
+    /**
      * Điều 4 phải nói được đã thu bao nhiêu, còn bao nhiêu, hạn khi nào.
      *
      * Tài liệu 05 mục 2.2 điểm 7 đòi ba con số ấy, và cả ba đều đọc từ đơn chứ không phải câu chữ

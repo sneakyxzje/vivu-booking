@@ -91,6 +91,25 @@ class BookingController extends Controller
             ], 403);
         }
 
+        /*
+         * Tài khoản bị khóa thì không đặt tour được.
+         *
+         * Tuyến này công khai — đặt tour không đòi đăng nhập — nên nó không đi qua middleware
+         * `account.active` của nhóm đã đăng nhập. Người bị khóa vẫn gửi kèm token cũ và vẫn đặt
+         * được, tức là hình phạt duy nhất của việc khóa tài khoản không chạm tới hành vi đáng lo
+         * nhất.
+         *
+         * Không chặn khách vãng lai: không có tài khoản thì không có gì để khóa, và họ vẫn phải
+         * đặt được như mọi khách khác.
+         */
+        if ($user && $user->status !== 'active') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tài khoản của bạn đã bị khóa nên không thể đặt tour. Vui lòng liên hệ '
+                    . 'bộ phận chăm sóc khách hàng.',
+            ], 403);
+        }
+
         $guestId = null;
         $guestCookie = null;
 
@@ -165,7 +184,12 @@ class BookingController extends Controller
             $subtotalAmount = ($adultCount * (float) $tour->adult_price)
                 + ($childCount * (float) $tour->child_price)
                 + ($infantCount * (float) $tour->infant_price);
-            $discount = $this->resolveDiscount($data['discount_code'] ?? null, (float) $subtotalAmount);
+            $discount = $this->resolveDiscount(
+                $data['discount_code'] ?? null,
+                (float) $subtotalAmount,
+                $user?->id,
+                $data['customer_email'],
+            );
             $totalAmount = max(0, $subtotalAmount - $discount['amount']);
             $thongBaoMaGiam = $discount['notice'];
 
@@ -212,6 +236,11 @@ class BookingController extends Controller
                 'adult_count' => $adultCount,
                 'child_count' => $childCount,
                 'infant_count' => $infantCount,
+                // Chép đơn giá vào đơn, cùng lý do với chính sách hủy ngay dưới: hợp đồng in ra
+                // ba tháng sau phải khớp với con số khách đã đồng ý, kể cả khi bảng giá đã đổi.
+                'adult_price' => $tour->adult_price,
+                'child_price' => $tour->child_price,
+                'infant_price' => $tour->infant_price,
                 'total_amount' => $totalAmount,
                 'discount_code_id' => $discount['model']?->id,
                 'discount_code' => $discount['model']?->code,
@@ -353,7 +382,7 @@ class BookingController extends Controller
         ]);
     }
 
-    public function show(string $publicToken): JsonResponse
+    public function show(Request $request, string $publicToken): JsonResponse
     {
         // Cùng bộ lọc như myBookings: chỉ khoản đã có hiệu lực. Hai cửa vào một đơn phải nói
         // giống nhau, nếu không thì tra cứu bằng mã lại thấy khác lúc đăng nhập xem.
@@ -402,6 +431,23 @@ class BookingController extends Controller
 
         $booking->setAttribute('net_paid', $this->paymentService->netPaid($booking));
         $booking->setAttribute('balance_due', $conThieu);
+
+        /*
+         * Che số giấy tờ của cả đoàn, trừ khi người xem nhập đúng địa chỉ thư đã đặt.
+         *
+         * Mã tra cứu là chuỗi ngẫu nhiên khó đoán, nhưng nó nằm trong thư — và thư thì được chuyển
+         * tiếp, mở trên máy dùng chung, còn lại trong lịch sử trình duyệt. Nó đủ để trả lời "đơn
+         * này thế nào", không đủ để đọc căn cước và ngày sinh của từng người trong đoàn.
+         */
+        $hienDayDu = $booking->khopEmail($request->query('email'));
+
+        if (!$hienDayDu && $booking->relationLoaded('passengers')) {
+            $booking->passengers->each(function ($nguoi) {
+                $nguoi->identity_number = Booking::cheSoGiayTo($nguoi->identity_number);
+            });
+        }
+
+        $booking->setAttribute('identity_masked', !$hienDayDu);
 
         return response()->json([
             'success' => true,
@@ -684,8 +730,12 @@ class BookingController extends Controller
      *
      * @return array{model: DiscountCode|null, amount: float, notice: string|null}
      */
-    private function resolveDiscount(?string $code, float $subtotalAmount): array
-    {
+    private function resolveDiscount(
+        ?string $code,
+        float $subtotalAmount,
+        ?int $customerId = null,
+        ?string $email = null,
+    ): array {
         if (! $code) {
             return ['model' => null, 'amount' => 0.0, 'notice' => null];
         }
@@ -699,6 +749,24 @@ class BookingController extends Controller
             throw ValidationException::withMessages([
                 'discount_code' => 'Mã giảm giá không tồn tại. Vui lòng kiểm tra lại.',
             ]);
+        }
+
+        /*
+         * Khách đã dùng hết phần của mình thì đơn vẫn tạo, chỉ không được giảm.
+         *
+         * Cùng cách xử lý với mã vừa hết lượt ở dưới, và cùng lý do: khách đã điền xong hết thông
+         * tin, chặn ở bước cuối là cách chắc chắn nhất để mất một đơn hàng. Nói rõ trong thông báo.
+         */
+        if (! $discountCode->conLuotCho($customerId, $email)) {
+            return [
+                'model' => null,
+                'amount' => 0.0,
+                'notice' => sprintf(
+                    'Mã giảm giá %s đã được dùng đủ số lần cho phép với một khách hàng nên đơn được '
+                        . 'tạo theo giá gốc.',
+                    $discountCode->code,
+                ),
+            ];
         }
 
         if (! $discountCode->isUsableFor($subtotalAmount)) {

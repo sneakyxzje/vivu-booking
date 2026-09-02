@@ -151,13 +151,21 @@ class BookingFactory extends Factory
     /** Tổng tiền theo bảng giá của tour, trừ khi nơi gọi đã tự đặt một con số khác. */
     private function apGiaTheoTour(Booking $don): void
     {
-        if ((float) $don->total_amount > 0) {
-            return;
-        }
-
         $tour = Tour::withTrashed()->find($don->tour_id);
 
         if (!$tour) {
+            return;
+        }
+
+        /*
+         * Chép đơn giá vào đơn như luồng đặt thật, kể cả khi nơi gọi đã tự đặt tổng tiền: chứng từ
+         * đọc ba cột này chứ không đọc qua tour, nên đơn thiếu chúng sẽ in ra bảng giá rỗng.
+         */
+        $don->adult_price ??= $tour->adult_price;
+        $don->child_price ??= $tour->child_price;
+        $don->infant_price ??= $tour->infant_price;
+
+        if ((float) $don->total_amount > 0) {
             return;
         }
 

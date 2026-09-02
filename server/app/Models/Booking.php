@@ -21,6 +21,11 @@ use Illuminate\Database\Eloquent\Model;
     'adult_count',
     'child_count',
     'infant_count',
+    // Đơn giá chép lại lúc đặt. Chứng từ đọc từ đây chứ không đọc qua tour, cùng lý do với
+    // `cancellation_policy_id`: sửa giá tour về sau không được đổi giấy tờ của đơn đã bán.
+    'adult_price',
+    'child_price',
+    'infant_price',
     'total_amount',
     'departure_reminder_sent_at',
     'discount_code_id',
@@ -93,6 +98,45 @@ class Booking extends Model
     public static function tinhSoGhe(int $adult, int $child): int
     {
         return $adult + $child;
+    }
+
+    /**
+     * Người đang cầm mã tra cứu có chứng minh được họ là chủ đơn không.
+     *
+     * Mã tra cứu là chuỗi ngẫu nhiên khó đoán, nhưng nó đi trong thư, và thư thì được chuyển tiếp,
+     * mở trên máy dùng chung, nằm lại trong lịch sử trình duyệt. Với những thao tác chạm vào dữ
+     * liệu cá nhân của cả đoàn — đọc đầy đủ số giấy tờ, hay sửa danh sách — mã thôi là chưa đủ.
+     *
+     * Yêu cầu thêm đúng địa chỉ thư đã dùng khi đặt: người thật luôn có, người nhặt được đường dẫn
+     * thì không. So không phân biệt hoa thường và bỏ khoảng trắng thừa, vì người ta gõ tay.
+     */
+    public function khopEmail(?string $email): bool
+    {
+        if (!$email || !$this->customer_email) {
+            return false;
+        }
+
+        return mb_strtolower(trim($email)) === mb_strtolower(trim($this->customer_email));
+    }
+
+    /**
+     * Số giấy tờ dạng che, chỉ giữ bốn ký tự cuối.
+     *
+     * Đủ để chủ đơn nhận ra mình đã khai đúng người, không đủ để người khác chép lại.
+     */
+    public static function cheSoGiayTo(?string $so): ?string
+    {
+        $so = trim((string) $so);
+
+        if ($so === '') {
+            return null;
+        }
+
+        if (mb_strlen($so) <= 4) {
+            return str_repeat('•', mb_strlen($so));
+        }
+
+        return str_repeat('•', mb_strlen($so) - 4) . mb_substr($so, -4);
     }
 
     public function isOverdue(): bool
