@@ -4,7 +4,6 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { RefundPolicyCard } from "@/components/RefundPolicyCard";
 import { useEffect, useState } from "react";
 import bookingService from "@/services/bookingService";
 import { CreditCardIcon, ChevronRightIcon } from "@/components/Icons";
