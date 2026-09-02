@@ -78,9 +78,19 @@ class AdminTransferController extends Controller
                     'remaining_seats' => (int) $schedule->max_people - (int) $schedule->booked_people,
                 ] + $duBao;
             })
-            // Chỉ hiện chuyến thật sự chuyển được. Bày ra lựa chọn rồi báo lỗi khi bấm là bắt
-            // điều hành dò từng cái.
-            ->filter(fn (array $row) => $row['can_transfer'])
+            /*
+             * Trả về cả chuyến KHÔNG chuyển được, kèm lý do.
+             *
+             * Trước đây danh sách lọc sạch chuyến bị chặn. Nghe thì gọn, nhưng phần lớn lý do chặn
+             * là chuyện của ĐƠN chứ không của chuyến đích: quá hạn chốt ở chuyến gốc, hoặc khách
+             * xin đổi khi còn dưới bảy ngày. Những lúc ấy mọi lựa chọn cùng biến mất, và màn hình
+             * kết luận sai rằng không chuyến nào còn đủ chỗ - trong khi chuyến đích đang trống
+             * trơn. Người dùng đi tìm chỗ trống, còn nguyên nhân thật thì không ai nói ra.
+             *
+             * Chuyển được xếp lên trước; phần còn lại hiện mờ kèm đúng câu máy chủ sẽ trả lời nếu
+             * bấm.
+             */
+            ->sortBy(fn (array $row) => $row['can_transfer'] ? 0 : 1)
             ->values();
 
         return $this->success([

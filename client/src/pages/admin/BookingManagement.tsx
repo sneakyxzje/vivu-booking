@@ -238,6 +238,21 @@ export default function BookingManagement() {
   /** Chuyến đích đang chọn, để bước xác nhận nhắc lại đúng thứ sắp xảy ra. */
   const chuyenDich = transferOptions.find((o) => o.schedule_id === transferTargetId) ?? null;
 
+  /**
+   * Lý do chặn dùng chung cho MỌI chuyến đích, hoặc null.
+   *
+   * Phần lớn luật chặn thuộc về đơn chứ không về chuyến đích: quá hạn chốt ở chuyến gốc, hoặc
+   * khách xin đổi khi còn dưới bảy ngày. Lúc ấy cả danh sách cùng đỏ vì một câu, và lặp câu đó
+   * mười lần không nói thêm được gì.
+   */
+  const lyDoChanChung =
+    transferOptions.length > 0 &&
+    transferOptions.every(
+      (o) => !o.can_transfer && o.blocked_reason === transferOptions[0].blocked_reason,
+    )
+      ? transferOptions[0].blocked_reason
+      : null;
+
   // Xem chi tiết đơn hàng (Gọi API chi tiết để lấy thông tin sâu hơn như payment log)
   const openDetails = async (booking: Booking) => {
     setSelectedBooking(booking);
@@ -1998,7 +2013,19 @@ export default function BookingManagement() {
 
                   {!transferLoading && transferOptions.length === 0 && (
                     <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs text-gray-600">
-                      Không có chuyến nào đang mở bán còn đủ {selectedBooking.guests} chỗ để chuyển sang.
+                      Tour này không còn chuyến nào đang mở bán và khởi hành sau hôm nay.
+                      {sameTourOnly && " Bỏ tick “chỉ trong cùng tour” để tìm rộng hơn."}
+                    </p>
+                  )}
+
+                  {/*
+                    Mọi lựa chọn cùng bị chặn vì một lý do thì lý do ấy thuộc về ĐƠN, không thuộc
+                    về chuyến nào - quá hạn chốt ở chuyến gốc, hoặc khách xin đổi khi còn dưới bảy
+                    ngày. Nói một lần ở trên đầu, thay vì lặp lại y hệt trên từng dòng.
+                  */}
+                  {!transferLoading && lyDoChanChung && (
+                    <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-medium text-amber-900">
+                      Không chuyến nào chuyển sang được: {lyDoChanChung}
                     </p>
                   )}
 
@@ -2011,11 +2038,14 @@ export default function BookingManagement() {
                         <button
                           key={option.schedule_id}
                           type="button"
+                          disabled={!option.can_transfer}
                           onClick={() => setTransferTargetId(option.schedule_id)}
                           className={`w-full text-left rounded-lg border p-3 transition-colors ${
-                            dangChon
-                              ? "border-blue-500 bg-blue-50/50 ring-2 ring-blue-200"
-                              : "border-gray-200 bg-white hover:bg-gray-50"
+                            !option.can_transfer
+                              ? "border-gray-100 bg-gray-50 opacity-70 cursor-not-allowed"
+                              : dangChon
+                                ? "border-blue-500 bg-blue-50/50 ring-2 ring-blue-200"
+                                : "border-gray-200 bg-white hover:bg-gray-50"
                           }`}
                         >
                           <div className="flex items-baseline justify-between gap-2">
@@ -2031,20 +2061,28 @@ export default function BookingManagement() {
                             <p className="text-xs text-gray-600 mt-0.5">{option.tour_title}</p>
                           )}
 
-                          <p
-                            className={`mt-1 text-xs font-semibold ${
-                              chenh > 0
-                                ? "text-amber-800"
-                                : chenh < 0
-                                  ? "text-emerald-800"
-                                  : "text-gray-500"
-                            }`}
-                          >
-                            {chenh > 0 && `Thu thêm ${formatPrice(chenh)}`}
-                            {chenh < 0 && `Chuyến mới rẻ hơn ${formatPrice(Math.abs(chenh))}`}
-                            {chenh === 0 && "Không chênh lệch"}
-                            {option.fee > 0 && ` (gồm phí đổi lịch ${formatPrice(option.fee)})`}
-                          </p>
+                          {option.can_transfer ? (
+                            <p
+                              className={`mt-1 text-xs font-semibold ${
+                                chenh > 0
+                                  ? "text-amber-800"
+                                  : chenh < 0
+                                    ? "text-emerald-800"
+                                    : "text-gray-500"
+                              }`}
+                            >
+                              {chenh > 0 && `Thu thêm ${formatPrice(chenh)}`}
+                              {chenh < 0 && `Chuyến mới rẻ hơn ${formatPrice(Math.abs(chenh))}`}
+                              {chenh === 0 && "Không chênh lệch"}
+                              {option.fee > 0 && ` (gồm phí đổi lịch ${formatPrice(option.fee)})`}
+                            </p>
+                          ) : (
+                            /* Nói đúng câu máy chủ sẽ trả lời nếu bấm, thay vì để chuyến biến mất
+                               khỏi danh sách và người dùng tự đoán vì sao. */
+                            <p className="mt-1 text-xs font-medium text-rose-700">
+                              {option.blocked_reason}
+                            </p>
+                          )}
                         </button>
                       );
                     })}

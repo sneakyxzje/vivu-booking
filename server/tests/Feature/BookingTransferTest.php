@@ -457,6 +457,51 @@ class BookingTransferTest extends TestCase
         $this->assertNotContains($this->chuyenGoc->id, $ids, 'Không liệt kê chính chuyến hiện tại.');
     }
 
+    /**
+     * Chuyến không chuyển được vẫn phải nằm trong danh sách, kèm lý do.
+     *
+     * Lọc sạch chúng đi thì lúc luật chặn thuộc về ĐƠN - quá hạn chốt ở chuyến gốc, hay khách xin
+     * đổi khi còn dưới bảy ngày - cả danh sách trống trơn, và màn hình kết luận sai rằng không
+     * chuyến nào còn chỗ, trong khi chuyến đích đang trống trơn.
+     */
+    public function test_api_van_liet_ke_chuyen_bi_chan_kem_ly_do(): void
+    {
+        $don = $this->taoDon();
+        $this->chuyenGoc->update(['booking_deadline' => now()->subHour()]);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $options = $this->getJson("/api/admin/bookings/{$don->id}/transfer-options")
+            ->assertOk()
+            ->json('data.options');
+
+        $dich = collect($options)->firstWhere('schedule_id', $this->chuyenDich->id);
+
+        $this->assertNotNull($dich, 'Chuyến bị chặn vẫn phải hiện ra.');
+        $this->assertFalse($dich['can_transfer']);
+        $this->assertStringContainsString('hạn chốt', $dich['blocked_reason']);
+        $this->assertGreaterThan(0, $dich['remaining_seats'], 'Chỗ vẫn còn — lý do chặn không phải vì hết chỗ.');
+    }
+
+    /** Chuyến chuyển được xếp lên trước, để mắt không phải lọc qua danh sách mờ. */
+    public function test_api_xep_chuyen_chuyen_duoc_len_truoc(): void
+    {
+        $don = $this->taoDon();
+
+        // Chuyến này khởi hành sớm hơn chuyenDich nhưng đã đóng bán... nên dùng một chuyến quá hạn
+        // chốt: vẫn mở bán, vẫn trong danh sách, nhưng bị chặn.
+        $quaHan = $this->taoChuyen(now()->addDays(35), ghiDe: ['booking_deadline' => now()->subDay()]);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $options = $this->getJson("/api/admin/bookings/{$don->id}/transfer-options")
+            ->assertOk()
+            ->json('data.options');
+
+        $this->assertTrue($options[0]['can_transfer'], 'Dòng đầu phải là chuyến chuyển được.');
+        $this->assertSame($quaHan->id, $options[count($options) - 1]['schedule_id']);
+    }
+
     public function test_api_chuyen_chuyen_thanh_cong(): void
     {
         $don = $this->taoDon();
