@@ -32,6 +32,7 @@ class BookingTransferService
     public function __construct(
         private ScheduleLifecycleService $lifecycle,
         private BookingAuditLogger $auditLogger,
+        private BookingPaymentService $payments,
     ) {
     }
 
@@ -150,6 +151,15 @@ class BookingTransferService
                 'total_amount' => $tongMoi + $phi,
                 'transfer_count' => (int) $locked->transfer_count + 1,
             ])->save();
+
+            /*
+             * Chuyến đích rẻ hơn thì khách đang thừa tiền ở chỗ công ty.
+             *
+             * Ghi thành nghĩa vụ ngay tại đây, nếu không thì phần chênh chỉ nằm trong sổ và không
+             * màn hình nào đọc ra: hàng đợi hoàn tiền lọc theo `refund_amount`, mà cột ấy vốn chỉ
+             * được ghi khi hủy đơn.
+             */
+            $this->payments->syncRefundDueAfterPriceDrop($locked);
 
             $banGhi = BookingTransfer::query()->create([
                 'booking_id' => $locked->getKey(),

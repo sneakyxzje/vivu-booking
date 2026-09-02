@@ -18,6 +18,7 @@ use App\Services\BookingPaymentService;
 use App\Services\BookingPolicyService;
 use App\Services\CancellationPolicyService;
 use App\Services\PassengerPolicyService;
+use App\Services\RefundAccountService;
 use App\Services\ScheduleLifecycleService;
 use App\Services\VNPayCallbackService;
 use App\Services\VNPayService;
@@ -464,6 +465,40 @@ class BookingController extends Controller
             'success' => true,
             'message' => 'Đã cập nhật thông tin liên hệ.',
             'data' => $daSua->only(['id', 'customer_name', 'customer_email', 'customer_phone']),
+        ]);
+    }
+
+    /**
+     * Khách nhập tài khoản nhận tiền hoàn, bằng mã tra cứu.
+     *
+     * Dùng cho các khoản hoàn do CÔNG TY khởi xướng - hủy chuyến, hoặc điều hành hủy đơn. Ở những
+     * đường ấy khách không mở form nào cả, nên trước đây hệ thống lập ra một khoản phải trả mà
+     * không biết chuyển đi đâu.
+     *
+     * Không đòi đăng nhập, vì đặt tour vốn không đòi: khách vãng lai bị hủy chuyến cũng phải nhận
+     * lại được tiền của mình. `RefundAccountService` chỉ nhận khi đơn thật sự đang còn nợ khách.
+     */
+    public function updateRefundAccount(Request $request, string $publicToken): JsonResponse
+    {
+        $validated = $request->validate(
+            RefundAccountService::validationRules(),
+            RefundAccountService::validationMessages(),
+        );
+
+        $booking = Booking::query()->where('public_token', $publicToken)->first();
+
+        if (!$booking) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy đơn đặt tour.',
+            ], 404);
+        }
+
+        app(RefundAccountService::class)->update($booking, $validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã lưu tài khoản nhận tiền hoàn. Chúng tôi sẽ chuyển trong thời gian sớm nhất.',
         ]);
     }
 

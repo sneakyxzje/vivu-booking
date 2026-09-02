@@ -38,6 +38,9 @@ enum BookingAuditAction: string
     /** Đoàn giảm số khách - chỉ đơn đoàn có, khách lẻ muốn đổi số người thì hủy đặt lại. */
     case GuestsReduced = 'guests_reduced';
 
+    /** Nhập hoặc sửa tài khoản ngân hàng nhận tiền hoàn của đơn. */
+    case RefundAccountUpdated = 'refund_account_updated';
+
     public function label(): string
     {
         return match ($this) {
@@ -55,6 +58,7 @@ enum BookingAuditAction: string
             self::Transferred => 'Chuyển sang chuyến khác',
             self::PaymentRecorded => 'Ghi sổ giao dịch',
             self::GuestsReduced => 'Đoàn giảm số khách',
+            self::RefundAccountUpdated => 'Nhập tài khoản nhận tiền hoàn',
         };
     }
 
@@ -76,6 +80,9 @@ enum BookingAuditAction: string
             self::PaymentRecorded,
             // Giảm số khách tính lại tổng tiền của đơn đoàn.
             self::GuestsReduced,
+            // Không đổi số tiền, nhưng đổi NƠI tiền sẽ chảy tới. Khi đối soát một khoản hoàn đi
+            // nhầm chỗ, đây đúng là dòng cần tìm.
+            self::RefundAccountUpdated,
         ], true);
     }
 

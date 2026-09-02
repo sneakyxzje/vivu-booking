@@ -116,6 +116,13 @@ Route::get('/bookings/{publicToken}/passengers', [CustomerPassengerController::c
 Route::put('/bookings/{publicToken}/passengers', [CustomerPassengerController::class, 'publicUpdate']);
 // Mức hoàn dự kiến nếu hủy ngay bây giờ. Khách vãng lai cũng xem được bằng mã tra cứu.
 Route::get('/bookings/{publicToken}/refund-quote', [CustomerBookingController::class, 'refundQuote']);
+/*
+ * Khách nhập tài khoản nhận tiền hoàn.
+ *
+ * Không đòi đăng nhập, cùng lý do với hai tuyến trên: khách vãng lai bị công ty hủy chuyến cũng
+ * phải nhận lại được tiền. Chỉ mở khi đơn thật sự còn nợ khách, xem RefundAccountService.
+ */
+Route::put('/bookings/{publicToken}/refund-account', [CustomerBookingController::class, 'updateRefundAccount']);
 Route::post('/discount-codes/validate', [DiscountCodeController::class, 'validateCode']);
 
 /*
@@ -358,6 +365,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/refunds', [AdminBookingPaymentController::class, 'refundQueue']);
         Route::get('/bookings/{id}/payments', [AdminBookingPaymentController::class, 'index']);
         Route::post('/bookings/{id}/payments', [AdminBookingPaymentController::class, 'store']);
+        // Nhập hộ tài khoản nhận tiền hoàn khi khách đọc qua điện thoại.
+        Route::put('/bookings/{id}/refund-account', [AdminBookingPaymentController::class, 'updateRefundAccount']);
 
         // K - Hủy cả chuyến. Đi đường riêng vì phải gán phương án cho từng đơn đã thanh toán.
         Route::get('/schedules/{id}/cancel-preview', [AdminScheduleCancellationController::class, 'preview']);

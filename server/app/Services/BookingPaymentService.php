@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\BookingAuditAction;
+use App\Enums\BookingStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Booking;
 use App\Models\BookingPayment;
@@ -243,6 +244,54 @@ class BookingPaymentService
     public function refundOutstanding(Booking $booking): float
     {
         return max(0.0, round((float) ($booking->refund_amount ?? 0)) - $this->refunded($booking));
+    }
+
+    /** Tổng các khoản THU của giá tour, chưa trừ khoản hoàn nào. */
+    public function collected(Booking $booking): float
+    {
+        if ($booking->relationLoaded('payments')) {
+            return round(
+                (float) $booking->getRelation('payments')->whereIn('kind', BookingPayment::THU)->sum('amount'),
+            );
+        }
+
+        return round((float) $booking->payments()->whereIn('kind', BookingPayment::THU)->sum('amount'));
+    }
+
+    /**
+     * Giá đơn vừa giảm xuống dưới số đã thu thì phần thừa thành nghĩa vụ hoàn.
+     *
+     * Chuyển đơn sang một chuyến rẻ hơn, hay đoàn bớt người, đều ghi đè `total_amount` mà không
+     * đụng tới đồng nào đã thu. Trước đây phần chênh chỉ nằm im trong sổ: hàng đợi hoàn tiền đọc
+     * `refund_amount`, mà cột ấy chỉ được ghi khi HỦY đơn - nên không màn hình nào biết công ty
+     * đang giữ tiền của một khách vẫn đang đi tour. Nó chỉ lộ ra khi chính khách gọi lên đòi.
+     *
+     * Nghĩa vụ tính bằng `tổng đã THU trừ giá đơn`, không phải `netPaid trừ giá đơn`. Hai cách ra
+     * cùng một kết quả ở lần đầu, nhưng chỉ cách thứ nhất còn đúng sau khi kế toán đã trả một phần:
+     * `refundOutstanding()` lấy `refund_amount` trừ các dòng đã hoàn, nên `refund_amount` phải là
+     * TỔNG nghĩa vụ từ đầu tới giờ chứ không phải phần còn lại. Nhờ vậy gọi lại bao nhiêu lần cũng
+     * ra cùng con số, và chuyển chuyến nhiều lần liên tiếp vẫn cộng dồn đúng.
+     *
+     * Không đụng tới đơn đã ở trạng thái cuối: ở đó `refund_amount` là nghĩa vụ do bảng phí hủy
+     * quyết, và đè lên nó bằng phép trừ này là xóa mất kết quả của một lần hủy.
+     */
+    public function syncRefundDueAfterPriceDrop(Booking $booking): float
+    {
+        $status = BookingStatus::tryFrom((string) $booking->status);
+
+        if ($status?->isTerminal()) {
+            return 0.0;
+        }
+
+        $thua = round($this->collected($booking) - round((float) $booking->total_amount));
+
+        if ($thua <= 0) {
+            return 0.0;
+        }
+
+        $booking->forceFill(['refund_amount' => $thua])->save();
+
+        return $thua;
     }
 
     /** Còn thiếu bao nhiêu so với tổng giá trị đơn. */

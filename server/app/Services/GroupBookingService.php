@@ -377,6 +377,10 @@ class GroupBookingService
                 $schedule->decrement('booked_people', min($giamBaoNhieu, (int) $schedule->booked_people));
             }
 
+            // Bớt người thì giá đơn tụt xuống, và phần đã thu vượt quá giá mới là tiền của khách.
+            // Cùng lý do với chuyển chuyến sang chuyến rẻ hơn, xem BookingTransferService.
+            $this->paymentService->syncRefundDueAfterPriceDrop($fresh);
+
             $this->auditLogger->log($fresh, BookingAuditAction::GuestsReduced, $cu, [
                 'guests' => $newGuests,
                 'total_amount' => $tongMoi,

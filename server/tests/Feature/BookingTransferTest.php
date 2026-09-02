@@ -140,6 +140,80 @@ class BookingTransferTest extends TestCase
         $this->assertSame($this->chuyenDich->id, (int) $don->fresh()->tour_schedule_id);
     }
 
+    // --- Tiền thừa khi chuyển sang chuyến rẻ hơn ------------------------------------------
+
+    /**
+     * Chuyển sang tour rẻ hơn thì phần đã thu dôi ra phải thành nghĩa vụ hoàn.
+     *
+     * Trước đây `transfer()` ghi đè `total_amount` mà không đụng tới sổ lẫn `refund_amount`. Khách
+     * trả đủ 4 triệu rồi được chuyển sang chuyến 2,8 triệu thì 1,2 triệu của họ nằm im: hàng đợi
+     * hoàn tiền lọc theo `refund_amount`, mà cột ấy chỉ được ghi khi hủy đơn - nên không màn hình
+     * nào biết công ty đang giữ tiền của một khách vẫn đang đi tour.
+     */
+    public function test_chuyen_sang_chuyen_re_hon_thi_tien_thua_thanh_nghia_vu_hoan(): void
+    {
+        $tourRe = Tour::factory()->create([
+            'status' => 'active',
+            'number_of_days' => 2,
+            'adult_price' => 1_400_000,
+            'child_price' => 1_000_000,
+            'infant_price' => 0,
+        ]);
+
+        $chuyenRe = $this->taoChuyen(now()->addDays(45), $tourRe);
+
+        $don = $this->taoDon();
+        app(\App\Services\BookingPaymentService::class)
+            ->record($don, 'balance', 4_000_000, 'gateway', 'GD-' . Str::random(6));
+
+        $this->service()->transfer($don, $chuyenRe, 'Khach xin doi sang tour khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
+
+        $daSua = $don->fresh();
+
+        $this->assertSame(2_800_000.0, round((float) $daSua->total_amount));
+        $this->assertSame(
+            1_200_000.0,
+            (float) $daSua->refund_amount,
+            'Phần đã thu vượt quá giá mới là tiền của khách, phải thành nghĩa vụ hoàn.',
+        );
+
+        Sanctum::actingAs($this->dieuHanh);
+        $hangDoi = $this->getJson('/api/admin/refunds')->assertOk()->json('data.data');
+
+        $this->assertSame([$don->id], array_column($hangDoi, 'id'));
+        $this->assertSame(1_200_000, $hangDoi[0]['refund_outstanding']);
+    }
+
+    /** Chuyển hai lần liên tiếp vẫn ra đúng tổng nghĩa vụ, không cộng dồn sai. */
+    public function test_chuyen_nhieu_lan_van_ra_dung_tong_nghia_vu_hoan(): void
+    {
+        $tourRe = Tour::factory()->create([
+            'status' => 'active',
+            'number_of_days' => 2,
+            'adult_price' => 1_400_000,
+            'child_price' => 1_000_000,
+            'infant_price' => 0,
+        ]);
+
+        $tourReHon = Tour::factory()->create([
+            'status' => 'active',
+            'number_of_days' => 2,
+            'adult_price' => 1_000_000,
+            'child_price' => 800_000,
+            'infant_price' => 0,
+        ]);
+
+        $don = $this->taoDon();
+        app(\App\Services\BookingPaymentService::class)
+            ->record($don, 'balance', 4_000_000, 'gateway', 'GD-' . Str::random(6));
+
+        $this->service()->transfer($don, $this->taoChuyen(now()->addDays(45), $tourRe), 'Lan mot.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
+        $this->service()->transfer($don->fresh(), $this->taoChuyen(now()->addDays(50), $tourReHon), 'Lan hai.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
+
+        // Đã thu 4 triệu, giá cuối 2 triệu: nợ khách 2 triệu, không phải 1,2 + 0,8 cộng nhầm.
+        $this->assertSame(2_000_000.0, (float) $don->fresh()->refund_amount);
+    }
+
     public function test_sau_khi_chuyen_thi_so_cho_van_nhat_quan(): void
     {
         $don = $this->taoDon();

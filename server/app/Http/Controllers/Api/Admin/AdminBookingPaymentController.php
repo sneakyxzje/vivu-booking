@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\BookingPayment;
 use App\Services\BookingPaymentService;
+use App\Services\RefundAccountService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -152,6 +153,34 @@ class AdminBookingPaymentController extends Controller
             // con số kế toán cần, và nó vô nghĩa nếu chỉ cộng mười đơn đầu.
             'outstanding_total' => $this->tongConNo(),
         ], 'Lấy danh sách hoàn tiền thành công');
+    }
+
+    /**
+     * Điều hành nhập hộ tài khoản nhận tiền hoàn.
+     *
+     * Khách đọc số tài khoản qua điện thoại là chuyện thường, nhất là với người lớn tuổi không quen
+     * mở lại trang tra cứu. Cùng service với đường khách tự nhập nên hai cửa chịu chung một luật và
+     * để lại cùng một loại vết trong nhật ký.
+     */
+    public function updateRefundAccount(Request $request, int $bookingId): JsonResponse
+    {
+        $validated = $request->validate(
+            RefundAccountService::validationRules(),
+            RefundAccountService::validationMessages(),
+        );
+
+        $booking = Booking::query()->find($bookingId);
+
+        if (!$booking) {
+            return $this->error('Không tìm thấy đơn hàng', 404);
+        }
+
+        app(RefundAccountService::class)->update($booking, $validated, $request->user());
+
+        return $this->success(
+            $this->thongTinNganHang($booking->fresh()),
+            'Đã lưu tài khoản nhận tiền hoàn.',
+        );
     }
 
     /** @return array<string, string|null>|null */
