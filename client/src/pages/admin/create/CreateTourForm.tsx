@@ -420,6 +420,21 @@ export const CreateTourForm: React.FC = () => {
     if (form.schedules.some((item) => Number(item.max_people) < 1)) {
       buoc3.push("Có chuyến chưa đặt sức chứa");
     }
+    /*
+     * Hai chuyến khởi hành đúng cùng một phút.
+     *
+     * Nhiều chuyến trong một ngày thì được — ca sáng ca chiều là chuyện thường. Nhưng trùng khít
+     * cả giờ thì khách nhìn hai dòng y hệt nhau trong ô chọn ngày và không biết chọn cái nào.
+     */
+    if (
+      form.schedules.some(
+        (item, i) =>
+          item.start_date &&
+          form.schedules.findIndex((khac) => khac.start_date === item.start_date) !== i,
+      )
+    ) {
+      buoc3.push("Có hai chuyến khởi hành trùng đúng ngày giờ");
+    }
 
     // Bước 4 không có gì bắt buộc: tour thiếu ảnh vẫn bán được, chỉ là bán kém hơn.
     return [buoc1, buoc2, buoc3, []];

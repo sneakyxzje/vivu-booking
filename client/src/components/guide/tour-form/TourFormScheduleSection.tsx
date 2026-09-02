@@ -172,12 +172,19 @@ export const TourFormScheduleSection: React.FC<Props> = ({
     });
   };
 
+  /**
+   * Mở chuyến cho một loạt ngày.
+   *
+   * Bỏ qua theo NGÀY GIỜ chứ không theo ngày: một ngày chạy hai chuyến khác giờ là chuyện thường
+   * của tour trong ngày, ca sáng và ca chiều. Chỉ trùng khít cả giờ mới là lặp.
+   */
   const themNgay = (danhSachNgay: string[]) => {
-    const daCo = new Set(items.map((item) => item.start_date.slice(0, 10)));
+    const daCo = new Set(items.map((item) => item.start_date));
     const moi = danhSachNgay
-      .filter((ngay) => !daCo.has(ngay))
-      .map((ngay) =>
-        taoChuyen(`${ngay}T${gioMacDinh}`, {
+      .map((ngay) => `${ngay}T${gioMacDinh}`)
+      .filter((batDau) => !daCo.has(batDau))
+      .map((batDau) =>
+        taoChuyen(batDau, {
           toiThieu: toiThieuMacDinh,
           toiDa: toiDaMacDinh,
         }),
@@ -187,6 +194,39 @@ export const TourFormScheduleSection: React.FC<Props> = ({
 
     onChange([...items, ...moi]);
     setDangChon((cu) => [...cu, ...moi.map((item) => item.uid)]);
+  };
+
+  /**
+   * Thêm một chuyến nữa vào đúng ngày của chuyến này.
+   *
+   * Lịch bên trái không làm được việc này: bấm vào ngày đã có chuyến là chọn chúng để sửa hàng
+   * loạt, không phải mở thêm. Nên lối thêm nằm ngay trên dòng của chuyến, chỗ người ta đang nhìn.
+   *
+   * Giờ mặc định bị chiếm thì lùi sang giờ kế tiếp, để chuyến mới không trùng khít chuyến cũ.
+   */
+  const themCungNgay = (item: ScheduleFormItem) => {
+    const ngay = item.start_date.slice(0, 10);
+    if (!ngay) return;
+
+    const gioDaCo = new Set(
+      items
+        .filter((khac) => khac.start_date.slice(0, 10) === ngay)
+        .map((khac) => khac.start_date.slice(11, 16)),
+    );
+
+    let gio = gioMacDinh;
+    for (let lui = 0; gioDaCo.has(gio) && lui < 24; lui++) {
+      const [h, p] = gio.split(":");
+      gio = `${hai((Number(h) + 1) % 24)}:${p}`;
+    }
+
+    const moi = taoChuyen(`${ngay}T${gio}`, {
+      toiThieu: toiThieuMacDinh,
+      toiDa: toiDaMacDinh,
+    });
+
+    onChange([...items, moi]);
+    setDangMo(moi.uid);
   };
 
   const xoaChuyen = (uids: string[]) => {
@@ -292,12 +332,20 @@ export const TourFormScheduleSection: React.FC<Props> = ({
       return "Hạn chốt phải trước giờ khởi hành.";
     }
 
+    /*
+     * Trùng là trùng cả GIỜ, không phải trùng ngày.
+     *
+     * Một ngày chạy nhiều chuyến khác giờ là chuyện bình thường - tour trong ngày có ca sáng ca
+     * chiều, tour dài ngày có xe 5h và xe 8h. Cảnh báo theo ngày thì mọi tour bán nhiều ca đều
+     * hiện một dòng đỏ không sai chỗ nào mà cũng không sửa được.
+     *
+     * Còn hai chuyến khởi hành đúng cùng một phút thì thật sự là gõ nhầm: khách nhìn hai dòng y
+     * hệt nhau trong ô chọn ngày và không biết chọn cái nào.
+     */
     const trung = items.filter(
-      (khac) =>
-        khac.uid !== item.uid &&
-        khac.start_date.slice(0, 10) === item.start_date.slice(0, 10),
+      (khac) => khac.uid !== item.uid && khac.start_date === item.start_date,
     );
-    if (trung.length > 0) return "Đã có chuyến khác cùng ngày này.";
+    if (trung.length > 0) return "Đã có chuyến khác khởi hành đúng ngày giờ này.";
 
     return null;
   };
@@ -632,6 +680,18 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                             moRong ? "rotate-180" : ""
                           }`}
                         />
+                      </button>
+
+                      {/* Mở thêm một ca nữa trong cùng ngày. Lịch bên trái không làm được việc
+                          này vì bấm vào ngày đã có chuyến là chọn để sửa hàng loạt. */}
+                      <button
+                        type="button"
+                        onClick={() => themCungNgay(item)}
+                        aria-label={`Thêm chuyến khác trong ngày ${nhanNgay(item.start_date)}`}
+                        title="Thêm chuyến khác trong ngày này"
+                        className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
+                      >
+                        <CalendarPlus className="h-4 w-4" />
                       </button>
 
                       <button
