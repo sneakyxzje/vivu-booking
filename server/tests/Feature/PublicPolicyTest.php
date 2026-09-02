@@ -114,16 +114,16 @@ class PublicPolicyTest extends TestCase
     }
 
     /**
-     * Mấy con số ở phần hỏi đáp lấy từ hằng số thật.
+     * Mấy con số ở phần hỏi đáp lấy từ hằng số và cấu hình thật.
      *
-     * Trang hỏi đáp nói "báo trước 7 ngày, phí đổi lịch 200.000đ". Gõ cứng mấy con số ấy vào giao
-     * diện là dựng bản thứ hai của một luật; đổi hằng số ở máy chủ thì trang vẫn nói số cũ.
+     * Trang hỏi đáp nói "phí đổi lịch 200.000đ", "giữ chỗ 10 phút". Gõ cứng mấy con số ấy vào giao
+     * diện là dựng bản thứ hai của một luật; đổi ở máy chủ thì trang vẫn nói số cũ.
      */
     public function test_con_so_o_phan_hoi_dap_lay_tu_hang_so_that(): void
     {
         $data = $this->getJson('/api/policies')->assertOk()->json('data');
 
-        $this->assertSame(BookingTransferService::CUSTOMER_NOTICE_DAYS, $data['transfer']['notice_days']);
+        $this->assertSame((int) config('booking.transfer_notice_days'), $data['transfer']['notice_days']);
         $this->assertSame(BookingTransferService::FREE_TRANSFERS, $data['transfer']['free_transfers']);
         // JSON không phân biệt 200000 với 200000.0, nên so theo giá trị chứ không theo kiểu.
         $this->assertSame((float) config('booking.transfer_fee'), (float) $data['transfer']['fee']);

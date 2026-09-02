@@ -347,16 +347,34 @@ class BookingTransferTest extends TestCase
     }
 
     /**
+     * Mặc định KHÔNG có hạn báo trước riêng: khách đổi được tới tận hạn chốt danh sách.
+     *
+     * Chuyến còn 5 ngày nữa mới đi, hạn chốt còn 2 ngày nữa mới tới. Chưa có gì gửi nhà cung cấp,
+     * chỗ khách rời khỏi vẫn bán lại được, danh sách chưa in — đổi chuyến lúc này không tốn của
+     * công ty đồng nào, nên không có gì để chặn.
+     */
+    public function test_mac_dinh_khach_doi_duoc_toi_tan_han_chot(): void
+    {
+        $chuyenGan = $this->taoChuyen(now()->addDays(5));
+        $don = $this->taoDon($chuyenGan);
+
+        $duBao = $this->service()->preview($don, $this->chuyenDich, 'customer');
+
+        $this->assertTrue($duBao['can_transfer'], 'Trước hạn chốt thì đổi chuyến không hại ai.');
+    }
+
+    /**
+     * Công ty nào có chính sách báo trước riêng thì đặt số ngày ở cấu hình, và luật áp lại.
+     *
      * Hai luật khác nhau, đừng lẫn:
      *
-     * - Hạn báo trước 7 ngày là phép lịch sự với vận hành, hãng khởi xướng thì bỏ qua được.
+     * - Hạn báo trước là chính sách bán hàng, hãng khởi xướng thì bỏ qua được.
      * - Hạn chốt danh sách là sự thật về tiền đã trả cho nhà cung cấp, không ai bỏ qua được.
-     *
-     * Chuyến ở mốc 5 ngày nằm giữa hai mốc đó: chưa qua hạn chốt (còn 2 ngày nữa), nhưng đã
-     * quá hạn báo trước của khách.
      */
-    public function test_khach_doi_sat_ngay_di_thi_tu_choi_nhung_hang_van_chuyen_duoc(): void
+    public function test_cau_hinh_han_bao_truoc_thi_luat_ap_lai(): void
     {
+        config(['booking.transfer_notice_days' => 7]);
+
         $chuyenGan = $this->taoChuyen(now()->addDays(5));
         $don = $this->taoDon($chuyenGan);
 

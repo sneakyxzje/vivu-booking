@@ -204,10 +204,16 @@ Hội đồng nêu ở mục "Hỗ trợ chuyển tour". Có ba tình huống kh
 
 1. Đơn phải ở `deposit_paid`, `paid` hoặc `confirmed`. Đơn `pending` thì hủy và đặt lại đơn giản hơn.
 2. Chuyến đích phải ở trạng thái `open` và còn đủ chỗ cho toàn bộ số khách của đơn.
-3. Nếu do khách khởi xướng, phải trước ngày khởi hành của chuyến gốc ít nhất số ngày quy định
-   trong chính sách, đề xuất 7 ngày.
+3. **Cả hai chuyến còn trước hạn chốt danh sách.** Đây là mốc duy nhất bắt buộc, và nó chặn cả
+   khách lẫn hãng: sau hạn chốt thì suất ở chuyến gốc đã trả tiền cho nhà cung cấp, còn chuyến
+   đích thì đã chốt số phòng và số ghế.
 4. Số lần chuyển miễn phí tối đa 1. Từ lần thứ hai thu phí đổi lịch.
-5. Nếu do hãng khởi xướng, bỏ qua điều kiện 3 và 4.
+5. Nếu do hãng khởi xướng, bỏ qua điều kiện 4 và hạn báo trước ở dưới.
+6. Hạn báo trước riêng cho khách (`booking.transfer_notice_days`) **mặc định tắt**. Trước hạn chốt
+   thì chưa có gì gửi đi nhà cung cấp, chỗ khách rời khỏi vẫn quay lại kho và bán tiếp được, danh
+   sách chưa in — đổi chuyến lúc ấy không tốn của công ty đồng nào. Dựng thêm một cái vạch nữa
+   đứng trước hạn chốt là chặn một việc vô hại bằng một con số tự nghĩ ra. Công ty nào có chính
+   sách riêng thì đặt số ngày ở cấu hình.
 
 ### 4.3 Xử lý chênh lệch giá
 

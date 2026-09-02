@@ -57,6 +57,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Hạn báo trước khi khách xin đổi chuyến
+    |--------------------------------------------------------------------------
+    |
+    | Số ngày trước khởi hành mà khách còn được tự xin đổi chuyến. 0 nghĩa là
+    | không có mốc riêng: khách đổi được tới tận hạn chốt danh sách.
+    |
+    | Mặc định 0, và đó là một quyết định chứ không phải bỏ trống. Trước hạn
+    | chốt thì chưa có gì gửi đi nhà cung cấp, chỗ khách rời khỏi vẫn quay lại
+    | kho và bán tiếp được, danh sách chưa in. Đổi chuyến lúc ấy không tốn của
+    | công ty đồng nào — dựng thêm một cái vạch nữa chỉ để chặn một việc vô hại.
+    |
+    | Hạn chốt mới là mốc mà thay đổi bắt đầu có giá, và nó đã chặn cả khách
+    | lẫn công ty. Hai cái vạch cho cùng một câu hỏi thì cái thứ hai luôn là
+    | cái tùy tiện.
+    |
+    | Công ty nào có chính sách báo trước riêng thì đặt số ngày ở đây; luật sẽ
+    | áp lại, và chỉ áp cho phía khách — hãng chủ động đổi thì vẫn miễn.
+    |
+    */
+
+    'transfer_notice_days' => (int) env('BOOKING_TRANSFER_NOTICE_DAYS', 0),
+
+    /*
+    |--------------------------------------------------------------------------
     | Nhắc trước ngày khởi hành
     |--------------------------------------------------------------------------
     |

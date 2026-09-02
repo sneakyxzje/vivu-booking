@@ -1848,8 +1848,8 @@ export default function BookingManagement() {
 
                   <p className="text-[11px] text-gray-500">
                     {initiatedBy === "customer"
-                      ? "Khách xin đổi: cần báo trước 7 ngày, và từ lần thứ hai có phí đổi lịch."
-                      : "Công ty chuyển: miễn hạn báo trước và miễn phí đổi lịch. Vẫn không chuyển được sau hạn chốt danh sách."}
+                      ? "Khách xin đổi: từ lần thứ hai có phí đổi lịch. Đổi được tới hạn chốt danh sách, trừ khi công ty đặt hạn báo trước riêng."
+                      : "Công ty chuyển: miễn phí đổi lịch. Vẫn không chuyển được sau hạn chốt danh sách."}
                   </p>
 
                   <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-3">

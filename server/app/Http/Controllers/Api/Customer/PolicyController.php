@@ -31,7 +31,12 @@ class PolicyController extends Controller
         return $this->success([
             'cancellation' => $this->bangPhi($policy),
             'transfer' => [
-                'notice_days' => BookingTransferService::CUSTOMER_NOTICE_DAYS,
+                /*
+                 * 0 nghĩa là không có hạn báo trước riêng: khách đổi được tới tận hạn chốt danh
+                 * sách. Trang chính sách phải nói đúng điều đó thay vì bịa ra một con số ngày,
+                 * nếu không khách đọc xong lại tưởng mình đã hết quyền đổi.
+                 */
+                'notice_days' => max(0, (int) config('booking.transfer_notice_days', 0)),
                 'free_transfers' => BookingTransferService::FREE_TRANSFERS,
                 'fee' => (float) config('booking.transfer_fee', 200_000),
             ],

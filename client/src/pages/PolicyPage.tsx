@@ -289,11 +289,24 @@ export default function PolicyPage() {
 
             <ul className="text-body-md text-body mt-3 list-disc space-y-2 pl-5 marker:text-muted-soft">
               <li>
-                Khách hàng đề nghị đổi chuyến cần báo trước giờ khởi hành ít nhất{" "}
-                <strong className="font-semibold text-ink">
-                  {data.transfer.notice_days} ngày
-                </strong>
-                . {data.transfer.free_transfers} lần đổi đầu tiên miễn phí; từ lần thứ{" "}
+                {/* notice_days = 0 nghĩa là không có hạn báo trước riêng: mốc duy nhất là hạn
+                    chốt danh sách. In ra "báo trước 0 ngày" thì câu này thành vô nghĩa. */}
+                {data.transfer.notice_days > 0 ? (
+                  <>
+                    Khách hàng đề nghị đổi chuyến cần báo trước giờ khởi hành ít nhất{" "}
+                    <strong className="font-semibold text-ink">
+                      {data.transfer.notice_days} ngày
+                    </strong>
+                    .{" "}
+                  </>
+                ) : (
+                  <>
+                    Khách hàng đề nghị đổi chuyến tới trước{" "}
+                    <strong className="font-semibold text-ink">hạn chốt danh sách</strong> của cả
+                    chuyến đang đặt lẫn chuyến muốn đổi sang.{" "}
+                  </>
+                )}
+                {data.transfer.free_transfers} lần đổi đầu tiên miễn phí; từ lần thứ{" "}
                 {data.transfer.free_transfers + 1} trở đi thu phí đổi lịch{" "}
                 <strong className="font-semibold text-ink">
                   {formatPrice(data.transfer.fee)}
@@ -426,8 +439,15 @@ export default function PolicyPage() {
               <CauHoi hoi="Tôi đổi sang chuyến khác được không?">
                 <p>
                   Được, và <strong>{data.transfer.free_transfers} lần đầu miễn phí</strong>. Bạn
-                  cần báo trước ngày khởi hành ít nhất{" "}
-                  <strong>{data.transfer.notice_days} ngày</strong>; từ lần đổi thứ{" "}
+                  đổi được tới trước{" "}
+                  {data.transfer.notice_days > 0 ? (
+                    <>
+                      ngày khởi hành ít nhất <strong>{data.transfer.notice_days} ngày</strong>
+                    </>
+                  ) : (
+                    <strong>hạn chốt danh sách</strong>
+                  )}
+                  ; từ lần đổi thứ{" "}
                   {data.transfer.free_transfers + 1} trở đi có phí đổi lịch{" "}
                   <strong>{formatPrice(data.transfer.fee)}</strong>, vì mỗi lần đổi đều kéo theo
                   việc báo lại với khách sạn và nhà xe.

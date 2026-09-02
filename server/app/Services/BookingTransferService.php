@@ -26,9 +26,6 @@ use Illuminate\Support\Facades\DB;
  */
 class BookingTransferService
 {
-    /** Khách phải báo trước ngần này ngày, tính từ ngày khởi hành của chuyến gốc. */
-    public const CUSTOMER_NOTICE_DAYS = 7;
-
     /** Số lần chuyển được miễn phí. Từ lần sau thu phí đổi lịch. */
     public const FREE_TRANSFERS = 1;
 
@@ -367,16 +364,29 @@ class BookingTransferService
             return;
         }
 
-        // 3. Khách phải báo trước, tính từ ngày khởi hành của chuyến gốc.
-        if ($fromSchedule?->start_date) {
-            $hanBaoTruoc = Carbon::parse($fromSchedule->start_date)
-                ->subDays(self::CUSTOMER_NOTICE_DAYS);
+        /*
+         * 3. Hạn báo trước của khách — mặc định KHÔNG có.
+         *
+         * Trước đây đây là một mốc cứng bảy ngày. Nhưng trước hạn chốt thì chưa có gì gửi đi nhà
+         * cung cấp: chỗ khách rời khỏi quay lại kho và bán tiếp được (xem `moBanLaiNeuCon`), danh
+         * sách chưa in, phòng chưa đặt. Đổi chuyến lúc ấy không tốn của công ty đồng nào, nên một
+         * cái vạch thứ hai đứng trước hạn chốt chỉ chặn một việc vô hại - và chặn nó bằng một con
+         * số do lập trình viên chọn, đúng thứ tài liệu 16 đã bác khi bàn về hạn chốt mặc định.
+         *
+         * Hạn chốt mới là mốc thay đổi bắt đầu có giá, và nó chặn cả hai phía.
+         *
+         * Công ty nào có chính sách báo trước riêng thì đặt `booking.transfer_notice_days`.
+         */
+        $soNgayBaoTruoc = max(0, (int) config('booking.transfer_notice_days', 0));
+
+        if ($soNgayBaoTruoc > 0 && $fromSchedule?->start_date) {
+            $hanBaoTruoc = Carbon::parse($fromSchedule->start_date)->subDays($soNgayBaoTruoc);
 
             if (now()->gt($hanBaoTruoc)) {
                 throw new BusinessRuleException(sprintf(
                     'Khách chỉ đổi được chuyến trước ngày khởi hành ít nhất %d ngày. '
                         . 'Sau mốc đó cần bộ phận điều hành thực hiện.',
-                    self::CUSTOMER_NOTICE_DAYS,
+                    $soNgayBaoTruoc,
                 ));
             }
         }
