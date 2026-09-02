@@ -90,7 +90,10 @@ export default function PassengerDeclaration() {
       const khung: Row["type"][] = [
         ...Array.from({ length: payload.adult_count }, () => "adult" as const),
         ...Array.from({ length: payload.child_count }, () => "child" as const),
-        ...Array.from({ length: payload.infant_count }, () => "infant" as const),
+        ...Array.from(
+          { length: payload.infant_count },
+          () => "infant" as const,
+        ),
       ];
 
       setRows(
@@ -104,13 +107,17 @@ export default function PassengerDeclaration() {
             // Chưa khai ai thì điền sẵn người đại diện vào dòng đầu — họ vừa khai tên lúc đặt,
             // bắt gõ lại là vô lý. Vẫn sửa được.
             name: daKhai?.name ?? (i === 0 ? payload.booking.contact_name : ""),
-            phone: daKhai?.phone ?? (i === 0 ? payload.booking.contact_phone ?? "" : ""),
+            phone:
+              daKhai?.phone ??
+              (i === 0 ? (payload.booking.contact_phone ?? "") : ""),
             is_contact: daKhai?.is_contact ?? i === 0,
           } as Row;
         }),
       );
     } catch {
-      setError("Không tìm thấy đơn với mã này. Kiểm tra lại liên kết trong thư xác nhận.");
+      setError(
+        "Không tìm thấy đơn với mã này. Kiểm tra lại liên kết trong thư xác nhận.",
+      );
     } finally {
       setLoading(false);
     }
@@ -126,7 +133,9 @@ export default function PassengerDeclaration() {
       truoc.map((row, i) => {
         // Chỉ một người là đầu mối liên hệ; chọn người mới thì bỏ người cũ.
         if (i !== index) {
-          return field === "is_contact" && value === true ? { ...row, is_contact: false } : row;
+          return field === "is_contact" && value === true
+            ? { ...row, is_contact: false }
+            : row;
         }
         return { ...row, [field]: value };
       }),
@@ -157,9 +166,16 @@ export default function PassengerDeclaration() {
       setSaved(true);
       loadData();
     } catch (err) {
-      const response = (err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } })
-        ?.response?.data;
-      const loiDauTien = response?.errors ? Object.values(response.errors)[0]?.[0] : null;
+      const response = (
+        err as {
+          response?: {
+            data?: { message?: string; errors?: Record<string, string[]> };
+          };
+        }
+      )?.response?.data;
+      const loiDauTien = response?.errors
+        ? Object.values(response.errors)[0]?.[0]
+        : null;
       setError(loiDauTien || response?.message || "Không lưu được danh sách.");
     } finally {
       setSaving(false);
@@ -173,14 +189,23 @@ export default function PassengerDeclaration() {
   };
 
   if (loading) {
-    return <div className="mx-auto max-w-3xl px-4 py-16 text-body-sm text-muted">Đang tải...</div>;
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 text-body-sm text-muted">
+        Đang tải...
+      </div>
+    );
   }
 
   if (!data) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16">
-        <p className="rounded-lg bg-rose-50 px-4 py-3 text-body-sm text-rose-800">{error}</p>
-        <Link to="/booking-lookup" className="mt-4 inline-block text-body-sm text-primary-600 hover:underline">
+        <p className="rounded-lg bg-rose-50 px-4 py-3 text-body-sm text-rose-800">
+          {error}
+        </p>
+        <Link
+          to="/booking-lookup"
+          className="mt-4 inline-block text-body-sm text-primary-600 hover:underline"
+        >
           Tra cứu đơn bằng mã →
         </Link>
       </div>
@@ -194,8 +219,9 @@ export default function PassengerDeclaration() {
       <div>
         <h1 className="text-display-lg text-ink">Khai thông tin hành khách</h1>
         <p className="text-body-sm text-muted mt-1">
-          {data.booking.tour_title} · khởi hành {formatDateTime(data.booking.departure_date ?? "")} ·{" "}
-          {data.guests} khách
+          {data.booking.tour_title} · khởi hành{" "}
+          {formatDateTime(data.booking.departure_date ?? "")} · {data.guests}{" "}
+          khách
         </p>
       </div>
 
@@ -207,8 +233,9 @@ export default function PassengerDeclaration() {
         <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <CalendarClock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <p className="text-body-sm text-amber-900">
-            Cần khai xong trước <b>{formatDateTime(data.deadline)}</b>. Sau mốc đó danh sách đã gửi
-            khách sạn và nhà xe, muốn sửa phải liên hệ điều hành.
+            Vui lòng hoàn thiện hồ sơ trước{" "}
+            <b>{formatDateTime(data.deadline)}</b>. Sau khoảng thời gian này,
+            chúng tôi sẽ chốt danh sách
           </p>
         </div>
       )}
@@ -239,7 +266,7 @@ export default function PassengerDeclaration() {
 
       <p className="flex items-center gap-2 text-caption text-muted">
         <Users className="w-4 h-4" />
-        Đã khai {daKhaiDu} / {data.guests} người
+        {daKhaiDu} / {data.guests} người
       </p>
 
       <div className="space-y-4">
@@ -249,7 +276,9 @@ export default function PassengerDeclaration() {
               <span className="w-6 h-6 rounded-full bg-primary-600 text-white text-badge flex items-center justify-center">
                 {index + 1}
               </span>
-              <span className="text-title-sm text-ink">{nhanLoai[row.type]}</span>
+              <span className="text-title-sm text-ink">
+                {nhanLoai[row.type]}
+              </span>
 
               <label className="ml-auto flex items-center gap-2 text-body-sm text-body cursor-pointer">
                 <input
@@ -260,7 +289,7 @@ export default function PassengerDeclaration() {
                   onChange={() => sua(index, "is_contact", true)}
                   className="h-4 w-4"
                 />
-                Hướng dẫn viên gọi người này
+                Người đại diện
               </label>
             </div>
 
@@ -342,7 +371,9 @@ export default function PassengerDeclaration() {
                       type="text"
                       value={row.identity_number}
                       disabled={!data.can_edit}
-                      onChange={(e) => sua(index, "identity_number", e.target.value)}
+                      onChange={(e) =>
+                        sua(index, "identity_number", e.target.value)
+                      }
                       className="input-field disabled:bg-surface-soft"
                     />
                   </div>
@@ -355,7 +386,9 @@ export default function PassengerDeclaration() {
                   type="text"
                   value={row.special_request}
                   disabled={!data.can_edit}
-                  onChange={(e) => sua(index, "special_request", e.target.value)}
+                  onChange={(e) =>
+                    sua(index, "special_request", e.target.value)
+                  }
                   placeholder="Ăn chay, dị ứng hải sản, cần hỗ trợ di chuyển..."
                   className="input-field disabled:bg-surface-soft"
                 />
@@ -366,12 +399,19 @@ export default function PassengerDeclaration() {
       </div>
 
       {error && (
-        <p className="rounded-lg bg-rose-50 px-4 py-3 text-body-sm font-medium text-rose-800">{error}</p>
+        <p className="rounded-lg bg-rose-50 px-4 py-3 text-body-sm font-medium text-rose-800">
+          {error}
+        </p>
       )}
 
       {data.can_edit && (
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={luu} disabled={saving} className="btn-primary disabled:opacity-40">
+          <button
+            type="button"
+            onClick={luu}
+            disabled={saving}
+            className="btn-primary disabled:opacity-40"
+          >
             {saving ? "Đang lưu..." : "Lưu danh sách"}
           </button>
 

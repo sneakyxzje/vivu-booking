@@ -341,16 +341,7 @@ const BookingForm = ({
           người. Đặt chỗ chỉ cần số lượng và một người đại diện; danh sách khai sau qua liên kết
           riêng, hạn cuối là hạn chốt danh sách của chuyến.
         */}
-        <div className="md:col-span-2 rounded-lg bg-primary-50/60 border border-primary-100 px-5 py-4">
-          <p className="text-sm font-semibold text-primary-900">
-            Thông tin từng hành khách khai sau
-          </p>
-          <p className="text-xs text-primary-800/80 mt-1 leading-relaxed">
-            Đặt xong bạn sẽ nhận một liên kết để điền họ tên và giấy tờ của {totalGuestCount} khách
-            trong đoàn. Cần có trước hạn chốt danh sách để làm bảo hiểm và khai báo lưu trú — không
-            phải điền ngay bây giờ.
-          </p>
-        </div>
+
       </div>
 
       {/* Tổng tiền */}

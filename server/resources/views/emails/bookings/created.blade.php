@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <title>Xác nhận đặt tour</title>
 </head>
+
 <body style="margin:0;background:#f6f8fb;font-family:Arial,Helvetica,sans-serif;color:#111827;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8fb;padding:24px 0;">
         <tr>
@@ -19,7 +21,7 @@
                         <td style="padding:26px 28px;">
                             <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
                                 Kính chào <strong>{{ $booking->customer_name }}</strong>,
-                                Vivu Booking đã tiếp nhận thông tin đặt tour của Quý khách. Vui lòng kiểm tra thông tin bên dưới và hoàn tất thanh toán để giữ chỗ.
+                                Vivu Booking đã tiếp nhận thông tin đặt tour của Quý khách. Vui lòng kiểm tra thông tin bên dưới và hoàn tất thanh toán
                             </p>
 
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:18px 0;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
@@ -32,16 +34,16 @@
                                     <td style="padding:12px 14px;font-size:13px;font-weight:700;">{{ \Carbon\Carbon::parse($booking->departure_date)->format('d/m/Y H:i') }}</td>
                                 </tr>
                                 @if($booking->tour?->pickup_location)
-                                    <tr>
-                                        <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Điểm đón khách</td>
-                                        <td style="padding:12px 14px;font-size:13px;">{{ $booking->tour->pickup_location }}</td>
-                                    </tr>
+                                <tr>
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Điểm đón khách</td>
+                                    <td style="padding:12px 14px;font-size:13px;">{{ $booking->tour->pickup_location }}</td>
+                                </tr>
                                 @endif
                                 @if($booking->tour?->vehicle_info)
-                                    <tr>
-                                        <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Phương tiện</td>
-                                        <td style="padding:12px 14px;font-size:13px;">{{ $booking->tour->vehicle_info }}</td>
-                                    </tr>
+                                <tr>
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Phương tiện</td>
+                                    <td style="padding:12px 14px;font-size:13px;">{{ $booking->tour->vehicle_info }}</td>
+                                </tr>
                                 @endif
                                 <tr>
                                     <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Số lượng khách</td>
@@ -53,13 +55,13 @@
                                     </td>
                                 </tr>
                                 @if($booking->discount_amount > 0)
-                                    <tr>
-                                        <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Mã giảm giá</td>
-                                        <td style="padding:12px 14px;font-size:13px;">
-                                            {{ $booking->discount_code }} &ndash;
-                                            giảm {{ number_format((float) $booking->discount_amount, 0, ',', '.') }} VNĐ
-                                        </td>
-                                    </tr>
+                                <tr>
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Mã giảm giá</td>
+                                    <td style="padding:12px 14px;font-size:13px;">
+                                        {{ $booking->discount_code }} &ndash;
+                                        giảm {{ number_format((float) $booking->discount_amount, 0, ',', '.') }} VNĐ
+                                    </td>
+                                </tr>
                                 @endif
                                 <tr>
                                     <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Tổng thanh toán</td>
@@ -70,21 +72,21 @@
                             </table>
 
                             @if($booking->expires_at)
-                                <p style="margin:14px 0 0;font-size:13px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;">
-                                    Hạn thanh toán:
-                                    <strong>{{ $booking->expires_at->timezone('Asia/Ho_Chi_Minh')->format('H:i d/m/Y') }}</strong>
-                                    (giờ Việt Nam).
-                                </p>
+                            <p style="margin:14px 0 0;font-size:13px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;">
+                                Hạn thanh toán:
+                                <strong>{{ $booking->expires_at->timezone('Asia/Ho_Chi_Minh')->format('H:i d/m/Y') }}</strong>
+                                (giờ Việt Nam).
+                            </p>
                             @endif
 
                             @if($paymentUrl)
-                                <p style="margin:22px 0;">
-                                    {{-- Nút ghi rõ số tiền: khách bấm sang cổng và thấy đúng con số
+                            <p style="margin:22px 0;">
+                                {{-- Nút ghi rõ số tiền: khách bấm sang cổng và thấy đúng con số
                                          vừa đọc, không phải đối chiếu lại xem có nhầm không. --}}
-                                    <a href="{{ $paymentUrl }}" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 18px;border-radius:10px;">
-                                        Thanh toán {{ number_format((float) $booking->total_amount, 0, ',', '.') }} VNĐ
-                                    </a>
-                                </p>
+                                <a href="{{ $paymentUrl }}" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 18px;border-radius:10px;">
+                                    Thanh toán {{ number_format((float) $booking->total_amount, 0, ',', '.') }} VNĐ
+                                </a>
+                            </p>
                             @endif
 
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 0;border-collapse:collapse;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;">
@@ -117,4 +119,5 @@
         </tr>
     </table>
 </body>
+
 </html>

@@ -30,8 +30,7 @@ class PassengerPolicyService
     public function __construct(
         private ScheduleLifecycleService $lifecycle,
         private BookingAuditLogger $auditLogger,
-    ) {
-    }
+    ) {}
 
     /**
      * Ai còn sửa được danh sách hành khách của đơn này, tại thời điểm hiện tại.
@@ -215,15 +214,8 @@ class PassengerPolicyService
         $canhBao = [];
 
         $daKhai = $booking->passengers()->count();
-        $daDat = (int) $booking->guests;
 
-        if ($daKhai < $daDat) {
-            $canhBao[] = sprintf(
-                'Mới khai %d trên %d hành khách. Chưa xuất được danh sách đoàn cho tới khi khai đủ.',
-                $daKhai,
-                $daDat,
-            );
-        }
+
 
         $thieuGiayTo = $booking->passengers()
             ->whereNull('identity_number')
@@ -279,7 +271,7 @@ class PassengerPolicyService
             ]);
         }
 
-        $tenMoi = array_map(static fn (array $item): string => $item['name'], $passengers);
+        $tenMoi = array_map(static fn(array $item): string => $item['name'], $passengers);
 
         // Chỉ ghi khi danh sách tên thực sự đổi. Khách mở ra sửa số điện thoại rồi lưu lại thì
         // không cần một dòng nhật ký, còn đổi tên thì cần.
