@@ -13,12 +13,13 @@ use App\Models\Service;
 use App\Models\Tour;
 use App\Models\TourSchedule;
 use App\Models\User;
+use App\Services\BookingPaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AdminController extends Controller
 {
-    public function dashboardData(Request $request): JsonResponse
+    public function dashboardData(Request $request, BookingPaymentService $payments): JsonResponse
     {
         $summary = [
             'full_tours' => Tour::where('status', 'full')->count(),
@@ -76,7 +77,9 @@ class AdminController extends Controller
         // để chạy đồng nhất trên cả SQLite (dev) lẫn MySQL (production).
         $allBookings = Booking::query()
             ->with('tour:id,title,start_location')
-            ->get(['id', 'tour_id', 'customer_name', 'guests', 'total_amount', 'status', 'created_at']);
+            // `paid_at` cần cho phép cộng doanh thu: đơn tạo trước khi sổ giao dịch mở cho đơn lẻ
+            // không có dòng nào trong sổ, và mốc này là nguồn duy nhất còn lại của chúng.
+            ->get(['id', 'tour_id', 'customer_name', 'guests', 'total_amount', 'status', 'created_at', 'paid_at']);
 
         $confirmedBookings = $allBookings->where('status', 'confirmed');
 
@@ -93,10 +96,22 @@ class AdminController extends Controller
             'completed_bookings' => $allBookings->where('status', 'completed')->count(),
             'no_show_bookings' => $allBookings->where('status', 'no_show')->count(),
             'cancelled_bookings' => $allBookings->where('status', 'cancelled')->count(),
-            'total_revenue' => (float) $revenueBookings->sum('total_amount'),
-            'revenue_this_month' => (float) $revenueBookings
-                ->filter(fn ($booking) => $booking->created_at?->greaterThanOrEqualTo(now()->startOfMonth()))
-                ->sum('total_amount'),
+            /*
+             * Doanh thu là tiền ĐÃ VỀ, cộng từ sổ giao dịch.
+             *
+             * Trước đây hai dòng này cộng `total_amount`, tức giá trị đơn hàng. Một đơn vừa xác
+             * nhận mà khách còn nợ vẫn cộng đủ, nên con số trên bảng điều khiển luôn cao hơn số dư
+             * tài khoản thật và không đối chiếu được với sổ sách.
+             */
+            'total_revenue' => $payments->sumPaidForTour($revenueBookings),
+            'revenue_this_month' => $payments->sumPaidForTour(
+                $revenueBookings->filter(
+                    fn ($booking) => $booking->created_at?->greaterThanOrEqualTo(now()->startOfMonth()),
+                ),
+            ),
+            // Tổng giá trị đơn đã bán, tách riêng: nó trả lời câu "bán được bao nhiêu", khác hẳn
+            // câu "thu về bao nhiêu" ở trên.
+            'contracted_value' => (float) $revenueBookings->sum('total_amount'),
             'new_customers_this_month' => User::where('role', 'customer')
                 ->where('created_at', '>=', now()->startOfMonth())
                 ->count(),
@@ -109,13 +124,15 @@ class AdminController extends Controller
         $confirmedThisYear = $confirmedBookings
             ->filter(fn ($booking) => (int) $booking->created_at?->year === $currentYear);
 
-        $monthlyPerformance = collect(range(1, 12))->map(function (int $month) use ($confirmedThisYear) {
+        $monthlyPerformance = collect(range(1, 12))->map(function (int $month) use ($confirmedThisYear, $payments) {
             $inMonth = $confirmedThisYear
                 ->filter(fn ($booking) => (int) $booking->created_at?->month === $month);
 
             return [
                 'name' => 'T' . $month,
-                'revenue' => round((float) $inMonth->sum('total_amount') / 1_000_000, 1),
+                // Cùng định nghĩa với `total_revenue` ở trên: tiền đã thu, không phải giá trị đơn.
+                // Biểu đồ và ô tổng nói hai con số khác nhau là chỗ người đọc mất lòng tin vào cả hai.
+                'revenue' => round($payments->sumPaidForTour($inMonth) / 1_000_000, 1),
                 'bookings' => $inMonth->count(),
             ];
         })->values();

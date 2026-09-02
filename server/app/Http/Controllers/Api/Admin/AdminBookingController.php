@@ -186,19 +186,29 @@ class AdminBookingController extends Controller
             ->when($trangThai, fn (Builder $q, string $tt) => $q->where('status', $tt))
             ->count();
 
+        // Nạp đúng các cột cần cho hai phép cộng bên dưới, không kéo cả bản ghi về.
+        $donTinhDoanhThu = $this->truyVan($filters)
+            ->whereIn('status', BookingStatus::revenueValues())
+            ->get(['id', 'total_amount', 'paid_at']);
+
         return [
             'total' => $dem(),
             'pending' => $dem(BookingStatus::Pending->value),
             'confirmed' => $dem(BookingStatus::Confirmed->value),
             'cancelled' => $dem(BookingStatus::Cancelled->value),
             'paid' => $this->truyVan($filters)->whereNotNull('paid_at')->count(),
-            // Doanh thu theo đúng định nghĩa của enum: gồm cả đơn đã đi xong và đơn khách không có
-            // mặt, vì tiền của hai nhóm ấy đã thu và không hoàn.
-            'revenue' => round(
-                (float) $this->truyVan($filters)
-                    ->whereIn('status', BookingStatus::revenueValues())
-                    ->sum('total_amount')
-            ),
+            /*
+             * Hai con số khác nhau, và trước đây chỉ có một — cái sai.
+             *
+             * `revenue` giờ là tiền THỰC THU, cộng từ sổ giao dịch. Đó là con số đối chiếu được với
+             * số dư tài khoản, và là thứ người ta tưởng mình đang đọc khi nhìn chữ "doanh thu".
+             *
+             * `contracted_value` là tổng giá trị đơn — cái cũ. Vẫn có ích (nó nói đã bán được bao
+             * nhiêu), nhưng nó gồm cả đơn vừa xác nhận mà khách chưa trả đồng nào, nên gọi nó là
+             * doanh thu thì mọi báo cáo đều cao hơn tiền thật.
+             */
+            'revenue' => $this->payments->sumPaidForTour($donTinhDoanhThu),
+            'contracted_value' => round((float) $donTinhDoanhThu->sum('total_amount')),
         ];
     }
 

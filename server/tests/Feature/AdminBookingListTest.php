@@ -174,6 +174,58 @@ class AdminBookingListTest extends TestCase
         $this->assertSame($don->id, $res->json('data.data.0.id'));
     }
 
+    // --- Doanh thu ------------------------------------------------------------------------
+
+    /**
+     * Ô "doanh thu" phải nói về tiền ĐÃ VỀ, không phải giá trị đơn đã bán.
+     *
+     * Trước đây nó cộng `total_amount` của mọi đơn còn hiệu lực, nên một đơn vừa xác nhận mà khách
+     * chưa trả đồng nào vẫn cộng đủ. Con số ấy luôn cao hơn số dư tài khoản thật, và không đối
+     * chiếu được với bất cứ thứ gì - đúng lúc người ta cần nó nhất.
+     */
+    public function test_doanh_thu_dem_tien_da_thu_chu_khong_dem_gia_tri_don(): void
+    {
+        // Đơn 4 triệu nhưng khách mới đưa 1 triệu.
+        $traMotPhan = Booking::factory()
+            ->choChuyen($this->chuyen)
+            ->soKhach(2)
+            ->create(['status' => BookingStatus::Confirmed->value, 'total_amount' => 4_000_000]);
+
+        \App\Models\BookingPayment::create([
+            'booking_id' => $traMotPhan->id,
+            'kind' => 'balance',
+            'amount' => 1_000_000,
+            'paid_at' => now(),
+        ]);
+
+        // Đơn 4 triệu đã trả đủ.
+        $traDu = Booking::factory()
+            ->choChuyen($this->chuyen)
+            ->soKhach(2)
+            ->create(['status' => BookingStatus::Confirmed->value, 'total_amount' => 4_000_000]);
+
+        \App\Models\BookingPayment::create([
+            'booking_id' => $traDu->id,
+            'kind' => 'balance',
+            'amount' => 4_000_000,
+            'paid_at' => now(),
+        ]);
+
+        $res = $this->danhSach()->assertOk();
+
+        $this->assertSame(
+            5_000_000,
+            $res->json('data.summary.revenue'),
+            'Doanh thu là 1 triệu cộng 4 triệu đã thu, không phải 8 triệu giá trị đơn.',
+        );
+
+        $this->assertSame(
+            8_000_000,
+            $res->json('data.summary.contracted_value'),
+            'Giá trị đã bán vẫn đọc được, chỉ là không còn đội lốt doanh thu.',
+        );
+    }
+
     // --- Sắp xếp -------------------------------------------------------------------------
 
     public function test_sap_xep_theo_tong_tien_tren_toan_bo_danh_sach(): void

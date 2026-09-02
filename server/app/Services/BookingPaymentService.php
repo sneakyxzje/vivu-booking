@@ -246,6 +246,48 @@ class BookingPaymentService
         return max(0.0, round((float) ($booking->refund_amount ?? 0)) - $this->refunded($booking));
     }
 
+    /**
+     * Tổng tiền THỰC THU của một tập đơn, dùng cho các con số tổng kết.
+     *
+     * Các màn hình thống kê vẫn cộng `total_amount` và gọi kết quả là doanh thu. Đó là giá trị đơn
+     * hàng, không phải tiền đã về: một đơn vừa xác nhận mà khách còn nợ vẫn cộng đủ, nên con số ấy
+     * luôn cao hơn số dư tài khoản thật và không đối chiếu được với bất cứ thứ gì.
+     *
+     * Tính theo lô chứ không gọi `paidForTour()` cho từng đơn: một trang danh sách vài trăm đơn sẽ
+     * sinh vài trăm truy vấn cho một ô thống kê.
+     *
+     * @param  \Illuminate\Support\Collection<int, Booking>  $bookings  cần có sẵn `total_amount` và `paid_at`
+     */
+    public function sumPaidForTour($bookings): float
+    {
+        if ($bookings->isEmpty()) {
+            return 0.0;
+        }
+
+        $ids = $bookings->pluck('id');
+
+        $tongTheoLoai = fn (array|string $kind) => BookingPayment::query()
+            ->whereIn('booking_id', $ids)
+            ->when(is_array($kind), fn ($q) => $q->whereIn('kind', $kind), fn ($q) => $q->where('kind', $kind))
+            ->groupBy('booking_id')
+            ->selectRaw('booking_id, SUM(amount) as tong')
+            ->pluck('tong', 'booking_id');
+
+        $thu = $tongTheoLoai(BookingPayment::THU);
+        $hoan = $tongTheoLoai(BookingPayment::HOAN);
+
+        return round($bookings->sum(function (Booking $booking) use ($thu, $hoan) {
+            $coSo = $thu->has($booking->id) || $hoan->has($booking->id);
+
+            if ($coSo) {
+                return (float) ($thu[$booking->id] ?? 0) - (float) ($hoan[$booking->id] ?? 0);
+            }
+
+            // Đơn tạo trước khi sổ mở cho đơn lẻ: đọc mốc `paid_at`, đúng như `paidForTour()`.
+            return $booking->paid_at ? round((float) $booking->total_amount) : 0.0;
+        }));
+    }
+
     /** Tổng các khoản THU của giá tour, chưa trừ khoản hoàn nào. */
     public function collected(Booking $booking): float
     {
