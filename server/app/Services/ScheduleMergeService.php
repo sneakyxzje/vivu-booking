@@ -7,12 +7,17 @@ use App\Enums\BookingStatus;
 use App\Enums\ScheduleStatus;
 use App\Enums\TourType;
 use App\Exceptions\BusinessRuleException;
+use App\Mail\BookingCancelledMail;
+use App\Mail\ScheduleMergedMail;
 use App\Models\Booking;
 use App\Models\BookingTransfer;
 use App\Models\TourSchedule;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 /**
  * L01, L02 - Ghép hai chuyến của cùng một tour.
@@ -155,11 +160,87 @@ class ScheduleMergeService
                 $actor?->getKey(),
             );
 
+            /*
+             * Báo cho khách, sau khi giao dịch đã chốt.
+             *
+             * Ghép chuyến đổi ngày đi của người đã trả tiền mà không hỏi họ - đó là quyết định vận
+             * hành, và chấp nhận được. Không báo lại mới là chỗ không chấp nhận được: khách biết
+             * chuyện khi ra bến vào đúng ngày cũ.
+             *
+             * Ngày cũ phải chụp lại ở đây. Sau khi ghép, đơn đã trỏ sang chuyến đích nên không còn
+             * đường nào đọc ngược ra ngày khách từng đặt.
+             */
+            $ngayCu = $nguon->start_date->copy();
+            $ngayMoi = $dich->start_date->copy();
+            $idDaDoi = $chuyenDi->pluck('id')->all();
+            $idDaHuy = $huyDi->pluck('id')->all();
+
+            DB::afterCommit(fn () => $this->baoChoKhach($idDaDoi, $idDaHuy, $ngayCu, $ngayMoi, $reason));
+
             return [
                 'transferred' => $chuyenDi->count(),
                 'cancelled' => $huyDi->count(),
             ];
         });
+    }
+
+    /**
+     * Thư cho hai nhóm khách của chuyến vừa bị ghép đi.
+     *
+     * Hai nội dung khác hẳn nhau nên không dùng chung một mẫu: người đã trả tiền cần biết ngày mới
+     * và quyền từ chối; người chưa trả tiền thì đơn đã hủy, họ cần lời mời đặt lại.
+     *
+     * Thư hỏng thì ghi log rồi đi tiếp - việc ghép đã xong và đã có vết trong nhật ký, một máy chủ
+     * thư trục trặc không được phép làm hỏng thứ đã làm xong.
+     *
+     * @param  array<int, int>  $idDaDoi
+     * @param  array<int, int>  $idDaHuy
+     */
+    private function baoChoKhach(
+        array $idDaDoi,
+        array $idDaHuy,
+        Carbon $ngayCu,
+        Carbon $ngayMoi,
+        string $lyDo,
+    ): void {
+        foreach ($this->donTheoId($idDaDoi) as $don) {
+            $this->gui($don, new ScheduleMergedMail($don, $ngayCu, $ngayMoi, $lyDo));
+        }
+
+        foreach ($this->donTheoId($idDaHuy) as $don) {
+            $this->gui($don, new BookingCancelledMail($don));
+        }
+    }
+
+    /** @param  array<int, int>  $ids */
+    private function donTheoId(array $ids)
+    {
+        if ($ids === []) {
+            return collect();
+        }
+
+        return Booking::query()
+            ->whereIn('id', $ids)
+            ->with(['customer:id,email', 'tour:id,title', 'schedule'])
+            ->get();
+    }
+
+    private function gui(Booking $don, $thu): void
+    {
+        $email = $don->customer?->email ?: $don->customer_email;
+
+        if (!$email) {
+            return;
+        }
+
+        try {
+            Mail::to($email)->send($thu);
+        } catch (Throwable $e) {
+            Log::warning('Không gửi được thư báo ghép chuyến.', [
+                'booking_id' => $don->getKey(),
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

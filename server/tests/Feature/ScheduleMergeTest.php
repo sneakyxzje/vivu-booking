@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Enums\ScheduleStatus;
 use App\Enums\TourType;
+use App\Mail\BookingCancelledMail;
+use App\Mail\ScheduleMergedMail;
 use App\Models\Booking;
 use App\Models\BookingTransfer;
 use App\Models\Tour;
@@ -12,6 +14,7 @@ use App\Models\User;
 use App\Services\ScheduleMergeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -114,6 +117,103 @@ class ScheduleMergeTest extends TestCase
         $this->assertSame(2, $ketQua['transferred']);
         $this->assertSame($this->dich->id, (int) $donMot->fresh()->tour_schedule_id);
         $this->assertSame($this->dich->id, (int) $donHai->fresh()->tour_schedule_id);
+    }
+
+    // --- Nói cho khách biết -------------------------------------------------------------
+
+    /**
+     * Ghép chuyến đổi ngày đi của người đã trả tiền mà không hỏi họ.
+     *
+     * Đó là quyết định vận hành, chấp nhận được. Không báo lại mới là chỗ không chấp nhận được:
+     * khách biết chuyện khi ra bến vào đúng ngày cũ.
+     */
+    public function test_ghep_thi_gui_thu_cho_ca_hai_nhom_khach(): void
+    {
+        Mail::fake();
+
+        $daTra = $this->taoDon($this->nguon);
+        $chuaTra = $this->taoDon($this->nguon, 'pending');
+
+        $this->service()->merge($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
+
+        Mail::assertQueued(
+            ScheduleMergedMail::class,
+            fn (ScheduleMergedMail $thu) => $thu->hasTo($daTra->customer_email),
+        );
+
+        Mail::assertQueued(
+            BookingCancelledMail::class,
+            fn (BookingCancelledMail $thu) => $thu->hasTo($chuaTra->customer_email),
+        );
+    }
+
+    /** Thư phải dựng được thật, và phải nói rõ quyền từ chối — đó là phần quan trọng nhất của nó. */
+    public function test_thu_bao_ghep_noi_ro_ngay_moi_va_quyen_hoan_du(): void
+    {
+        $don = $this->taoDon($this->nguon);
+
+        $noiDung = (new ScheduleMergedMail(
+            $don,
+            $this->nguon->start_date,
+            $this->dich->start_date,
+            'Hai chuyen deu thieu khach nen don ve mot.',
+        ))->render();
+
+        $this->assertStringContainsString($this->dich->start_date->format('d/m/Y'), $noiDung);
+        $this->assertStringContainsString('100%', $noiDung);
+        $this->assertStringContainsString('Không đổi', $noiDung);
+    }
+
+    // --- Quyền hoàn đủ ------------------------------------------------------------------
+
+    /**
+     * Khách bị công ty dời ngày, không chịu ngày mới thì hoàn ĐỦ, bảng phí không áp.
+     *
+     * Khách mua ngày 20 mà công ty giao ngày 21; họ từ chối thì đó không phải hủy tự nguyện. Cùng
+     * chuẩn với luồng hủy cả chuyến, nơi khách được chọn "hoàn đủ tiền".
+     */
+    public function test_khach_bi_ghep_roi_huy_thi_duoc_hoan_du(): void
+    {
+        $don = $this->taoDon($this->nguon);
+
+        $this->service()->merge($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
+
+        $bang = app(\App\Services\CancellationPolicyService::class)->quote($don->fresh());
+
+        $this->assertTrue($bang['moved_by_company']);
+        $this->assertSame(100, $bang['refund_percent']);
+        $this->assertEqualsWithDelta(0.0, $bang['cancellation_fee'], 0.01, 'Không thu phí hủy của người mình vừa đổi ngày.');
+        $this->assertEqualsWithDelta((float) $don->total_amount, $bang['refund_amount'], 0.01);
+    }
+
+    /**
+     * Nhưng khách TỰ xin đổi chuyến thì vẫn theo bảng phí như thường.
+     *
+     * Bài đối chứng: luật trên chỉ nói về thay đổi do công ty gây ra. Nới nó ra thành "hễ từng
+     * chuyển chuyến là hoàn đủ" thì mở một đường lách - xin đổi ngày một lần rồi hủy, khỏi mất phí.
+     */
+    public function test_khach_tu_xin_doi_chuyen_thi_khong_duoc_hoan_du(): void
+    {
+        $don = $this->taoDon($this->dich);
+
+        BookingTransfer::query()->create([
+            'booking_id' => $don->id,
+            'from_schedule_id' => $this->nguon->id,
+            'to_schedule_id' => $this->dich->id,
+            'from_tour_id' => $this->tour->id,
+            'to_tour_id' => $this->tour->id,
+            'initiated_by' => 'customer',
+            'price_difference' => 0,
+            'fee' => 0,
+            'reason' => 'Khach ban viec rieng, xin doi ngay.',
+            'approved_by' => $this->dieuHanh->id,
+            'approved_at' => now(),
+        ]);
+
+        $bang = app(\App\Services\CancellationPolicyService::class)->quote($don->fresh());
+
+        $this->assertFalse($bang['moved_by_company']);
+        $this->assertLessThan(100, $bang['refund_percent']);
     }
 
     /** Bài quan trọng nhất: số chỗ phải dồn đúng và chuyến nguồn về 0. */

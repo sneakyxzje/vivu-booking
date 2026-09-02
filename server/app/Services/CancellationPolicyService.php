@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Booking;
+use App\Models\BookingTransfer;
 use App\Models\CancellationPolicy;
 use App\Models\TourSchedule;
 use Illuminate\Support\Carbon;
@@ -148,7 +149,9 @@ class CancellationPolicyService
         $rules ??= $this->rulesFor($booking);
 
         $hoursBefore = $this->hoursBeforeDeparture($schedule, $now);
-        $refundPercent = $this->refundPercent($hoursBefore, $rules);
+
+        $doCongTyDoiNgay = $this->congTyDaDoiNgay($booking);
+        $refundPercent = $doCongTyDoiNgay ? 100 : $this->refundPercent($hoursBefore, $rules);
 
         $totalAmount = round((float) $booking->total_amount);
         $paidAmount = $this->paidAmount($booking);
@@ -163,7 +166,37 @@ class CancellationPolicyService
             'paid_amount' => $paidAmount,
             'cancellation_fee' => $cancellationFee,
             'refund_amount' => $refundAmount,
+            // Để màn hình nói được VÌ SAO mức hoàn là 100%, thay vì để người bấm tự đoán.
+            'moved_by_company' => $doCongTyDoiNgay,
         ];
+    }
+
+    /**
+     * Đơn này có đang nằm trên một chuyến do CÔNG TY dời tới hay không.
+     *
+     * Nếu có thì hủy được hoàn đủ, bảng phí không áp. Khách mua ngày 20 mà công ty giao ngày 23,
+     * họ từ chối ngày 23 thì đó không phải hủy đơn tự nguyện - và bắt họ chịu phí hủy cho một thay
+     * đổi họ không hề chọn là thu tiền của người mình vừa làm phiền.
+     *
+     * Cùng chuẩn mà luồng hủy cả chuyến đã áp: ở đó khách được chọn "hoàn đủ tiền" hoặc "chuyển
+     * chuyến miễn phí". Ghép chuyến là cùng một việc - chuyến nguồn bị hủy - chỉ khác là hệ thống
+     * chọn hộ phương án chuyển. Nên quyền hoàn đủ phải còn nguyên.
+     *
+     * Đọc từ `booking_transfers`, không cần thêm cột: bảng ấy đã ghi ai khởi xướng và chuyển tới
+     * chuyến nào. Điều kiện `to_schedule_id` khớp chuyến hiện tại là để một lần chuyển cũ đã bị
+     * thay thế bởi lần chuyển sau (do khách xin) không còn tính nữa.
+     */
+    public function congTyDaDoiNgay(Booking $booking): bool
+    {
+        if (!$booking->tour_schedule_id) {
+            return false;
+        }
+
+        return BookingTransfer::query()
+            ->where('booking_id', $booking->getKey())
+            ->where('initiated_by', 'company')
+            ->where('to_schedule_id', $booking->tour_schedule_id)
+            ->exists();
     }
 
     /**

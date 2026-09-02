@@ -1944,6 +1944,14 @@ export default function BookingManagement() {
                       </span>
                     </div>
 
+                    {/* Vì sao mức hoàn là 100%. Không nói ra thì người bấm tưởng bảng phí hỏng. */}
+                    {cancelPreview.moved_by_company && (
+                      <p className="rounded-md bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+                        Đơn này đang ở chuyến do công ty dời tới. Khách từ chối một thay đổi họ không
+                        chọn nên không chịu phí hủy — hoàn đủ số đã thu.
+                      </p>
+                    )}
+
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="rounded-md bg-gray-50 py-2">
                         <p className="text-[11px] text-gray-500">Đã thu</p>

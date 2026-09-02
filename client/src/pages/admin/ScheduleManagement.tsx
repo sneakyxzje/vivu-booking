@@ -1897,6 +1897,22 @@ export default function ScheduleManagement() {
               </p>
             </div>
 
+            {/*
+              Ghép là đổi ngày đi của người đã trả tiền mà không hỏi họ. Người bấm nút phải biết
+              hai hệ quả ấy trước khi bấm, không phải đọc lại quy trình sau khi khách gọi lên.
+            */}
+            <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5 space-y-1">
+              <p className="text-xs font-bold text-amber-900">Ghép xong, hệ thống tự làm hai việc</p>
+              <p className="text-[11px] text-amber-800">
+                Gửi thư cho mọi khách của chuyến này: người đã thanh toán nhận thư báo ngày mới,
+                người chưa thanh toán nhận thư báo hủy kèm lời mời đặt lại.
+              </p>
+              <p className="text-[11px] text-amber-800">
+                Khách không đồng ý ngày mới thì hủy được và <b>hoàn đủ 100%</b>, không tính phí hủy —
+                vì đây là thay đổi do công ty thực hiện.
+              </p>
+            </div>
+
             {mergeLoading && (
               <p className="text-sm text-gray-500">
                 Đang tìm chuyến phù hợp...

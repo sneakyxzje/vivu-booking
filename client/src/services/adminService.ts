@@ -844,6 +844,12 @@ export interface CancelPreview {
   /** false nghĩa là hủy xong sẽ thành ghế chết. */
   seats_will_be_released: boolean;
   policy_name: string | null;
+  /**
+   * Đơn đang nằm trên một chuyến do công ty dời tới (ghép chuyến, hoặc hãng tự đổi lịch).
+   *
+   * Khi true thì bảng phí không áp: khách từ chối một thay đổi họ không hề chọn, nên hoàn đủ.
+   */
+  moved_by_company: boolean;
 }
 
 const adminService = {
