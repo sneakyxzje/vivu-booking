@@ -19,6 +19,7 @@ use App\Services\BookingPolicyService;
 use App\Services\CancellationPolicyService;
 use App\Services\PassengerPolicyService;
 use App\Services\ScheduleLifecycleService;
+use App\Services\VNPayCallbackService;
 use App\Services\VNPayService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -49,6 +50,7 @@ class BookingController extends Controller
         private PassengerPolicyService $passengerPolicy,
         private BookingAuditLogger $auditLogger,
         private BookingPaymentService $paymentService,
+        private VNPayCallbackService $callbackService,
     ) {
     }
 
@@ -549,161 +551,59 @@ class BookingController extends Controller
         ]);
     }
 
+    /**
+     * IPN — VNPay gọi thẳng máy chủ ta để báo kết quả.
+     *
+     * Đây mới là đường ghi nhận tiền đáng tin. `vnpayReturn` bên dưới đi qua trình duyệt của khách,
+     * nên nó không chạy khi khách tắt app ngân hàng, hết pin hay rớt mạng — và trước khi có tuyến
+     * này, đúng những đơn ấy bị tác vụ nhả chỗ hủy sau mười phút trong khi tiền đã nằm trong tài
+     * khoản công ty.
+     *
+     * Trả JSON theo đúng định dạng VNPay chờ đợi; họ đọc `RspCode` để biết có phải gọi lại không.
+     *
+     * Cấu hình: khai địa chỉ tuyến này trong cổng quản trị VNPay (mục URL nhận IPN). Không khai thì
+     * VNPay không gọi, và hệ thống lại chỉ còn một tai để nghe.
+     */
+    public function vnpayIpn(Request $request): JsonResponse
+    {
+        $ketQua = $this->callbackService->handle($request->query());
+
+        if ($ketQua['booking'] && $ketQua['rsp_code'] === VNPayCallbackService::RSP_THANH_CONG) {
+            $this->sendBookingPaidMailAfterResponse($ketQua['booking']);
+        }
+
+        return response()->json([
+            'RspCode' => $ketQua['rsp_code'],
+            'Message' => match ($ketQua['rsp_code']) {
+                VNPayCallbackService::RSP_THANH_CONG => 'Confirm Success',
+                VNPayCallbackService::RSP_KHONG_TIM_THAY_DON => 'Order not found',
+                VNPayCallbackService::RSP_DA_XU_LY => 'Order already confirmed',
+                VNPayCallbackService::RSP_SAI_CHU_KY => 'Invalid signature',
+                default => 'Unknown error',
+            },
+        ]);
+    }
+
+    /**
+     * Trình duyệt khách quay về sau khi trả tiền.
+     *
+     * Từ khi có IPN, tuyến này chỉ còn nhiệm vụ ĐƯA KHÁCH VỀ đúng trang. Nó vẫn gọi cùng một service
+     * xử lý, vì đường nào tới trước cũng phải ghi nhận được — IPN có thể chậm vài giây, và khách
+     * quay về trước thì không có lý do bắt họ nhìn màn hình "chưa thanh toán".
+     *
+     * Gọi hai lần không nhân đôi thứ gì: service chặn theo mã giao dịch, xem `VNPayCallbackService`.
+     */
     public function vnpayReturn(Request $request)
     {
         $frontendUrl = rtrim(config('app.frontend_url'), '/');
-        // `vnp_TxnRef` giờ là `{id đơn}-{dấu thời gian}`, vì VNPay coi nó là mã của MỘT giao dịch
-        // chứ không phải của đơn hàng — một đơn trả cọc rồi trả nốt là hai giao dịch. Xem VNPayService.
-        $bookingId = $this->vnpayService->bookingIdFrom($request->query('vnp_TxnRef'));
-        $isValidSignature = $this->hasValidVnpaySignature($request);
-        $isSuccessful = $isValidSignature
-            && $request->query('vnp_ResponseCode') === '00'
-            && $request->query('vnp_TransactionStatus') === '00';
 
-        // Số tiền của đúng lần trả này. Với đơn có cọc, nó không bằng giá trị đơn.
-        $soTienLanNay = $request->query('vnp_Amount')
-            ? (float) $request->query('vnp_Amount') / 100
-            : 0.0;
+        $ketQua = $this->callbackService->handle($request->query());
 
-        $paidBooking = null;
+        $bookingId = $ketQua['booking_id'];
+        $isSuccessful = $ketQua['successful'];
+        $paidBooking = $ketQua['booking'];
 
-        if ($bookingId) {
-            $paidBooking = DB::transaction(function () use ($bookingId, $isSuccessful, $isValidSignature, $request, $soTienLanNay) {
-                $booking = Booking::query()
-                    ->lockForUpdate()
-                    ->find($bookingId);
-
-                PaymentLog::create([
-                    'booking_id' => $booking?->id,
-                    'provider' => 'vnpay',
-                    'transaction_no' => $request->query('vnp_TransactionNo'),
-                    'bank_code' => $request->query('vnp_BankCode'),
-                    'response_code' => $request->query('vnp_ResponseCode'),
-                    'transaction_status' => $request->query('vnp_TransactionStatus'),
-                    'amount' => $request->query('vnp_Amount') ? $request->query('vnp_Amount') / 100 : null,
-                    'is_valid_signature' => $isValidSignature,
-                    'raw_payload' => $request->query(),
-                ]);
-
-                if (!$booking) {
-                    return null;
-                }
-
-                $schedule = $booking->tour_schedule_id
-                    ? TourSchedule::query()
-                        ->whereKey($booking->tour_schedule_id)
-                        ->lockForUpdate()
-                        ->first()
-                    : null;
-
-                if ($booking->status === 'pending') {
-                    $booking->update([
-                        'status' => $isSuccessful ? 'confirmed' : 'cancelled',
-                        'vnpay_transaction_no' => $isSuccessful
-                            ? $request->query('vnp_TransactionNo')
-                            : null,
-                        'confirmed_at' => $isSuccessful ? now() : null,
-                        // Hết mười phút giữ chỗ: đơn đã xác nhận, tác vụ nhả chỗ không được đụng tới.
-                        'expires_at' => $isSuccessful ? null : $booking->expires_at,
-                    ]);
-
-                    if ($isSuccessful) {
-                        /*
-                         * `paid_at` KHÔNG còn đóng ở đây nữa — sổ giao dịch đóng nó, và chỉ khi
-                         * đã thu đủ giá tour. Đóng ngay tại đây thì một đơn mới trả 30% tiền cọc
-                         * lại mang mốc "đã thanh toán", và mọi luồng đọc mốc đó (chặn khách tự
-                         * hủy, tính tiền hoàn) sẽ tin rằng khách đã trả hết.
-                         */
-                        $this->ghiSoTienVe($booking, $soTienLanNay, $request->query('vnp_TransactionNo'));
-
-                        return $booking->fresh(['tour', 'schedule', 'discountCode']);
-                    }
-
-                    $this->holdService->releaseHold($booking, $schedule);
-
-                    return null;
-                }
-
-                /*
-                 * Khách trả nốt phần còn lại của một đơn đã xác nhận.
-                 *
-                 * Nhánh này chỉ tồn tại từ khi có đặt cọc. Trước đó mọi đơn trả một lần, nên tiền
-                 * về cho một đơn không còn `pending` luôn là chuyện bất thường và bên dưới chỉ
-                 * ghi log cảnh báo. Giờ nó là luồng bình thường.
-                 */
-                if ($isSuccessful
-                    && $booking->status === 'confirmed'
-                    && $this->paymentService->balanceDue($booking) > 0) {
-                    $this->ghiSoTienVe($booking, $soTienLanNay, $request->query('vnp_TransactionNo'));
-
-                    return $booking->fresh(['tour', 'schedule', 'discountCode']);
-                }
-
-                // Tiền về đúng lúc đơn vừa bị tự hủy vì quá hạn: nếu chỗ vẫn còn
-                // thì khôi phục đơn, hết chỗ thì giữ nguyên hủy và cảnh báo hoàn tiền.
-                $wasAutoExpired = $booking->status === 'cancelled'
-                    && $booking->cancel_reason === BookingHoldService::EXPIRED_REASON
-                    && !$booking->paid_at;
-
-                if ($isSuccessful && $wasAutoExpired) {
-                    $availableSeats = $schedule
-                        ? (int) $schedule->max_people - (int) $schedule->booked_people
-                        : 0;
-
-                    if ($schedule && !in_array($schedule->status instanceof ScheduleStatus ? $schedule->status : ScheduleStatus::tryFrom((string) $schedule->status), [ScheduleStatus::Cancelled, ScheduleStatus::Completed], true) && $booking->guests <= $availableSeats) {
-                        $schedule->increment('booked_people', $booking->guests);
-                        $schedule->refresh();
-
-                        if ($schedule->booked_people >= $schedule->max_people) {
-                            $this->scheduleLifecycle->transitionTo(
-                                $schedule,
-                                ScheduleStatus::Closed,
-                                'Tự động đóng bán do booking vừa lấp đầy số chỗ.',
-                            );
-                        }
-
-                        $this->holdService->refreshTourAvailability($schedule);
-
-                        // Lấy lại lượt mã giảm giá đã hoàn khi tự hủy
-                        $booking->loadMissing('discountCode');
-                        $booking->discountCode?->increment('used_count');
-
-                        $booking->update([
-                            'status' => 'confirmed',
-                            'cancel_reason' => null,
-                            'vnpay_transaction_no' => $request->query('vnp_TransactionNo'),
-                            'confirmed_at' => now(),
-                            'expires_at' => null,
-                        ]);
-
-                        // Ghi sổ sau khi đơn đã về `confirmed`: sổ từ chối khoản thu cho đơn đang
-                        // ở trạng thái hủy, và ở đây đơn vừa được dựng lại nên khoản thu là thật.
-                        $this->ghiSoTienVe($booking, $soTienLanNay, $request->query('vnp_TransactionNo'));
-
-                        return $booking->fresh(['tour', 'schedule', 'discountCode']);
-                    }
-
-                    Log::warning('Thanh toán thành công cho đơn đã quá hạn nhưng không còn chỗ — cần hoàn tiền thủ công.', [
-                        'booking_id' => $booking->id,
-                        'transaction_no' => $request->query('vnp_TransactionNo'),
-                        'amount' => $request->query('vnp_Amount') ? $request->query('vnp_Amount') / 100 : null,
-                    ]);
-                }
-
-                if ($isSuccessful && !$wasAutoExpired && !$booking->paid_at) {
-                    Log::warning('Thanh toán thành công cho đơn không còn hiệu lực (đã bị hủy) — cần hoàn tiền thủ công.', [
-                        'booking_id' => $booking->id,
-                        'booking_status' => $booking->status,
-                        'transaction_no' => $request->query('vnp_TransactionNo'),
-                        'amount' => $request->query('vnp_Amount') ? $request->query('vnp_Amount') / 100 : null,
-                    ]);
-                }
-
-                return null;
-            });
-        }
-
-        if ($paidBooking) {
+        if ($paidBooking && $ketQua['rsp_code'] === VNPayCallbackService::RSP_THANH_CONG) {
             $this->sendBookingPaidMailAfterResponse($paidBooking);
         }
 
@@ -776,32 +676,6 @@ class BookingController extends Controller
         ];
     }
 
-    private function hasValidVnpaySignature(Request $request): bool
-    {
-        $hashSecret = config('services.vnpay.hash_secret');
-        $secureHash = $request->query('vnp_SecureHash');
-
-        if (!$hashSecret || !$secureHash) {
-            return false;
-        }
-
-        $inputData = $request->query();
-        unset($inputData['vnp_SecureHash'], $inputData['vnp_SecureHashType']);
-        ksort($inputData);
-
-        $hashData = [];
-
-        foreach ($inputData as $key => $value) {
-            if (str_starts_with($key, 'vnp_')) {
-                $hashData[] = urlencode($key) . '=' . urlencode($value);
-            }
-        }
-
-        $calculatedHash = hash_hmac('sha512', implode('&', $hashData), $hashSecret);
-
-        return hash_equals($calculatedHash, $secureHash);
-    }
-
     private function sendBookingCreatedMailAfterResponse(Booking $booking, ?string $paymentUrl): void
     {
         app()->terminating(function () use ($booking, $paymentUrl) {
@@ -838,32 +712,6 @@ class BookingController extends Controller
                 'error' => $exception->getMessage(),
             ]);
         }
-    }
-
-    /**
-     * Ghi khoản tiền cổng thanh toán vừa báo về vào sổ giao dịch.
-     *
-     * Luôn là `balance`: đơn lẻ thu đủ một lần, không có khoản nào trước nó. Nhãn `deposit` vẫn
-     * còn trong sổ nhưng chỉ đơn ĐOÀN dùng tới, và ở đó điều hành ghi tay theo thỏa thuận riêng.
-     * Cả hai nhãn đều thuộc nhóm THU nên mọi phép cộng đối xử với chúng như nhau.
-     */
-    private function ghiSoTienVe(Booking $booking, float $soTien, ?string $maGiaoDich): void
-    {
-        if ($soTien <= 0) {
-            return;
-        }
-
-        $this->paymentService->record(
-            $booking,
-            'balance',
-            $soTien,
-            'gateway',
-            $maGiaoDich,
-            // Không có con người nào bấm nút ở đây, nên `recorded_by` để trống thay vì gán bừa
-            // một tài khoản — đó là cột dùng để quy trách nhiệm.
-            'Thanh toán qua VNPay',
-            null,
-        );
     }
 
     /**

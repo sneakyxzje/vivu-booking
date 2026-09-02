@@ -113,6 +113,118 @@ class PaymentLedgerAndRefundTest extends TestCase
         return $params;
     }
 
+    // --- IPN: đường ghi nhận tiền không phụ thuộc trình duyệt khách ------------------------------
+
+    /**
+     * Khách trả tiền xong rồi tắt máy: IPN vẫn xác nhận được đơn.
+     *
+     * Đây là lỗ hổng nặng nhất của luồng cũ. Toàn bộ việc ghi nhận tiền nằm trong lượt quay về của
+     * TRÌNH DUYỆT, nên khách tắt app ngân hàng, hết pin hay rớt mạng là không dòng nào chạy - và
+     * mười phút sau tác vụ nhả chỗ hủy đơn, trong khi tiền đã nằm trong tài khoản công ty.
+     */
+    public function test_ipn_xac_nhan_don_du_khach_khong_quay_lai(): void
+    {
+        Mail::fake();
+        $booking = $this->datTour();
+
+        $this->getJson('/api/vnpay/ipn?' . http_build_query($this->vnpayQuayVe($booking, 5_000_000)))
+            ->assertOk()
+            ->assertJsonPath('RspCode', '00');
+
+        $daSua = $booking->fresh();
+
+        $this->assertSame('confirmed', $daSua->status);
+        $this->assertNotNull($daSua->paid_at);
+        $this->assertNull($daSua->expires_at, 'Đã trả tiền thì chỗ không còn là giữ tạm.');
+        $this->assertSame(5_000_000.0, app(BookingPaymentService::class)->netPaid($daSua));
+    }
+
+    /** IPN gọi lại lần hai (họ có cơ chế thử lại) không được ghi tiền hai lần. */
+    public function test_ipn_goi_lai_khong_ghi_tien_hai_lan(): void
+    {
+        Mail::fake();
+        $booking = $this->datTour();
+        $callback = $this->vnpayQuayVe($booking, 5_000_000);
+
+        $this->getJson('/api/vnpay/ipn?' . http_build_query($callback))
+            ->assertJsonPath('RspCode', '00');
+
+        $this->getJson('/api/vnpay/ipn?' . http_build_query($callback))
+            ->assertJsonPath('RspCode', '02');
+
+        $this->assertSame(1, $booking->payments()->count());
+        $this->assertSame(5_000_000.0, app(BookingPaymentService::class)->netPaid($booking->fresh()));
+    }
+
+    /** Chữ ký sai thì không đụng gì tới đơn, và nói đúng lý do cho VNPay. */
+    public function test_ipn_tu_choi_chu_ky_sai(): void
+    {
+        Mail::fake();
+        $booking = $this->datTour();
+
+        $callback = $this->vnpayQuayVe($booking, 5_000_000);
+        $callback['vnp_SecureHash'] = str_repeat('0', 128);
+
+        $this->getJson('/api/vnpay/ipn?' . http_build_query($callback))
+            ->assertJsonPath('RspCode', '97');
+
+        $this->assertSame('pending', $booking->fresh()->status);
+        $this->assertSame(0, $booking->payments()->count());
+    }
+
+    /**
+     * Cùng một lần trả tiền tới bằng cả hai đường chỉ ghi một lần.
+     *
+     * IPN có thể tới trước hoặc sau lượt quay về của khách, không đường nào đảm bảo thứ tự.
+     */
+    public function test_ipn_va_luot_quay_ve_cung_mot_giao_dich_chi_ghi_mot_lan(): void
+    {
+        Mail::fake();
+        $booking = $this->datTour();
+        $callback = $this->vnpayQuayVe($booking, 5_000_000);
+
+        $this->getJson('/api/vnpay/ipn?' . http_build_query($callback));
+        $this->get('/api/vnpay/return?' . http_build_query($callback));
+
+        $this->assertSame(1, $booking->payments()->count());
+        $this->assertSame(5_000_000.0, app(BookingPaymentService::class)->netPaid($booking->fresh()));
+    }
+
+    /**
+     * Mở lại liên kết quay về cũ sau khi đơn đã được hoàn bớt thì KHÔNG ghi thêm khoản thu nào.
+     *
+     * Chống trùng cũ dựa vào "đơn còn thiếu tiền không". Sau một khoản hoàn, số còn thiếu dương trở
+     * lại, và chữ ký trên liên kết cũ thì không hết hạn - mở lại từ lịch sử trình duyệt là sổ có
+     * thêm 5 triệu mà không đồng nào vào tài khoản. Giờ chặn theo mã giao dịch.
+     */
+    public function test_phat_lai_lien_ket_cu_sau_khi_hoan_khong_sinh_khoan_thu_ma(): void
+    {
+        Mail::fake();
+        $booking = $this->datTour();
+        $callback = $this->vnpayQuayVe($booking, 5_000_000);
+
+        $this->get('/api/vnpay/return?' . http_build_query($callback));
+
+        // Điều hành hoàn bớt 2 triệu, nên đơn "còn thiếu" trở lại.
+        $this->actingAs($this->admin, 'sanctum')
+            ->postJson('/api/admin/bookings/' . $booking->id . '/payments', [
+                'kind' => 'refund',
+                'amount' => 2_000_000,
+                'method' => 'bank_transfer',
+            ])->assertOk();
+
+        $this->assertSame(3_000_000.0, app(BookingPaymentService::class)->netPaid($booking->fresh()));
+
+        // Khách mở lại đúng liên kết cũ trong lịch sử trình duyệt.
+        $this->get('/api/vnpay/return?' . http_build_query($callback));
+
+        $this->assertSame(
+            3_000_000.0,
+            app(BookingPaymentService::class)->netPaid($booking->fresh()),
+            'Liên kết cũ không được sinh thêm khoản thu nào.',
+        );
+    }
+
     // --- Thanh toán qua cổng ---------------------------------------------------------------------
 
     public function test_tra_du_qua_cong_thi_ghi_so_va_dong_moc_da_thanh_toan(): void

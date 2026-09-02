@@ -125,7 +125,20 @@ Route::post('/discount-codes/validate', [DiscountCodeController::class, 'validat
  * nhập mới xem được chính sách hủy là giấu điều khoản cho tới khi người ta đã cam kết.
  */
 Route::get('/policies', [CustomerPolicyController::class, 'show']);
+/*
+ * Hai tai để nghe cùng một kết quả thanh toán.
+ *
+ * `/vnpay/return` là chỗ trình duyệt khách quay về — nó chỉ đáng tin cho việc ĐƯA KHÁCH VỀ đúng
+ * trang, vì khách tắt app ngân hàng hay rớt mạng là nó không bao giờ chạy.
+ *
+ * `/vnpay/ipn` là chỗ máy chủ VNPay gọi thẳng máy chủ ta, không đi qua thiết bị của khách. Đây mới
+ * là đường ghi nhận tiền. Phải khai địa chỉ này trong cổng quản trị VNPay thì họ mới gọi.
+ *
+ * Cả hai đi vào cùng một service và chặn trùng theo mã giao dịch, nên đường nào tới trước cũng
+ * đúng và tới cả hai cũng chỉ ghi một lần. Xem VNPayCallbackService.
+ */
 Route::get('/vnpay/return', [CustomerBookingController::class, 'vnpayReturn']);
+Route::get('/vnpay/ipn', [CustomerBookingController::class, 'vnpayIpn']);
 // Đánh giá của một tour. Có phân trang, và người đang đăng nhập thấy thêm bài của chính mình
 // dù bài đó còn chờ duyệt — nên tuyến này đọc `auth('sanctum')` dù không bắt buộc đăng nhập.
 Route::get('/reviews/{tour}', [ReviewController::class, 'index']);

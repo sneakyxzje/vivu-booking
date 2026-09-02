@@ -90,6 +90,41 @@ class VNPayService
     }
 
     /**
+     * Chữ ký của dữ liệu VNPay gửi về có hợp lệ không.
+     *
+     * Nằm ở đây chứ không ở controller vì có hai đường nhận kết quả — trình duyệt khách quay về, và
+     * máy chủ VNPay gọi thẳng qua IPN. Hai bản kiểm chữ ký ở hai chỗ là hai bản của cùng một logic,
+     * và bản nào lệch đi thì lệch âm thầm: nó vẫn cho qua, chỉ là cho qua nhầm thứ.
+     *
+     * @param  array<string, mixed>  $query
+     */
+    public function hasValidSignature(array $query): bool
+    {
+        $hashSecret = config('services.vnpay.hash_secret');
+        $secureHash = $query['vnp_SecureHash'] ?? null;
+
+        if (!$hashSecret || !$secureHash) {
+            return false;
+        }
+
+        unset($query['vnp_SecureHash'], $query['vnp_SecureHashType']);
+        ksort($query);
+
+        $hashData = [];
+
+        foreach ($query as $key => $value) {
+            if (str_starts_with($key, 'vnp_')) {
+                $hashData[] = urlencode($key) . '=' . urlencode($value);
+            }
+        }
+
+        return hash_equals(
+            hash_hmac('sha512', implode('&', $hashData), $hashSecret),
+            $secureHash,
+        );
+    }
+
+    /**
      * Đọc id đơn từ `vnp_TxnRef` gửi về.
      *
      * Nhận cả dạng cũ (chỉ có id, không có dấu gạch) vì các giao dịch tạo trước thay đổi này vẫn
