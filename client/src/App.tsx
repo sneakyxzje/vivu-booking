@@ -26,8 +26,7 @@ import ServiceManagement from "@/pages/admin/ServiceManagement";
 import CategoryManagement from "@/pages/admin/CategoryManagement";
 import ReviewManagement from "@/pages/admin/ReviewManagement";
 import UserManagement from "@/pages/admin/UserManagement";
-import RefundManagement from "@/pages/admin/RefundManagement";
-import TransactionRegister from "@/pages/admin/TransactionRegister";
+import FinanceHub from "@/pages/admin/FinanceHub";
 import ContactMessages from "@/pages/admin/ContactMessages";
 import ScheduleAttendance from "@/pages/admin/ScheduleAttendance";
 import AttendanceReport from "@/pages/admin/AttendanceReport";
@@ -327,12 +326,19 @@ const router = createBrowserRouter([
             element: <UserManagement />,
           },
           {
+            // Một cửa cho mọi câu hỏi về tiền: sổ, phải thu, phải trả. Xem FinanceHub.
             path: "/admin/transactions",
-            element: <TransactionRegister />,
+            element: <FinanceHub />,
           },
           {
+            // Hai đường cũ vẫn sống, chỉ dẫn sang đúng tab: liên kết đã gửi cho kế toán và các
+            // trang đang trỏ tới chúng không được gãy vì một lần sắp lại menu.
             path: "/admin/refunds",
-            element: <RefundManagement />,
+            element: <Navigate to="/admin/transactions?tab=refunds" replace />,
+          },
+          {
+            path: "/admin/receivables",
+            element: <Navigate to="/admin/transactions?tab=receivables" replace />,
           },
           {
             path: "/admin/contact-messages",

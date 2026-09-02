@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\BookingPayment;
@@ -153,6 +154,114 @@ class AdminBookingPaymentController extends Controller
             // con số kế toán cần, và nó vô nghĩa nếu chỉ cộng mười đơn đầu.
             'outstanding_total' => $this->tongConNo(),
         ], 'Lấy danh sách hoàn tiền thành công');
+    }
+
+    /**
+     * Những đơn khách còn nợ công ty.
+     *
+     * ## Vì sao cần một màn riêng
+     *
+     * Hệ thống đã có `refundQueue()` — công ty nợ khách. Chiều ngược lại thì không có gì cả: muốn
+     * biết một đơn còn thiếu bao nhiêu phải mở đúng đơn ấy ra xem.
+     *
+     * Trước đây câu hỏi ấy hiếm gặp vì đơn lẻ trả đủ một lần qua cổng. Từ khi đơn trả nhiều đợt —
+     * cọc trước, phần còn lại sau, và có thể bằng chuyển khoản hay tiền mặt — nó thành câu kế toán
+     * hỏi mỗi ngày: *hôm nay những đơn nào còn nợ, tổng bao nhiêu, đơn nào sắp đi mà chưa thu đủ.*
+     *
+     * ## Vì sao lọc theo `paid_at IS NULL`
+     *
+     * Rẻ và chính xác. `BookingPaymentService::record()` đóng mốc ấy đúng lúc thu đủ giá tour, nên
+     * đơn còn mốc trống là đơn còn thiếu tiền — lọc được thẳng ở SQL thay vì kéo mọi đơn về rồi
+     * cộng sổ từng cái.
+     *
+     * Nó cũng loại đúng một nhóm không nên có mặt ở đây: đơn đã thu đủ rồi được hoàn bớt một phần.
+     * Đơn ấy có số dư âm so với giá đơn, nhưng đó là tiền công ty trả lại khách chứ không phải
+     * khách nợ công ty — chỗ của nó là màn hoàn tiền.
+     *
+     * ## Vì sao bỏ đơn đang giữ chỗ
+     *
+     * Đơn `pending` chưa trả đồng nào theo định nghĩa, và nó tự hủy sau mười phút. Gọi đó là công
+     * nợ thì danh sách đầy những dòng sẽ tự biến mất, và con số tổng nói dối.
+     */
+    public function receivableQueue(Request $request): JsonResponse
+    {
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            // Chỉ những đơn sắp khởi hành trong ngần này ngày — thứ cần đòi trước.
+            'within_days' => ['nullable', 'integer', 'min:1', 'max:365'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $truyVan = fn () => Booking::query()
+            ->whereIn('status', BookingStatus::paidValues())
+            ->whereNull('paid_at')
+            ->when($filters['q'] ?? null, function ($q, string $tuKhoa) {
+                $tuKhoa = trim($tuKhoa);
+
+                if (preg_match('/^bk[-\s]?(\d+)$/i', $tuKhoa, $khop)) {
+                    return $q->whereKey((int) $khop[1]);
+                }
+
+                return $q->where(fn ($sub) => $sub
+                    ->where('customer_name', 'like', "%{$tuKhoa}%")
+                    ->orWhere('customer_email', 'like', "%{$tuKhoa}%")
+                    ->orWhere('customer_phone', 'like', "%{$tuKhoa}%"));
+            })
+            ->when($filters['within_days'] ?? null, fn ($q, int $soNgay) => $q
+                ->whereHas('schedule', fn ($s) => $s
+                    ->whereBetween('start_date', [now(), now()->addDays($soNgay)])));
+
+        $bookings = $truyVan()
+            ->with(['tour:id,title', 'schedule:id,start_date,booking_deadline', 'payments'])
+            // Đơn sắp khởi hành lên trước: đó là tiền cần đòi gấp nhất, vì sau khi đoàn đi rồi thì
+            // đòi khó hơn nhiều.
+            ->orderBy('departure_date')
+            ->orderBy('id')
+            ->paginate($filters['per_page'] ?? 20);
+
+        $dong = collect($bookings->items())->map(function (Booking $booking) {
+            $hanChot = $booking->schedule?->booking_deadline
+                ?? $booking->schedule?->defaultBookingDeadline();
+
+            return [
+                'id' => $booking->id,
+                'public_token' => $booking->public_token,
+                'customer_name' => $booking->customer_name,
+                'customer_email' => $booking->customer_email,
+                'customer_phone' => $booking->customer_phone,
+                'tour_title' => $booking->tour?->title,
+                'start_date' => $booking->schedule?->start_date,
+                'total_amount' => round((float) $booking->total_amount),
+                'net_paid' => $this->payments->netPaid($booking),
+                'balance_due' => $this->payments->balanceDue($booking),
+                /*
+                 * Hạn chốt danh sách làm hạn thu tiền.
+                 *
+                 * Đó là mốc điều hành phải trả tiền cho khách sạn và nhà xe, nên cũng là mốc muộn
+                 * nhất tiền của khách phải về — cùng cách bản in hợp đồng đang nói với khách.
+                 */
+                'due_by' => $hanChot?->toDateTimeString(),
+                'overdue' => $hanChot !== null && now()->gte($hanChot),
+                'status' => $booking->status,
+            ];
+        })->values();
+
+        return $this->success([
+            'data' => $dong,
+            'current_page' => $bookings->currentPage(),
+            'last_page' => $bookings->lastPage(),
+            'total' => $bookings->total(),
+            // Tổng còn phải thu, tính trên TOÀN BỘ bộ lọc chứ không riêng trang đang xem — cùng
+            // nguyên tắc với sổ giao dịch và hàng đợi hoàn tiền.
+            'outstanding_total' => $this->tongPhaiThu($truyVan()),
+        ], 'Lấy danh sách công nợ phải thu thành công');
+    }
+
+    /** @param  \Illuminate\Database\Eloquent\Builder  $truyVan */
+    private function tongPhaiThu($truyVan): float
+    {
+        return round($truyVan->with('payments')->get()
+            ->sum(fn (Booking $booking) => $this->payments->balanceDue($booking)));
     }
 
     /**

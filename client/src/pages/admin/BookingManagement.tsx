@@ -930,11 +930,17 @@ export default function BookingManagement() {
                         </td>
 
                         {/* Tổng tiền */}
-                        <td className="py-3.5 px-6 text-right font-bold text-gray-900">
+                        <td className="py-3.5 px-6 text-right font-bold text-gray-900 tabular-nums">
                           {Number(booking.total_amount).toLocaleString()}đ
                         </td>
 
-                        {/* Thanh toán */}
+                        {/*
+                          Thanh toán — hiện luôn CÒN THIẾU bao nhiêu.
+
+                          Nhãn "chưa thanh toán" không phân biệt được đơn 4 triệu mới thu 1,2 triệu
+                          với đơn 4 triệu chưa thu đồng nào. Con số còn thiếu mới là thứ người ta cần
+                          khi cầm danh sách gọi điện nhắc khách.
+                        */}
                         <td className="py-3.5 px-6 text-center">
                           <span
                             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-semibold border ${isPaid
@@ -947,8 +953,16 @@ export default function BookingManagement() {
                               ? booking.vnpay_transaction_no
                                 ? "Đã trả qua VNPAY"
                                 : "Đã trả, ghi nhận tay"
-                              : "Chưa thanh toán"}
+                              : Number(booking.net_paid ?? 0) > 0
+                                ? "Trả một phần"
+                                : "Chưa thanh toán"}
                           </span>
+
+                          {!isPaid && Number(booking.balance_due ?? 0) > 0 && (
+                            <p className="mt-1 text-xs font-semibold text-amber-700 tabular-nums">
+                              Thiếu {Number(booking.balance_due).toLocaleString()}đ
+                            </p>
+                          )}
                         </td>
 
                         {/* Trạng thái duyệt */}

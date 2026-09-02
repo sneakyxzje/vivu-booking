@@ -106,8 +106,9 @@ const navEntries: NavEntry[] = [
        * nợ khách. Trước đây chỉ có mục thứ hai, tức tiền đi ra có màn riêng còn tiền đi vào thì
        * phải mở từng đơn mới xem được, trong khi công ty thu nhiều hơn chi rất nhiều lần.
        */
+      // Một mục duy nhất cho tiền: sổ giao dịch, phải thu và phải trả là ba tab bên trong nó.
+      // Tách ra ba mục thì người dùng phải nhớ vào đâu để hỏi gì, trong khi cả ba đọc chung một sổ.
       { to: "/admin/transactions", label: "Sổ giao dịch" },
-      { to: "/admin/refunds", label: "Hoàn tiền" },
       { to: "/admin/cancellation-policies", label: "Chính sách hủy" },
     ],
   },

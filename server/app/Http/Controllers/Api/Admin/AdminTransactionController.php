@@ -110,6 +110,20 @@ class AdminTransactionController extends Controller
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'direction' => ['nullable', Rule::in(['in', 'out'])],
+            /*
+             * Lọc theo LOẠI bút toán, hẹp hơn `direction`.
+             *
+             * Chiều tiền trả lời "vào hay ra", loại trả lời "vào bằng đường nào" — tiền cọc khác
+             * thanh toán phần còn lại, và phụ thu sự cố lại là túi tiền khác hẳn. Câu hỏi "tháng
+             * này thu được bao nhiêu tiền cọc" trước đây phải xuất CSV rồi lọc trong Excel.
+             */
+            'kind' => ['nullable', Rule::in([
+                'deposit',
+                'balance',
+                BookingPayment::HOAN,
+                BookingPayment::PHU_THU,
+                BookingPayment::PHU_THU_HOAN,
+            ])],
             'method' => ['nullable', Rule::in(['bank_transfer', 'cash', 'gateway'])],
             'q' => ['nullable', 'string', 'max:100'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
@@ -145,6 +159,7 @@ class AdminTransactionController extends Controller
                 ($filters['direction'] ?? null) === 'out',
                 fn ($q) => $q->whereIn('kind', BookingPayment::RA),
             )
+            ->when($filters['kind'] ?? null, fn ($q, $kind) => $q->where('kind', $kind))
             ->when($filters['method'] ?? null, fn ($q, $method) => $q->where('method', $method))
             // Tìm theo mã chứng từ hoặc tên khách — hai thứ người ta cầm trên tay khi đối chiếu.
             ->when($filters['q'] ?? null, function ($q, string $keyword) {

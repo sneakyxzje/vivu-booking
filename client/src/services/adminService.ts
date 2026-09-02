@@ -285,6 +285,13 @@ export interface TransactionFilters {
   to?: string;
   /** `in` = tiền vào, `out` = tiền hoàn ra. */
   direction?: "in" | "out" | "";
+  /**
+   * Loại bút toán — hẹp hơn `direction`.
+   *
+   * Chiều tiền trả lời "vào hay ra", loại trả lời "vào bằng đường nào": tiền cọc khác thanh toán
+   * phần còn lại, và phụ thu sự cố là túi tiền khác hẳn giá tour.
+   */
+  kind?: "deposit" | "balance" | "refund" | "surcharge" | "surcharge_refund" | "";
   method?: "bank_transfer" | "cash" | "gateway" | "";
   /** Tìm theo mã chứng từ hoặc tên khách. */
   q?: string;
@@ -338,6 +345,38 @@ export interface RefundQueueResponse {
   current_page: number;
   last_page: number;
   /** Tổng còn nợ khách trên toàn bộ, không riêng trang đang xem. */
+  outstanding_total: number;
+}
+
+/**
+ * Một đơn khách còn nợ công ty — chiều ngược lại của `RefundQueueRow`.
+ *
+ * Hai màn cùng đọc một sổ giao dịch, chỉ khác chiều tiền. Có cả hai thì câu "ai còn nợ ai" mới trả
+ * lời được đủ; trước đó hệ thống chỉ có nửa công ty nợ khách.
+ */
+export interface ReceivableRow {
+  id: number;
+  public_token: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string | null;
+  tour_title: string | null;
+  start_date: string | null;
+  total_amount: number;
+  net_paid: number;
+  balance_due: number;
+  /** Hạn chốt danh sách làm hạn thu tiền: đó là lúc công ty phải trả nhà cung cấp. */
+  due_by: string | null;
+  overdue: boolean;
+  status: string;
+}
+
+export interface ReceivableResponse {
+  data: ReceivableRow[];
+  current_page: number;
+  last_page: number;
+  total: number;
+  /** Tổng còn phải thu trên toàn bộ bộ lọc, không riêng trang đang xem. */
   outstanding_total: number;
 }
 
@@ -1087,6 +1126,22 @@ const adminService = {
   getRefundQueue: async (settled = false): Promise<RefundQueueResponse | null> => {
     const response = await api.get("/admin/refunds", { params: { settled: settled ? 1 : 0 } });
     return extractObject<RefundQueueResponse>(response);
+  },
+
+  /** Những đơn khách còn nợ công ty. `withinDays` lọc theo số ngày tới lúc khởi hành. */
+  getReceivables: async (params: {
+    q?: string;
+    withinDays?: number;
+    page?: number;
+  } = {}): Promise<ReceivableResponse | null> => {
+    const response = await api.get("/admin/receivables", {
+      params: {
+        q: params.q || undefined,
+        within_days: params.withinDays || undefined,
+        page: params.page ?? 1,
+      },
+    });
+    return extractObject<ReceivableResponse>(response);
   },
 
   // --- Hộp thư liên hệ và bản tin --------------------------------------------------------------

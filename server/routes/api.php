@@ -370,6 +370,13 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         Route::get('/transactions/export', [AdminTransactionController::class, 'export']);
 
         Route::get('/refunds', [AdminBookingPaymentController::class, 'refundQueue']);
+        /*
+         * Chiều ngược lại của `/refunds`: khách còn nợ công ty.
+         *
+         * Hai màn cùng đọc một sổ, chỉ khác chiều tiền. Có cái này thì câu "ai còn nợ ai" mới trả
+         * lời được đủ hai phía; trước đó chỉ có nửa công ty nợ khách.
+         */
+        Route::get('/receivables', [AdminBookingPaymentController::class, 'receivableQueue']);
         Route::get('/bookings/{id}/payments', [AdminBookingPaymentController::class, 'index']);
         Route::post('/bookings/{id}/payments', [AdminBookingPaymentController::class, 'store']);
         // Nhập hộ tài khoản nhận tiền hoàn khi khách đọc qua điện thoại.

@@ -107,13 +107,10 @@ export default function RefundManagement() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Hoàn tiền</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Các đơn đã hủy còn nghĩa vụ trả tiền lại cho khách. Ghi khoản đã chuyển vào sổ để đơn
-          rời khỏi danh sách này.
-        </p>
-      </div>
+      <p className="text-sm text-gray-500">
+        Các đơn đã hủy còn nghĩa vụ trả tiền lại cho khách. Ghi khoản đã chuyển vào sổ để đơn rời
+        khỏi danh sách này.
+      </p>
 
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">

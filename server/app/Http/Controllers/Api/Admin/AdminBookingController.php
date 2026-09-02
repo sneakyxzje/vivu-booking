@@ -64,9 +64,24 @@ class AdminBookingController extends Controller
         $filters = $this->docBoLoc($request);
 
         $bookings = $this->sapXep($this->truyVan($filters), $filters['sort'] ?? null)
-            ->with(['tour:id,title', 'customer:id,name,email,phone', 'schedule:id,start_date'])
+            // `payments` nạp sẵn để hai con số tiền bên dưới không sinh một cặp truy vấn cho mỗi dòng.
+            ->with(['tour:id,title', 'customer:id,name,email,phone', 'schedule:id,start_date', 'payments'])
             ->paginate($filters['per_page'] ?? 10)
             ->withQueryString();
+
+        /*
+         * Mỗi dòng mang theo đã thu và còn thiếu.
+         *
+         * Danh sách vốn chỉ hiện `total_amount`, nên một đơn 4 triệu mới thu 1,2 triệu trông y hệt
+         * một đơn 4 triệu chưa thu đồng nào. Bộ lọc "chưa thanh toán" chia được hai nhóm ấy, nhưng
+         * nhìn vào bảng thì không biết thiếu bao nhiêu — mà đó mới là con số người ta cần khi gọi
+         * điện nhắc khách.
+         */
+        $bookings->getCollection()->each(function (Booking $booking) {
+            $booking->setAttribute('net_paid', $this->payments->netPaid($booking));
+            $booking->setAttribute('balance_due', $this->payments->balanceDue($booking));
+            $booking->unsetRelation('payments');
+        });
 
         return $this->success($bookings->toArray() + [
             'summary' => $this->tongKet($filters),

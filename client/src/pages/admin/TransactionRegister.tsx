@@ -30,6 +30,22 @@ const CHIEU = [
   { key: "out", label: "Tiền hoàn ra" },
 ];
 
+/**
+ * Loại bút toán, hẹp hơn chiều tiền.
+ *
+ * Hai nhóm cố ý không trộn: `deposit` và `balance` là tiền của GIÁ TOUR, còn `surcharge` là tiền
+ * sinh ra từ sự cố dọc đường — một đêm phòng chạy bão chẳng hạn. Gộp chúng lại thì con số "đã thu
+ * cho tour" sai, và bảng phí hủy sẽ đem hoàn cả đêm phòng khách đã ở thật.
+ */
+const LOAI_BUT_TOAN = [
+  { key: "", label: "Mọi loại" },
+  { key: "deposit", label: "Tiền cọc" },
+  { key: "balance", label: "Thanh toán phần còn lại" },
+  { key: "refund", label: "Hoàn tiền" },
+  { key: "surcharge", label: "Thu phụ phí sự cố" },
+  { key: "surcharge_refund", label: "Hoàn do sự cố" },
+];
+
 export default function TransactionRegister() {
   const [rows, setRows] = useState<TransactionRow[]>([]);
   const [totals, setTotals] = useState({ in: 0, out: 0, net: 0, count: 0 });
@@ -43,6 +59,7 @@ export default function TransactionRegister() {
     from: "",
     to: "",
     direction: "",
+    kind: "",
     method: "",
     q: "",
   });
@@ -98,7 +115,7 @@ export default function TransactionRegister() {
   };
 
   const datLai = () =>
-    setFilters({ from: "", to: "", direction: "", method: "", q: "" });
+    setFilters({ from: "", to: "", direction: "", kind: "", method: "", q: "" });
 
   const dangLoc = Object.values(filters).some((v) => String(v ?? "").trim() !== "");
 
@@ -108,13 +125,10 @@ export default function TransactionRegister() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Sổ giao dịch</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Mọi khoản thu và hoàn của mọi đơn, xếp theo thời gian. Dùng để đối chiếu với sao kê
-            ngân hàng.
-          </p>
-        </div>
+        <p className="max-w-xl text-sm text-gray-500">
+          Mọi khoản thu và hoàn của mọi đơn, xếp theo thời gian. Dùng để đối chiếu với sao kê ngân
+          hàng.
+        </p>
         <button
           onClick={xuatCsv}
           disabled={exporting || totals.count === 0}
@@ -172,6 +186,29 @@ export default function TransactionRegister() {
             className={`mt-1 ${inputClass}`}
           >
             {CHIEU.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {/*
+          Loại bút toán — hẹp hơn chiều tiền.
+
+          "Chiều tiền" trả lời vào hay ra; "loại" trả lời vào bằng đường nào. Tiền cọc khác thanh
+          toán phần còn lại, và phụ thu sự cố lại là túi tiền khác hẳn giá tour. Không có ô này thì
+          câu "tháng này thu được bao nhiêu tiền cọc" phải xuất CSV rồi lọc trong Excel.
+        */}
+        <label className="block">
+          <span className="text-[11px] font-semibold text-gray-500">Loại</span>
+          <select
+            value={filters.kind ?? ""}
+            onChange={(e) =>
+              setFilters((cu) => ({ ...cu, kind: e.target.value as TransactionFilters["kind"] }))
+            }
+            className={`mt-1 ${inputClass}`}
+          >
+            {LOAI_BUT_TOAN.map((o) => (
               <option key={o.key} value={o.key}>
                 {o.label}
               </option>
