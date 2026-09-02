@@ -216,8 +216,26 @@ class AdminBookingPaymentController extends Controller
 
         $truyVan = fn () => Booking::query()
             ->whereIn('status', BookingStatus::paidValues())
-            ->whereNull('paid_at')
             ->whereRaw($daThu . ' < bookings.total_amount', BookingPayment::THU)
+            /*
+             * Loại đúng một nhóm: đơn KHÔNG có bút toán nào mà đã đóng mốc thanh toán.
+             *
+             * Đó là các đơn tạo trước khi sổ mở cho đơn lẻ. Sổ của chúng trống nên phép cộng ở trên
+             * ra 0 và tưởng chúng chưa trả đồng nào; mốc `paid_at` là bằng chứng duy nhất còn lại
+             * rằng tiền đã về.
+             *
+             * Viết thành "có dùng sổ HOẶC chưa đóng mốc" chứ không phải `paid_at IS NULL` như bản
+             * trước. Hai cách chỉ khác nhau ở một chỗ, nhưng chỗ ấy là tiền thật: đơn đã trả đủ rồi
+             * được CHUYỂN sang chuyến đắt hơn, hoặc bị cộng phí đổi lịch. Giá đơn tăng lên trong khi
+             * mốc `paid_at` đã đóng từ trước và không bao giờ lùi — nên bản trước giấu mất phần
+             * chênh mà khách đang nợ.
+             */
+            ->where(fn ($q) => $q
+                ->whereHas('payments', fn ($p) => $p->whereIn(
+                    'kind',
+                    [...BookingPayment::THU, BookingPayment::HOAN],
+                ))
+                ->orWhereNull('paid_at'))
             ->when($filters['q'] ?? null, function ($q, string $tuKhoa) {
                 $tuKhoa = trim($tuKhoa);
 

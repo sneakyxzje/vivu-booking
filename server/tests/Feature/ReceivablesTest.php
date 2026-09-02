@@ -167,6 +167,29 @@ class ReceivablesTest extends TestCase
     }
 
     /**
+     * Đơn đã trả đủ rồi bị chuyển sang chuyến ĐẮT hơn thì phần chênh là công nợ.
+     *
+     * Đây là lỗ mà bản trước còn sót. Bộ lọc khi ấy có vế `paid_at IS NULL`, mà mốc ấy đã đóng từ
+     * lúc khách trả đủ và **không bao giờ lùi** — kể cả khi giá đơn tăng lên sau đó. Chuyển chuyến
+     * sang tour đắt hơn, hay chỉ cần cộng phí đổi lịch từ lần chuyển thứ hai, là khách nợ thêm mà
+     * màn công nợ không hề biết.
+     */
+    public function test_don_da_tra_du_roi_tang_gia_thi_phan_chenh_la_cong_no(): void
+    {
+        $don = $this->taoDon('confirmed', 4_000_000);
+
+        $this->assertNotNull($don->fresh()->paid_at, 'Thu đủ thì mốc thanh toán đã đóng.');
+
+        // Chuyển sang chuyến đắt hơn: giá đơn tăng, tiền đã thu giữ nguyên.
+        $don->forceFill(['total_amount' => 6_000_000])->save();
+
+        $res = $this->getJson('/api/admin/receivables')->assertOk();
+
+        $this->assertSame([$don->id], array_column($res->json('data.data'), 'id'));
+        $this->assertEquals(2_000_000.0, $res->json('data.data.0.balance_due'));
+    }
+
+    /**
      * Đơn thu đủ rồi được hoàn bớt thuộc chiều bên kia, không phải phải thu.
      *
      * Nó còn thiếu so với giá đơn, nhưng phần thiếu là tiền công ty vừa trả lại khách.
