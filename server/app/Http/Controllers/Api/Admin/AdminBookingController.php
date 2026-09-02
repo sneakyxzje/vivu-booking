@@ -15,6 +15,7 @@ use App\Models\TourSchedule;
 use App\Services\BookingAuditLogger;
 use App\Services\BookingContactService;
 use App\Services\BookingHoldService;
+use App\Services\BookingPaymentService;
 use App\Services\BookingPolicyService;
 use App\Services\CancellationPolicyService;
 use App\Services\ScheduleLifecycleService;
@@ -36,6 +37,7 @@ class AdminBookingController extends Controller
         private CancellationPolicyService $cancellationPolicy,
         private BookingAuditLogger $auditLogger,
         private BookingContactService $contactService,
+        private BookingPaymentService $payments,
     ) {
     }
 
@@ -251,16 +253,59 @@ class AdminBookingController extends Controller
     }
 
     /**
-     * Admin xác nhận đơn đang chờ (ví dụ khách chuyển khoản tay / thanh toán tại quầy).
-     * Chỗ đã được giữ từ lúc đặt nên chỉ cần chốt trạng thái và bỏ hạn tự hủy.
+     * Admin xác nhận đơn đang chờ (khách chuyển khoản tay / thanh toán tại quầy).
+     *
+     * **Xác nhận là một tuyên bố về TIỀN, nên phải kèm số tiền.** Trước đây hàm này chỉ đổi trạng
+     * thái: đơn vào danh sách đoàn, khóa quyền trả chỗ, cộng vào doanh thu — trong khi sổ giao dịch
+     * vẫn ghi đã thu 0 đồng. Hủy đơn đó thì khách được hoàn 0, dù họ vừa đưa tiền mặt tại quầy.
+     *
+     * Nên số tiền và hình thức thu là bắt buộc, và chúng đi thẳng vào sổ trong cùng giao dịch với
+     * việc đổi trạng thái. Không còn đường nào xác nhận một đơn mà không nói đã thu bao nhiêu.
      */
-    public function confirm(int $id): JsonResponse
+    public function confirm(Request $request, int $id): JsonResponse
     {
-        $booking = DB::transaction(function () use ($id) {
+        $target = Booking::query()->find($id);
+
+        /*
+         * Số tiền bắt buộc, TRỪ KHI sổ đã ghi nhận khoản thu từ trước.
+         *
+         * Có một luồng hợp lệ đi ngược thứ tự: khách chuyển khoản, kế toán ghi vào sổ qua màn hình
+         * giao dịch, rồi mới có người vào bấm xác nhận. Lúc ấy tiền đã nằm trong sổ và đòi nhập lại
+         * là bắt ghi hai lần cho một lần thu.
+         *
+         * Điều kiện vẫn đóng đúng lỗ hổng cũ: không có đường nào đưa một đơn sang "đã xác nhận"
+         * trong khi sổ của nó ghi 0 đồng.
+         */
+        $daCoTienTrongSo = $target && $this->payments->netPaid($target) > 0;
+        $batBuoc = $daCoTienTrongSo ? 'nullable' : 'required';
+
+        $data = $request->validate([
+            'amount' => [$batBuoc, 'numeric', 'min:1'],
+            'method' => [$batBuoc, 'in:cash,bank_transfer,gateway'],
+            'reference' => ['nullable', 'string', 'max:100'],
+            'note' => ['nullable', 'string', 'max:500'],
+        ], [
+            'amount.required' => 'Nhập số tiền đã thu của khách. Xác nhận đơn mà không ghi tiền thì '
+                . 'sổ giao dịch vẫn báo đơn này chưa thu đồng nào.',
+            'method.required' => 'Chọn hình thức thu: tiền mặt, chuyển khoản, hay qua cổng.',
+        ]);
+
+        $booking = DB::transaction(function () use ($id, $data, $request) {
             $booking = Booking::query()->lockForUpdate()->find($id);
 
             if (!$booking || $booking->status !== 'pending') {
                 return null;
+            }
+
+            if (!empty($data['amount'])) {
+                $this->payments->recordManualCollection(
+                    $booking,
+                    (float) $data['amount'],
+                    $data['method'],
+                    $data['reference'] ?? null,
+                    $data['note'] ?? null,
+                    $request->user(),
+                );
             }
 
             $booking->update([
@@ -274,6 +319,10 @@ class AdminBookingController extends Controller
                 BookingAuditAction::Confirmed,
                 'pending',
                 'confirmed',
+                $data['note'] ?? null,
+                empty($data['amount'])
+                    ? ['collected_earlier' => true]
+                    : ['amount' => round((float) $data['amount']), 'method' => $data['method']],
             );
 
             return $booking;

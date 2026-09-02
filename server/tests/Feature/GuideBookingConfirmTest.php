@@ -65,6 +65,14 @@ class GuideBookingConfirmTest extends TestCase
         $this->schedule->guides()->sync([$this->guide->id]);
     }
 
+    /**
+     * Thân yêu cầu của nút "Xác nhận".
+     *
+     * Xác nhận là khẳng định khách đã trả tiền, nên số tiền và hình thức thu là bắt buộc — đơn ở
+     * đây trị giá 4 triệu và khách đưa tiền mặt tại điểm tập trung.
+     */
+    private const THU_TIEN = ['amount' => 4_000_000, 'method' => 'cash'];
+
     private function taoDon(string $status = 'pending', ?TourSchedule $schedule = null): Booking
     {
         $schedule ??= $this->schedule;
@@ -91,7 +99,7 @@ class GuideBookingConfirmTest extends TestCase
         $don = $this->taoDon();
         Sanctum::actingAs($this->guide);
 
-        $this->putJson("/api/guide/bookings/{$don->id}/confirm")->assertOk();
+        $this->putJson("/api/guide/bookings/{$don->id}/confirm", self::THU_TIEN)->assertOk();
 
         $don->refresh();
 
@@ -109,7 +117,7 @@ class GuideBookingConfirmTest extends TestCase
         $don = $this->taoDon();
         Sanctum::actingAs($this->guide);
 
-        $this->putJson("/api/guide/bookings/{$don->id}/confirm")->assertOk();
+        $this->putJson("/api/guide/bookings/{$don->id}/confirm", self::THU_TIEN)->assertOk();
 
         $log = BookingAuditLog::query()->where('booking_id', $don->id)->latest('id')->first();
 
@@ -122,12 +130,55 @@ class GuideBookingConfirmTest extends TestCase
         $this->assertStringContainsString('điểm tập trung', $log->reason);
     }
 
+    /**
+     * Xác nhận phải ghi tiền vào sổ, không chỉ đổi trạng thái.
+     *
+     * Đây là lỗ hổng cũ: hướng dẫn viên cầm tiền mặt của khách rồi bấm xác nhận, đơn vào danh sách
+     * đoàn và cộng vào doanh thu, nhưng sổ giao dịch vẫn ghi đã thu 0 đồng. Hủy đơn đó thì khách
+     * được hoàn 0 - đúng bằng số mà sổ tưởng là đã nhận.
+     */
+    public function test_xac_nhan_ghi_tien_vao_so_giao_dich(): void
+    {
+        $don = $this->taoDon();
+        Sanctum::actingAs($this->guide);
+
+        $this->putJson("/api/guide/bookings/{$don->id}/confirm", self::THU_TIEN)->assertOk();
+
+        $this->assertDatabaseHas('booking_payments', [
+            'booking_id' => $don->id,
+            'kind' => 'balance',
+            'amount' => 4_000_000,
+            'method' => 'cash',
+            'recorded_by' => $this->guide->id,
+        ]);
+
+        $this->assertNotNull(
+            $don->fresh()->paid_at,
+            'Thu đủ giá tour thì mốc đã-thanh-toán phải đóng, y như khi tiền về qua cổng.',
+        );
+    }
+
+    /** Không xác nhận được bằng một số tiền lớn hơn số đơn còn thiếu. */
+    public function test_khong_thu_qua_so_con_thieu(): void
+    {
+        $don = $this->taoDon();
+        Sanctum::actingAs($this->guide);
+
+        $this->putJson("/api/guide/bookings/{$don->id}/confirm", [
+            'amount' => 40_000_000,
+            'method' => 'cash',
+        ])->assertStatus(422);
+
+        $this->assertSame('pending', $don->fresh()->status);
+        $this->assertSame(0, $don->payments()->count());
+    }
+
     public function test_guide_khac_khong_xac_nhan_duoc(): void
     {
         $don = $this->taoDon();
         Sanctum::actingAs($this->taoUser('guide'));
 
-        $this->putJson("/api/guide/bookings/{$don->id}/confirm")->assertStatus(404);
+        $this->putJson("/api/guide/bookings/{$don->id}/confirm", self::THU_TIEN)->assertStatus(404);
 
         $this->assertSame('pending', $don->fresh()->status);
     }
@@ -137,7 +188,7 @@ class GuideBookingConfirmTest extends TestCase
         $don = $this->taoDon('confirmed');
         Sanctum::actingAs($this->guide);
 
-        $this->putJson("/api/guide/bookings/{$don->id}/confirm")->assertStatus(400);
+        $this->putJson("/api/guide/bookings/{$don->id}/confirm", self::THU_TIEN)->assertStatus(400);
     }
 
     /** Bấm hai lần liên tiếp chỉ sinh đúng một bản ghi nhật ký. */
@@ -146,12 +197,23 @@ class GuideBookingConfirmTest extends TestCase
         $don = $this->taoDon();
         Sanctum::actingAs($this->guide);
 
-        $this->putJson("/api/guide/bookings/{$don->id}/confirm")->assertOk();
-        $this->putJson("/api/guide/bookings/{$don->id}/confirm")->assertStatus(400);
+        $this->putJson("/api/guide/bookings/{$don->id}/confirm", self::THU_TIEN)->assertOk();
+        $this->putJson("/api/guide/bookings/{$don->id}/confirm", self::THU_TIEN)->assertStatus(400);
+
+        // Đếm riêng nhật ký xác nhận: một lần bấm thành công sinh hai dòng - một cho khoản tiền
+        // vừa ghi vào sổ, một cho việc đổi trạng thái - nên đếm gộp thì không nói lên điều gì.
+        $this->assertSame(
+            1,
+            BookingAuditLog::query()
+                ->where('booking_id', $don->id)
+                ->where('action', BookingAuditAction::Confirmed->value)
+                ->count(),
+        );
 
         $this->assertSame(
             1,
-            BookingAuditLog::query()->where('booking_id', $don->id)->count(),
+            $don->payments()->count(),
+            'Lần bấm thứ hai bị từ chối thì không được ghi thêm khoản thu nào.',
         );
     }
 
@@ -160,7 +222,7 @@ class GuideBookingConfirmTest extends TestCase
         $don = $this->taoDon('cancelled');
         Sanctum::actingAs($this->guide);
 
-        $this->putJson("/api/guide/bookings/{$don->id}/confirm")->assertStatus(400);
+        $this->putJson("/api/guide/bookings/{$don->id}/confirm", self::THU_TIEN)->assertStatus(400);
         $this->assertSame('cancelled', $don->fresh()->status);
     }
 

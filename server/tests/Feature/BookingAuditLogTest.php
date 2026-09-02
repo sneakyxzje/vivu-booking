@@ -214,12 +214,21 @@ class BookingAuditLogTest extends TestCase
         $don = $this->taoDon('pending');
         Sanctum::actingAs($this->dieuHanh);
 
-        $this->putJson("/api/admin/bookings/{$don->id}/confirm")->assertOk();
+        $this->putJson("/api/admin/bookings/{$don->id}/confirm", ['amount' => 10_000_000, 'method' => 'bank_transfer'])->assertOk();
 
         $logs = $this->nhatKy($don);
 
-        $this->assertSame(BookingAuditAction::Confirmed, $logs[0]->action);
-        $this->assertSame('pending', $logs[0]->old_values['status']);
+        /*
+         * Một lần xác nhận để lại HAI dòng, theo đúng thứ tự việc xảy ra: ghi khoản tiền vừa thu,
+         * rồi mới đổi trạng thái. Xác nhận là một tuyên bố về tiền, nên khoản tiền phải có vết
+         * riêng chứ không nấp trong dòng đổi trạng thái.
+         */
+        $this->assertSame(BookingAuditAction::PaymentRecorded, $logs[0]->action);
+        $this->assertSame(10_000_000, $logs[0]->new_values['amount']);
+        $this->assertSame('bank_transfer', $logs[0]->new_values['method']);
+
+        $this->assertSame(BookingAuditAction::Confirmed, $logs[1]->action);
+        $this->assertSame('pending', $logs[1]->old_values['status']);
     }
 
     /** Đổi tên hành khách sát ngày đi là chuyện nhạy cảm, phải giữ được tên cũ. */
@@ -299,19 +308,21 @@ class BookingAuditLogTest extends TestCase
         $don = $this->taoDon('pending');
 
         Sanctum::actingAs($this->dieuHanh);
-        $this->putJson("/api/admin/bookings/{$don->id}/confirm")->assertOk();
+        $this->putJson("/api/admin/bookings/{$don->id}/confirm", ['amount' => 10_000_000, 'method' => 'bank_transfer'])->assertOk();
         $this->putJson("/api/admin/bookings/{$don->id}/cancel", [
             'cancel_reason' => 'Khach goi dien xin huy.',
         ])->assertOk();
 
+        // Ba dòng, đúng thứ tự đã xảy ra: thu tiền → xác nhận → hủy.
         $response = $this->getJson("/api/admin/bookings/{$don->id}/history")
             ->assertOk()
-            ->assertJsonPath('data.0.action', 'confirmed')
-            ->assertJsonPath('data.1.action', 'cancelled')
-            ->assertJsonPath('data.1.action_label', 'Hủy đơn')
-            ->assertJsonPath('data.1.touches_money', true);
+            ->assertJsonPath('data.0.action', 'payment_recorded')
+            ->assertJsonPath('data.1.action', 'confirmed')
+            ->assertJsonPath('data.2.action', 'cancelled')
+            ->assertJsonPath('data.2.action_label', 'Hủy đơn')
+            ->assertJsonPath('data.2.touches_money', true);
 
-        $this->assertSame($this->dieuHanh->name, $response->json('data.1.actor_name'));
+        $this->assertSame($this->dieuHanh->name, $response->json('data.2.actor_name'));
     }
 
     public function test_khach_khong_xem_duoc_lich_su_don(): void

@@ -141,6 +141,85 @@ class BookingPaymentService
         return round($thu - $hoan);
     }
 
+    /**
+     * Ghi khoản tiền thu được lúc XÁC NHẬN TAY một đơn đang chờ.
+     *
+     * Dùng chung cho quản trị và hướng dẫn viên: hai màn hình khác nhau nhưng cùng một nghiệp vụ -
+     * người của công ty cầm tiền của khách rồi khẳng định đơn này đã trả. Viết riêng ở hai chỗ là
+     * đúng khuôn lỗi mà dự án này đã gặp nhiều lần.
+     *
+     * Chặn thu quá số còn thiếu: đơn 4 triệu mà gõ nhầm thành 40 triệu thì tiền thừa thành một
+     * khoản nợ ngược mà không luồng nào phát hiện, vì hàng đợi hoàn tiền chỉ đọc `refund_amount`.
+     */
+    public function recordManualCollection(
+        Booking $booking,
+        float $amount,
+        string $method,
+        ?string $reference = null,
+        ?string $note = null,
+        ?User $actor = null,
+    ): BookingPayment {
+        $conThieu = $this->balanceDue($booking);
+
+        if ($conThieu <= 0) {
+            throw new BusinessRuleException(
+                'Đơn này đã thu đủ rồi, không ghi thêm khoản thu nào được nữa.',
+            );
+        }
+
+        if (round($amount) > $conThieu) {
+            throw new BusinessRuleException(sprintf(
+                'Đơn này chỉ còn thiếu %s đ, không thu quá số đó được. Kiểm lại số tiền vừa nhập.',
+                number_format($conThieu, 0, ',', '.'),
+            ));
+        }
+
+        return $this->record(
+            $booking,
+            // Thu một lần đủ hay thu trước một phần đều là tiền của giá tour; `balance` là nhãn
+            // chung của nhóm THU nên mọi phép cộng đối xử với chúng như nhau.
+            'balance',
+            $amount,
+            $method,
+            $reference,
+            $note ?? 'Thu tay khi xác nhận đơn',
+            $actor,
+        );
+    }
+
+    /**
+     * Số đã thu thực cho GIÁ TOUR, kể cả với đơn chưa từng dùng sổ.
+     *
+     * Đây là nguồn DUY NHẤT cho câu hỏi "đơn này đã thu bao nhiêu". Trước đây câu hỏi ấy được trả
+     * lời ở ba chỗ: `CancellationPolicyService::paidAmount()`, `ContractPrintController::daThu()`
+     * và `ScheduleCancellationService::soTienDaTra()`. Hai chỗ đầu đọc sổ; chỗ thứ ba đọc `paid_at`
+     * rồi nhân với giá đơn — và vì `paid_at` chỉ đóng khi đã thu ĐỦ, một đơn mới trả cọc bị nó trả
+     * về 0. Hủy cả chuyến theo con số đó nghĩa là hoàn 0 đồng cho người đã đưa tiền cọc.
+     *
+     * Hai nguồn, chọn theo đơn:
+     *
+     *   - Sổ có dòng của giá tour: tổng thu trừ tổng hoàn. Nhánh này làm cho phép tính "mất cọc"
+     *     chạy đúng, và phản ánh được cả những khoản đã hoàn một phần.
+     *   - Sổ trống: đọc mốc `paid_at` như cũ, cho các đơn tạo trước khi sổ mở cho đơn lẻ.
+     *
+     * Câu hỏi "sổ có dòng chưa" và phép cộng phải lọc trên CÙNG một tập loại bút toán. Lệch nhau là
+     * cách một đơn lẻ đã trả đủ, có thêm một dòng phụ thu sự cố, bỗng báo đã thu 0 đồng.
+     */
+    public function paidForTour(Booking $booking): float
+    {
+        $loaiGiaTour = [...BookingPayment::THU, BookingPayment::HOAN];
+
+        $coSo = $booking->relationLoaded('payments')
+            ? $booking->getRelation('payments')->whereIn('kind', $loaiGiaTour)->isNotEmpty()
+            : $booking->payments()->whereIn('kind', $loaiGiaTour)->exists();
+
+        if ($coSo) {
+            return $this->netPaid($booking);
+        }
+
+        return $booking->paid_at ? round((float) $booking->total_amount) : 0.0;
+    }
+
     /** Tổng đã hoàn cho giá tour. Dùng để biết một khoản hoàn đã trả xong chưa. */
     public function refunded(Booking $booking): float
     {

@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Booking;
 use App\Models\BookingContract;
-use App\Models\BookingPayment;
+use App\Services\BookingPaymentService;
 use App\Support\SoTienBangChu;
 use Illuminate\Contracts\View\View;
 
@@ -32,7 +32,7 @@ class ContractPrintController extends Controller
         $tour = $booking->tour;
         $tongTien = round((float) $booking->total_amount);
         $giamGia = round((float) ($booking->discount_amount ?? 0));
-        $daThu = $this->daThu($booking, $tongTien);
+        $daThu = $this->daThu($booking);
 
         return view('contracts.tour', [
             'contract' => $contract,
@@ -80,23 +80,15 @@ class ContractPrintController extends Controller
     /**
      * Số tiền đã thu cho GIÁ TOUR.
      *
-     * Chỉ đếm bút toán của giá tour, không đếm phụ thu sự cố — cùng bộ loại mà `paidAmount()`
-     * dùng. Trộn vào thì hợp đồng ghi khách đã trả nhiều hơn thực tế trả cho tour.
+     * Chỉ đếm bút toán của giá tour, không đếm phụ thu sự cố. Trộn vào thì hợp đồng ghi khách đã
+     * trả nhiều hơn thực tế trả cho tour.
+     *
+     * Phép tính nằm ở `BookingPaymentService::paidForTour()`, cùng nguồn với bảng phí hủy và luồng
+     * hủy chuyến — hợp đồng in ra không được nói một con số khác với màn hình kế toán.
      */
-    private function daThu(Booking $booking, float $tongTien): float
+    private function daThu(Booking $booking): float
     {
-        $loaiGiaTour = array_merge(BookingPayment::THU, [BookingPayment::HOAN]);
-
-        $coSo = $booking->payments()->whereIn('kind', $loaiGiaTour)->exists();
-
-        if ($coSo) {
-            $thu = (float) $booking->payments()->whereIn('kind', BookingPayment::THU)->sum('amount');
-            $hoan = (float) $booking->payments()->where('kind', BookingPayment::HOAN)->sum('amount');
-
-            return round($thu - $hoan);
-        }
-
-        return $booking->paid_at ? $tongTien : 0.0;
+        return app(BookingPaymentService::class)->paidForTour($booking);
     }
 
     /** Nhận Carbon, chuỗi hoặc null; trả về Carbon hoặc null. */

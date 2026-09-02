@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\BookingConfirmedMail;
 use App\Models\Booking;
 use App\Services\BookingAuditLogger;
+use App\Services\BookingPaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,7 @@ class BookingController extends Controller
 {
     public function __construct(
         private BookingAuditLogger $auditLogger,
+        private BookingPaymentService $payments,
     ) {
     }
 
@@ -59,9 +61,10 @@ class BookingController extends Controller
      * Tình huống thật: khách hẹn trả tiền mặt lúc lên xe. Hướng dẫn viên thu tiền rồi vào đây
      * xác nhận, và chỗ thôi bị tính là giữ tạm.
      *
-     * Đi qua đúng đường mà quản trị đi: khóa dòng, đọc lại, ghi nhật ký. Đây là thao tác khẳng
-     * định "khách này đã trả tiền", tức là một quyết định về tiền, nên không được có đường ghi
-     * nào lách qua nhật ký. Trước đây hàm này ghi thẳng và không để lại dấu vết nào.
+     * Đi qua đúng đường mà quản trị đi: khóa dòng, đọc lại, ghi nhật ký, **và ghi tiền vào sổ**.
+     * Đây là thao tác khẳng định "khách này đã trả tiền", nên số tiền là bắt buộc: trước đây hàm
+     * này chỉ đổi trạng thái, tức là người cầm tiền mặt của khách không phải khai đã cầm bao nhiêu,
+     * và sổ giao dịch vẫn ghi đơn ấy thu 0 đồng.
      */
     public function confirm(Request $request, int $id): JsonResponse
     {
@@ -77,13 +80,37 @@ class BookingController extends Controller
             ], 404);
         }
 
-        $daXacNhan = DB::transaction(function () use ($booking) {
+        // Bắt nhập tiền, trừ khi sổ đã ghi khoản thu từ trước - khách chuyển khoản cho văn phòng
+        // rồi mới ra điểm tập trung là chuyện thường. Xem chú thích ở AdminBookingController.
+        $batBuoc = $this->payments->netPaid($booking) > 0 ? 'nullable' : 'required';
+
+        $data = $request->validate([
+            'amount' => [$batBuoc, 'numeric', 'min:1'],
+            'method' => [$batBuoc, 'in:cash,bank_transfer'],
+            'note' => ['nullable', 'string', 'max:500'],
+        ], [
+            'amount.required' => 'Nhập số tiền vừa thu của khách.',
+            'method.required' => 'Chọn hình thức thu: tiền mặt hay chuyển khoản.',
+        ]);
+
+        $daXacNhan = DB::transaction(function () use ($booking, $data, $request) {
             // Đọc lại sau khi khóa: quản trị có thể vừa xác nhận hoặc vừa hủy chính đơn này,
             // và tác vụ nhả chỗ quá hạn cũng có thể vừa chạm tới nó.
             $locked = Booking::query()->whereKey($booking->getKey())->lockForUpdate()->first();
 
             if (!$locked || $locked->status !== 'pending') {
                 return false;
+            }
+
+            if (!empty($data['amount'])) {
+                $this->payments->recordManualCollection(
+                    $locked,
+                    (float) $data['amount'],
+                    $data['method'],
+                    null,
+                    $data['note'] ?? 'Hướng dẫn viên thu tại điểm tập trung',
+                    $request->user(),
+                );
             }
 
             $locked->update([
@@ -98,6 +125,9 @@ class BookingController extends Controller
                 'pending',
                 'confirmed',
                 'Hướng dẫn viên xác nhận tại điểm tập trung.',
+                empty($data['amount'])
+                    ? ['collected_earlier' => true]
+                    : ['amount' => round((float) $data['amount']), 'method' => $data['method']],
             );
 
             return true;

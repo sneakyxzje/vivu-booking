@@ -52,6 +52,7 @@ class ScheduleCancellationService
         private readonly BookingHoldService $holdService,
         private readonly BookingAuditLogger $auditLogger,
         private readonly ScheduleAuditLogger $scheduleAuditLogger,
+        private readonly BookingPaymentService $payments,
     ) {
     }
 
@@ -325,8 +326,6 @@ class ScheduleCancellationService
             'seats_released_at' => now(),
         ])->save();
 
-        $this->ghiSoHoanTien($don, $soTien, $lyDo);
-
         $this->holdService->releaseDiscountUsage($don);
 
         $schedule->decrement('booked_people', min((int) $don->guests, (int) $schedule->booked_people));
@@ -350,43 +349,19 @@ class ScheduleCancellationService
         return $soTien;
     }
 
-    /**
-     * Ghi khoản hoàn vào sổ giao dịch.
+    /*
+     * ĐÃ GỠ: ghi thẳng một dòng `refund` vào sổ ngay lúc hủy chuyến.
      *
-     * `BookingPayment` mở đầu bằng câu "số đã thu là TỔNG của sổ chứ không phải một cột bị ghi
-     * đè". Hoàn tiền mà không có dòng trong sổ thì câu ấy không còn đúng: đơn đoàn đã cọc 30% bị
-     * hủy chuyến vẫn hiện đủ tiền cọc trong sổ, và `netPaid()` trả về số không còn ai giữ.
+     * Dòng ấy nói "đã trả lại tiền cho khách", trong khi lúc hủy chuyến thì chưa ai chuyển đồng
+     * nào — kế toán còn phải ra ngân hàng. Hậu quả là nghĩa vụ tự triệt tiêu ngay khi vừa sinh ra:
+     * `refundOutstanding()` lấy `refund_amount` trừ tổng các dòng `refund`, hai số bằng nhau nên ra
+     * 0, và đơn KHÔNG bao giờ xuất hiện ở màn hình "Chờ hoàn tiền". Không ai biết còn nợ khách.
      *
-     * **Chỉ ghi khi đơn ĐÃ dùng sổ.** Đơn lẻ trả một lần qua cổng, sổ trống, và tiền của nó ghi
-     * bằng `paid_at` cùng mã giao dịch VNPay. Nhét mỗi một dòng hoàn vào sổ trống thì
-     * `paidAmount()` thấy sổ có dòng, cộng các loại thu ra 0, trừ đi khoản hoàn và trả về số ÂM —
-     * đúng cái bẫy vừa gặp ở phụ thu sự cố, chỉ đổi chiều.
+     * Giờ luồng này làm đúng như hai luồng hủy kia (quản trị hủy đơn, và duyệt yêu cầu hủy của
+     * khách): chỉ ghi `refund_amount` — tức NGHĨA VỤ. Dòng `refund` trong sổ sinh ra khi tiền thực
+     * sự rời tài khoản công ty, qua `POST /admin/bookings/{id}/payments`. Đó cũng là lúc `netPaid()`
+     * giảm xuống, đúng theo nghĩa "số công ty đang giữ của khách".
      */
-    private function ghiSoHoanTien(Booking $don, float $soTien, string $lyDo): void
-    {
-        if ($soTien <= 0) {
-            return;
-        }
-
-        $dangDungSo = $don->payments()
-            ->whereIn('kind', array_merge(BookingPayment::THU, [BookingPayment::HOAN]))
-            ->exists();
-
-        if (!$dangDungSo) {
-            return;
-        }
-
-        BookingPayment::query()->create([
-            'booking_id' => $don->getKey(),
-            'kind' => BookingPayment::HOAN,
-            'amount' => round($soTien, 2),
-            'method' => null,
-            'reference' => null,
-            'note' => $lyDo,
-            'paid_at' => now(),
-            'recorded_by' => null,
-        ]);
-    }
 
     /** Chuyển miễn phí sang chuyến khách chọn, do hãng khởi xướng. */
     private function chuyenSangChuyenKhac(Booking $don, int $toScheduleId, string $reason, ?User $actor): void
@@ -457,9 +432,24 @@ class ScheduleCancellationService
             ->get();
     }
 
+    /**
+     * Số tiền khách đã thực đưa cho đơn này.
+     *
+     * Trước đây hàm này đọc `paid_at` rồi trả về nguyên giá đơn. Sai theo cả hai chiều, và chiều
+     * nào cũng là tiền thật:
+     *
+     *   - `paid_at` chỉ đóng khi đã thu ĐỦ (xem `BookingPaymentService::record()`). Đơn đoàn mới
+     *     đóng cọc 30% vẫn mang trạng thái `confirmed` nên vẫn nằm trong nhóm "đã thanh toán" của
+     *     luồng này, nhưng `paid_at` là null — hàm trả về 0, và khách bị hoàn 0 đồng cho một chuyến
+     *     mà CÔNG TY hủy.
+     *   - Ngược lại, đơn đã trả đủ rồi được hoàn bớt một phần vẫn bị tính nguyên giá đơn, tức chi
+     *     vượt đúng bằng phần đã hoàn trước đó.
+     *
+     * Giờ đọc sổ giao dịch qua nguồn dùng chung, giống hệt bảng phí hủy và bản in hợp đồng.
+     */
     private function soTienDaTra(Booking $don): float
     {
-        return $don->paid_at ? round((float) $don->total_amount, 2) : 0.0;
+        return $this->payments->paidForTour($don);
     }
 
     /**

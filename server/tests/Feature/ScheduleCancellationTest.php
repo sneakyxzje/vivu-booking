@@ -415,14 +415,17 @@ class ScheduleCancellationTest extends TestCase
         $this->assertSame(4_000_000.0, (float) $don->fresh()->refund_amount);
     }
 
-    // --- Tiền hoàn phải vào sổ giao dịch ---------------------------------------------------
+    // --- Tiền hoàn: nghĩa vụ trước, chi sau -------------------------------------------------
 
     /**
-     * `BookingPayment` mở đầu bằng "số đã thu là TỔNG của sổ chứ không phải một cột bị ghi đè".
-     * Hoàn tiền mà không có dòng trong sổ thì câu ấy không còn đúng: đơn đoàn đã cọc bị hủy chuyến
-     * vẫn hiện đủ tiền cọc, và số đã thu thực trả về một con số không còn ai giữ.
+     * Hủy chuyến sinh ra NGHĨA VỤ hoàn, không phải một khoản đã chi.
+     *
+     * Trước đây luồng này ghi thẳng một dòng `refund` vào sổ ngay lúc bấm hủy. Dòng ấy nói "đã trả
+     * lại tiền cho khách" trong khi kế toán còn chưa ra ngân hàng, và vì `refundOutstanding()` lấy
+     * `refund_amount` trừ tổng các dòng `refund`, hai số bằng nhau nên ra 0 - đơn tự biến mất khỏi
+     * màn hình "Chờ hoàn tiền" ngay khi vừa sinh ra nghĩa vụ.
      */
-    public function test_don_co_so_giao_dich_thi_khoan_hoan_vao_so(): void
+    public function test_huy_chuyen_tao_nghia_vu_hoan_chu_khong_ghi_khoan_chi(): void
     {
         $don = $this->taoDon($this->chuyen);
 
@@ -441,16 +444,90 @@ class ScheduleCancellationTest extends TestCase
             'plans' => [['booking_id' => $don->id, 'action' => 'refund']],
         ])->assertOk();
 
-        $this->assertDatabaseHas('booking_payments', [
+        $this->assertSame(4_000_000.0, (float) $don->fresh()->refund_amount);
+
+        $this->assertSame(
+            0,
+            $don->payments()->where('kind', BookingPayment::HOAN)->count(),
+            'Chưa ai chuyển tiền thì sổ chưa được có dòng chi nào.',
+        );
+
+        // Đơn phải nằm trong hàng đợi chờ hoàn để kế toán còn thấy mà trả.
+        $hangDoi = $this->getJson('/api/admin/refunds')->assertOk()->json('data.data');
+
+        $this->assertSame([$don->id], array_column($hangDoi, 'id'));
+        $this->assertSame(4_000_000, $hangDoi[0]['refund_outstanding']);
+    }
+
+    /** Kế toán chuyển tiền xong thì ghi vào sổ, và lúc đó đơn mới rời hàng đợi. */
+    public function test_ghi_khoan_chi_that_thi_don_roi_hang_doi_hoan_tien(): void
+    {
+        $don = $this->taoDon($this->chuyen);
+
+        BookingPayment::create([
             'booking_id' => $don->id,
-            'kind' => BookingPayment::HOAN,
+            'kind' => 'deposit',
             'amount' => 4_000_000,
+            'paid_at' => now()->subDay(),
         ]);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/cancel', [
+            'reason' => 'Khong du khach toi thieu nen huy chuyen.',
+            'plans' => [['booking_id' => $don->id, 'action' => 'refund']],
+        ])->assertOk();
+
+        $this->postJson('/api/admin/bookings/' . $don->id . '/payments', [
+            'kind' => 'refund',
+            'amount' => 4_000_000,
+            'method' => 'bank_transfer',
+        ])->assertOk();
 
         $thu = (float) $don->payments()->whereIn('kind', BookingPayment::THU)->sum('amount');
         $hoan = (float) $don->payments()->where('kind', BookingPayment::HOAN)->sum('amount');
 
-        $this->assertSame(0.0, $thu - $hoan, 'Hoàn đủ thì sổ phải về 0, không còn giữ đồng nào.');
+        $this->assertSame(0.0, $thu - $hoan, 'Trả xong thì sổ về 0, không còn giữ đồng nào.');
+
+        $hangDoi = $this->getJson('/api/admin/refunds')->assertOk()->json('data.data');
+
+        $this->assertSame([], $hangDoi, 'Trả xong thì đơn không còn ở danh sách chờ hoàn.');
+    }
+
+    /**
+     * Đơn mới đóng cọc một phần vẫn được hoàn đúng số đã đưa.
+     *
+     * Đây là lỗ hổng cũ, và nó ăn thẳng vào túi khách: `soTienDaTra()` đọc cột `paid_at`, mà cột ấy
+     * chỉ đóng khi đã thu ĐỦ. Đơn đoàn cọc 30% mang trạng thái `confirmed` nên vẫn lọt vào nhóm "đã
+     * thanh toán" của luồng hủy chuyến, nhưng `paid_at` là null - hàm trả về 0, và khách bị hoàn 0
+     * đồng cho một chuyến do chính công ty hủy.
+     */
+    public function test_don_moi_dong_coc_duoc_hoan_dung_so_da_dua(): void
+    {
+        $don = $this->taoDon($this->chuyen);
+
+        // Đơn 4 triệu, khách mới đưa 1,2 triệu tiền cọc nên chưa thu đủ.
+        $don->forceFill(['paid_at' => null])->save();
+
+        BookingPayment::create([
+            'booking_id' => $don->id,
+            'kind' => 'deposit',
+            'amount' => 1_200_000,
+            'paid_at' => now()->subDay(),
+        ]);
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/cancel', [
+            'reason' => 'Khong du khach toi thieu nen huy chuyen.',
+            'plans' => [['booking_id' => $don->id, 'action' => 'refund']],
+        ])->assertOk();
+
+        $this->assertSame(
+            1_200_000.0,
+            (float) $don->fresh()->refund_amount,
+            'Phải hoàn đúng số cọc đã thu, không phải 0 và cũng không phải cả giá đơn.',
+        );
     }
 
     /**

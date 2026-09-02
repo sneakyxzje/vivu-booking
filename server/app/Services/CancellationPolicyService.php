@@ -20,6 +20,10 @@ use Illuminate\Support\Carbon;
  */
 class CancellationPolicyService
 {
+    public function __construct(private readonly BookingPaymentService $payments)
+    {
+    }
+
     /**
      * Bảng phí hủy mặc định, dùng khi đơn chưa gắn chính sách riêng.
      *
@@ -202,43 +206,11 @@ class CancellationPolicyService
     /**
      * Số tiền khách đã thực trả cho đơn này.
      *
-     * Hai nguồn, chọn theo đơn:
-     *
-     *   - Đơn có sổ giao dịch (trả nhiều đợt): tổng thu trừ tổng hoàn. Đây là chỗ làm cho phép
-     *     tính "mất cọc" chạy đúng - khách mới đóng cọc 30% mà hủy sát ngày thì tiền hoàn trừ
-     *     trên số cọc đã thu, không phải trên tổng giá trị đơn.
-     *   - Đơn không có dòng nào trong sổ: đọc theo mốc paid_at như cũ. Nhánh này còn dùng cho các
-     *     đơn tạo trước khi sổ mở cho đơn lẻ.
-     *
-     * Phân nhánh theo "sổ có dòng hay không" chứ không theo loại đơn — đúng như ghi chú cũ dự
-     * liệu, và nhờ vậy việc mở sổ cho đơn lẻ không phải sửa gì ở đây.
-     *
-     * **Chỉ đếm dòng của giá tour.** Từ khi phụ thu sự cố cũng ghi vào sổ, một đơn lẻ đã trả đủ
-     * qua cổng vẫn có thể có dòng trong sổ - dòng thu tiền một đêm phòng chạy bão. Nếu câu hỏi
-     * "sổ có dòng chưa" đếm cả dòng ấy thì nhánh trên nhận đơn lẻ, cộng các loại THU ra 0, và
-     * một đơn đã trả đủ bỗng báo đã thu 0 đồng - hủy đơn thì hoàn 0.
-     *
-     * Nên cả câu hỏi lẫn phép cộng đều lọc theo cùng một tập loại. Hai chỗ lệch nhau chính là
-     * cách lỗi này sinh ra.
+     * Phép tính nằm ở `BookingPaymentService::paidForTour()` — nguồn duy nhất cho câu hỏi này, để
+     * luồng hủy đơn, luồng hủy chuyến và bản in hợp đồng không bao giờ trả lời khác nhau.
      */
     private function paidAmount(Booking $booking): float
     {
-        $giaTour = $booking->payments()->whereIn('kind', array_merge(
-            \App\Models\BookingPayment::THU,
-            [\App\Models\BookingPayment::HOAN],
-        ));
-
-        if ((clone $giaTour)->exists()) {
-            $thu = (float) $booking->payments()
-                ->whereIn('kind', \App\Models\BookingPayment::THU)
-                ->sum('amount');
-            $hoan = (float) $booking->payments()
-                ->where('kind', \App\Models\BookingPayment::HOAN)
-                ->sum('amount');
-
-            return round($thu - $hoan);
-        }
-
-        return $booking->paid_at ? round((float) $booking->total_amount) : 0.0;
+        return $this->payments->paidForTour($booking);
     }
 }

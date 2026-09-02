@@ -79,7 +79,10 @@ class AdminBookingActionsTest extends TestCase
         $don = $this->taoLichVaDon(maxPeople: 5, guests: 2, status: 'pending');
         Sanctum::actingAs($this->taoUser('admin'));
 
-        $this->putJson("/api/admin/bookings/{$don->id}/confirm")
+        $this->putJson("/api/admin/bookings/{$don->id}/confirm", [
+            'amount' => 2_000_000,
+            'method' => 'bank_transfer',
+        ])
             ->assertOk()
             ->assertJsonPath('data.status', 'confirmed');
 
