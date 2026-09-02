@@ -48,6 +48,8 @@ interface DeclarationData {
   locked_reason: string | null;
   deadline: string | null;
   warnings: string[];
+  /** Số giấy tờ đang bị che vì người xem chưa xác nhận email đã đặt. */
+  identity_masked: boolean;
 }
 
 const dongTrong = (type: Row["type"]): Row => ({
@@ -70,6 +72,13 @@ export default function PassengerDeclaration() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  /*
+   * Email đã dùng khi đặt tour.
+   *
+   * Sửa danh sách là đổi tên và giấy tờ của những người sẽ lên xe, nên mã tra cứu thôi là chưa đủ:
+   * nó đi trong thư, và thư thì được chuyển tiếp. Người thật luôn có sẵn địa chỉ này.
+   */
+  const [email, setEmail] = useState("");
   const [saved, setSaved] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -77,7 +86,15 @@ export default function PassengerDeclaration() {
     setError("");
 
     try {
-      const res = await api.get(`/bookings/${publicToken}/passengers`);
+      /*
+       * Gửi kèm email nếu người xem đã nhập.
+       *
+       * Mã tra cứu thôi thì máy chủ trả số giấy tờ dạng che: mã đi trong thư, mà thư được chuyển
+       * tiếp và mở trên máy dùng chung. Nhập đúng địa chỉ đã đặt mới đọc được đầy đủ.
+       */
+      const res = await api.get(`/bookings/${publicToken}/passengers`, {
+        params: email.trim() ? { email: email.trim() } : undefined,
+      });
       const payload: DeclarationData = res.data?.data;
       setData(payload);
 
@@ -121,7 +138,7 @@ export default function PassengerDeclaration() {
     } finally {
       setLoading(false);
     }
-  }, [publicToken]);
+  }, [publicToken, email]);
 
   useEffect(() => {
     loadData();
@@ -143,11 +160,19 @@ export default function PassengerDeclaration() {
   };
 
   const luu = async () => {
+    if (!email.trim()) {
+      setError(
+        "Nhập địa chỉ email bạn đã dùng khi đặt tour để xác nhận đây là đơn của bạn.",
+      );
+      return;
+    }
+
     setSaving(true);
     setError("");
 
     try {
       await api.put(`/bookings/${publicToken}/passengers`, {
+        customer_email: email.trim(),
         passengers: rows
           .filter((row) => row.name.trim())
           .map((row) => ({
@@ -253,6 +278,39 @@ export default function PassengerDeclaration() {
         <div className="flex gap-3 rounded-xl border border-gray-200 bg-surface-soft px-4 py-3">
           <AlertTriangle className="w-5 h-5 text-muted shrink-0 mt-0.5" />
           <p className="text-body-sm text-body">{data.locked_reason}</p>
+        </div>
+      )}
+
+      {/*
+        Xác nhận danh tính bằng email đã đặt.
+
+        Liên kết này nằm trong thư, và thư thì được chuyển tiếp, mở trên máy dùng chung, còn lại
+        trong lịch sử trình duyệt. Đủ để xem đơn, không đủ để đọc căn cước của cả đoàn hay đổi tên
+        người sẽ lên xe — nên số giấy tờ hiện dạng che cho tới khi nhập đúng địa chỉ đã đặt.
+      */}
+      {data.can_edit && (
+        <div className="rounded-xl border border-gray-200 bg-surface-soft px-4 py-4">
+          <label
+            htmlFor="xac-nhan-email"
+            className="block text-body-sm font-medium text-ink"
+          >
+            Email bạn đã dùng khi đặt tour
+          </label>
+          <input
+            id="xac-nhan-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => email.trim() && loadData()}
+            placeholder="ban@example.com"
+            autoComplete="email"
+            className="mt-2 w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-body-sm"
+          />
+          <p className="mt-2 text-caption text-muted">
+            {data.identity_masked
+              ? "Nhập đúng email đã đặt để xem đầy đủ số giấy tờ và lưu được thay đổi."
+              : "Đã xác nhận. Bạn xem và sửa được đầy đủ thông tin của đoàn."}
+          </p>
         </div>
       )}
 

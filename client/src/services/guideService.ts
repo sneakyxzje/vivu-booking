@@ -338,8 +338,18 @@ const guideService = {
     return { success: response.data?.success !== false };
   },
 
-  confirmBooking: async (id: number): Promise<{ success: boolean }> => {
-    const response = await api.put(`/guide/bookings/${id}/confirm`);
+  /**
+   * Xác nhận một đơn tại điểm tập trung, kèm khoản tiền vừa thu.
+   *
+   * Hướng dẫn viên cầm tiền mặt của khách thì phải khai đã cầm bao nhiêu — máy chủ ghi thẳng vào sổ
+   * giao dịch trong cùng thao tác. Để trống chỉ được khi sổ đã có khoản thu từ trước (khách chuyển
+   * khoản cho văn phòng rồi mới ra bến).
+   */
+  confirmBooking: async (
+    id: number,
+    thuTien?: { amount: number; method: "cash" | "bank_transfer"; note?: string },
+  ): Promise<{ success: boolean }> => {
+    const response = await api.put(`/guide/bookings/${id}/confirm`, thuTien ?? {});
     return { success: response.data?.success !== false };
   },
 

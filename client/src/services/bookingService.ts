@@ -242,6 +242,26 @@ const bookingService = {
       { passengers },
     ),
 
+  /**
+   * Khách gửi tài khoản nhận tiền hoàn, bằng mã tra cứu.
+   *
+   * Dùng cho các khoản hoàn do CÔNG TY khởi xướng — hủy chuyến, hoặc điều hành hủy đơn. Ở những
+   * đường ấy khách không mở form nào cả, nên nghĩa vụ hoàn sinh ra mà không có nơi để chuyển tới.
+   * Máy chủ chỉ nhận khi đơn thật sự còn nợ khách.
+   */
+  updateRefundAccount: (
+    publicToken: string,
+    taiKhoan: {
+      refund_bank_account: string;
+      refund_bank_name: string;
+      refund_account_holder: string;
+    },
+  ) =>
+    api.put<{ success: boolean; message: string }>(
+      `/bookings/${publicToken}/refund-account`,
+      taiKhoan,
+    ),
+
   // Task X06b - Gửi lại mã tra cứu về email cho khách vãng lai (Edge Case A16)
   resendLookupCode: (payload: { email: string; phone?: string }) =>
     api.post<{ success: boolean; message: string }>("/bookings/resend-code", payload),

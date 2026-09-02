@@ -23,6 +23,9 @@ type Booking = {
   /** Tổng đã thu thực, tính từ sổ giao dịch. Vắng mặt ở các đơn tạo trước khi có sổ. */
   net_paid?: number;
   balance_due?: number;
+  /** Nghĩa vụ hoàn chốt lúc hủy, và phần trong đó đã thực trả. */
+  refund_amount?: number | null;
+  refunded?: number | null;
   discount_code?: string | null;
   discount_amount?: number;
   status: string;
@@ -118,6 +121,42 @@ export default function BookingSuccess() {
   );
   const [loading, setLoading] = useState(!state && Boolean(id));
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+
+  /* Tài khoản nhận tiền hoàn, cho các khoản hoàn do công ty khởi xướng. */
+  const [refundForm, setRefundForm] = useState({
+    refund_account_holder: "",
+    refund_bank_account: "",
+    refund_bank_name: "",
+  });
+  const [refundSaving, setRefundSaving] = useState(false);
+  const [refundSaved, setRefundSaved] = useState(false);
+  const [refundError, setRefundError] = useState("");
+
+  const luuTaiKhoanHoanTien = async () => {
+    // Không có mã tra cứu thì không gọi được điểm cuối công khai — đơn mở từ state điều hướng
+    // hiếm khi thiếu nó, nhưng kiểu dữ liệu cho phép.
+    if (!booking?.public_token) return;
+
+    setRefundSaving(true);
+    setRefundError("");
+
+    try {
+      await bookingService.updateRefundAccount(booking.public_token, refundForm);
+      setRefundSaved(true);
+    } catch (err) {
+      const data = (
+        err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }
+      )?.response?.data;
+
+      setRefundError(
+        (data?.errors ? Object.values(data.errors).flat()[0] : null) ??
+          data?.message ??
+          "Không lưu được thông tin tài khoản. Vui lòng thử lại.",
+      );
+    } finally {
+      setRefundSaving(false);
+    }
+  };
   const paymentStatus = searchParams.get("payment_status");
 
   // Luôn tải bản mới nhất từ server (kể cả khi đã có dữ liệu từ trang đặt tour),
@@ -243,6 +282,17 @@ export default function BookingSuccess() {
   );
   const remainingAmount = Number(
     booking.balance_due ?? (pending ? booking.total_amount : 0),
+  );
+  /*
+   * Công ty còn nợ khách bao nhiêu.
+   *
+   * `refund_amount` là nghĩa vụ chốt lúc hủy; `refunded` là phần đã thực trả. Hiệu số là thứ khách
+   * còn phải nhận, và chỉ khi nó dương thì mới hỏi số tài khoản — không có gì để hoàn mà vẫn thu
+   * thập thông tin ngân hàng là giữ một thứ không dùng tới.
+   */
+  const refundOutstanding = Math.max(
+    0,
+    Number(booking.refund_amount ?? 0) - Number(booking.refunded ?? 0),
   );
   const discountAmount = Number(booking.discount_amount ?? 0);
   const subtotalAmount = Number(booking.total_amount) + discountAmount;
@@ -530,6 +580,73 @@ export default function BookingSuccess() {
                       ? `Thanh toán ${formatCurrency(remainingAmount)} ngay`
                       : `Thanh toán nốt ${formatCurrency(remainingAmount)}`}
                   </a>
+                </div>
+              )}
+
+              {/*
+                Đơn bị hủy mà công ty còn nợ tiền: hỏi tài khoản để chuyển.
+
+                Ở luồng khách tự xin hủy thì form kia đã hỏi rồi. Nhưng khi CÔNG TY hủy — hủy cả
+                chuyến, hoặc điều hành hủy đơn — khách không mở form nào cả, nên nghĩa vụ hoàn sinh
+                ra mà không có nơi để trả. Trước khối này, kế toán phải gọi điện xin số tài khoản và
+                ghi vào sổ tay riêng.
+              */}
+              {refundOutstanding > 0 && (
+                <div className="mt-8 p-5 bg-amber-50/70 border border-amber-200 rounded-lg text-sm">
+                  <h4 className="font-bold text-amber-900">
+                    Nhận lại {formatCurrency(refundOutstanding)}
+                  </h4>
+                  <p className="mt-1 text-gray-700">
+                    Vui lòng cho chúng tôi biết tài khoản nhận tiền. Khoản hoàn sẽ được chuyển
+                    trong thời gian sớm nhất.
+                  </p>
+
+                  {refundSaved ? (
+                    <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800">
+                      Đã ghi nhận tài khoản của Quý khách.
+                    </p>
+                  ) : (
+                    <div className="mt-3 space-y-2">
+                      <input
+                        value={refundForm.refund_account_holder}
+                        onChange={(e) =>
+                          setRefundForm((f) => ({ ...f, refund_account_holder: e.target.value }))
+                        }
+                        placeholder="Tên chủ tài khoản (như trên thẻ)"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                      />
+                      <input
+                        value={refundForm.refund_bank_account}
+                        onChange={(e) =>
+                          setRefundForm((f) => ({ ...f, refund_bank_account: e.target.value }))
+                        }
+                        placeholder="Số tài khoản"
+                        inputMode="numeric"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                      />
+                      <input
+                        value={refundForm.refund_bank_name}
+                        onChange={(e) =>
+                          setRefundForm((f) => ({ ...f, refund_bank_name: e.target.value }))
+                        }
+                        placeholder="Ngân hàng"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                      />
+
+                      {refundError && (
+                        <p className="text-rose-700">{refundError}</p>
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={refundSaving}
+                        onClick={luuTaiKhoanHoanTien}
+                        className="w-full rounded-lg bg-amber-600 py-3 font-bold text-white hover:bg-amber-700 disabled:opacity-50"
+                      >
+                        {refundSaving ? "Đang lưu..." : "Gửi thông tin tài khoản"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 

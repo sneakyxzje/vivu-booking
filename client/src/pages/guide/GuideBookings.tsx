@@ -32,6 +32,10 @@ export const GuideBookings: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatus);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [toast, setToast] = useState("");
+  /** Đơn đang mở ô thu tiền. Xác nhận là khẳng định đã cầm tiền, nên phải khai số. */
+  const [dangThu, setDangThu] = useState<GuideBooking | null>(null);
+  const [soTien, setSoTien] = useState("");
+  const [hinhThuc, setHinhThuc] = useState<"cash" | "bank_transfer">("cash");
 
   useEffect(() => {
     guideService
@@ -53,15 +57,47 @@ export const GuideBookings: React.FC = () => {
     return bookings.filter((b) => b.status === statusFilter);
   }, [bookings, statusFilter]);
 
-  const handleConfirm = async (id: number) => {
+  /**
+   * Mở ô thu tiền cho một đơn.
+   *
+   * Xác nhận tại điểm tập trung nghĩa là hướng dẫn viên vừa cầm tiền của khách, nên phải khai đã
+   * cầm bao nhiêu — máy chủ ghi thẳng vào sổ giao dịch. Điền sẵn đúng giá trị đơn vì đó là con số
+   * đúng trong hầu hết trường hợp.
+   */
+  const moOThuTien = (b: GuideBooking) => {
+    setDangThu(b);
+    setSoTien(String(b.total_amount ?? ""));
+    setHinhThuc("cash");
+  };
+
+  const handleConfirm = async () => {
+    if (!dangThu) return;
+
+    const id = dangThu.id;
     setConfirmingId(id);
+
     try {
-      await guideService.confirmBooking(id);
+      const so = Number(soTien);
+
+      await guideService.confirmBooking(
+        id,
+        so > 0 ? { amount: so, method: hinhThuc } : undefined,
+      );
+
       const updated = await guideService.getBookings();
       setBookings(updated);
-      setToast("Đã xác nhận đặt chỗ.");
-    } catch {
-      setToast("Không thể xác nhận đặt chỗ. Vui lòng thử lại.");
+      setDangThu(null);
+      setToast("Đã xác nhận đặt chỗ và ghi khoản thu.");
+    } catch (err) {
+      const data = (
+        err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }
+      )?.response?.data;
+
+      setToast(
+        (data?.errors ? Object.values(data.errors).flat()[0] : null) ??
+          data?.message ??
+          "Không thể xác nhận đặt chỗ. Vui lòng thử lại.",
+      );
     } finally {
       setConfirmingId(null);
     }
@@ -162,7 +198,7 @@ export const GuideBookings: React.FC = () => {
                         <button
                           type="button"
                           disabled={confirmingId === b.id}
-                          onClick={() => handleConfirm(b.id)}
+                          onClick={() => moOThuTien(b)}
                           className="text-xs font-semibold bg-primary-600 text-white px-3 py-1.5 rounded-lg hover:bg-primary-700 disabled:opacity-50"
                         >
                           {confirmingId === b.id ? "..." : "Xác nhận"}
@@ -175,6 +211,72 @@ export const GuideBookings: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/*
+        Ô thu tiền trước khi xác nhận.
+
+        Xác nhận tại điểm tập trung là khẳng định "khách này đã trả tiền", nên số tiền đi cùng thao
+        tác chứ không phải một việc riêng mà ai đó phải nhớ làm sau. Trước đây nút này chỉ đổi trạng
+        thái, và sổ giao dịch vẫn ghi đơn ấy thu 0 đồng.
+      */}
+      {dangThu && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+            <h3 className="text-base font-bold text-gray-900">
+              Xác nhận đơn BK-{dangThu.id}
+            </h3>
+            <p className="mt-1 text-xs text-gray-500">
+              {dangThu.customer_name} · {formatPrice(dangThu.total_amount)}
+            </p>
+
+            <label className="mt-4 block">
+              <span className="text-xs font-medium text-gray-700">Số tiền vừa thu</span>
+              <input
+                type="number"
+                min={0}
+                inputMode="numeric"
+                value={soTien}
+                onChange={(e) => setSoTien(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </label>
+
+            <label className="mt-3 block">
+              <span className="text-xs font-medium text-gray-700">Hình thức</span>
+              <select
+                value={hinhThuc}
+                onChange={(e) => setHinhThuc(e.target.value as "cash" | "bank_transfer")}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="cash">Tiền mặt</option>
+                <option value="bank_transfer">Chuyển khoản</option>
+              </select>
+            </label>
+
+            <p className="mt-3 text-xs text-gray-500">
+              Để trống chỉ được khi văn phòng đã ghi nhận khoản thu từ trước.
+            </p>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDangThu(null)}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={confirmingId === dangThu.id}
+                onClick={handleConfirm}
+                className="rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                {confirmingId === dangThu.id ? "Đang lưu..." : "Ghi nhận & xác nhận"}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -956,9 +956,28 @@ const adminService = {
     return extractObject<Booking>(response);
   },
 
-  confirmBooking: async (id: number): Promise<Booking | null> => {
-    const response = await api.put(`/admin/bookings/${id}/confirm`);
+  /**
+   * Xác nhận một đơn đang chờ, kèm khoản tiền vừa thu.
+   *
+   * Xác nhận là tuyên bố "khách này đã trả tiền", nên máy chủ đòi số tiền và hình thức thu rồi ghi
+   * thẳng vào sổ giao dịch. Bỏ qua được đúng một trường hợp: kế toán đã ghi khoản thu từ trước, lúc
+   * ấy sổ không còn nợ gì và `thuTien` để trống.
+   */
+  confirmBooking: async (
+    id: number,
+    thuTien?: { amount: number; method: "cash" | "bank_transfer" | "gateway"; reference?: string; note?: string },
+  ): Promise<Booking | null> => {
+    const response = await api.put(`/admin/bookings/${id}/confirm`, thuTien ?? {});
     return extractObject<Booking>(response);
+  },
+
+  /** Nhập hộ tài khoản nhận tiền hoàn khi khách đọc qua điện thoại. */
+  updateRefundAccount: async (
+    bookingId: number,
+    taiKhoan: { refund_bank_account: string; refund_bank_name: string; refund_account_holder: string },
+  ): Promise<{ success: boolean }> => {
+    const response = await api.put(`/admin/bookings/${bookingId}/refund-account`, taiKhoan);
+    return { success: response.data?.success !== false };
   },
 
   /**

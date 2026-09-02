@@ -431,6 +431,9 @@ class BookingController extends Controller
 
         $booking->setAttribute('net_paid', $this->paymentService->netPaid($booking));
         $booking->setAttribute('balance_due', $conThieu);
+        // Phần đã thực hoàn, để trang tra cứu biết công ty còn nợ khách bao nhiêu và có nên hỏi
+        // tài khoản nhận tiền hay không.
+        $booking->setAttribute('refunded', $this->paymentService->refunded($booking));
 
         /*
          * Che số giấy tờ của cả đoàn, trừ khi người xem nhập đúng địa chỉ thư đã đặt.

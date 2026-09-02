@@ -16,6 +16,9 @@ import {
   NHOM_LY_DO_CHUYEN,
 } from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
+
+/** Hình thức thu tiền khi xác nhận đơn bằng tay. */
+type ConfirmMethod = "cash" | "bank_transfer" | "gateway";
 import { StepperModal } from "@/components/admin/StepperModal";
 import { formatDateTime, formatPrice } from "@/utils/format";
 
@@ -82,6 +85,13 @@ export default function BookingManagement() {
     amount: "",
     method: "bank_transfer",
     reference: "",
+  });
+
+  /** Đang mở form thu tiền của bước xác nhận đơn. */
+  const [confirmMode, setConfirmMode] = useState(false);
+  const [confirmForm, setConfirmForm] = useState<{ amount: string; method: ConfirmMethod }>({
+    amount: "",
+    method: "bank_transfer",
   });
 
   const [cancelMode, setCancelMode] = useState(false);
@@ -474,13 +484,37 @@ export default function BookingManagement() {
     return response?.errors ? Object.values(response.errors).flat()[0] ?? fallback : response?.message ?? fallback;
   };
 
+  /**
+   * Mở form thu tiền trước khi xác nhận.
+   *
+   * Điền sẵn đúng số đơn còn thiếu — đó là con số đúng trong hầu hết trường hợp, và người bấm vẫn
+   * sửa được khi khách chỉ đưa trước một phần.
+   */
+  const openConfirmForm = () => {
+    if (!selectedBooking) return;
+
+    const conThieu =
+      Number(selectedBooking.balance_due ?? selectedBooking.total_amount ?? 0) || 0;
+
+    setConfirmForm({ amount: conThieu > 0 ? String(conThieu) : "", method: "bank_transfer" });
+    setActionError("");
+    setConfirmMode(true);
+  };
+
   const handleConfirm = async () => {
     if (!selectedBooking) return;
     setActionLoading(true);
     setActionError("");
     try {
-      const updated = await adminService.confirmBooking(selectedBooking.id);
+      const soTien = Number(confirmForm.amount);
+
+      const updated = await adminService.confirmBooking(
+        selectedBooking.id,
+        soTien > 0 ? { amount: soTien, method: confirmForm.method } : undefined,
+      );
+
       if (updated) applyBookingUpdate(updated);
+      setConfirmMode(false);
     } catch (err) {
       setActionError(extractApiError(err, "Không thể xác nhận đơn. Vui lòng thử lại."));
     } finally {
@@ -1021,11 +1055,15 @@ export default function BookingManagement() {
           <div className="flex items-center justify-end gap-2.5">
             {selectedBooking?.status === "pending" && !cancelMode && (
               <button
-                onClick={handleConfirm}
+                onClick={confirmMode ? handleConfirm : openConfirmForm}
                 disabled={actionLoading}
                 className="px-4 py-2 bg-emerald-600 text-sm font-semibold rounded-md text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 cursor-pointer"
               >
-                {actionLoading ? "Đang xử lý..." : "Xác nhận đơn"}
+                {actionLoading
+                  ? "Đang xử lý..."
+                  : confirmMode
+                    ? "Ghi nhận & xác nhận"
+                    : "Xác nhận đơn"}
               </button>
             )}
             {/* I06 - Chỉ đơn đã thanh toán mới chuyển; đơn chưa trả tiền thì hủy rồi đặt lại
@@ -1093,6 +1131,47 @@ export default function BookingManagement() {
 
         return (
           <div className="space-y-5">
+            {/*
+              Xác nhận đơn là tuyên bố "khách này đã trả tiền", nên phải nói rõ đã thu bao nhiêu.
+              Trước đây nút xác nhận chỉ đổi trạng thái: đơn vào danh sách đoàn và cộng vào doanh
+              thu trong khi sổ giao dịch vẫn ghi 0 đồng, và hủy đơn thì khách được hoàn đúng 0.
+            */}
+            {confirmMode && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
+                <p className="text-sm font-semibold text-emerald-900">Ghi nhận khoản đã thu</p>
+                <p className="mt-1 text-xs text-emerald-800">
+                  Khoản này vào thẳng sổ giao dịch của đơn. Bỏ trống chỉ được khi kế toán đã ghi
+                  nhận từ trước.
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-700">Số tiền đã thu</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={confirmForm.amount}
+                      onChange={(e) => setConfirmForm((f) => ({ ...f, amount: e.target.value }))}
+                      className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-gray-700">Hình thức</span>
+                    <select
+                      value={confirmForm.method}
+                      onChange={(e) =>
+                        setConfirmForm((f) => ({ ...f, method: e.target.value as ConfirmMethod }))
+                      }
+                      className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      <option value="bank_transfer">Chuyển khoản</option>
+                      <option value="cash">Tiền mặt</option>
+                      <option value="gateway">Qua cổng thanh toán</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            )}
+
             {/* Tour info */}
             <div className="bg-primary-50/50 p-5 rounded-lg border border-primary-100/50">
               <p className="text-xs font-semibold text-primary-600 uppercase tracking-wider">Thông tin Tour đặt</p>
