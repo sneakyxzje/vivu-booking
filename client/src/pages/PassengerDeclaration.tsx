@@ -155,9 +155,14 @@ export default function PassengerDeclaration() {
             type: row.type,
             gender: row.gender || null,
             date_of_birth: row.date_of_birth || null,
-            id_type: row.identity_number.trim() ? row.id_type : null,
-            identity_number: row.identity_number.trim() || null,
-            phone: row.phone.trim() || null,
+            /*
+              Gửi đúng những gì biểu mẫu hỏi.
+              Giữ lại giá trị của một ô đã bị ẩn thì nó còn hiện trên danh sách đoàn và trên hợp
+              đồng, mà không ai sửa được nữa — tệ hơn là bỏ hẳn.
+            */
+            id_type: row.type === "adult" && row.identity_number.trim() ? row.id_type : null,
+            identity_number: row.type === "adult" ? row.identity_number.trim() || null : null,
+            phone: row.type === "infant" ? null : row.phone.trim() || null,
             special_request: row.special_request.trim() || null,
             is_contact: row.is_contact,
           })),
@@ -334,22 +339,36 @@ export default function PassengerDeclaration() {
                 </select>
               </div>
 
-              <div>
-                <label className="field-label">Điện thoại</label>
-                <input
-                  type="tel"
-                  value={row.phone}
-                  disabled={!data.can_edit}
-                  onChange={(e) => sua(index, "phone", e.target.value)}
-                  className="input-field disabled:bg-surface-soft"
-                />
-              </div>
-
               {/*
-                Em bé thường chưa có giấy tờ riêng, nên chỉ hỏi giấy tờ với người lớn và trẻ em.
-                Hỏi thứ người ta không có là bắt họ để trống rồi tự hỏi mình có sai không.
+                Em bé không có số điện thoại riêng — hỏi là bắt người ta điền số của bố mẹ vào ô
+                mang tên đứa bé, rồi hướng dẫn viên gọi vào đó và không biết mình đang gọi cho ai.
               */}
               {row.type !== "infant" && (
+                <div>
+                  <label className="field-label">
+                    Điện thoại
+                    {row.type === "child" && (
+                      <span className="ml-1 font-normal text-muted">(nếu có)</span>
+                    )}
+                  </label>
+                  <input
+                    type="tel"
+                    value={row.phone}
+                    disabled={!data.can_edit}
+                    onChange={(e) => sua(index, "phone", e.target.value)}
+                    className="input-field disabled:bg-surface-soft"
+                  />
+                </div>
+              )}
+
+              {/*
+                Giấy tờ chỉ hỏi người lớn.
+
+                Trẻ em và em bé phần lớn chưa có giấy tờ riêng, và khai báo lưu trú thì các cháu
+                đi theo người lớn cùng phòng. Hỏi thứ người ta không có là bắt họ để trống rồi tự
+                hỏi mình có làm sai bước nào không.
+              */}
+              {row.type === "adult" && (
                 <>
                   <div>
                     <label className="field-label">Loại giấy tờ</label>

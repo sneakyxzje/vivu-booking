@@ -215,18 +215,22 @@ class PassengerPolicyService
 
         $daKhai = $booking->passengers()->count();
 
-
-
+        /*
+         * Chỉ đếm NGƯỜI LỚN.
+         *
+         * Trẻ em và em bé phần lớn chưa có giấy tờ riêng, và khai báo lưu trú thì các cháu đi theo
+         * người lớn cùng phòng. Đếm cả nhóm ấy thì mọi đơn có trẻ con đều đội một dòng cảnh báo đỏ
+         * không bao giờ tắt được - người dùng học cách bỏ qua cảnh báo, và tới lúc một người lớn
+         * thiếu giấy tờ thật thì dòng ấy cũng bị bỏ qua nốt.
+         */
         $thieuGiayTo = $booking->passengers()
-            ->whereNull('identity_number')
-            ->orWhere(function ($query) use ($booking) {
-                $query->where('booking_id', $booking->getKey())->where('identity_number', '');
-            })
+            ->where('type', 'adult')
+            ->where(fn ($query) => $query->whereNull('identity_number')->orWhere('identity_number', ''))
             ->count();
 
         if ($thieuGiayTo > 0) {
             $canhBao[] = sprintf(
-                '%d hành khách chưa có số giấy tờ, khách sạn cần thông tin này để khai báo lưu trú.',
+                '%d người lớn chưa có số giấy tờ, khách sạn cần thông tin này để khai báo lưu trú.',
                 $thieuGiayTo,
             );
         }

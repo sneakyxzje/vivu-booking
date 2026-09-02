@@ -294,6 +294,55 @@ class PassengerPolicyTest extends TestCase
 
     // --- G05: cảnh báo khai thiếu -------------------------------------------------------
 
+    /**
+     * Trẻ em và em bé không có giấy tờ riêng, nên không được tính vào cảnh báo thiếu giấy tờ.
+     *
+     * Đếm cả nhóm ấy thì mọi đơn có trẻ con đều đội một dòng đỏ không bao giờ tắt được. Người dùng
+     * học cách bỏ qua cảnh báo, và tới lúc một người lớn thiếu giấy tờ thật thì dòng ấy cũng bị bỏ
+     * qua nốt.
+     */
+    public function test_tre_em_va_em_be_khong_bi_tinh_la_thieu_giay_to(): void
+    {
+        $don = $this->taoDon(guests: 3);
+        Sanctum::actingAs($this->khach);
+
+        $response = $this->putJson("/api/my-bookings/{$don->id}/passengers", [
+            'passengers' => [
+                ['name' => 'Nguyen Van An', 'type' => 'adult', 'identity_number' => '001199001234', 'is_contact' => true],
+                ['name' => 'Nguyen Bao Chau', 'type' => 'child'],
+                ['name' => 'Nguyen Bao Duy', 'type' => 'infant'],
+            ],
+        ])->assertOk();
+
+        $canhBao = $response->json('data.warnings');
+
+        $this->assertEmpty(
+            array_filter($canhBao, fn (string $dong) => str_contains($dong, 'giấy tờ')),
+            'Không được đòi giấy tờ của trẻ em và em bé.',
+        );
+    }
+
+    /** Nhưng người lớn thiếu giấy tờ thì vẫn phải nhắc — khách sạn cần đúng nhóm này để khai lưu trú. */
+    public function test_nguoi_lon_thieu_giay_to_thi_van_canh_bao(): void
+    {
+        $don = $this->taoDon(guests: 2);
+        Sanctum::actingAs($this->khach);
+
+        $response = $this->putJson("/api/my-bookings/{$don->id}/passengers", [
+            'passengers' => [
+                ['name' => 'Nguyen Van An', 'type' => 'adult', 'identity_number' => '001199001234', 'is_contact' => true],
+                ['name' => 'Tran Thi Binh', 'type' => 'adult'],
+            ],
+        ])->assertOk();
+
+        $canhBao = $response->json('data.warnings');
+
+        $this->assertNotEmpty(array_filter(
+            $canhBao,
+            fn (string $dong) => str_contains($dong, '1 người lớn chưa có số giấy tờ'),
+        ));
+    }
+
     public function test_khai_thieu_nguoi_thi_canh_bao_nhung_van_luu_duoc(): void
     {
         $don = $this->taoDon(guests: 4);

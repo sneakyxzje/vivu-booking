@@ -52,11 +52,13 @@ class BookingPassengerFactory extends Factory
         // Kẹp trong khoảng [2, 12): dưới là em bé, từ 12 trở lên là người lớn.
         $tuoi = min(max($tuoi, PassengerPolicyService::INFANT_UNDER_AGE), PassengerPolicyService::ADULT_FROM_AGE - 1);
 
+        // Không giấy tờ, không điện thoại: biểu mẫu khai hành khách cũng không hỏi trẻ em hai
+        // thứ ấy, nên dữ liệu dựng sẵn phải giống thứ luồng thật sinh ra.
         return $this->state(fn (): array => [
             'type' => 'child',
             'date_of_birth' => now()->subYears($tuoi)->toDateString(),
             'identity_number' => null,
-            'id_type' => 'birth_certificate',
+            'id_type' => null,
             'phone' => null,
         ]);
     }

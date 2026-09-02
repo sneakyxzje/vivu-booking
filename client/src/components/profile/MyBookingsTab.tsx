@@ -291,8 +291,12 @@ export const MyBookingsTab: React.FC = () => {
           ...row,
           gender: row.gender || null,
           date_of_birth: row.date_of_birth || null,
-          identity_number: row.identity_number?.trim() || null,
-          phone: row.phone?.trim() || null,
+          // Gửi đúng những ô biểu mẫu có hỏi. Giữ lại giá trị của một ô đã ẩn thì nó còn hiện
+          // trên danh sách đoàn mà không ai sửa được nữa.
+          id_type: row.type === "adult" ? row.id_type ?? null : null,
+          identity_number:
+            row.type === "adult" ? row.identity_number?.trim() || null : null,
+          phone: row.type === "infant" ? null : row.phone?.trim() || null,
           special_request: row.special_request?.trim() || null,
         })),
       );
@@ -1128,37 +1132,54 @@ export const MyBookingsTab: React.FC = () => {
                       placeholder="Ngày sinh"
                       buttonClassName="flex w-full items-center gap-2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-left disabled:opacity-60 disabled:cursor-not-allowed hover:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                     />
-                    <select
-                      value={row.id_type ?? "cccd"}
-                      disabled={!paxData.can_edit}
-                      onChange={(e) =>
-                        suaDong(index, "id_type", e.target.value)
-                      }
-                      className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
-                    >
-                      <option value="cccd">Căn cước công dân</option>
-                      <option value="cmnd">Chứng minh nhân dân</option>
-                      <option value="passport">Hộ chiếu</option>
-                      <option value="birth_certificate">Giấy khai sinh</option>
-                    </select>
-                    <input
-                      type="text"
-                      value={row.identity_number ?? ""}
-                      disabled={!paxData.can_edit}
-                      onChange={(e) =>
-                        suaDong(index, "identity_number", e.target.value)
-                      }
-                      placeholder="Số giấy tờ"
-                      className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
-                    />
-                    <input
-                      type="text"
-                      value={row.phone ?? ""}
-                      disabled={!paxData.can_edit}
-                      onChange={(e) => suaDong(index, "phone", e.target.value)}
-                      placeholder="Số điện thoại"
-                      className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
-                    />
+                    {/*
+                      Giấy tờ chỉ hỏi người lớn; em bé thì không hỏi cả số điện thoại.
+
+                      Trẻ em và em bé phần lớn chưa có giấy tờ riêng, khai báo lưu trú thì các cháu
+                      đi theo người lớn cùng phòng. Ô nào không có thật thì đừng bày ra — người
+                      dùng để trống rồi tự hỏi mình có bỏ sót bước nào không.
+                    */}
+                    {row.type === "adult" && (
+                      <>
+                        <select
+                          value={row.id_type ?? "cccd"}
+                          disabled={!paxData.can_edit}
+                          onChange={(e) =>
+                            suaDong(index, "id_type", e.target.value)
+                          }
+                          className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
+                        >
+                          <option value="cccd">Căn cước công dân</option>
+                          <option value="cmnd">Chứng minh nhân dân</option>
+                          <option value="passport">Hộ chiếu</option>
+                          <option value="birth_certificate">Giấy khai sinh</option>
+                        </select>
+                        <input
+                          type="text"
+                          value={row.identity_number ?? ""}
+                          disabled={!paxData.can_edit}
+                          onChange={(e) =>
+                            suaDong(index, "identity_number", e.target.value)
+                          }
+                          placeholder="Số giấy tờ"
+                          className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
+                        />
+                      </>
+                    )}
+                    {row.type !== "infant" && (
+                      <input
+                        type="text"
+                        value={row.phone ?? ""}
+                        disabled={!paxData.can_edit}
+                        onChange={(e) => suaDong(index, "phone", e.target.value)}
+                        placeholder={
+                          row.type === "child"
+                            ? "Số điện thoại (nếu có)"
+                            : "Số điện thoại"
+                        }
+                        className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs disabled:opacity-60"
+                      />
+                    )}
                     <input
                       type="text"
                       value={row.special_request ?? ""}
