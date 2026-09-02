@@ -120,6 +120,74 @@ class ReceivablesTest extends TestCase
     }
 
     /**
+     * Sổ đủ tiền nhưng mốc `paid_at` còn trống thì vẫn KHÔNG phải công nợ.
+     *
+     * Đây là lỗi của bản đầu tiên, và nó lộ ra ngay trên dữ liệu mẫu. Bộ lọc khi ấy chỉ đọc
+     * `paid_at`, với lý lẽ rằng `BookingPaymentService::record()` đóng mốc ấy lúc thu đủ. Lý lẽ đó
+     * chỉ đúng với tiền đi qua service — seeder, dữ liệu nhập từ hệ thống cũ, hay một lần sửa tay
+     * trong cơ sở dữ liệu đều ghi thẳng vào bảng bút toán và không đụng tới mốc.
+     *
+     * Hậu quả là đơn đã thu đủ vẫn nằm trong danh sách đòi nợ, cột "còn thiếu" ghi 0 đồng — một
+     * dòng tự mâu thuẫn với chính nó.
+     */
+    public function test_so_du_tien_nhung_thieu_moc_thanh_toan_van_khong_phai_cong_no(): void
+    {
+        $don = $this->taoDon('confirmed', null);
+
+        // Ghi thẳng vào bảng, đúng cách seeder làm: đủ tiền nhưng không qua service.
+        BookingPayment::create([
+            'booking_id' => $don->id,
+            'kind' => 'balance',
+            'amount' => 4_000_000,
+            'paid_at' => now(),
+        ]);
+
+        $this->assertNull($don->fresh()->paid_at, 'Ghi thẳng thì mốc thanh toán vẫn trống.');
+
+        $res = $this->getJson('/api/admin/receivables')->assertOk();
+
+        $this->assertSame([], $res->json('data.data'));
+        $this->assertEquals(0.0, $res->json('data.outstanding_total'));
+    }
+
+    /**
+     * Đơn cũ không có bút toán nào nhưng đã đóng mốc thanh toán cũng không phải công nợ.
+     *
+     * Nhóm này tạo trước khi sổ mở cho đơn lẻ, nên `paid_at` là bằng chứng duy nhất còn lại rằng
+     * tiền đã về. Bỏ vế ấy khỏi bộ lọc là đi đòi lại tiền của mọi đơn cũ.
+     */
+    public function test_don_cu_khong_dung_so_nhung_da_dong_moc_thi_khong_phai_cong_no(): void
+    {
+        $don = $this->taoDon('confirmed', null);
+        $don->forceFill(['paid_at' => now()])->save();
+
+        $this->getJson('/api/admin/receivables')
+            ->assertOk()
+            ->assertJsonPath('data.data', []);
+    }
+
+    /**
+     * Đơn thu đủ rồi được hoàn bớt thuộc chiều bên kia, không phải phải thu.
+     *
+     * Nó còn thiếu so với giá đơn, nhưng phần thiếu là tiền công ty vừa trả lại khách.
+     */
+    public function test_don_da_hoan_bot_khong_nam_trong_phai_thu(): void
+    {
+        $don = $this->taoDon('confirmed', 4_000_000);
+
+        BookingPayment::create([
+            'booking_id' => $don->id,
+            'kind' => BookingPayment::HOAN,
+            'amount' => 1_000_000,
+            'paid_at' => now(),
+        ]);
+
+        $this->getJson('/api/admin/receivables')
+            ->assertOk()
+            ->assertJsonPath('data.data', []);
+    }
+
+    /**
      * Đơn đang giữ chỗ không phải công nợ.
      *
      * Nó chưa trả đồng nào theo định nghĩa, và tự hủy sau mười phút. Gọi đó là công nợ thì danh
@@ -164,6 +232,38 @@ class ReceivablesTest extends TestCase
 
         $this->assertTrue($dong['overdue']);
         $this->assertNotNull($dong['due_by']);
+    }
+
+    /**
+     * Chạy trên chính bộ dữ liệu mẫu, vì đó là chỗ lỗi cũ lộ ra.
+     *
+     * Các seeder ghi bút toán thẳng vào bảng chứ không qua `BookingPaymentService`, nên chúng dựng
+     * đúng loại đơn mà bộ lọc cũ đọc sai: sổ đủ tiền, mốc `paid_at` trống. Bài này giữ cho mọi dòng
+     * trong danh sách đều thực sự còn thiếu tiền — không dòng nào ghi "còn thiếu 0 đồng".
+     */
+    public function test_khong_co_don_da_thu_du_nao_lot_vao_du_lieu_mau(): void
+    {
+        $this->seed();
+
+        $dong = $this->getJson('/api/admin/receivables?per_page=100')->assertOk()->json('data.data');
+
+        // Bộ dữ liệu mẫu có đơn đoàn mới đóng cọc, nên danh sách phải có ít nhất một dòng — nếu
+        // rỗng thì vòng lặp dưới đây không kiểm gì cả và bài này xanh một cách vô nghĩa.
+        $this->assertNotEmpty($dong, 'Dữ liệu mẫu phải có ít nhất một đơn còn nợ để bài này có nghĩa.');
+
+        foreach ($dong as $row) {
+            $this->assertGreaterThan(
+                0,
+                $row['balance_due'],
+                sprintf('Đơn BK-%d đã thu đủ mà vẫn nằm trong danh sách phải thu.', $row['id']),
+            );
+
+            $this->assertLessThan(
+                $row['total_amount'],
+                $row['net_paid'],
+                sprintf('Đơn BK-%d có số đã thu bằng giá trị đơn.', $row['id']),
+            );
+        }
     }
 
     /** Lọc theo số ngày tới ngày đi, để đòi đơn gấp trước. */

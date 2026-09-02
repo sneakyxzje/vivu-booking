@@ -168,15 +168,24 @@ class AdminBookingPaymentController extends Controller
      * cọc trước, phần còn lại sau, và có thể bằng chuyển khoản hay tiền mặt — nó thành câu kế toán
      * hỏi mỗi ngày: *hôm nay những đơn nào còn nợ, tổng bao nhiêu, đơn nào sắp đi mà chưa thu đủ.*
      *
-     * ## Vì sao lọc theo `paid_at IS NULL`
+     * ## Vì sao phải cộng sổ chứ không chỉ đọc `paid_at`
      *
-     * Rẻ và chính xác. `BookingPaymentService::record()` đóng mốc ấy đúng lúc thu đủ giá tour, nên
-     * đơn còn mốc trống là đơn còn thiếu tiền — lọc được thẳng ở SQL thay vì kéo mọi đơn về rồi
-     * cộng sổ từng cái.
+     * Bản đầu của màn này lọc mỗi `paid_at IS NULL`, với lý lẽ rằng `BookingPaymentService::record()`
+     * đóng mốc ấy đúng lúc thu đủ. Lý lẽ ấy chỉ đúng với tiền **đi qua service** — dữ liệu dựng bằng
+     * seeder, nhập từ hệ thống cũ, hay sửa tay trong cơ sở dữ liệu thì ghi thẳng vào bảng bút toán
+     * và mốc kia không bao giờ đóng. Kết quả: đơn đã thu đủ vẫn nằm trong danh sách đòi nợ, với cột
+     * "còn thiếu" ghi 0 đồng — tự nó mâu thuẫn.
      *
-     * Nó cũng loại đúng một nhóm không nên có mặt ở đây: đơn đã thu đủ rồi được hoàn bớt một phần.
-     * Đơn ấy có số dư âm so với giá đơn, nhưng đó là tiền công ty trả lại khách chứ không phải
-     * khách nợ công ty — chỗ của nó là màn hoàn tiền.
+     * Nên điều kiện thật nằm ở tổng sổ: **tổng các khoản THU nhỏ hơn giá đơn**. Đó là định nghĩa của
+     * "khách còn nợ", không phải một dấu hiệu gián tiếp của nó.
+     *
+     * `paid_at IS NULL` vẫn giữ, nhưng cho việc khác: các đơn tạo TRƯỚC khi sổ mở cho đơn lẻ không
+     * có bút toán nào cả, và với chúng mốc ấy là bằng chứng duy nhất còn lại rằng tiền đã về. Thiếu
+     * vế này thì mọi đơn cũ đều bị đòi lại tiền một lần nữa.
+     *
+     * Hai vế cùng nhau cũng loại đúng nhóm không nên có mặt ở đây: đơn đã thu đủ rồi được hoàn bớt
+     * một phần. Đơn ấy còn thiếu so với giá đơn, nhưng phần thiếu là tiền công ty vừa trả lại khách
+     * chứ không phải khách nợ công ty — chỗ của nó là tab phải trả.
      *
      * ## Vì sao bỏ đơn đang giữ chỗ
      *
@@ -192,9 +201,23 @@ class AdminBookingPaymentController extends Controller
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
+        /*
+         * Tổng đã THU của đơn, tính ngay trong SQL.
+         *
+         * Viết bằng truy vấn con thay vì kéo mọi đơn về rồi cộng bằng PHP: danh sách này phân trang,
+         * và lọc bằng PHP sau khi phân trang cho ra những trang trống một cách khó hiểu.
+         *
+         * Chỉ cộng các loại THU của giá tour. Phụ thu sự cố là túi tiền khác — gộp vào thì một đơn
+         * còn nợ tiền tour bỗng biến mất khỏi danh sách chỉ vì khách đã trả tiền một đêm phòng
+         * chạy bão.
+         */
+        $daThu = '(SELECT COALESCE(SUM(bp.amount), 0) FROM booking_payments bp'
+            . ' WHERE bp.booking_id = bookings.id AND bp.kind IN (?, ?))';
+
         $truyVan = fn () => Booking::query()
             ->whereIn('status', BookingStatus::paidValues())
             ->whereNull('paid_at')
+            ->whereRaw($daThu . ' < bookings.total_amount', BookingPayment::THU)
             ->when($filters['q'] ?? null, function ($q, string $tuKhoa) {
                 $tuKhoa = trim($tuKhoa);
 
