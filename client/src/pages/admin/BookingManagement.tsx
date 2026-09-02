@@ -16,6 +16,7 @@ import {
   NHOM_LY_DO_CHUYEN,
 } from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
+import { StepperModal } from "@/components/admin/StepperModal";
 import { formatDateTime, formatPrice } from "@/utils/format";
 
 /** Nhãn tiếng Việt cho cột `method` của sổ giao dịch. `gateway` là khoản do VNPay báo về. */
@@ -84,6 +85,9 @@ export default function BookingManagement() {
   });
 
   const [cancelMode, setCancelMode] = useState(false);
+  /** Bước đang mở của hai luồng nhiều bước. Xem StepperModal. */
+  const [buocHuy, setBuocHuy] = useState(0);
+  const [buocChuyen, setBuocChuyen] = useState(0);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelPreview, setCancelPreview] = useState<CancelPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -230,6 +234,9 @@ export default function BookingManagement() {
 
   const dangLoc =
     tuKhoaTim !== "" || statusFilter !== "all" || paymentFilter !== "all";
+
+  /** Chuyến đích đang chọn, để bước xác nhận nhắc lại đúng thứ sắp xảy ra. */
+  const chuyenDich = transferOptions.find((o) => o.schedule_id === transferTargetId) ?? null;
 
   // Xem chi tiết đơn hàng (Gọi API chi tiết để lấy thông tin sâu hơn như payment log)
   const openDetails = async (booking: Booking) => {
@@ -412,9 +419,21 @@ export default function BookingManagement() {
    * trả chỗ phụ thuộc hạn chốt danh sách của chuyến. Tính lại ở trình duyệt thì sớm muộn cũng
    * lệch với con số máy chủ thực sự áp dụng.
    */
+  /*
+   * Mở luồng chuyển chuyến từ đầu.
+   *
+   * Tách khỏi `openTransferForm` vì hàm kia còn được gọi lại mỗi lần đổi "ai yêu cầu" hay "nhóm lý
+   * do" — để nó tự nhảy về bước 1 thì đổi một ô ở bước 2 là mất chỗ đang đứng.
+   */
+  const moChuyenChuyen = () => {
+    setBuocChuyen(0);
+    openTransferForm();
+  };
+
   const openCancelForm = async () => {
     if (!selectedBooking) return;
 
+    setBuocHuy(0);
     setCancelMode(true);
     setActionError("");
     setCancelPreview(null);
@@ -998,7 +1017,7 @@ export default function BookingManagement() {
                 đơn giản hơn nhiều. */}
             {selectedBooking?.status === "confirmed" && !cancelMode && !transferMode && (
               <button
-                onClick={() => openTransferForm()}
+                onClick={moChuyenChuyen}
                 disabled={actionLoading}
                 className="px-4 py-2 bg-white border border-blue-200 text-sm font-semibold rounded-md text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50 cursor-pointer"
               >
@@ -1609,65 +1628,217 @@ export default function BookingManagement() {
               </div>
             )}
 
-            {/* I06 - Chọn chuyến đích và xem trước chênh lệch */}
-            {transferMode && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="block text-sm font-semibold text-blue-800">
-                    Chuyển sang chuyến khác
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
-                    <input
-                      type="checkbox"
-                      checked={sameTourOnly}
-                      onChange={(e) => openTransferForm(e.target.checked)}
-                    />
-                    Chỉ trong cùng tour
-                  </label>
+          </div>
+        );
+        })()}
+      </Modal>
+
+      {/*
+        Hủy đơn — ba bước.
+
+        Trước đây cả cụm này nằm ngay trong hộp chi tiết đơn, dưới hai chục dòng thông tin khác.
+        Người bấm phải cuộn qua bảng dự báo để tới được cái nút, mà bảng dự báo mới đúng là thứ
+        họ cần đọc kỹ nhất: hoàn bao nhiêu, và chỗ có quay lại kho không.
+      */}
+      {cancelMode && selectedBooking && (
+        <StepperModal
+          isOpen
+          onClose={() => { setCancelMode(false); setCancelReason(""); setCancelPreview(null); }}
+          title={`Hủy đơn BK-${selectedBooking.id}`}
+          subtitle={`${selectedBooking.customer_name} · ${selectedBooking.guests} khách · khởi hành ${formatDateTime(selectedBooking.departure_date)}`}
+          sacThai="nguy-hiem"
+          hienTai={buocHuy}
+          onDoiBuoc={setBuocHuy}
+          nhanHoanTat="Xác nhận hủy đơn"
+          onHoanTat={handleCancel}
+          dangChay={actionLoading}
+          buoc={[
+            {
+              ten: "Hậu quả",
+              moTa: "Đọc hai con số này trước: khách nhận lại bao nhiêu, và chỗ có bán lại được không.",
+              chuaXong: previewLoading
+                ? "Đang tính mức hoàn..."
+                : !cancelPreview
+                  ? "Chưa lấy được dự báo."
+                  : !cancelPreview.can_cancel
+                    ? "Đơn này không hủy được."
+                    : null,
+              noiDung: (
+                <>
+                  {previewLoading && (
+                    <p className="text-xs font-medium text-gray-500">
+                      Đang tính mức hoàn và tình trạng chỗ...
+                    </p>
+                  )}
+
+                  {cancelPreview && !cancelPreview.can_cancel && (
+                    <div className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2.5">
+                      <p className="text-sm font-bold text-rose-700">Không hủy được đơn này</p>
+                      <p className="text-xs text-rose-700 mt-0.5">{cancelPreview.blocked_reason}</p>
+                    </div>
+                  )}
+
+                  {cancelPreview && cancelPreview.can_cancel && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500">
+                          Còn {Math.max(0, Math.round(cancelPreview.hours_before ?? 0))} giờ tới khởi hành
+                          {cancelPreview.policy_name ? ` · ${cancelPreview.policy_name}` : ""}
+                        </span>
+                        <span className="font-bold text-gray-900">
+                          Mức hoàn {cancelPreview.refund_percent}%
+                        </span>
+                      </div>
+
+                      {/* Vì sao mức hoàn là 100%. Không nói ra thì người bấm tưởng bảng phí hỏng. */}
+                      {cancelPreview.moved_by_company && (
+                        <p className="rounded-md bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+                          Đơn này đang ở chuyến do công ty dời tới. Khách từ chối một thay đổi họ
+                          không chọn nên không chịu phí hủy — hoàn đủ số đã thu.
+                        </p>
+                      )}
+
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="rounded-md bg-gray-50 py-2">
+                          <p className="text-[11px] text-gray-500">Đã thu</p>
+                          <p className="text-sm font-bold text-gray-900">{formatPrice(cancelPreview.paid_amount)}</p>
+                        </div>
+                        <div className="rounded-md bg-amber-50 py-2">
+                          <p className="text-[11px] text-amber-700">Phí hủy</p>
+                          <p className="text-sm font-bold text-amber-800">{formatPrice(cancelPreview.cancellation_fee)}</p>
+                        </div>
+                        <div className="rounded-md bg-emerald-50 py-2">
+                          <p className="text-[11px] text-emerald-700">Hoàn khách</p>
+                          <p className="text-sm font-bold text-emerald-800">{formatPrice(cancelPreview.refund_amount)}</p>
+                        </div>
+                      </div>
+
+                      {/* Điểm dễ hiểu sai nhất: hủy sau hạn chốt thì chỗ ở lại với đơn, vì suất
+                          đã cam kết với nhà cung cấp và không hủy được nữa. */}
+                      {cancelPreview.seats_will_be_released ? (
+                        <p className="text-xs text-gray-600">
+                          Chỗ sẽ được trả về kho và lịch khởi hành bán tiếp được ngay.
+                        </p>
+                      ) : (
+                        <p className="rounded-md bg-rose-100 px-3 py-2 text-xs font-semibold text-rose-800">
+                          Đơn này đã qua hạn chốt danh sách. Hủy xong <strong>chỗ không quay lại kho</strong>,
+                          nó thành ghế chết và chỉ mở bán lại được bằng tay ở mục Chỗ đã hủy chưa mở bán lại.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
+              ),
+            },
+            {
+              ten: "Lý do",
+              moTa: "Câu này vào nhật ký của đơn, và là thứ người sau đọc để hiểu vì sao đơn bị hủy.",
+              chuaXong: cancelReason.trim() ? null : "Nhập lý do hủy để đi tiếp.",
+              noiDung: (
+                <>
+                  <textarea
+                    rows={3}
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    placeholder="VD: Khách yêu cầu hoàn do thay đổi lịch trình, tour bị hoãn..."
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-rose-400"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Lượt mã giảm giá luôn được hoàn lại.
+                    {selectedBooking.vnpay_transaction_no && " Đơn này ĐÃ thanh toán qua VNPay — cần chuyển tiền hoàn cho khách thủ công."}
+                  </p>
+                </>
+              ),
+            },
+            {
+              ten: "Xác nhận",
+              moTa: "Bấm xong không lùi lại được.",
+              chuaXong: null,
+              noiDung: (
+                <div className="space-y-2 text-sm">
+                  <p className="text-gray-700">
+                    Hủy đơn <b>BK-{selectedBooking.id}</b> của {selectedBooking.customer_name}.
+                  </p>
+                  {cancelPreview && (
+                    <p className="text-gray-700">
+                      Khách nhận lại <b>{formatPrice(cancelPreview.refund_amount)}</b>
+                      {cancelPreview.cancellation_fee > 0 && ` (đã trừ phí hủy ${formatPrice(cancelPreview.cancellation_fee)})`}.
+                      {" "}
+                      {cancelPreview.seats_will_be_released
+                        ? "Chỗ quay lại kho."
+                        : "Chỗ KHÔNG quay lại kho — thành ghế chết."}
+                    </p>
+                  )}
+                  <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                    <span className="font-semibold">Lý do đã ghi:</span> {cancelReason.trim()}
+                  </p>
                 </div>
+              ),
+            },
+          ]}
+        />
+      )}
 
-                {/* Ai khởi xướng quyết định hai luật: hạn báo trước 7 ngày và phí đổi lịch.
-                    Khách gọi lên xin đổi thì vẫn là khách, dù người bấm nút là điều hành. */}
-                <div className="flex items-center gap-4 text-xs">
-                  <span className="font-semibold text-gray-700">Ai yêu cầu:</span>
-                  <label className="flex items-center gap-1.5 text-gray-700">
-                    <input
-                      type="radio"
-                      name="transfer-initiator"
-                      checked={initiatedBy === "customer"}
-                      onChange={() => openTransferForm(sameTourOnly, "customer")}
-                    />
-                    Khách xin đổi
-                  </label>
-                  <label className="flex items-center gap-1.5 text-gray-700">
-                    <input
-                      type="radio"
-                      name="transfer-initiator"
-                      checked={initiatedBy === "company"}
-                      onChange={() => openTransferForm(sameTourOnly, "company")}
-                    />
-                    Công ty chuyển
-                  </label>
-                </div>
+      {/*
+        I06 - Chuyển chuyến, ba bước.
 
-                <p className="text-[11px] text-gray-500">
-                  {initiatedBy === "customer"
-                    ? "Khách xin đổi: cần báo trước 7 ngày, và từ lần thứ hai có phí đổi lịch."
-                    : "Công ty chuyển: miễn hạn báo trước và miễn phí đổi lịch. Vẫn không chuyển được sau hạn chốt danh sách."}
-                </p>
+        Thứ tự các bước là thứ tự việc thật: gọi cho khách, thống nhất phương án, rồi mới đụng vào
+        đơn. Không có căn cứ thì máy chủ từ chối ngay từ đầu, nên hỏi nó sau cùng chỉ khiến người
+        ta điền xong hết mới biết mình thiếu.
+      */}
+      {transferMode && selectedBooking && (
+        <StepperModal
+          isOpen
+          onClose={closeTransferForm}
+          title={`Chuyển chuyến cho đơn BK-${selectedBooking.id}`}
+          subtitle={`${selectedBooking.customer_name} · ${selectedBooking.guests} khách · đang ở chuyến ${formatDateTime(selectedBooking.departure_date)}`}
+          size="2xl"
+          hienTai={buocChuyen}
+          onDoiBuoc={setBuocChuyen}
+          nhanHoanTat="Xác nhận chuyển"
+          onHoanTat={handleTransfer}
+          dangChay={actionLoading}
+          buoc={[
+            {
+              ten: "Trao đổi với khách",
+              moTa: "Chuyển chuyến là đổi ngày đi của khách, nên phải hỏi họ trước.",
+              chuaXong: canCuId
+                ? null
+                : "Cần một cuộc liên hệ có kết quả “khách đồng ý” và chưa dùng cho lần chuyển nào.",
+              noiDung: (
+                <>
+                  {/* Ai khởi xướng quyết định hai luật: hạn báo trước 7 ngày và phí đổi lịch.
+                      Khách gọi lên xin đổi thì vẫn là khách, dù người bấm nút là điều hành. */}
+                  <div className="flex flex-wrap items-center gap-4 text-xs">
+                    <span className="font-semibold text-gray-700">Ai yêu cầu:</span>
+                    <label className="flex items-center gap-1.5 text-gray-700">
+                      <input
+                        type="radio"
+                        name="transfer-initiator"
+                        checked={initiatedBy === "customer"}
+                        onChange={() => openTransferForm(sameTourOnly, "customer")}
+                      />
+                      Khách xin đổi
+                    </label>
+                    <label className="flex items-center gap-1.5 text-gray-700">
+                      <input
+                        type="radio"
+                        name="transfer-initiator"
+                        checked={initiatedBy === "company"}
+                        onChange={() => openTransferForm(sameTourOnly, "company")}
+                      />
+                      Công ty chuyển
+                    </label>
+                  </div>
 
-                {/*
-                  Bước 1 — đã trao đổi với khách chưa.
+                  <p className="text-[11px] text-gray-500">
+                    {initiatedBy === "customer"
+                      ? "Khách xin đổi: cần báo trước 7 ngày, và từ lần thứ hai có phí đổi lịch."
+                      : "Công ty chuyển: miễn hạn báo trước và miễn phí đổi lịch. Vẫn không chuyển được sau hạn chốt danh sách."}
+                  </p>
 
-                  Đứng trước phần chọn chuyến, vì đó là thứ tự việc thật: gọi cho khách, thống nhất
-                  phương án, rồi mới đụng vào đơn. Không có căn cứ thì máy chủ từ chối, nên bày ra
-                  sau cùng chỉ khiến người ta điền xong hết mới biết mình thiếu.
-                */}
-                <div className="rounded-md border border-gray-200 bg-white p-3 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-gray-800">
-                      1. Trao đổi với khách
-                    </span>
+                  <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-3">
+                    <span className="text-xs font-bold text-gray-800">Căn cứ đã ghi nhận</span>
                     {!ghiLienHe && (
                       <button
                         type="button"
@@ -1681,8 +1852,7 @@ export default function BookingManagement() {
 
                   {contactLogs.length === 0 && !ghiLienHe && (
                     <p className="text-[11px] text-gray-500">
-                      Chưa có cuộc liên hệ nào được ghi nhận cho đơn này. Chuyển chuyến là đổi ngày
-                      đi của khách, nên phải hỏi họ trước.
+                      Chưa có cuộc liên hệ nào được ghi nhận cho đơn này.
                     </p>
                   )}
 
@@ -1780,250 +1950,150 @@ export default function BookingManagement() {
                       </div>
                     </div>
                   )}
-                </div>
+                </>
+              ),
+            },
+            {
+              ten: "Chuyến đích",
+              moTa: "Máy chủ đã loại sẵn chuyến không chuyển được và tính sẵn chênh lệch cho từng lựa chọn.",
+              chuaXong: transferTargetId ? null : "Chọn một chuyến để đi tiếp.",
+              noiDung: (
+                <>
+                  {/*
+                    Nhóm lý do đứng trên danh sách vì nó đổi con số phí: ba nhóm đầu là bất khả
+                    kháng nên không thu phí đổi lịch, còn nhóm cuối thì có.
+                  */}
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-gray-800">Nhóm lý do</span>
+                    <select
+                      value={nhomLyDo}
+                      onChange={(e) =>
+                        openTransferForm(sameTourOnly, initiatedBy, e.target.value as TransferReasonCategory)
+                      }
+                      className="w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-xs"
+                    >
+                      {NHOM_LY_DO_CHUYEN.map((n) => (
+                        <option key={n.value} value={n.value}>{n.label}</option>
+                      ))}
+                    </select>
+                    <p className="text-[11px] text-gray-500">
+                      {nhomLyDo === "customer_request"
+                        ? "Việc riêng của khách: áp quy tắc phí đổi lịch như thường."
+                        : "Bất khả kháng: không thu phí đổi lịch của khách, dù đây là lần chuyển thứ mấy."}
+                    </p>
+                  </div>
 
-                {/*
-                  Bước 2 — nhóm căn cứ.
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={sameTourOnly}
+                      onChange={(e) => openTransferForm(e.target.checked)}
+                    />
+                    Chỉ trong cùng tour
+                  </label>
 
-                  Không phải để phân loại cho đẹp báo cáo: ba nhóm đầu là bất khả kháng nên không
-                  thu phí đổi lịch, còn nhóm cuối thì có. Đổi lựa chọn ở đây là gọi lại máy chủ để
-                  con số phí hiện ra đúng thứ sẽ thu thật.
-                */}
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-gray-800">2. Nhóm lý do</span>
-                  <select
-                    value={nhomLyDo}
-                    onChange={(e) =>
-                      openTransferForm(sameTourOnly, initiatedBy, e.target.value as TransferReasonCategory)
-                    }
-                    className="w-full rounded border border-gray-200 bg-white px-2 py-1.5 text-xs"
-                  >
-                    {NHOM_LY_DO_CHUYEN.map((n) => (
-                      <option key={n.value} value={n.value}>{n.label}</option>
-                    ))}
-                  </select>
-                  <p className="text-[11px] text-gray-500">
-                    {nhomLyDo === "customer_request"
-                      ? "Việc riêng của khách: áp quy tắc phí đổi lịch như thường."
-                      : "Bất khả kháng: không thu phí đổi lịch của khách, dù đây là lần chuyển thứ mấy."}
-                  </p>
-                </div>
+                  {transferLoading && (
+                    <p className="text-xs text-gray-500">Đang tìm chuyến phù hợp...</p>
+                  )}
 
-                <span className="block text-xs font-bold text-gray-800">3. Chọn chuyến đích</span>
+                  {!transferLoading && transferOptions.length === 0 && (
+                    <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs text-gray-600">
+                      Không có chuyến nào đang mở bán còn đủ {selectedBooking.guests} chỗ để chuyển sang.
+                    </p>
+                  )}
 
-                {transferLoading && (
-                  <p className="text-xs text-gray-500">Đang tìm chuyến phù hợp...</p>
-                )}
+                  <div className="space-y-2">
+                    {transferOptions.map((option) => {
+                      const chenh = option.price_difference + option.fee;
+                      const dangChon = transferTargetId === option.schedule_id;
 
-                {!transferLoading && transferOptions.length === 0 && (
-                  <p className="rounded-md bg-white border border-gray-200 px-3 py-2.5 text-xs text-gray-600">
-                    Không có chuyến nào đang mở bán còn đủ {selectedBooking.guests} chỗ để chuyển sang.
-                  </p>
-                )}
-
-                {/* Máy chủ đã loại các chuyến không chuyển được và tính sẵn chênh lệch, nên ở đây
-                    chỉ hiển thị. Bày ra lựa chọn rồi báo lỗi khi bấm là bắt người dùng tự dò. */}
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {transferOptions.map((option) => {
-                    const chenh = option.price_difference + option.fee;
-                    const dangChon = transferTargetId === option.schedule_id;
-
-                    return (
-                      <button
-                        key={option.schedule_id}
-                        type="button"
-                        onClick={() => setTransferTargetId(option.schedule_id)}
-                        className={`w-full text-left rounded-lg border p-3 transition-colors ${
-                          dangChon
-                            ? "border-blue-500 bg-white ring-2 ring-blue-200"
-                            : "border-gray-200 bg-white hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-baseline justify-between gap-2">
-                          <span className="text-sm font-bold text-gray-900">
-                            {formatDateTime(option.start_date)}
-                          </span>
-                          <span className="text-[11px] text-gray-500">
-                            còn {option.remaining_seats} chỗ
-                          </span>
-                        </div>
-
-                        {!sameTourOnly && option.tour_title && (
-                          <p className="text-xs text-gray-600 mt-0.5">{option.tour_title}</p>
-                        )}
-
-                        <p
-                          className={`mt-1 text-xs font-semibold ${
-                            chenh > 0
-                              ? "text-amber-800"
-                              : chenh < 0
-                                ? "text-emerald-800"
-                                : "text-gray-500"
+                      return (
+                        <button
+                          key={option.schedule_id}
+                          type="button"
+                          onClick={() => setTransferTargetId(option.schedule_id)}
+                          className={`w-full text-left rounded-lg border p-3 transition-colors ${
+                            dangChon
+                              ? "border-blue-500 bg-blue-50/50 ring-2 ring-blue-200"
+                              : "border-gray-200 bg-white hover:bg-gray-50"
                           }`}
                         >
-                          {chenh > 0 && `Thu thêm ${formatPrice(chenh)}`}
-                          {chenh < 0 && `Chuyến mới rẻ hơn ${formatPrice(Math.abs(chenh))}`}
-                          {chenh === 0 && "Không chênh lệch"}
-                          {option.fee > 0 && ` (gồm phí đổi lịch ${formatPrice(option.fee)})`}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-sm font-bold text-gray-900">
+                              {formatDateTime(option.start_date)}
+                            </span>
+                            <span className="text-[11px] text-gray-500">
+                              còn {option.remaining_seats} chỗ
+                            </span>
+                          </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-blue-800 mb-1">
-                    4. Chuyện gì đã xảy ra <span className="text-rose-500">*</span>
-                  </label>
+                          {!sameTourOnly && option.tour_title && (
+                            <p className="text-xs text-gray-600 mt-0.5">{option.tour_title}</p>
+                          )}
+
+                          <p
+                            className={`mt-1 text-xs font-semibold ${
+                              chenh > 0
+                                ? "text-amber-800"
+                                : chenh < 0
+                                  ? "text-emerald-800"
+                                  : "text-gray-500"
+                            }`}
+                          >
+                            {chenh > 0 && `Thu thêm ${formatPrice(chenh)}`}
+                            {chenh < 0 && `Chuyến mới rẻ hơn ${formatPrice(Math.abs(chenh))}`}
+                            {chenh === 0 && "Không chênh lệch"}
+                            {option.fee > 0 && ` (gồm phí đổi lịch ${formatPrice(option.fee)})`}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ),
+            },
+            {
+              ten: "Lý do và xác nhận",
+              moTa: "Nhóm ở bước trước nói loại căn cứ; ô này nói việc cụ thể đã xảy ra.",
+              chuaXong:
+                transferReason.trim().length < 10
+                  ? "Ghi lại chuyện gì đã xảy ra, ít nhất 10 ký tự."
+                  : null,
+              noiDung: (
+                <>
                   <textarea
-                    rows={2}
+                    rows={3}
                     value={transferReason}
                     onChange={(e) => setTransferReason(e.target.value)}
                     placeholder="VD: Bão số 9, cấm biển từ 12/09, không chạy tàu ra đảo."
-                    className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
                   />
-                  <p className="mt-0.5 text-[11px] text-gray-500">
-                    Nhóm ở trên nói loại căn cứ, ô này nói việc cụ thể. Câu này vào nhật ký của đơn
-                    và là thứ người sau đọc lại để hiểu vì sao đơn bị dời.
+                  <p className="text-[11px] text-gray-500">
+                    Câu này vào nhật ký của đơn và là thứ người sau đọc lại để hiểu vì sao đơn bị dời.
                   </p>
-                </div>
 
-                {!canCuId && (
-                  <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
-                    Chưa chọn được căn cứ: cần một cuộc liên hệ có kết quả <b>khách đồng ý</b> và
-                    chưa dùng cho lần chuyển nào.
-                  </p>
-                )}
-
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={closeTransferForm}
-                    disabled={actionLoading}
-                    className="px-3.5 py-2 bg-white border border-gray-200 text-xs font-semibold rounded-md text-gray-600 hover:bg-gray-100 cursor-pointer"
-                  >
-                    Không chuyển nữa
-                  </button>
-                  <button
-                    onClick={handleTransfer}
-                    disabled={
-                      actionLoading || !transferTargetId || !canCuId || transferReason.trim().length < 10
-                    }
-                    className="px-3.5 py-2 bg-blue-600 text-xs font-semibold rounded-md text-white hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
-                  >
-                    {actionLoading ? "Đang chuyển..." : "Xác nhận chuyển"}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Form nhập lý do hủy */}
-            {cancelMode && (
-              <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-4 space-y-3">
-                {previewLoading && (
-                  <p className="text-xs font-medium text-gray-500">Đang tính mức hoàn và tình trạng chỗ...</p>
-                )}
-
-                {/* Chuyến đang chạy hoặc đã kết thúc thì không hủy được. Nói ngay ở đây thay vì
-                    để người ta gõ xong lý do rồi mới nhận lỗi. */}
-                {cancelPreview && !cancelPreview.can_cancel && (
-                  <div className="rounded-lg border border-rose-300 bg-white px-3 py-2.5">
-                    <p className="text-sm font-bold text-rose-700">Không hủy được đơn này</p>
-                    <p className="text-xs text-rose-700 mt-0.5">{cancelPreview.blocked_reason}</p>
-                  </div>
-                )}
-
-                {cancelPreview && cancelPreview.can_cancel && (
-                  <div className="rounded-lg border border-gray-200 bg-white p-3 space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">
-                        Còn {Math.max(0, Math.round(cancelPreview.hours_before ?? 0))} giờ tới khởi hành
-                        {cancelPreview.policy_name ? ` · ${cancelPreview.policy_name}` : ""}
-                      </span>
-                      <span className="font-bold text-gray-900">
-                        Mức hoàn {cancelPreview.refund_percent}%
-                      </span>
+                  {chuyenDich && (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm space-y-1">
+                      <p className="text-gray-700">
+                        Chuyển sang chuyến <b>{formatDateTime(chuyenDich.start_date)}</b>
+                        {!sameTourOnly && chuyenDich.tour_title ? ` · ${chuyenDich.tour_title}` : ""}.
+                      </p>
+                      <p className="text-gray-700">
+                        {chuyenDich.price_difference + chuyenDich.fee > 0
+                          ? `Khách trả thêm ${formatPrice(chuyenDich.price_difference + chuyenDich.fee)}.`
+                          : chuyenDich.price_difference + chuyenDich.fee < 0
+                            ? `Chuyến mới rẻ hơn ${formatPrice(Math.abs(chuyenDich.price_difference + chuyenDich.fee))}.`
+                            : "Không có chênh lệch tiền."}
+                        {chuyenDich.fee > 0 && ` Trong đó phí đổi lịch ${formatPrice(chuyenDich.fee)}.`}
+                      </p>
                     </div>
-
-                    {/* Vì sao mức hoàn là 100%. Không nói ra thì người bấm tưởng bảng phí hỏng. */}
-                    {cancelPreview.moved_by_company && (
-                      <p className="rounded-md bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-                        Đơn này đang ở chuyến do công ty dời tới. Khách từ chối một thay đổi họ không
-                        chọn nên không chịu phí hủy — hoàn đủ số đã thu.
-                      </p>
-                    )}
-
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-md bg-gray-50 py-2">
-                        <p className="text-[11px] text-gray-500">Đã thu</p>
-                        <p className="text-sm font-bold text-gray-900">{formatPrice(cancelPreview.paid_amount)}</p>
-                      </div>
-                      <div className="rounded-md bg-amber-50 py-2">
-                        <p className="text-[11px] text-amber-700">Phí hủy</p>
-                        <p className="text-sm font-bold text-amber-800">{formatPrice(cancelPreview.cancellation_fee)}</p>
-                      </div>
-                      <div className="rounded-md bg-emerald-50 py-2">
-                        <p className="text-[11px] text-emerald-700">Hoàn khách</p>
-                        <p className="text-sm font-bold text-emerald-800">{formatPrice(cancelPreview.refund_amount)}</p>
-                      </div>
-                    </div>
-
-                    {/* Điểm dễ hiểu sai nhất: hủy sau hạn chốt danh sách thì chỗ ở lại với đơn,
-                        vì suất đã cam kết với nhà cung cấp và không hủy được nữa. */}
-                    {cancelPreview.seats_will_be_released ? (
-                      <p className="text-xs text-gray-600">
-                        Chỗ sẽ được trả về kho và lịch khởi hành bán tiếp được ngay.
-                      </p>
-                    ) : (
-                      <p className="rounded-md bg-rose-100 px-3 py-2 text-xs font-semibold text-rose-800">
-                        Đơn này đã qua hạn chốt danh sách. Hủy xong <strong>chỗ không quay lại kho</strong>,
-                        nó thành ghế chết và chỉ mở bán lại được bằng tay ở mục Chỗ đã hủy chưa mở bán lại.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <label className="block text-sm font-semibold text-rose-800">
-                  Lý do hủy đơn <span className="text-rose-500">*</span>
-                </label>
-                <textarea
-                  rows={2}
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder="VD: Khách yêu cầu hoàn do thay đổi lịch trình, tour bị hoãn..."
-                  className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm outline-none focus:border-rose-400"
-                />
-                <p className="text-xs text-rose-600">
-                  Lượt mã giảm giá luôn được hoàn lại.
-                  {selectedBooking.vnpay_transaction_no && " Đơn này ĐÃ thanh toán qua VNPay — cần chuyển tiền hoàn cho khách thủ công."}
-                </p>
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => { setCancelMode(false); setCancelReason(""); setCancelPreview(null); }}
-                    disabled={actionLoading}
-                    className="px-3.5 py-2 bg-white border border-gray-200 text-xs font-semibold rounded-md text-gray-600 hover:bg-gray-100 cursor-pointer"
-                  >
-                    Không hủy nữa
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    disabled={
-                      actionLoading
-                      || previewLoading
-                      || !cancelReason.trim()
-                      || cancelPreview?.can_cancel === false
-                    }
-                    className="px-3.5 py-2 bg-rose-600 text-xs font-semibold rounded-md text-white hover:bg-rose-700 disabled:opacity-50 cursor-pointer"
-                  >
-                    {actionLoading ? "Đang hủy..." : "Xác nhận hủy đơn"}
-                  </button>
-                </div>
-              </div>
-            )}
-
-          </div>
-        );
-        })()}
-      </Modal>
+                  )}
+                </>
+              ),
+            },
+          ]}
+        />
+      )}
     </div>
   );
 }
