@@ -291,6 +291,14 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
                   <p className="text-center text-sm font-semibold text-gray-700">Hành trình</p>
 
                   <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 md:divide-x md:divide-gray-100">
+                    {/*
+                      Không nhắc lại phương tiện ở đây.
+
+                      `vehicle_info` là thuộc tính của TOUR, giống hệt nhau ở mọi chuyến, nên in nó
+                      cạnh từng mốc ngày là lặp một câu dài hai lần trong cùng một thẻ mà không
+                      thêm thông tin nào để chọn giữa các ngày. Thông tin xe đã có ở khối mô tả
+                      tour phía trên và trong chi tiết đơn sau khi đặt.
+                    */}
                     <div className="md:pr-6">
                       <div className="flex items-baseline justify-between gap-3">
                         <span className="text-sm text-gray-500">
@@ -299,11 +307,6 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
                             {dinhDangNgay(ngayDi)}
                           </strong>
                         </span>
-                        {tour.vehicle_info && (
-                          <span className="text-sm font-medium text-orange-600">
-                            {tour.vehicle_info}
-                          </span>
-                        )}
                       </div>
                       {gioDi && (
                         <p className="mt-1 text-sm font-semibold text-gray-900">
@@ -324,11 +327,6 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
                             {dinhDangNgay(ngayVe)}
                           </strong>
                         </span>
-                        {tour.vehicle_info && (
-                          <span className="text-sm font-medium text-orange-600">
-                            {tour.vehicle_info}
-                          </span>
-                        )}
                       </div>
                       {gioVe && (
                         <p className="mt-1 text-sm font-semibold text-gray-900">
