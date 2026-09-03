@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import bookingService from "@/services/bookingService";
 import { RefundPolicyCard } from "@/components/RefundPolicyCard";
 import { CreditCardIcon, ChevronRightIcon } from "@/components/Icons";
+import { formatDateTime } from "@/utils/format";
 
 type Booking = {
   id: number;
@@ -69,18 +70,16 @@ const formatCurrency = (value?: number) =>
     maximumFractionDigits: 0,
   }).format(Number(value ?? 0));
 
-const formatDateTime = (dateStr?: string | null) => {
-  if (!dateStr) return "-";
-  try {
-    const d = new Date(dateStr.trim().replace(" ", "T"));
-    return new Intl.DateTimeFormat("vi-VN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }).format(d);
-  } catch {
-    return dateStr;
-  }
-};
+/*
+ * ĐÃ GỠ: bản `formatDateTime` riêng của trang này.
+ *
+ * Nó dùng `dateStyle: "medium"`, mà với `vi-VN` cho ra "9 thg 9, 2026" — dạng có chữ, khác hẳn
+ * "09/09/2026" mà mọi màn hình còn lại đang hiện. Đây là trang xác nhận đặt tour, tức chỗ khách
+ * đối chiếu ngày khởi hành với thư xác nhận và với trang tra cứu; ba nơi ấy phải viết ngày giống
+ * nhau thì mới đối chiếu được.
+ *
+ * Dùng `formatDateTime` dùng chung ở `@/utils/format`.
+ */
 
 const isPaidStatus = (status: string) =>
   ["confirmed", "paid", "completed", "đã thanh toán", "thành công"].includes(

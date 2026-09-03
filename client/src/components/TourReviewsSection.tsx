@@ -4,6 +4,7 @@ import { Star, CheckCircle2, MessageSquare, Clock, XCircle, CornerDownRight } fr
 import tourService from "@/services/tourService";
 import type { TourReview, TourReviewSummary } from "@/services/tourService";
 import { useAuth } from "@/hooks/useAuth";
+import { formatDate } from "@/utils/format";
 
 const SUMMARY_RONG: TourReviewSummary = {
   total: 0,
@@ -194,7 +195,7 @@ export const TourReviewsSection: React.FC<{
                     )}
                   </h4>
                   <span className="text-[11px] text-gray-400">
-                    {new Date(rev.created_at).toLocaleDateString("vi-VN")}
+                    {formatDate(rev.created_at)}
                   </span>
                 </div>
               </div>
@@ -224,7 +225,7 @@ export const TourReviewsSection: React.FC<{
                   Vivu Booking phản hồi
                   {rev.replied_at && (
                     <span className="font-normal text-gray-400">
-                      · {new Date(rev.replied_at).toLocaleDateString("vi-VN")}
+                      · {formatDate(rev.replied_at)}
                     </span>
                   )}
                 </p>

@@ -6,7 +6,7 @@ import type {
   PassengerListResponse,
 } from "@/services/bookingService";
 import type { Booking } from "@/types";
-import { formatDateTime, formatPrice } from "@/utils/format";
+import { formatDate, formatDateTime, formatPrice } from "@/utils/format";
 import { Modal } from "@/components/Modal";
 import { DateTimePicker } from "@/components/DateTimePicker";
 import {
@@ -646,7 +646,7 @@ export const MyBookingsTab: React.FC = () => {
                 <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-100">
                   <span className="text-[11px] text-gray-400">
                     Ngày đăng ký:{" "}
-                    {new Date(item.created_at).toLocaleDateString("vi-VN")}
+                    {formatDate(item.created_at)}
                   </span>
 
                   <div className="flex items-center gap-2">
