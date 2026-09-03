@@ -12,6 +12,7 @@ use App\Models\BookingTransfer;
 use App\Models\CustomerContactLog;
 use App\Models\TourSchedule;
 use App\Models\User;
+use App\Notifications\Alert;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -33,7 +34,43 @@ class BookingTransferService
         private ScheduleLifecycleService $lifecycle,
         private BookingAuditLogger $auditLogger,
         private BookingPaymentService $payments,
+        private Notifier $notifier,
     ) {
+    }
+
+    /**
+     * Báo điều hành khi đơn còn nợ vừa hạ cánh xuống một chuyến quá sát ngày.
+     *
+     * Gọi SAU khi giao dịch đã ghi xong, cùng lý do với mọi chỗ gửi thư trong hệ thống: thông báo
+     * đã bay đi thì không gọi về được, còn giao dịch thì vẫn có thể quay lại.
+     *
+     * Luật "thế nào là quá sát" nằm ở `BookingPaymentService::tuDongThuNotKhongKip()`, dùng chung
+     * với luồng ghép chuyến. Chép nó về đây là tạo ra bản thứ hai của một luật, đúng thứ dự án này
+     * đã vấp nhiều lần.
+     */
+    private function canhBaoNeuKhongKipThuNot(Booking $booking): void
+    {
+        $moi = Booking::query()->with(['schedule:id,start_date', 'tour:id,title'])->find($booking->getKey());
+
+        if (!$moi || !$this->payments->tuDongThuNotKhongKip($moi)) {
+            return;
+        }
+
+        $this->notifier->toiDieuHanh(
+            Alert::CON_NO_SAT_NGAY,
+            sprintf(
+                'Đơn #%d còn thiếu %s đ mà chuyến khởi hành %s',
+                $moi->id,
+                number_format($this->payments->balanceDue($moi), 0, ',', '.'),
+                $moi->schedule?->start_date?->format('d/m') ?? 'rất gần',
+            ),
+            sprintf(
+                '%s · vừa đổi ngày nên quy trình nhắc và hủy tự động không còn kịp chạy. '
+                    . 'Gọi khách thu nốt, hoặc duyệt cho đi rồi thu sau.',
+                $moi->tour?->title ?? 'Tour',
+            ),
+            '/admin/bookings',
+        );
     }
 
     /**
@@ -95,7 +132,7 @@ class BookingTransferService
     ): BookingTransfer {
         $this->assertDaHoiKhach($booking, $canCu, $nguonBiHuy);
 
-        return DB::transaction(function () use ($booking, $toSchedule, $reason, $actor, $initiatedBy, $nguonBiHuy, $canCu, $nhomLyDo) {
+        $banGhi = DB::transaction(function () use ($booking, $toSchedule, $reason, $actor, $initiatedBy, $nguonBiHuy, $canCu, $nhomLyDo) {
             $ids = collect([$booking->tour_schedule_id, $toSchedule->getKey()])
                 ->filter()
                 ->unique()
@@ -202,6 +239,10 @@ class BookingTransferService
 
             return $banGhi;
         });
+
+        $this->canhBaoNeuKhongKipThuNot($booking);
+
+        return $banGhi;
     }
 
     /**

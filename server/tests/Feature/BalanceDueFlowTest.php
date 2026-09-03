@@ -397,6 +397,29 @@ class BalanceDueFlowTest extends TestCase
         Mail::assertNotQueued(BalanceReminderMail::class);
     }
 
+    // --- Đổi ngày làm quy trình tự động không kịp chạy ---------------------------------------
+
+    /**
+     * Đơn còn nợ mà chuyến khởi hành quá sát thì tự động không kịp, phải gọi người.
+     *
+     * Dây chuyền cần `ân hạn + 1` ngày: một ngày để lệnh nhắc chạy, rồi mấy ngày ân hạn mới tới lượt
+     * hủy. Chuyến đi sớm hơn ngần ấy thì cả dây vô nghĩa — và đây đúng là cảnh mà ghép chuyến tạo ra.
+     */
+    public function test_con_no_ma_chuyen_qua_sat_thi_bao_dieu_hanh(): void
+    {
+        $anHan = (int) config('booking.balance_final_notice_days', 2);
+
+        $sat = $this->donDaCoc($this->chuyen($anHan));
+        $conKip = $this->donDaCoc($this->chuyen($anHan + 5));
+        $daTraDu = $this->donDaCoc($this->chuyen($anHan), daThu: self::TONG);
+
+        $so = $this->so();
+
+        $this->assertTrue($so->tuDongThuNotKhongKip($sat), 'Sát ngày mà còn nợ thì tự động không kịp.');
+        $this->assertFalse($so->tuDongThuNotKhongKip($conKip), 'Còn thời gian thì để tác vụ nền lo.');
+        $this->assertFalse($so->tuDongThuNotKhongKip($daTraDu), 'Trả đủ rồi thì không có gì để thu.');
+    }
+
     /**
      * Đơn đoàn không nhận lá cảnh báo cuối.
      *

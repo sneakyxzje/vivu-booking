@@ -13,6 +13,7 @@ use App\Models\Booking;
 use App\Models\BookingTransfer;
 use App\Models\TourSchedule;
 use App\Models\User;
+use App\Notifications\Alert;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -39,7 +40,58 @@ class ScheduleMergeService
         private ScheduleLifecycleService $lifecycle,
         private BookingHoldService $holdService,
         private BookingAuditLogger $auditLogger,
+        private BookingPaymentService $payments,
+        private Notifier $notifier,
     ) {
+    }
+
+    /**
+     * Đơn nào vừa ghép sang mà còn nợ tiền, lại quá sát ngày để tự động thu nốt, thì gọi người.
+     *
+     * Ghép chuyến là đường duy nhất trong hệ thống dời ngày đi của khách mà KHÔNG hỏi họ. Khách đã
+     * cọc cho chuyến ngày 20, giờ ngồi trên chuyến ngày 8 — hạn trả nốt của chuyến mới đã trôi qua
+     * từ lâu, và cả dây chuyền nhắc rồi hủy không còn đủ thời gian để chạy hết.
+     *
+     * Trước đây chỗ này im lặng, nên đơn ấy trôi tới ngày khởi hành mà không ai biết nó còn thiếu
+     * tiền. Bây giờ điều hành nhận thông báo ngay lúc vừa bấm ghép, tức lúc còn kịp gọi khách.
+     *
+     * Luật "thế nào là quá sát" dùng chung với luồng chuyển chuyến — xem
+     * `BookingPaymentService::tuDongThuNotKhongKip()`.
+     *
+     * @param  array<int, int>  $ids
+     */
+    private function canhBaoDonConNoSatNgay(array $ids): void
+    {
+        if ($ids === []) {
+            return;
+        }
+
+        $don = Booking::query()
+            ->whereIn('id', $ids)
+            ->with(['schedule:id,start_date', 'tour:id,title'])
+            ->get();
+
+        foreach ($don as $booking) {
+            if (!$this->payments->tuDongThuNotKhongKip($booking)) {
+                continue;
+            }
+
+            $this->notifier->toiDieuHanh(
+                Alert::CON_NO_SAT_NGAY,
+                sprintf(
+                    'Đơn #%d còn thiếu %s đ mà chuyến khởi hành %s',
+                    $booking->id,
+                    number_format($this->payments->balanceDue($booking), 0, ',', '.'),
+                    $booking->schedule?->start_date?->format('d/m') ?? 'rất gần',
+                ),
+                sprintf(
+                    '%s · đơn vừa được ghép sang chuyến này nên quy trình nhắc và hủy tự động không '
+                        . 'còn kịp chạy. Gọi khách thu nốt, hoặc duyệt cho đi rồi thu sau.',
+                    $booking->tour?->title ?? 'Tour',
+                ),
+                '/admin/bookings',
+            );
+        }
     }
 
     /**
@@ -177,6 +229,7 @@ class ScheduleMergeService
             $idDaHuy = $huyDi->pluck('id')->all();
 
             DB::afterCommit(fn () => $this->baoChoKhach($idDaDoi, $idDaHuy, $ngayCu, $ngayMoi, $reason));
+            DB::afterCommit(fn () => $this->canhBaoDonConNoSatNgay($idDaDoi));
 
             return [
                 'transferred' => $chuyenDi->count(),

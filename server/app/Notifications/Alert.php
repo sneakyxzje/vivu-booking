@@ -59,6 +59,19 @@ class Alert extends Notification
      */
     public const CHUYEN_TRONG_CHO = 'schedule_seats_freed';
 
+    /**
+     * Đơn còn nợ tiền vừa được chuyển sang một chuyến quá sát ngày để quy trình tự động kịp chạy.
+     *
+     * Bình thường việc thu nốt do hai tác vụ nền lo: một cái gửi thư nhắc, một cái hủy đơn nếu quá
+     * hạn. Cả hai đều cần thời gian — thư đi hôm nay thì khách còn được mấy ngày ân hạn mới tới lượt
+     * bị hủy. Ghép chuyến hoặc chuyển chuyến vào sát ngày khởi hành làm khoảng thời gian ấy biến mất.
+     *
+     * Hệ thống cố ý KHÔNG tự xử lý tiếp. Hai lối thoát duy nhất đều là việc của con người: gọi khách
+     * thu nốt, hoặc chấp nhận cho họ đi rồi thu sau. Còn để máy tự hủy thì nó hủy đúng vào người vừa
+     * bị chính công ty dời ngày — và hủy khi đã quá muộn để bán lại cái chỗ ấy.
+     */
+    public const CON_NO_SAT_NGAY = 'balance_unpaid_near_departure';
+
     /* --- Việc cả hai vai đều cần biết ---------------------------------------------------- */
 
     /**

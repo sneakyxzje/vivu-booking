@@ -578,6 +578,41 @@ class BookingPaymentService
         return min($conThieu, $booking->depositAmount());
     }
 
+    /**
+     * Đơn này còn nợ tiền, mà quy trình thu nốt tự động KHÔNG còn kịp chạy trước giờ khởi hành.
+     *
+     * Việc thu nốt bình thường do hai tác vụ nền lo, và chúng cần thời gian thật:
+     *
+     *   1. Lệnh nhắc chạy mỗi ngày một lần, nên thư sớm nhất cũng phải sang hôm sau mới đi.
+     *   2. Lệnh hủy chỉ đụng tới đơn sau khi đã qua `balance_final_notice_days` ngày kể từ lá thư ấy.
+     *
+     * Cộng lại là `ân hạn + 1` ngày. Chuyến khởi hành sớm hơn ngần ấy thì cả dây chuyền vô nghĩa:
+     * thư gửi đi cũng không kịp tới lượt hủy, mà có kịp thì hủy lúc đó cũng không bán lại được chỗ.
+     *
+     * Chỉ xảy ra khi đơn bị ĐỔI NGÀY sau lúc đặt — ghép chuyến, chuyển chuyến. Đơn đặt thẳng vào
+     * chuyến sát ngày đã bị thu đủ tiền ngay từ đầu, xem `nextPaymentAmount()`.
+     *
+     * Hàm này không quyết định gì cả, nó chỉ trả lời "có phải gọi người không". Câu trả lời đúng cho
+     * tình huống ấy luôn là có: hủy đơn của người vừa bị công ty dời ngày, vào lúc đã muộn để bán
+     * lại chỗ, là thiệt cho cả hai bên.
+     */
+    public function tuDongThuNotKhongKip(Booking $booking): bool
+    {
+        if ($this->balanceDue($booking) <= 0) {
+            return false;
+        }
+
+        $khoiHanh = $booking->schedule?->start_date ?? $booking->departure_date;
+
+        if (!$khoiHanh) {
+            return false;
+        }
+
+        $canToiThieu = (int) config('booking.balance_final_notice_days', 2) + 1;
+
+        return now()->addDays($canToiThieu)->gte(\Illuminate\Support\Carbon::parse($khoiHanh));
+    }
+
     /** Còn thiếu bao nhiêu so với tổng giá trị đơn. */
     public function balanceDue(Booking $booking): float
     {
