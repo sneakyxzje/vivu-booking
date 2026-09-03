@@ -119,6 +119,61 @@ class GuideOverlapWindowTest extends TestCase
     }
 
     /**
+     * Chồng MỘT PHẦN cũng chặn, kể cả khi chuyến kia bắt đầu trước.
+     *
+     * Đang dẫn tour A từ 1/3 đến 4/3 thì chuyến B từ 27/2 đến 3/3 cũng không nhận được: B cắt vào
+     * ba ngày đầu của A. Luật không đòi hai chuyến lồng vào nhau — giao nhau đúng một ngày là đủ,
+     * và giao ở đầu hay ở đuôi đều như nhau vì phép so là đối xứng.
+     */
+    public function test_chong_mot_phan_du_bat_dau_truoc_cung_bi_chan(): void
+    {
+        // Mốc đóng vai "1/3" trong ví dụ.
+        $moc = Carbon::now()->addDays(30)->startOfDay();
+
+        // Tour A: 1/3 → 4/3, người này đang dẫn.
+        $this->taoChuyen(
+            $moc->copy()->setTime(6, 0)->toDateTimeString(),
+            $moc->copy()->addDays(3)->setTime(18, 0)->toDateTimeString(),
+        );
+
+        // Chuyến B: 27/2 → 3/3, bắt đầu trước A và kết thúc khi A còn đang chạy.
+        $chuyenB = TourSchedule::factory()->make([
+            'tour_id' => $this->tour->id,
+            'start_date' => $moc->copy()->subDays(2)->setTime(6, 0),
+            'end_date' => $moc->copy()->addDays(2)->setTime(18, 0),
+        ]);
+        $chuyenB->setRelation('tour', $this->tour);
+
+        $this->assertTrue($this->vuong($chuyenB));
+    }
+
+    /**
+     * Ranh giới: kết thúc hôm trước, khởi hành hôm sau thì được.
+     *
+     * Đặt cạnh bài trên để thấy vạch nằm ở đâu. Không chia sẻ ngày nào thì không vướng, dù chỉ
+     * cách nhau vài giờ qua đêm.
+     */
+    public function test_ket_thuc_hom_truoc_va_khoi_hanh_hom_sau_thi_khong_vuong(): void
+    {
+        $moc = Carbon::now()->addDays(30)->startOfDay();
+
+        // Chuyến cũ kết thúc 22h ngày hôm trước mốc.
+        $this->taoChuyen(
+            $moc->copy()->subDays(3)->setTime(6, 0)->toDateTimeString(),
+            $moc->copy()->subDay()->setTime(22, 0)->toDateTimeString(),
+        );
+
+        $chuyenMoi = TourSchedule::factory()->make([
+            'tour_id' => $this->tour->id,
+            'start_date' => $moc->copy()->setTime(6, 0),
+            'end_date' => $moc->copy()->addDays(2)->setTime(18, 0),
+        ]);
+        $chuyenMoi->setRelation('tour', $this->tour);
+
+        $this->assertFalse($this->vuong($chuyenMoi));
+    }
+
+    /**
      * Chuyến ĐÃ HỦY không được chiếm chỗ của hướng dẫn viên nữa.
      *
      * Hủy chuyến là chuyến ấy không chạy: người đã phân công phải quay lại kho nhân sự ngay, vì
