@@ -162,6 +162,27 @@ const BookingForm = ({
       return;
     }
 
+    /*
+     * Mỗi em bé phải có một người lớn đi kèm.
+     *
+     * Em bé không chiếm ghế nên phép kiểm số chỗ ở trên không chặn được các cháu — một người lớn
+     * đi cùng tám em bé vẫn lọt, chiếm đúng một ghế và trả đúng một vé. Máy chủ đã chặn, nhưng để
+     * khách đâm vào lỗi ở bước cuối sau khi điền xong cả biểu mẫu là tệ; khóa nút ngay tại đây.
+     */
+    if (field === "infantCount" && delta > 0 && nextValue > form.adultCount) {
+      return;
+    }
+
+    /*
+     * Bớt người lớn thì bớt em bé theo, để không rơi vào thế đơn không gửi được.
+     *
+     * Hai người lớn hai em bé rồi bấm bớt một người lớn: nếu chỉ đổi mỗi số người lớn thì biểu mẫu
+     * đứng ở một trạng thái mà máy chủ từ chối, và khách phải tự đoán ra mình cần sửa cái gì.
+     */
+    if (field === "adultCount" && delta < 0 && form.infantCount > nextValue) {
+      onChange("infantCount", nextValue);
+    }
+
     onChange(field, nextValue);
   };
 
@@ -299,8 +320,10 @@ const BookingForm = ({
                     disabled={
                       !selectedSchedule ||
                       Boolean(scheduleUnavailableReason) ||
-                      // Em bé không chiếm ghế nên không bị số chỗ còn lại chặn.
-                      (item.field !== "infantCount" && seatCount >= availableSlots)
+                      // Em bé không chiếm ghế nên không bị số chỗ còn lại chặn...
+                      (item.field !== "infantCount" && seatCount >= availableSlots) ||
+                      // ...nhưng bị chặn bởi số người lớn: một lòng, một bé.
+                      (item.field === "infantCount" && form.infantCount >= form.adultCount)
                     }
                     className="h-10 w-10 text-lg font-bold text-gray-500 hover:text-primary-600 disabled:opacity-35 disabled:hover:text-gray-500"
                     aria-label={`Tăng ${item.label}`}
@@ -310,6 +333,19 @@ const BookingForm = ({
                 </div>
               </div>
             ))}
+
+            {/*
+              Nói vì sao nút "+" của em bé tắt.
+
+              Nút xám mà không có lời giải thích là chỗ người dùng bấm đi bấm lại rồi bỏ cuộc. Câu
+              này chỉ hiện đúng lúc chạm trần, không nằm đó suốt để làm rối biểu mẫu.
+            */}
+            {form.infantCount >= form.adultCount && form.infantCount > 0 && (
+              <p className="rounded-lg bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-800">
+                Mỗi em bé cần một người lớn đi kèm, nên số em bé không vượt quá số người lớn. Em bé
+                dưới 2 tuổi ngồi cùng bố mẹ nên <b>không chiếm chỗ riêng</b> trên xe.
+              </p>
+            )}
           </div>
 
           <div className="rounded-lg bg-primary-50/70 border border-primary-100 px-4 py-3 space-y-2">
