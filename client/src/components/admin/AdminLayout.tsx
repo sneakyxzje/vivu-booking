@@ -7,7 +7,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useNotifications } from "@/hooks/useNotifications";
+import { NotificationBell } from "@/components/NotificationBell";
 
 /*
  * Menu quản trị: bốn nhóm có menu con, kẹp giữa hai mục đứng riêng.
@@ -187,8 +187,6 @@ export const AdminLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  // Chuông chỉ cần con số; danh sách nằm ở màn riêng.
-  const { unread } = useNotifications();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -426,37 +424,15 @@ export const AdminLayout: React.FC = () => {
           </div>
 
           {/*
-            Chuông thông báo.
+            Chuông thông báo — bấm vào mở bảng đọc tại chỗ.
 
-            Chỉ một con số và một đường dẫn — không dựng danh sách thả xuống. Toàn bộ thông báo
-            nằm ở màn riêng; nhồi thêm một bản sao rút gọn vào thanh trên cùng là hai chỗ cùng
-            hiển thị một dữ liệu, và hai chỗ ấy sớm muộn lệch nhau.
+            Chú thích cũ ở đây từng bác việc dựng danh sách thả xuống, vì "hai chỗ cùng hiển thị
+            một dữ liệu sớm muộn lệch nhau". Nỗi lo ấy chỉ đúng khi hai chỗ tự đi lấy dữ liệu
+            riêng — bảng này và màn thông báo cùng đọc `useNotifications()`, nên đánh dấu đã đọc ở
+            đâu thì chỗ kia đổi theo. Đổi lại, điều hành đang dở một việc không phải rời trang chỉ
+            để liếc xem có gì mới.
           */}
-          <Link
-            to="/admin/notifications"
-            className="relative ml-auto mr-2 rounded-md p-2 text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
-            title="Thông báo"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-              />
-            </svg>
-
-            {unread > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
-                {unread > 99 ? "99+" : unread}
-              </span>
-            )}
-          </Link>
+          <NotificationBell trangDayDu="/admin/notifications" className="ml-auto mr-2" />
 
           {/* Right: User Dropdown */}
           <div className="relative">
