@@ -65,7 +65,18 @@ class BookingController extends Controller
             'customer_phone' => 'nullable|string|max:20',
             'adult_count' => 'required|integer|min:1',
             'child_count' => 'nullable|integer|min:0',
-            'infant_count' => 'nullable|integer|min:0',
+            /*
+             * Mỗi em bé phải có một người lớn đi kèm.
+             *
+             * Em bé dưới hai tuổi không chiếm ghế — bé ngồi lòng bố mẹ — nên kho chỗ của chuyến
+             * không đếm các cháu. Mô hình ấy đúng với xe khách, nhưng nếu để trống thì nó mở ra một
+             * đơn không thể tồn tại: một người lớn đi cùng tám em bé chiếm đúng MỘT ghế và trả đúng
+             * MỘT vé, vì vé em bé bằng không.
+             *
+             * Không ai bế được tám đứa trẻ. Luật này là cách ngành vẫn áp — hãng bay lẫn hãng tour —
+             * và nó chặn đúng chỗ vô lý mà không phải phá mô hình ghế: một lòng, một bé.
+             */
+            'infant_count' => 'nullable|integer|min:0|lte:adult_count',
             'note' => 'nullable|string|max:1000',
             'discount_code' => 'nullable|string|max:50',
             /*
@@ -91,6 +102,11 @@ class BookingController extends Controller
             'passengers.*.special_request' => 'nullable|string|max:500',
             'passengers.*.is_contact' => 'nullable|boolean',
             'passengers.*.note' => 'nullable|string|max:255',
+        ], [
+            // Câu mặc định của `lte` là "trường này phải nhỏ hơn hoặc bằng adult_count" — đọc ra tên
+            // cột chứ không ra luật. Khách cần biết vì sao bị chặn, không cần biết tên cột.
+            'infant_count.lte' => 'Mỗi em bé phải có một người lớn đi kèm, nên số em bé không được '
+                . 'nhiều hơn số người lớn.',
         ]);
 
         $user = auth('sanctum')->user();
