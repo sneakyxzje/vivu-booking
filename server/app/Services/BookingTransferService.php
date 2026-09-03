@@ -79,7 +79,17 @@ class BookingTransferService
      * Điều hành cần biết chênh lệch giá và lý do bị chặn trước khi bấm, giống hệt lý do màn hủy
      * đơn phải có dự báo: người bấm nút chịu trách nhiệm thì phải được biết trước.
      *
-     * @return array{can_transfer: bool, blocked_reason: string|null, price_difference: float, fee: float, new_total: float, transfer_count: int}
+     * ## Vì sao có thêm cảnh báo về hạn trả nốt
+     *
+     * Hạn trả nốt suy ra từ NGÀY KHỞI HÀNH, nên chuyển đơn sang chuyến sớm hơn là kéo cái hạn ấy
+     * lùi lại — có khi lùi vào quá khứ. Đơn đang yên lành bỗng thành đơn quá hạn, không phải vì
+     * khách chậm trễ mà vì người vừa bấm nút này.
+     *
+     * Điều hành không có cách nào tự nhìn ra điều đó: màn hình cho họ chọn chuyến đích theo chỗ
+     * trống và ngày đi, không ai nhẩm trong đầu "ngày đi trừ mười". Nên họ bấm chuyển, rồi khách
+     * nhận thư đòi trả nốt trong hai ngày, rồi tổng đài nhận cuộc gọi hỏi vì sao.
+     *
+     * @return array{can_transfer: bool, blocked_reason: string|null, price_difference: float, fee: float, new_total: float, transfer_count: int, balance_due: float, balance_due_at: string|null, balance_overdue_after: bool, auto_collect_too_late: bool}
      */
     public function preview(
         Booking $booking,
@@ -101,6 +111,21 @@ class BookingTransferService
         $tongMoi = $this->recalculateTotal($booking, $toSchedule);
         $phi = $this->transferFee($booking, $initiatedBy, $nhomLyDo);
 
+        /*
+         * Dự báo tình trạng nợ SAU khi chuyển, tính trên chuyến đích chứ không phải chuyến hiện tại.
+         *
+         * Dựng một bản sao trong bộ nhớ để hỏi, không đụng vào đơn thật: đây là màn xem trước, và
+         * xem trước mà ghi vào cơ sở dữ liệu thì người bấm "hủy" vẫn để lại dấu vết.
+         */
+        $thu = $booking->replicate();
+        $thu->setRelation('schedule', $toSchedule);
+        $thu->departure_date = $toSchedule->start_date;
+        $thu->total_amount = $tongMoi + $phi;
+        $thu->exists = true;
+        $thu->id = $booking->getKey();
+
+        $hanTraNotMoi = $thu->balanceDueAt();
+
         return [
             'can_transfer' => $coThe,
             'blocked_reason' => $lyDoChan,
@@ -108,6 +133,16 @@ class BookingTransferService
             'fee' => $phi,
             'new_total' => $tongMoi,
             'transfer_count' => (int) $booking->transfer_count,
+
+            // Còn thiếu bao nhiêu sau khi tính lại theo giá chuyến đích.
+            'balance_due' => $this->payments->balanceDue($thu),
+            'balance_due_at' => $hanTraNotMoi?->toDateTimeString(),
+            // Chuyển xong là quá hạn ngay: khách sẽ nhận thư đòi trả nốt trong vài ngày.
+            'balance_overdue_after' => $this->payments->balanceDue($thu) > 0
+                && $hanTraNotMoi !== null
+                && now()->gte($hanTraNotMoi),
+            // Nặng hơn một bậc: quá sát để cả quy trình nhắc rồi hủy kịp chạy, phải thu tay.
+            'auto_collect_too_late' => $this->payments->tuDongThuNotKhongKip($thu),
         ];
     }
 

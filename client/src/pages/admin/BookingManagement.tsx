@@ -2306,6 +2306,37 @@ export default function BookingManagement() {
                             : "Không có chênh lệch tiền."}
                         {chuyenDich.fee > 0 && ` Trong đó phí đổi lịch ${formatPrice(chuyenDich.fee)}.`}
                       </p>
+
+                      {/*
+                        Cảnh báo hạn trả nốt bị kéo lùi.
+
+                        Hạn trả nốt suy ra từ ngày khởi hành, nên chọn một chuyến sớm hơn là kéo cái
+                        hạn ấy lùi theo — có khi lùi vào quá khứ. Đơn đang yên lành thành đơn quá
+                        hạn, không phải vì khách chậm mà vì người vừa bấm nút này.
+
+                        Không ai nhẩm được điều đó trong đầu: danh sách chuyến đích bày ra theo chỗ
+                        trống và ngày đi, không theo hạn trả nốt. Thiếu dòng này thì điều hành bấm
+                        chuyển, khách nhận thư đòi tiền trong hai ngày, và tổng đài nhận cuộc gọi
+                        hỏi vì sao — cả ba người đều không biết chuyện gì vừa xảy ra.
+                      */}
+                      {chuyenDich.balance_overdue_after && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+                          <p className="font-bold">
+                            Sau khi chuyển, đơn này quá hạn thanh toán ngay
+                          </p>
+                          <p className="mt-1">
+                            Chuyến mới khởi hành sớm hơn nên hạn trả nốt của nó đã qua. Khách còn
+                            thiếu <b>{formatPrice(chuyenDich.balance_due)}</b> và sẽ nhận thư yêu
+                            cầu thanh toán, quá hạn thì đơn bị hủy.
+                          </p>
+                          {chuyenDich.auto_collect_too_late && (
+                            <p className="mt-1.5 font-semibold">
+                              Chuyến quá sát ngày để quy trình nhắc tự động kịp chạy — hãy gọi khách
+                              thu nốt trước khi bấm chuyển.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </>

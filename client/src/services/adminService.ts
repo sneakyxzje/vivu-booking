@@ -805,6 +805,20 @@ export interface TransferOption {
   fee: number;
   new_total: number;
   transfer_count: number;
+  /**
+   * Còn thiếu bao nhiêu SAU khi chuyển, tính theo giá chuyến đích.
+   *
+   * Hạn trả nốt suy ra từ ngày khởi hành, nên chuyển sang chuyến sớm hơn kéo cái hạn ấy lùi lại —
+   * có khi lùi vào quá khứ, biến một đơn đang yên lành thành đơn quá hạn. Người bấm nút không có
+   * cách nào tự nhìn ra: màn hình chọn chuyến theo chỗ trống và ngày đi, không ai nhẩm "ngày đi
+   * trừ mười" trong đầu.
+   */
+  balance_due: number;
+  balance_due_at: string | null;
+  /** Chuyển xong là quá hạn ngay — khách sẽ nhận thư đòi trả nốt trong vài ngày. */
+  balance_overdue_after: boolean;
+  /** Nặng hơn: quá sát ngày để quy trình nhắc rồi hủy kịp chạy, buộc phải thu tay. */
+  auto_collect_too_late: boolean;
 }
 
 export interface TransferOptionsResponse {
