@@ -207,8 +207,18 @@ class ScheduleGuideService
     /**
      * Chuyến đang chồng lịch của hướng dẫn viên này, hoặc null nếu rảnh.
      *
-     * So sánh theo ngày chứ không theo giờ: đoàn về lúc 22h thì hôm đó người dẫn coi như đã bận
-     * cả ngày, không nhận tiếp chuyến khác khởi hành cùng ngày.
+     * Khoảng bận chạy từ đầu ngày khởi hành tới đúng mốc kết thúc — xem `periodOf()`. Nên đoàn về
+     * lúc 5h sáng thì hôm đó người dẫn vẫn coi như bận cả ngày, không nhận tiếp chuyến khác khởi
+     * hành cùng ngày dù trên đồng hồ hai chuyến không đè lên nhau.
+     *
+     * **Bỏ qua chuyến đã hủy.** Chuyến không chạy thì người đã phân công phải quay lại kho nhân sự
+     * ngay, vì điều hành hủy xong thường xếp lại họ vào chuyến khác đúng những ngày ấy. Bản ghi
+     * phân công vẫn nằm nguyên để đọc lại lịch sử và để biết ai từng được giao — chỉ là nó thôi
+     * chiếm chỗ. Không lọc thì hủy một chuyến xong là khóa luôn hướng dẫn viên khỏi mọi chuyến
+     * cùng ngày, mà không màn hình nào nói vì sao.
+     *
+     * Chuyến đã kết thúc thì không cần lọc: ngày của nó nằm ở quá khứ nên không chồng lên chuyến
+     * sắp tới nào.
      */
     public function conflictFor(
         int $guideId,
@@ -219,6 +229,7 @@ class ScheduleGuideService
         return TourSchedule::query()
             ->with('tour:id,title,number_of_days')
             ->whereHas('guides', fn ($query) => $query->whereKey($guideId))
+            ->where('status', '!=', ScheduleStatus::Cancelled->value)
             ->when($boQuaChuyen, fn ($query) => $query->whereKeyNot($boQuaChuyen))
             ->get()
             ->first(fn (TourSchedule $khac) => self::overlaps($start, $end, ...$this->periodOf($khac)));
