@@ -2,10 +2,14 @@
 
 namespace App\Services;
 
+use App\Enums\TransferReasonCategory;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Booking;
+use App\Models\BookingTransfer;
+use App\Models\CustomerContactLog;
 use App\Models\Tour;
 use App\Models\TourSchedule;
+use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -72,8 +76,82 @@ class SandboxDemoService
         'bookings:release-expired' => 'Nhả chỗ của đơn quá hạn giữ',
     ];
 
-    public function __construct(private readonly BookingPaymentService $payments)
+    public function __construct(
+        private readonly BookingPaymentService $payments,
+        private readonly ScheduleMergeService $merge,
+        private readonly BookingTransferService $transfer,
+    ) {
+    }
+
+    /**
+     * Ghép chuyến nguồn vào chuyến đích, bằng chính dịch vụ ghép thật.
+     *
+     * Không có đường tắt nào ở đây: `merge()` vẫn kiểm cùng tour, vẫn kiểm cả hai còn trước hạn chốt,
+     * vẫn hủy đơn chưa cọc và mời đặt lại, vẫn gửi thư báo cho khách, vẫn ghi `booking_transfers`
+     * với `initiated_by = company`. Nút này chỉ bỏ đi việc phải đi tìm đúng màn hình.
+     *
+     * @return array{transferred: int, cancelled: int}
+     */
+    public function ghepChuyen(TourSchedule $nguon, TourSchedule $dich, ?User $actor): array
     {
+        $this->assertLaSanThu($nguon->tour);
+        $this->assertLaSanThu($dich->tour);
+
+        return $this->merge->merge(
+            $nguon,
+            $dich,
+            'Ghép chuyến từ sân thử nghiệm nghiệp vụ.',
+            $actor,
+        );
+    }
+
+    /**
+     * Chuyển một đơn sang chuyến khác.
+     *
+     * `$aiYeuCau` là thứ đáng xem nhất ở nút này, vì nó rẽ đôi kết cục:
+     *
+     *   - `company` — công ty dời ngày. Miễn phí đổi lịch, và nếu sau đó đơn bị hủy thì hoàn ĐỦ số
+     *     đã thu, không áp bảng phí (`CancellationPolicyService::congTyDaDoiNgay`).
+     *   - `customer` — khách tự xin đổi. Từ lần thứ hai có phí đổi lịch, và bảng phí hủy áp bình
+     *     thường; chuyển sang chuyến sát ngày rồi không trả nốt là mất trọn cọc.
+     *
+     * Cùng một thao tác, hai kết cục, khác nhau ở chỗ AI quyết định đổi ngày. Bấm cả hai chiều rồi
+     * so bảng là cách gọn nhất để thấy điều đó.
+     */
+    public function chuyenChuyen(
+        Booking $booking,
+        TourSchedule $dich,
+        string $aiYeuCau,
+        ?User $actor,
+    ): BookingTransfer {
+        $this->assertLaSanThu($booking->tour);
+        $this->assertLaSanThu($dich->tour);
+
+        if (!in_array($aiYeuCau, ['customer', 'company'], true)) {
+            throw new BusinessRuleException('Chỉ nhận "customer" hoặc "company".');
+        }
+
+        /*
+         * Căn cứ đã hỏi khách: lấy nhật ký liên hệ mới nhất của đơn.
+         *
+         * Luật thật đòi phải có bản ghi khách đồng ý trước khi chuyển, và luật ấy giữ nguyên ở đây —
+         * seeder sân thử dựng sẵn nhật ký cho những đơn dùng để thử, đúng để nút này bấm được mà
+         * không phải nới lỏng gì.
+         */
+        $canCu = CustomerContactLog::query()
+            ->where('booking_id', $booking->getKey())
+            ->latest('contacted_at')
+            ->first();
+
+        return $this->transfer->transfer(
+            booking: $booking,
+            toSchedule: $dich,
+            reason: 'Chuyển chuyến từ sân thử nghiệm nghiệp vụ.',
+            actor: $actor,
+            initiatedBy: $aiYeuCau,
+            canCu: $canCu,
+            nhomLyDo: TransferReasonCategory::CustomerRequest,
+        );
     }
 
     /** Chặn mọi thao tác của lớp này ra ngoài tour đã đánh dấu là sân thử. */

@@ -1902,6 +1902,34 @@ const adminService = {
     };
   },
 
+  sandboxMerge: async (
+    scheduleId: number,
+    targetScheduleId: number,
+  ): Promise<{ message: string; bookings: SandboxBookingRow[] }> => {
+    const response = await api.post(`/admin/sandbox/schedules/${scheduleId}/merge`, {
+      target_schedule_id: targetScheduleId,
+    });
+    return {
+      message: response.data.message as string,
+      bookings: (response.data.data?.bookings ?? []) as SandboxBookingRow[],
+    };
+  },
+
+  sandboxTransfer: async (
+    bookingId: number,
+    targetScheduleId: number,
+    initiatedBy: "customer" | "company",
+  ): Promise<{ message: string; bookings: SandboxBookingRow[] }> => {
+    const response = await api.post(`/admin/sandbox/bookings/${bookingId}/transfer`, {
+      target_schedule_id: targetScheduleId,
+      initiated_by: initiatedBy,
+    });
+    return {
+      message: response.data.message as string,
+      bookings: (response.data.data?.bookings ?? []) as SandboxBookingRow[],
+    };
+  },
+
   sendBookingMail: async (bookingId: number, type: string): Promise<string> => {
     const response = await api.post(`/admin/bookings/${bookingId}/send-mail`, { type });
     return response.data.message as string;
