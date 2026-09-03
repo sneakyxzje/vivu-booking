@@ -447,6 +447,8 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
          * `fast-forward` chỉ chạy được trong tour có cờ sandbox; `send-mail` dùng cho mọi đơn, kể
          * cả tour thật — gửi lại thư cho khách gọi lên nói chưa nhận được là việc hằng ngày.
          */
+        Route::get('/sandbox/scenarios', [AdminSandboxController::class, 'scenarios']);
+        Route::post('/sandbox/scenarios/run', [AdminSandboxController::class, 'runScenario']);
         Route::get('/sandbox/options', [AdminSandboxController::class, 'options']);
         Route::get('/sandbox/tours', [AdminSandboxController::class, 'tours']);
         Route::get('/sandbox/schedules/{id}/snapshot', [AdminSandboxController::class, 'snapshot']);
