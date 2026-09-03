@@ -43,11 +43,35 @@ class DepositFlowSeederTest extends TestCase
         return Booking::query()->where('note', 'like', '[coc]%')->orderBy('id')->get();
     }
 
-    public function test_dung_du_sau_tinh_huong(): void
+    public function test_dung_du_muoi_tinh_huong(): void
     {
         $this->seed(DepositFlowSeeder::class);
 
-        $this->assertCount(6, $this->donCuaSeeder());
+        $this->assertCount(10, $this->donCuaSeeder());
+    }
+
+    /** Hai chuyến để trống, để tự đặt tour và so cọc với trả đủ. */
+    public function test_co_hai_chuyen_trong_de_tu_dat(): void
+    {
+        $this->seed(DepositFlowSeeder::class);
+
+        $chuyenTrong = \App\Models\TourSchedule::query()
+            ->whereDoesntHave('bookings')
+            ->get();
+
+        $this->assertCount(2, $chuyenTrong);
+
+        $hanTraNot = (int) config('booking.balance_due_days', 10);
+
+        // Một chuyến còn đủ xa để được cọc, một chuyến sát ngày phải trả đủ.
+        $this->assertTrue(
+            $chuyenTrong->contains(fn ($c) => now()->diffInDays($c->start_date, false) > $hanTraNot),
+            'Phải có một chuyến còn xa hơn hạn trả nốt.',
+        );
+        $this->assertTrue(
+            $chuyenTrong->contains(fn ($c) => now()->diffInDays($c->start_date, false) < $hanTraNot),
+            'Phải có một chuyến sát ngày, đặt vào đó là phải trả đủ.',
+        );
     }
 
     /** Đơn mới cọc phải còn nợ đúng một nửa, và KHÔNG được đóng mốc đã-thanh-toán. */
@@ -78,28 +102,100 @@ class DepositFlowSeederTest extends TestCase
 
         $this->artisan('bookings:send-balance-reminders')->assertSuccessful();
 
-        $don = $this->donCuaSeeder()->keyBy(fn (Booking $b) => $b->note);
+        $don = $this->donCuaSeeder();
+        $tim = fn (string $manh) => $don->first(fn (Booking $b) => str_contains($b->note, $manh));
 
-        $conXa = $don->first(fn ($b) => str_contains($b->note, 'còn xa hạn'));
-        $nhacDau = $don->first(fn ($b) => str_contains($b->note, 'nhắc lần đầu'));
-        $canhBao = $don->first(fn ($b) => str_contains($b->note, 'cảnh báo cuối'));
+        // --- Ranh giới 1: cửa sổ nhắc -------------------------------------------------------
 
-        $this->assertNull($conXa->fresh()->balance_reminder_sent_at, 'Đơn còn xa hạn chưa được nhắc.');
-        $this->assertNotNull($nhacDau->fresh()->balance_reminder_sent_at, 'Đơn tới lượt phải được nhắc.');
-        $this->assertNotNull($canhBao->fresh()->balance_final_notice_at, 'Đơn sát hạn phải nhận cảnh báo cuối.');
+        $this->assertNull(
+            $tim('còn xa hạn')->fresh()->balance_reminder_sent_at,
+            'Đơn còn xa hạn chưa được nhắc.',
+        );
+        $this->assertNotNull(
+            $tim('nhắc lần đầu')->fresh()->balance_reminder_sent_at,
+            'Đơn tới lượt phải được nhắc.',
+        );
+        $this->assertNotNull(
+            $tim('cảnh báo cuối')->fresh()->balance_final_notice_at,
+            'Đơn sát hạn phải nhận cảnh báo cuối.',
+        );
+        $this->assertNull(
+            $tim('CHUYẾN ĐÃ HỦY')->fresh()->balance_reminder_sent_at,
+            'Chuyến đã hủy thì không đòi tiền khách nữa.',
+        );
+
+        // --- Ranh giới 2 và 3: điều kiện bị hủy ---------------------------------------------
 
         $this->artisan('bookings:cancel-unpaid-balances')->assertSuccessful();
 
-        $quaHan = $don->first(fn ($b) => str_contains($b->note, 'Đã quá hạn'));
-        $traDu = $don->first(fn ($b) => str_contains($b->note, 'đã trả đủ'));
-        $doan = $don->first(fn ($b) => str_contains($b->note, 'ĐOÀN'));
+        $quaHan = $tim('đã quá hạn trả nốt')->fresh();
 
-        $this->assertSame('cancelled', $quaHan->fresh()->status, 'Đơn quá hạn phải bị hủy.');
-        $this->assertEquals(0.0, (float) $quaHan->fresh()->refund_amount, 'Mất đúng tiền cọc.');
-        $this->assertTrue((bool) $quaHan->fresh()->seats_released, 'Chỗ phải về kho.');
+        $this->assertSame('cancelled', $quaHan->status, 'Đơn đã cọc mà quá hạn phải bị hủy.');
+        $this->assertEquals(0.0, (float) $quaHan->refund_amount, 'Mất đúng tiền cọc.');
+        $this->assertTrue((bool) $quaHan->seats_released, 'Chỗ phải về kho.');
 
-        $this->assertSame('confirmed', $traDu->fresh()->status, 'Đơn đã trả đủ không bị đụng.');
-        $this->assertSame('confirmed', $doan->fresh()->status, 'Đơn đoàn không bị hủy tự động.');
+        $this->assertSame(
+            'confirmed',
+            $tim('đã trả đủ')->fresh()->status,
+            'Đơn đã trả đủ không bị đụng.',
+        );
+        $this->assertSame(
+            'confirmed',
+            $tim('sổ ghi 0 đồng')->fresh()->status,
+            'Đơn chưa có bút toán nào để điều hành xử lý tay, không hủy tự động.',
+        );
+        $this->assertSame(
+            'confirmed',
+            $tim('ĐOÀN')->fresh()->status,
+            'Đơn đoàn không bị hủy tự động.',
+        );
+
+        // --- Ranh giới 4: đặt sát ngày ------------------------------------------------------
+
+        $this->assertSame(
+            'confirmed',
+            $tim('Đặt sát ngày')->fresh()->status,
+            'Đơn đặt sát ngày đã trả đủ thì không có gì để hủy.',
+        );
+        $this->assertSame(
+            'pending',
+            $tim('Chờ thanh toán')->fresh()->status,
+            'Đơn chưa cọc vẫn chờ trong hạn giữ chỗ, không thuộc luồng này.',
+        );
+    }
+
+    /**
+     * Đúng một đơn bị hủy — không hơn.
+     *
+     * Con số này là thứ bảng hướng dẫn hứa với người thử, và cũng là phép kiểm mạnh nhất của cả bộ:
+     * chín đơn còn lại mỗi đơn chặn lệnh vì một lý do khác nhau, nên chỉ cần một điều kiện lọc sai
+     * là con số này lệch ngay.
+     */
+    public function test_dung_mot_don_bi_huy(): void
+    {
+        $this->seed(DepositFlowSeeder::class);
+
+        $this->artisan('bookings:cancel-unpaid-balances')->assertSuccessful();
+
+        $daHuy = $this->donCuaSeeder()->filter(fn (Booking $b) => $b->fresh()->status === 'cancelled');
+
+        $this->assertCount(1, $daHuy);
+    }
+
+    /** Đúng hai đơn nhận thư — một nhắc nhẹ, một cảnh báo cuối. */
+    public function test_dung_hai_don_nhan_thu_nhac(): void
+    {
+        $this->seed(DepositFlowSeeder::class);
+
+        $this->artisan('bookings:send-balance-reminders')->assertSuccessful();
+
+        $daNhac = $this->donCuaSeeder()->filter(function (Booking $b) {
+            $moi = $b->fresh();
+
+            return $moi->balance_reminder_sent_at !== null || $moi->balance_final_notice_at !== null;
+        });
+
+        $this->assertCount(2, $daNhac);
     }
 
     /** Chạy lại seeder không nhân đôi dữ liệu — người thử seed nhiều lần trong một buổi. */
@@ -108,7 +204,7 @@ class DepositFlowSeederTest extends TestCase
         $this->seed(DepositFlowSeeder::class);
         $this->seed(DepositFlowSeeder::class);
 
-        $this->assertCount(6, $this->donCuaSeeder());
+        $this->assertCount(10, $this->donCuaSeeder());
     }
 
     /** Số chỗ của chuyến phải khớp ngay sau khi seed, nếu không mọi phép thử sau đều lệch. */

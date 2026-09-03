@@ -16,18 +16,26 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 /**
- * Dựng sẵn sáu đơn ở sáu chặng của luồng "cọc trước, trả nốt sau", để thử tay ngay.
+ * Dựng sẵn toàn bộ tình huống của luồng "cọc trước, trả nốt sau", để thử tay ngay.
  *
  * Chạy riêng:  php artisan db:seed --class=DepositFlowSeeder
  *
- * Mốc thời gian tính lùi từ lúc chạy seeder theo đúng ba con số trong `config/booking.php`, nên
- * chạy lại lúc nào cũng ra đúng tình huống ấy. Đổi lại, dữ liệu cũ trôi khỏi mốc sau vài ngày:
- * seed lại trước mỗi buổi thử.
+ * ## Nguyên tắc dựng: mỗi ranh giới phải có đơn ở CẢ HAI PHÍA
  *
- * Sáu đơn cố ý phủ cả hai phía của mỗi ranh giới — một đơn chưa tới lượt và một đơn vừa qua lượt —
- * vì một lệnh nền chỉ chứng minh được là nó đúng khi nó vừa làm gì đó với đơn này và vừa BỎ QUA
- * đơn kia. Chỉ dựng toàn đơn sẽ bị xử lý thì không phân biệt được "lệnh chạy đúng" với "lệnh quét
- * sạch mọi thứ".
+ * Một lệnh nền chỉ chứng minh được nó đúng khi nó vừa xử lý đơn này và vừa bỏ qua đơn kia. Bộ dữ
+ * liệu toàn đơn sẽ bị xử lý không phân biệt được "lệnh chạy đúng" với "lệnh quét sạch mọi thứ",
+ * nên gần một nửa số đơn dưới đây là đơn ĐỐI CHỨNG — chúng tồn tại để không có gì xảy ra với chúng.
+ *
+ * ## Bốn ranh giới được phủ
+ *
+ *   1. Cửa sổ nhắc — chưa tới lượt / tới lượt nhắc / tới lượt cảnh báo cuối.
+ *   2. Hạn trả nốt — còn trong hạn / đã quá hạn.
+ *   3. Điều kiện bị hủy — đã cọc / đã trả đủ / chưa trả đồng nào / là đơn đoàn.
+ *   4. Thời điểm đặt — còn xa ngày đi (được cọc) / sát ngày đi (phải trả đủ).
+ *
+ * Mốc thời gian tính lùi từ lúc chạy seeder theo đúng cấu hình trong `config/booking.php`, nên
+ * chạy lại lúc nào cũng ra đúng tình huống ấy. Đổi lại, dữ liệu trôi khỏi mốc sau vài ngày: seed
+ * lại trước mỗi buổi thử.
  */
 class DepositFlowSeeder extends Seeder
 {
@@ -41,6 +49,9 @@ class DepositFlowSeeder extends Seeder
 
     /** @var array<int, array<string, mixed>> */
     private array $bang = [];
+
+    /** @var array<int, array<string, string>> */
+    private array $chuyenTrong = [];
 
     public function run(): void
     {
@@ -64,6 +75,7 @@ class DepositFlowSeeder extends Seeder
 
         $this->donDepLanTruoc();
         $this->dungTour($admin);
+        $this->dungChuyenDeTuDat();
         $this->dungCacTinhHuong();
         $this->inHuongDan();
     }
@@ -108,7 +120,35 @@ class DepositFlowSeeder extends Seeder
     }
 
     /**
-     * Sáu tình huống, xếp theo trục thời gian của một đơn.
+     * Hai chuyến để trống, dành cho việc tự đặt tour trên giao diện.
+     *
+     * Đây là cách duy nhất thử được ranh giới thứ tư: đặt vào chuyến xa thì hệ thống thu cọc, đặt
+     * vào chuyến sát ngày thì thu đủ. Không dựng sẵn đơn cho chúng, vì thứ cần nhìn nằm ở bước
+     * trước khi đơn tồn tại — con số cổng thanh toán đòi.
+     */
+    private function dungChuyenDeTuDat(): void
+    {
+        $hanTraNot = (int) config('booking.balance_due_days', 10);
+
+        $xa = $this->taoChuyen($hanTraNot + 20);
+        $satNgay = $this->taoChuyen(max(4, $hanTraNot - 3));
+
+        $this->chuyenTrong = [
+            [
+                'ma' => 'Chuyến #' . $xa->id,
+                'khoi_hanh' => $xa->start_date->format('d/m'),
+                'ky_vong' => 'Đặt tour vào chuyến này: phải thấy "Đặt cọc 50%", còn lại trả sau.',
+            ],
+            [
+                'ma' => 'Chuyến #' . $satNgay->id,
+                'khoi_hanh' => $satNgay->start_date->format('d/m'),
+                'ky_vong' => 'Đặt tour vào chuyến này: phải đòi TRẢ ĐỦ, vì hạn trả nốt đã qua.',
+            ],
+        ];
+    }
+
+    /**
+     * Mười đơn ở mười tình huống.
      *
      * Các mốc suy ra từ cấu hình chứ không viết cứng: đổi `balance_due_days` mà seeder vẫn dựng
      * theo số cũ thì bảng hướng dẫn in ra sẽ nói sai về chính dữ liệu nó vừa tạo.
@@ -120,72 +160,101 @@ class DepositFlowSeeder extends Seeder
         $canhBaoCuoi = (int) config('booking.balance_final_notice_days', 2);
         $tyLeCoc = (int) config('booking.deposit_percent', 50);
 
-        // Còn xa: hạn trả nốt vẫn cách cửa sổ nhắc vài ngày.
+        // --- Ranh giới 1: cửa sổ nhắc -------------------------------------------------------
+
         $this->tinhHuong(
             ngayKhoiHanh: $hanTraNot + $nhacLanDau + 8,
             tyLeDaThu: $tyLeCoc,
             moTa: 'Vừa cọc xong, còn xa hạn',
-            kyVong: 'Chạy lệnh nhắc: KHÔNG nhận thư nào. Đây là đơn đối chứng.',
+            nhom: 'Nhắc trả nốt',
+            kyVong: 'Lệnh nhắc: KHÔNG nhận thư nào — đối chứng.',
         );
 
-        // Vừa vào cửa sổ nhắc lần đầu.
         $this->tinhHuong(
             ngayKhoiHanh: $hanTraNot + $nhacLanDau - 1,
             tyLeDaThu: $tyLeCoc,
             moTa: 'Tới lượt nhắc lần đầu',
-            kyVong: 'Chạy lệnh nhắc: nhận thư nhắc nhẹ, nền xanh, có nút trả online.',
+            nhom: 'Nhắc trả nốt',
+            kyVong: 'Lệnh nhắc: thư nhắc nhẹ, nền xanh, có nút trả online.',
         );
 
-        // Sát hạn: rơi vào ngưỡng cảnh báo cuối.
         $this->tinhHuong(
             ngayKhoiHanh: $hanTraNot + $canhBaoCuoi - 1,
             tyLeDaThu: $tyLeCoc,
             moTa: 'Sát hạn, tới lượt cảnh báo cuối',
-            kyVong: 'Chạy lệnh nhắc: nhận thư nền ĐỎ, nói thẳng sẽ hủy đơn và mất cọc.',
+            nhom: 'Nhắc trả nốt',
+            kyVong: 'Lệnh nhắc: thư nền ĐỎ, nói thẳng sẽ hủy đơn và mất cọc.',
         );
 
-        // Đã quá hạn hai ngày.
+        $this->tinhHuong(
+            ngayKhoiHanh: $hanTraNot + $nhacLanDau - 1,
+            tyLeDaThu: $tyLeCoc,
+            moTa: 'Tới lượt nhắc nhưng CHUYẾN ĐÃ HỦY',
+            nhom: 'Nhắc trả nốt',
+            kyVong: 'Lệnh nhắc: KHÔNG nhận thư — chuyến không chạy thì đòi tiền làm gì.',
+            chuyenBiHuy: true,
+        );
+
+        // --- Ranh giới 2 và 3: hủy khi quá hạn ----------------------------------------------
+
         $this->tinhHuong(
             ngayKhoiHanh: $hanTraNot - 2,
             tyLeDaThu: $tyLeCoc,
-            moTa: 'Đã quá hạn trả nốt',
-            kyVong: 'Chạy lệnh hủy: đơn bị hủy, hoàn 0 đồng (mất cọc), chỗ trả về kho.',
+            moTa: 'Đã cọc, đã quá hạn trả nốt',
+            nhom: 'Hủy quá hạn',
+            kyVong: 'Lệnh hủy: BỊ HỦY, hoàn 0 đồng (mất cọc), chỗ trả về kho.',
         );
 
-        // Quá hạn nhưng đã trả đủ — đối chứng cho lệnh hủy.
         $this->tinhHuong(
             ngayKhoiHanh: $hanTraNot - 2,
             tyLeDaThu: 100,
             moTa: 'Quá hạn nhưng đã trả đủ',
-            kyVong: 'Chạy lệnh hủy: KHÔNG bị đụng tới. Đây là đơn đối chứng.',
+            nhom: 'Hủy quá hạn',
+            kyVong: 'Lệnh hủy: KHÔNG bị đụng — đối chứng.',
         );
 
-        // Đơn đoàn quá hạn — đối chứng cho luật loại trừ đoàn.
+        $this->tinhHuong(
+            ngayKhoiHanh: $hanTraNot - 2,
+            tyLeDaThu: 0,
+            moTa: 'Quá hạn, sổ ghi 0 đồng',
+            nhom: 'Hủy quá hạn',
+            kyVong: 'Lệnh hủy: KHÔNG bị hủy — có thể khách đã trả mà chưa ai ghi sổ. Điều hành xử lý tay.',
+        );
+
         $this->tinhHuong(
             ngayKhoiHanh: $hanTraNot - 2,
             tyLeDaThu: $tyLeCoc,
             moTa: 'Đơn ĐOÀN quá hạn',
-            kyVong: 'Chạy lệnh hủy: KHÔNG bị hủy tự động, vì đoàn luôn có người theo.',
+            nhom: 'Hủy quá hạn',
+            kyVong: 'Lệnh hủy: KHÔNG bị hủy tự động — đoàn luôn có người theo.',
             laDoan: true,
+        );
+
+        // --- Ranh giới 4: thời điểm đặt ------------------------------------------------------
+
+        $this->tinhHuong(
+            ngayKhoiHanh: max(4, $hanTraNot - 3),
+            tyLeDaThu: 100,
+            moTa: 'Đặt sát ngày, đã trả đủ',
+            nhom: 'Đặt sát ngày',
+            kyVong: 'Không có khái niệm cọc. Lệnh nhắc và lệnh hủy đều bỏ qua.',
+        );
+
+        $this->tinhHuong(
+            ngayKhoiHanh: $hanTraNot + $nhacLanDau + 8,
+            tyLeDaThu: 0,
+            moTa: 'Chờ thanh toán, chưa cọc',
+            nhom: 'Đặt sát ngày',
+            kyVong: 'Mở trang tra cứu: thấy nút "Đặt cọc 50%". Hết 10 phút thì tự hủy.',
+            trangThai: 'pending',
         );
     }
 
-    /**
-     * Dựng một chuyến và một đơn ở đúng mốc mong muốn.
-     *
-     * @param  int  $ngayKhoiHanh  số ngày nữa thì chuyến khởi hành
-     * @param  int  $tyLeDaThu  phần trăm giá đơn đã nằm trong sổ
-     */
-    private function tinhHuong(
-        int $ngayKhoiHanh,
-        int $tyLeDaThu,
-        string $moTa,
-        string $kyVong,
-        bool $laDoan = false,
-    ): void {
-        $start = Carbon::now()->addDays($ngayKhoiHanh)->setTime(6, 0);
+    private function taoChuyen(int $ngayNua): TourSchedule
+    {
+        $start = Carbon::now()->addDays($ngayNua)->setTime(6, 0);
 
-        $chuyen = TourSchedule::query()->create([
+        return TourSchedule::query()->create([
             'tour_id' => $this->tour->id,
             'status' => ScheduleStatus::Open->value,
             'start_date' => $start,
@@ -195,7 +264,25 @@ class DepositFlowSeeder extends Seeder
             'min_people' => 2,
             'booked_people' => 0,
         ]);
+    }
 
+    /**
+     * Dựng một chuyến và một đơn ở đúng mốc mong muốn.
+     *
+     * @param  int  $ngayKhoiHanh  số ngày nữa thì chuyến khởi hành
+     * @param  int  $tyLeDaThu  phần trăm giá đơn đã nằm trong sổ; 0 nghĩa là chưa có bút toán nào
+     */
+    private function tinhHuong(
+        int $ngayKhoiHanh,
+        int $tyLeDaThu,
+        string $moTa,
+        string $nhom,
+        string $kyVong,
+        bool $laDoan = false,
+        bool $chuyenBiHuy = false,
+        string $trangThai = 'confirmed',
+    ): void {
+        $chuyen = $this->taoChuyen($ngayKhoiHanh);
         $tongTien = 2 * (float) $this->tour->adult_price;
         $daThu = round($tongTien * $tyLeDaThu / 100);
 
@@ -207,7 +294,7 @@ class DepositFlowSeeder extends Seeder
             'customer_name' => $this->khach->name,
             'customer_email' => $this->khach->email,
             'customer_phone' => '0901234567',
-            'departure_date' => $start,
+            'departure_date' => $chuyen->start_date,
             'guests' => 2,
             'seats' => 2,
             'adult_count' => 2,
@@ -217,8 +304,11 @@ class DepositFlowSeeder extends Seeder
             'child_price' => $this->tour->child_price,
             'infant_price' => $this->tour->infant_price,
             'total_amount' => $tongTien,
-            'status' => 'confirmed',
-            'confirmed_at' => now()->subDays(3),
+            'status' => $trangThai,
+            'confirmed_at' => $trangThai === 'confirmed' ? now()->subDays(3) : null,
+            'expires_at' => $trangThai === 'pending'
+                ? now()->addMinutes((int) config('booking.payment_ttl_minutes', 10))
+                : null,
             'cancellation_policy_id' => CancellationPolicy::dangApDung()?->id,
             'note' => self::TAG . ' ' . $moTa,
         ]);
@@ -228,16 +318,21 @@ class DepositFlowSeeder extends Seeder
          *
          * Đúng cách luồng thật làm. Đóng mốc ấy cho đơn mới cọc là dựng sẵn một dữ liệu nói dối:
          * mọi phép tính tiền sẽ tưởng đơn đã trả xong.
+         *
+         * `$daThu` bằng 0 thì KHÔNG tạo bút toán nào — đó chính là tình huống dữ liệu lệch mà lệnh
+         * hủy phải bỏ qua, và nó chỉ dựng được bằng cách để sổ trống thật.
          */
-        BookingPayment::query()->create([
-            'booking_id' => $don->id,
-            'kind' => $tyLeDaThu >= 100 ? 'balance' : 'deposit',
-            'amount' => $daThu,
-            'method' => 'gateway',
-            'reference' => 'SEED-' . Str::upper(Str::random(8)),
-            'note' => $tyLeDaThu >= 100 ? 'Thanh toán đủ' : 'Đặt cọc giữ chỗ',
-            'paid_at' => now()->subDays(3),
-        ]);
+        if ($daThu > 0) {
+            BookingPayment::query()->create([
+                'booking_id' => $don->id,
+                'kind' => $tyLeDaThu >= 100 ? 'balance' : 'deposit',
+                'amount' => $daThu,
+                'method' => 'gateway',
+                'reference' => 'SEED-' . Str::upper(Str::random(8)),
+                'note' => $tyLeDaThu >= 100 ? 'Thanh toán đủ' : 'Đặt cọc giữ chỗ',
+                'paid_at' => now()->subDays(3),
+            ]);
+        }
 
         if ($tyLeDaThu >= 100) {
             $don->forceFill(['paid_at' => now()->subDays(3)])->save();
@@ -264,9 +359,24 @@ class DepositFlowSeeder extends Seeder
 
         $chuyen->forceFill(['booked_people' => 2])->save();
 
+        /*
+         * Hủy chuyến SAU khi đã dựng xong đơn.
+         *
+         * Máy trạng thái chặn thao tác trên chuyến đã hủy, nên đổi trạng thái trước thì chính bước
+         * tạo đơn ở trên bị luật của nó chặn lại.
+         */
+        if ($chuyenBiHuy) {
+            $chuyen->forceFill([
+                'status' => ScheduleStatus::Cancelled->value,
+                'cancelled_at' => now()->subDay(),
+                'cancelled_reason' => 'Dựng sẵn để thử: chuyến đã hủy thì không đòi tiền khách nữa.',
+            ])->save();
+        }
+
         $this->bang[] = [
+            'nhom' => $nhom,
             'don' => 'BK-' . $don->id,
-            'khoi_hanh' => $start->format('d/m'),
+            'khoi_hanh' => $chuyen->start_date->format('d/m'),
             'han_tra_not' => $don->balanceDueAt()?->format('d/m') ?? '—',
             'da_thu' => number_format($daThu, 0, ',', '.'),
             'con_thieu' => number_format($tongTien - $daThu, 0, ',', '.'),
@@ -290,14 +400,15 @@ class DepositFlowSeeder extends Seeder
         }
 
         $cmd->newLine();
-        $cmd->info('Đã dựng ' . count($this->bang) . ' đơn cho luồng đặt cọc.');
+        $cmd->info('Đã dựng ' . count($this->bang) . ' đơn và 2 chuyến trống cho luồng đặt cọc.');
         $cmd->line('Tour: ' . $this->tour->title . '  ·  Đăng nhập khách: customer@gmail.com / customer123');
         $cmd->newLine();
 
         $cmd->table(
-            ['Đơn', 'Khởi hành', 'Hạn trả nốt', 'Đã thu', 'Còn thiếu', 'Tình huống'],
+            ['Nhóm', 'Đơn', 'Khởi hành', 'Hạn trả nốt', 'Đã thu', 'Còn thiếu', 'Tình huống'],
             array_map(fn (array $d) => [
-                $d['don'], $d['khoi_hanh'], $d['han_tra_not'], $d['da_thu'], $d['con_thieu'], $d['tinh_huong'],
+                $d['nhom'], $d['don'], $d['khoi_hanh'], $d['han_tra_not'],
+                $d['da_thu'], $d['con_thieu'], $d['tinh_huong'],
             ], $this->bang),
         );
 
@@ -309,18 +420,26 @@ class DepositFlowSeeder extends Seeder
         }
 
         $cmd->newLine();
+        $cmd->line('<comment>Hai chuyến để trống, dùng để TỰ ĐẶT TOUR trên giao diện:</comment>');
+
+        foreach ($this->chuyenTrong as $c) {
+            $cmd->line("  <info>{$c['ma']}</info> khởi hành {$c['khoi_hanh']}  ·  {$c['ky_vong']}");
+        }
+
+        $cmd->newLine();
         $cmd->line('<comment>Ba lệnh để chạy thử, theo đúng thứ tự này:</comment>');
         $cmd->line('  1. php artisan bookings:send-balance-reminders');
-        $cmd->line('     → xem thư ở storage/logs hoặc Mailtrap tùy MAIL_MAILER');
+        $cmd->line('     → chỉ 2 đơn nhận thư: một nhắc nhẹ, một cảnh báo cuối');
         $cmd->line('  2. php artisan bookings:cancel-unpaid-balances --dry-run');
-        $cmd->line('     → chỉ liệt kê đơn sẽ bị hủy, không đụng gì');
+        $cmd->line('     → chỉ liệt kê, phải thấy ĐÚNG 1 đơn');
         $cmd->line('  3. php artisan bookings:cancel-unpaid-balances');
-        $cmd->line('     → hủy thật, rồi mở Thông báo ở trang quản trị để thấy báo chuyến trống chỗ');
+        $cmd->line('     → hủy thật, rồi mở Thông báo ở trang quản trị');
         $cmd->newLine();
         $cmd->line('<comment>Xem trên giao diện:</comment>');
-        $cmd->line('  · Quản trị → Đơn hàng → Sổ giao dịch → tab "Phải thu": thấy các đơn còn nợ');
-        $cmd->line('  · Quản trị → Đơn hàng → Hoá đơn: mỗi dòng hiện "Thiếu ... đ"');
+        $cmd->line('  · Đơn hàng → Sổ giao dịch → tab "Phải thu": các đơn còn nợ');
+        $cmd->line('  · Đơn hàng → Hoá đơn: mỗi dòng hiện "Thiếu ... đ"');
         $cmd->line('  · Mở một đơn → nút "Xác nhận đã trả nốt" để thu offline');
+        $cmd->line('  · Trang khách → đặt tour vào hai chuyến trống ở trên để so cọc với trả đủ');
         $cmd->newLine();
     }
 }
