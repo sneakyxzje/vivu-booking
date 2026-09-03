@@ -26,7 +26,16 @@ class ContractPrintController extends Controller
             'tour.itineraries' => fn ($q) => $q->orderBy('day_number'),
             'tour.services',
             'schedule',
-            'cancellationPolicy.rules' => fn ($q) => $q->orderByDesc('min_hours_before'),
+            /*
+             * KHÔNG sắp xếp lại ở đây. Quan hệ `rules` đã tự sắp theo `min_days_before` giảm dần,
+             * tức từ xa tới gần ngày khởi hành — đúng thứ tự hợp đồng cần in.
+             *
+             * Dòng cũ sắp theo `min_hours_before`, cột đã bị bỏ ở migration 2026_08_29_000001 khi
+             * bậc phí đổi từ giờ sang ngày. SQLite không báo lỗi vì nó coi một định danh trong nháy
+             * kép không khớp cột nào là CHUỖI, nên câu lệnh chạy lọt và bộ kiểm thử vẫn xanh. MySQL
+             * thì trả lỗi 1054 và cả trang in hợp đồng chết — chỉ lộ ra trên máy chạy thật.
+             */
+            'cancellationPolicy.rules',
         ])->firstOrFail();
 
         $tour = $booking->tour;

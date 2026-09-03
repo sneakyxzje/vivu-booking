@@ -307,7 +307,15 @@ class AdminAttendanceController extends Controller
             ->whereIn('itinerary_checkpoint_id', $checkpointIds)
             ->with([
                 'bookingPassenger:id,name,booking_id',
-                'itineraryCheckpoint:id,name,tour_itinerary_id,expected_at',
+                /*
+                 * KHÔNG chọn `expected_at`. Cột ấy có trong tài liệu 07 nhưng chưa bao giờ được
+                 * migration nào tạo ra, nên câu lệnh này đang hỏi một cột không tồn tại.
+                 *
+                 * SQLite nuốt: định danh trong nháy kép không khớp cột nào thì nó hiểu thành chuỗi,
+                 * và trường trả về luôn rỗng — nên `delay_hours` bên dưới chưa bao giờ tính ra số.
+                 * MySQL trả lỗi 1054 và cả báo cáo này chết.
+                 */
+                'itineraryCheckpoint:id,name,tour_itinerary_id',
                 'itineraryCheckpoint.tourItinerary:id,day_number',
             ])
             ->get();
@@ -386,8 +394,8 @@ class AdminAttendanceController extends Controller
                 'checkpoint_id'  => $cp->id,
                 'itinerary_day'  => $cp->tourItinerary?->day_number,
                 'name'           => $cp->name,
-                'type'           => $cp->type ?? null,
-                'expected_at'    => $cp->expected_at,
+                // Bỏ `type` và `expected_at`: cả hai đều không phải cột của `itinerary_checkpoints`.
+                // Xem chú thích ở phần nạp quan hệ bên trên.
                 'requires_photo' => (bool) $cp->is_required_photo,
                 'has_photo'      => $hasPhoto,
                 ...$counts,
@@ -416,24 +424,25 @@ class AdminAttendanceController extends Controller
             ])
             ->values();
 
-        // ─── 7. late_entries ─────────────────────────────────────────────────
+        /*
+         * ─── 7. late_entries ─────────────────────────────────────────────────
+         *
+         * Ghi bù muộn bao lâu, đo từ **hết ngày của điểm dừng** tới lúc thật sự bấm ghi.
+         *
+         * Mốc ấy chính là mốc `AttendanceService` dùng để bật cờ `is_late_entry`
+         * (`checkpointDate->endOfDay()` cộng thêm ngưỡng), nên con số ở đây và cái cờ nói về cùng
+         * một chuyện — thay vì đo với một giờ dự kiến không có trong cơ sở dữ liệu.
+         */
         $lateEntries = $allCheckins
             ->where('is_late_entry', true)
             ->map(function ($c) use ($schedule) {
-                $cp          = $c->itineraryCheckpoint;
-                $day         = $cp?->tourItinerary?->day_number ?? 1;
-                $cpDate      = Carbon::parse($schedule->start_date)->addDays($day - 1);
-                $expectedStr = $cp?->expected_at; // "HH:MM" string
+                $cp     = $c->itineraryCheckpoint;
+                $day    = $cp?->tourItinerary?->day_number ?? 1;
+                $cpDate = Carbon::parse($schedule->start_date)->addDays($day - 1);
+                $hetNgay = $cpDate->copy()->endOfDay();
 
-                // Delay = checked_at - (ngày của checkpoint + giờ dự kiến)
-                $expectedDt = null;
-                if ($expectedStr && Carbon::hasFormat($expectedStr, 'H:i')) {
-                    [$h, $m]    = explode(':', $expectedStr);
-                    $expectedDt = $cpDate->copy()->setTime((int)$h, (int)$m);
-                }
-
-                $delayHours = $expectedDt && $c->checked_at
-                    ? round($c->checked_at->diffInMinutes($expectedDt, false) / 60 * -1, 1)
+                $delayHours = $c->checked_at
+                    ? round(max(0, $hetNgay->diffInMinutes($c->checked_at, false)) / 60, 1)
                     : null;
 
                 return [
@@ -442,7 +451,7 @@ class AdminAttendanceController extends Controller
                     'itinerary_day'   => $day,
                     'checked_at'      => $c->checked_at?->toIso8601String(),
                     'checkpoint_date' => $cpDate->toDateString(),
-                    'expected_at'     => $expectedStr,
+                    // Số giờ tính từ lúc hết ngày của điểm dừng, không phải từ một giờ hẹn trước.
                     'delay_hours'     => $delayHours,
                 ];
             })
