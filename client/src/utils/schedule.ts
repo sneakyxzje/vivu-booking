@@ -147,3 +147,30 @@ export const isScheduleBookable = (
   tourStatus?: Tour["status"],
   deadlineDays: number = HAN_CHOT_MAC_DINH_NGAY,
 ): boolean => getScheduleUnavailableReason(schedule, tourStatus, deadlineDays) === null;
+
+/**
+ * Chuyến này đã qua hạn trả nốt chưa — tức đặt vào đây thì KHÔNG còn được cọc.
+ *
+ * Hạn trả nốt là ngày khởi hành trừ `balanceDueDays`. Chuyến khởi hành trong tuần tới có cái hạn ấy
+ * nằm ở quá khứ: không còn đợt hai nào để chia, nên máy chủ thu đủ ngay
+ * (`BookingPaymentService::nextPaymentAmount`).
+ *
+ * Đây là bản sao thứ hai của luật ấy, và nó tồn tại vì bản gốc chạy quá muộn. Máy chủ chỉ tính con
+ * số này lúc dựng liên kết thanh toán, tức sau khi khách đã điền xong form và bấm đặt. Nếu giao
+ * diện không biết luật, nó mời khách cọc một nửa rồi cổng thanh toán đòi đủ tiền — khách đọc được
+ * hai con số khác nhau cho cùng một đơn, và con số họ tin là con số họ nhìn thấy trước.
+ *
+ * Hai hạn, đừng lẫn: `isDeadlineOverdue` là hạn CHỐT DANH SÁCH, quá đi thì chuyến ngừng bán. Hạn ở
+ * đây quá đi thì chuyến vẫn bán bình thường, chỉ là phải trả đủ tiền.
+ */
+export const isBalanceDeadlinePassed = (
+  schedule: TourSchedule | null | undefined,
+  balanceDueDays: number,
+): boolean => {
+  if (!schedule?.start_date || balanceDueDays <= 0) return false;
+
+  const hanTraNot = new Date(schedule.start_date);
+  hanTraNot.setDate(hanTraNot.getDate() - balanceDueDays);
+
+  return hanTraNot <= new Date();
+};

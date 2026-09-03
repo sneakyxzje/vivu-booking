@@ -9,6 +9,7 @@ import {
   getScheduleUnavailableReason,
   getSeatCount,
   HAN_CHOT_MAC_DINH_NGAY,
+  isBalanceDeadlinePassed,
   isScheduleBookable,
 } from "@/utils/schedule";
 import type { AxiosError } from "axios";
@@ -130,6 +131,16 @@ const BookingForm = ({
     hanChotNgay,
   );
   const isOverCapacity = Boolean(selectedSchedule) && seatCount > availableSlots;
+  /*
+   * Chuyến này có được cọc không — hỏi theo CHUYẾN, không theo cấu hình chung.
+   *
+   * Tỷ lệ cọc là một con số của cả hệ thống, nhưng việc có chia đợt hay không thì phụ thuộc chuyến
+   * khách chọn: hạn trả nốt là ngày khởi hành trừ mười ngày, nên chuyến đi trong tuần tới có hạn ấy
+   * ở quá khứ và máy chủ thu đủ ngay. Trước đây màn này chỉ nhìn `depositPercent`, nên nó hứa cọc
+   * 50% cho cả những chuyến sát ngày rồi cổng thanh toán đòi nguyên giá.
+   */
+  const quaHanTraNot = isBalanceDeadlinePassed(selectedSchedule, balanceDueDays);
+  const coChiaDot = depositPercent < 100 && totalAmount > 0 && Boolean(selectedSchedule);
 
   const handleInputChange =
     (field: keyof BookingFormState) =>
@@ -428,7 +439,7 @@ const BookingForm = ({
           Khách bấm đặt rồi thấy cổng thanh toán hiện một con số khác giá tour thì họ dừng lại tự hỏi
           có nhầm không. Nói trước ở đây, ngay cạnh tổng tiền, là chỗ duy nhất kịp.
         */}
-        {depositPercent < 100 && totalAmount > 0 && (
+        {coChiaDot && !quaHanTraNot && (
           <div className="space-y-1.5 rounded-lg border border-primary-200 bg-white px-4 py-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold text-primary-800">
@@ -442,6 +453,27 @@ const BookingForm = ({
               Phần còn lại <b>{formatCurrency(totalAmount - depositAmount)}</b> thanh toán chậm nhất{" "}
               <b>{balanceDueDays} ngày trước ngày khởi hành</b>. Chúng tôi sẽ gửi thư nhắc trước hạn.
               Quá hạn mà chưa thanh toán, đơn bị hủy và khoản đặt cọc không được hoàn lại.
+            </p>
+          </div>
+        )}
+
+        {/*
+          Chuyến sát ngày: nói thẳng là thu đủ, và nói vì sao.
+
+          Im lặng ở đây cũng sai như hứa cọc: khách vừa đọc chính sách "đặt cọc 50%" ở trang trước,
+          nên họ đến cổng thanh toán với một con số trong đầu. Một dòng giải thích rẻ hơn nhiều so
+          với một cuộc gọi lên tổng đài hỏi sao bị tính gấp đôi.
+        */}
+        {coChiaDot && quaHanTraNot && (
+          <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/70 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-amber-900">Thanh toán hôm nay (100%)</span>
+              <span className="text-lg font-bold text-amber-900">{formatCurrency(totalAmount)}</span>
+            </div>
+            <p className="text-xs leading-relaxed text-amber-800">
+              Chuyến này khởi hành trong vòng <b>{balanceDueDays} ngày</b> nên không chia hai đợt:
+              hạn thanh toán phần còn lại đã qua, đơn hàng được thu đủ ngay khi đặt. Đặt sớm hơn cho
+              chuyến khác, bạn chỉ cần cọc {depositPercent}%.
             </p>
           </div>
         )}

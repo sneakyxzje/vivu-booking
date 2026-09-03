@@ -353,6 +353,10 @@ export default function PolicyPage() {
               trong thời hạn giữ chỗ nêu tại mục 4.2 và là điều kiện để chỗ được
               giữ chắc chắn. Đợt hai là phần còn lại, nộp chậm nhất{" "}
               <Manh>{data.payment.balance_due_days} ngày trước ngày khởi hành</Manh>.
+              {" "}Đơn hàng đăng ký khi ngày khởi hành còn cách dưới thời hạn này{" "}
+              <Manh>không chia đợt</Manh>: hạn nộp đợt hai đã qua nên toàn bộ giá
+              trị đơn hàng được thu ngay khi đăng ký. Mức đặt cọc là ưu đãi dành
+              cho khách hàng đăng ký sớm.
             </Doan>
 
             <Doan>
