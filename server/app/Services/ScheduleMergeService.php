@@ -68,7 +68,11 @@ class ScheduleMergeService
 
         $don = Booking::query()
             ->whereIn('id', $ids)
-            ->with(['schedule:id,start_date', 'tour:id,title'])
+            // `booking_deadline` phải nằm trong danh sách cột: `tuDongThuNotKhongKip()` đo tới hạn
+            // chốt, và cột thiếu thì nó đọc null rồi lặng lẽ lùi về mặc định ngày-đi-trừ-ba. Chuyến
+            // có hạn chốt thương lượng riêng — đúng nhóm mà mốc này quan trọng nhất — bị đo sai về
+            // phía muộn hơn, nên cảnh báo bắn trễ hoặc không bắn.
+            ->with(['schedule:id,start_date,booking_deadline', 'tour:id,title'])
             ->get();
 
         foreach ($don as $booking) {

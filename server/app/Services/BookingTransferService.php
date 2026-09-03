@@ -50,7 +50,12 @@ class BookingTransferService
      */
     private function canhBaoNeuKhongKipThuNot(Booking $booking): void
     {
-        $moi = Booking::query()->with(['schedule:id,start_date', 'tour:id,title'])->find($booking->getKey());
+        // `booking_deadline` bắt buộc phải có: `tuDongThuNotKhongKip()` đo tới hạn chốt, mà cột
+        // thiếu thì nó đọc null rồi lùi về mặc định — và màn xem trước (dùng bản ghi đầy đủ) sẽ nói
+        // một đằng còn cảnh báo sau khi bấm nói một nẻo, cách nhau vài giây.
+        $moi = Booking::query()
+            ->with(['schedule:id,start_date,booking_deadline', 'tour:id,title'])
+            ->find($booking->getKey());
 
         if (!$moi || !$this->payments->tuDongThuNotKhongKip($moi)) {
             return;

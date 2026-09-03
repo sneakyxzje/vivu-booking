@@ -32,7 +32,18 @@ export interface Booking {
   /** Tổng đã thu thực, tính từ sổ giao dịch. Chỉ có ở các điểm cuối tính sẵn nó. */
   net_paid?: number;
   balance_due?: number;
-  /** Liên kết cổng thanh toán cho phần còn thiếu. Vắng mặt khi đơn đã trả đủ. */
+  /**
+   * Số của LẦN TRẢ SẮP TỚI — khác `balance_due` ở đúng lần đầu.
+   *
+   * Đơn vừa đặt còn thiếu cả giá tour nhưng chỉ phải cọc một phần. Đây là con số cổng thanh toán
+   * sẽ đòi, và là con số duy nhất được in lên nút; lấy `balance_due` thì nút hứa một đằng còn
+   * cổng đòi một nẻo.
+   */
+  payment_amount?: number;
+  /** Hạn trả nốt. Quá mốc này mà chưa thanh toán thì đơn bị hủy và mất cọc. */
+  balance_due_at?: string | null;
+  balance_overdue?: boolean;
+  /** Liên kết cổng thanh toán, dựng theo `payment_amount`. Vắng mặt khi đơn đã trả đủ. */
   payment_url?: string;
   discount_code_id?: number | null;
   discount_code?: string | null;

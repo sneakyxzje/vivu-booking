@@ -64,16 +64,52 @@
                                 </tr>
                                 @endif
                                 <tr>
-                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Tổng thanh toán</td>
-                                    <td style="padding:12px 14px;font-size:18px;font-weight:800;color:#dc2626;">
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Tổng giá trị đơn</td>
+                                    <td style="padding:12px 14px;font-size:15px;font-weight:700;">
                                         {{ number_format((float) $booking->total_amount, 0, ',', '.') }} VNĐ
                                     </td>
                                 </tr>
+                                {{-- Số phải trả NGAY, tách khỏi giá trị đơn.
+
+                                     Trước đây thư chỉ in giá tour ở đây rồi in lại chính nó lên nút bấm, trong khi
+                                     liên kết sau nút ấy đòi tiền cọc. Khách đọc thư yên trí rằng trả xong lần này
+                                     là hết nghĩa vụ — và cả lá thư không có một chữ nào về đợt hai. --}}
+                                <tr>
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">
+                                        {{ $conNo > 0 ? 'Đặt cọc hôm nay' : 'Cần thanh toán' }}
+                                    </td>
+                                    <td style="padding:12px 14px;font-size:18px;font-weight:800;color:#dc2626;">
+                                        {{ number_format($tienPhaiTraNgay, 0, ',', '.') }} VNĐ
+                                    </td>
+                                </tr>
+                                @if($conNo > 0)
+                                <tr>
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Còn lại</td>
+                                    <td style="padding:12px 14px;font-size:14px;">
+                                        {{ number_format($conNo, 0, ',', '.') }} VNĐ
+                                        @if($hanTraNot)
+                                            &ndash; hạn <strong>{{ $hanTraNot->format('d/m/Y') }}</strong>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endif
                             </table>
+
+                            @if($conNo > 0)
+                            <p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:#4b5563;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px;">
+                                Đơn này thanh toán làm hai đợt. Chúng tôi sẽ gửi thư nhắc trước hạn đợt hai. Quá hạn
+                                mà chưa nhận được thanh toán, đơn được hủy và khoản đã thanh toán xử lý theo bảng phí hủy.
+                            </p>
+                            @endif
 
                             @if($booking->expires_at)
                             <p style="margin:14px 0 0;font-size:13px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;">
-                                Hạn thanh toán:
+                                {{-- "Giữ chỗ tới", không phải "hạn thanh toán".
+
+                                     Cụm "hạn thanh toán" đã thuộc về hạn trả nốt — mốc cách đây hàng tuần mà quá đi
+                                     thì mất cọc. Dùng cùng một cái tên cho hai mốc cách nhau xa như vậy là mời khách
+                                     nhầm cái mười phút với cái mười ngày. --}}
+                                Chỗ được giữ tới:
                                 <strong>{{ $booking->expires_at->timezone('Asia/Ho_Chi_Minh')->format('H:i d/m/Y') }}</strong>
                                 (giờ Việt Nam).
                             </p>
@@ -84,7 +120,8 @@
                                 {{-- Nút ghi rõ số tiền: khách bấm sang cổng và thấy đúng con số
                                          vừa đọc, không phải đối chiếu lại xem có nhầm không. --}}
                                 <a href="{{ $paymentUrl }}" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 18px;border-radius:10px;">
-                                    Thanh toán {{ number_format((float) $booking->total_amount, 0, ',', '.') }} VNĐ
+                                    {{ $conNo > 0 ? 'Đặt cọc' : 'Thanh toán' }}
+                                    {{ number_format($tienPhaiTraNgay, 0, ',', '.') }} VNĐ
                                 </a>
                             </p>
                             @endif

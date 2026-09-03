@@ -418,6 +418,17 @@ class BookingController extends Controller
             $booking->setAttribute('balance_due', $conThieu);
             $booking->setAttribute('payment_amount', $traLanNay);
 
+            /*
+             * Hạn trả nốt cũng phải có ở đây, không chỉ ở trang tra cứu.
+             *
+             * Khách đăng nhập chỉ dùng màn "Đơn của tôi" thì trước đây không có đường nào nhìn thấy
+             * mốc mà quá đi là đơn bị hủy và mất cọc. Hai cửa vào cùng một đơn phải nói giống nhau.
+             */
+            $hanTraNot = $conThieu > 0 ? $booking->balanceDueAt() : null;
+
+            $booking->setAttribute('balance_due_at', $hanTraNot?->toDateTimeString());
+            $booking->setAttribute('balance_overdue', $hanTraNot !== null && now()->gte($hanTraNot));
+
             if ($traLanNay > 0
                 && !$booking->isGroup()
                 && in_array($booking->status, ['pending', 'confirmed'], true)) {

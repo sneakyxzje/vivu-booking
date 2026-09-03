@@ -22,9 +22,8 @@
                         <td style="padding:26px 28px;">
                             <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
                                 Kính chào <strong>{{ $booking->customer_name }}</strong>, công ty vừa gộp chuyến của Quý
-                                khách với một đoàn khác cùng tour để chuyến chắc chắn khởi hành. Mọi thứ trong đơn giữ
-                                nguyên &mdash; cùng hành trình, cùng số khách, <strong>cùng số tiền</strong>. Chỉ có ngày
-                                đi là thay đổi.
+                                khách với một đoàn khác cùng tour để chuyến chắc chắn khởi hành. Hành trình, số khách
+                                và <strong>giá tour</strong> đều giữ nguyên.
                             </p>
 
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:18px 0;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
@@ -45,10 +44,40 @@
                                     <td style="padding:12px 14px;font-size:13px;">{{ $lyDo }}</td>
                                 </tr>
                                 <tr>
-                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Số tiền</td>
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Giá tour</td>
                                     <td style="padding:12px 14px;font-size:13px;">Không đổi</td>
                                 </tr>
+                                @if($conThieu > 0 && $hanTraNotMoi)
+                                    {{-- Hạn trả nốt DỊCH THEO ngày khởi hành. Nói ra ở đây, không để khách phát
+                                         hiện qua một lá thư đòi tiền vài hôm sau. --}}
+                                    <tr>
+                                        <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Còn phải thanh toán</td>
+                                        <td style="padding:12px 14px;font-size:14px;font-weight:700;color:#b45309;">
+                                            {{ number_format($conThieu, 0, ',', '.') }} VNĐ
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Hạn thanh toán mới</td>
+                                        <td style="padding:12px 14px;font-size:14px;font-weight:700;color:#b45309;">
+                                            {{ $hanTraNotMoi->format('d/m/Y') }}
+                                            @if($hanTraNotMoi->isPast())
+                                                <span style="font-weight:400;font-size:13px;">(đã tới hạn)</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endif
                             </table>
+
+                            @if($conThieu > 0 && $hanTraNotMoi)
+                            <p style="margin:14px 0 0;font-size:13px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;line-height:1.6;">
+                                Hạn thanh toán phần còn lại tính theo ngày khởi hành, nên nó
+                                <strong>dịch theo ngày mới</strong>.
+                                @if($hanTraNotMoi->isPast())
+                                    Vì ngày mới sớm hơn, hạn này đã tới &mdash; chúng tôi sẽ gửi riêng một thư
+                                    kèm liên kết thanh toán. Nếu quá gấp, Quý khách dùng quyền từ chối bên dưới.
+                                @endif
+                            </p>
+                            @endif
 
                             {{-- Quyền từ chối. Đây là phần quan trọng nhất của lá thư: khách không chọn việc
                                  đổi ngày, nên từ chối không phải là hủy đơn tự nguyện. --}}

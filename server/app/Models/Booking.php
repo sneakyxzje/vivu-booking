@@ -113,6 +113,35 @@ class Booking extends Model
             ->subDays((int) config('booking.balance_due_days', 10));
     }
 
+    /**
+     * Lá thư nhắc này còn nói về chuyến hiện tại không, hay đã lạc hậu vì đơn vừa đổi ngày đi.
+     *
+     * Hai cột đánh dấu thư nằm trên ĐƠN, còn cái hạn mà chúng nói tới thì suy ra từ CHUYẾN. Chúng
+     * không ghi lại mình thuộc về ngày khởi hành nào, nên sau một lần ghép hoặc chuyển chuyến thì
+     * một cái mốc hai tháng tuổi vẫn trông như vừa gửi hôm qua.
+     *
+     * Hậu quả đi về cả hai phía, và phía nào cũng hỏng:
+     *
+     *   - Lệnh nhắc thấy cột đã có giá trị nên không gửi lại. Khách chuyển sang chuyến xa hơn không
+     *     bao giờ nhận thư nào về cái hạn MỚI của họ.
+     *   - Lệnh hủy thấy mốc ấy đã quá khoảng ân hạn từ lâu nên hủy được ngay. Cộng lại: đơn bị hủy
+     *     vì một cái hạn chưa từng có lá thư nào nói tới.
+     *
+     * Nên một lá thư gửi TRƯỚC lần đổi chuyến gần nhất thì coi như chưa gửi. Đọc từ `booking_transfers`
+     * chứ không thêm cột: bảng ấy đã ghi sẵn thời điểm mỗi lần đổi.
+     */
+    public function nhacDaLacHau(?\Illuminate\Support\Carbon $moc): bool
+    {
+        if (!$moc) {
+            return true;
+        }
+
+        return \App\Models\BookingTransfer::query()
+            ->where('booking_id', $this->getKey())
+            ->where('approved_at', '>', $moc)
+            ->exists();
+    }
+
     /** Số tiền cọc phải trả khi đặt, theo tỷ lệ cấu hình. */
     public function depositAmount(): float
     {

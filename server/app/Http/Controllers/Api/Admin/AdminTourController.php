@@ -712,6 +712,37 @@ class AdminTourController extends Controller
                 }
 
                 $startDate = Carbon::parse($item['start_date']);
+
+                /*
+                 * Chuyến đã có khách thì KHÔNG dời được ngày khởi hành qua đường sửa tour.
+                 *
+                 * Ngày khởi hành không chỉ là một ô ngày tháng. Hạn trả nốt của mọi đơn trên chuyến
+                 * suy ra từ nó (`Booking::balanceDueAt()`), nên dời ngày là dời hạn của từng người —
+                 * và dời sớm lên thì hạn ấy rơi vào quá khứ, biến cả chuyến thành đơn quá hạn cùng
+                 * lúc. Lệnh nhắc gửi thư muộn, lệnh hủy quét theo sau, và khách mất cọc vì một lần
+                 * bấm Lưu tour.
+                 *
+                 * Hệ thống đã có đúng hai đường được phép đổi ngày đi của một đơn — ghép chuyến và
+                 * chuyển chuyến — và cả hai đều ghi `booking_transfers`, gửi thư cho khách, miễn phí
+                 * hủy vì công ty là bên dời, rồi báo điều hành khi quy trình thu nốt không còn kịp.
+                 * Đường này không làm gì trong số đó, nên nó phải đóng lại thay vì học lại từ đầu.
+                 *
+                 * Chuyến chưa ai đặt thì vẫn sửa thoải mái: lúc ấy ngày khởi hành mới chỉ là dữ liệu.
+                 */
+                if ($schedule
+                    && !$startDate->equalTo($schedule->start_date)
+                    && $schedule->bookings()->whereNot('status', BookingStatus::Cancelled->value)->exists()) {
+                    throw ValidationException::withMessages([
+                        'schedules' => sprintf(
+                            'Chuyến khởi hành %s đã có khách đặt nên không đổi được ngày ở đây. '
+                                . 'Hạn thanh toán của từng đơn tính theo ngày này, đổi ở đây sẽ làm '
+                                . 'khách quá hạn mà không được báo. Dùng chức năng ghép chuyến hoặc '
+                                . 'chuyển chuyến để dời khách sang ngày mới.',
+                            $schedule->start_date->format('d/m/Y'),
+                        ),
+                    ]);
+                }
+
                 $endDate   = $this->ngayVe($startDate, $numberOfDay, $item['end_date'] ?? null);
                 $this->assertKetThucSauKhoiHanh($startDate, $endDate);
 

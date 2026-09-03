@@ -297,6 +297,21 @@ class CancelUnpaidBalances extends Command
              */
             ->whereNotNull('balance_final_notice_at')
             ->where('balance_final_notice_at', '<=', now()->subDays($soNgayAnHan))
+            /*
+             * Và lá thư ấy phải nói về CHUYẾN HIỆN TẠI.
+             *
+             * Cột đánh dấu không ghi nó thuộc về ngày khởi hành nào, nên sau một lần đổi chuyến thì
+             * một cái mốc hai tháng tuổi vẫn thỏa điều kiện ân hạn ở trên ngay lập tức. Đơn chuyển
+             * sang chuyến xa hơn còn không nhận được lá nào về hạn mới — lệnh nhắc thấy cột đã có
+             * giá trị nên bỏ qua. Cộng lại thành đơn bị hủy vì một cái hạn chưa lá thư nào nói tới.
+             *
+             * Xem `Booking::nhacDaLacHau()`.
+             */
+            ->whereNotExists(fn ($q) => $q
+                ->selectRaw('1')
+                ->from('booking_transfers as bt')
+                ->whereColumn('bt.booking_id', 'bookings.id')
+                ->whereColumn('bt.approved_at', '>', 'bookings.balance_final_notice_at'))
             ->with(['tour:id,title', 'schedule:id,start_date,booking_deadline'])
             ->whereIn('status', BookingStatus::paidValues())
             ->whereNull('group_booking_request_id')

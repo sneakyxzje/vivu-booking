@@ -403,13 +403,28 @@ export const MyBookingsTab: React.FC = () => {
     }
   };
 
-  const renderStatusBadge = (status: string) => {
+  /*
+   * Nhãn trạng thái phải tách "đã cọc" khỏi "đã trả xong".
+   *
+   * Từ khi bán theo cọc, `confirmed` mang hai nghĩa. Gắn dấu tích xanh "Đã xác nhận" cho người mới
+   * cọc là nói với họ rằng không còn gì phải làm — rồi vài tuần sau đơn bị hủy vì chưa trả nốt và
+   * họ mất cọc. Trang tra cứu đã phân biệt hai nghĩa này; màn "Đơn của tôi" thì chưa.
+   */
+  const renderStatusBadge = (status: string, conThieu = 0) => {
     switch (status) {
       case "confirmed":
+        if (conThieu > 0) {
+          return (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200">
+              <Clock className="w-3.5 h-3.5 text-teal-600" /> Đã cọc
+            </span>
+          );
+        }
+
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Đã xác
-            nhận
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Đã thanh
+            toán
           </span>
         );
       case "pending":
@@ -541,7 +556,7 @@ export const MyBookingsTab: React.FC = () => {
                     <h3 className="font-bold text-gray-900 text-base line-clamp-1 hover:text-primary-600 transition-colors font-plus-jakarta">
                       {item.tour?.title || `Tour #${item.tour_id}`}
                     </h3>
-                    {renderStatusBadge(item.status)}
+                    {renderStatusBadge(item.status, Number(item.balance_due ?? 0))}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3 text-xs text-gray-600">
@@ -642,6 +657,28 @@ export const MyBookingsTab: React.FC = () => {
                   </div>
                 )}
 
+                {/*
+                  Khoản còn nợ và hạn của nó, ngay trên thẻ đơn.
+
+                  Đây là mốc mà quá đi thì đơn bị hủy và khách mất cọc. Trước đây nó chỉ hiện ở
+                  trang tra cứu bằng mã đơn — nên khách đăng nhập và chỉ dùng màn này không có
+                  đường nào nhìn thấy nó.
+                */}
+                {Number(item.balance_due ?? 0) > 0 && item.balance_due_at && (
+                  <div
+                    className={`mt-4 rounded-xl border px-3.5 py-2.5 text-xs font-semibold ${
+                      item.balance_overdue
+                        ? "border-rose-200 bg-rose-50 text-rose-700"
+                        : "border-amber-200 bg-amber-50 text-amber-800"
+                    }`}
+                  >
+                    Còn thiếu {formatPrice(Number(item.balance_due))} ·{" "}
+                    {item.balance_overdue
+                      ? `đã quá hạn ${formatDate(item.balance_due_at)}, vui lòng thanh toán ngay để đơn không bị hủy`
+                      : `hạn thanh toán ${formatDate(item.balance_due_at)}`}
+                  </div>
+                )}
+
                 {/* Card Action Footer */}
                 <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-100">
                   <span className="text-[11px] text-gray-400">
@@ -656,13 +693,24 @@ export const MyBookingsTab: React.FC = () => {
                       đang chờ trả tiền, rồi phải quay ra trang tra cứu và nhập lại mã đơn — liên
                       kết vốn chỉ có ở đó.
                     */}
-                    {item.payment_url && Number(item.balance_due ?? 0) > 0 && (
+                    {/*
+                      Nút in `payment_amount`, không in `balance_due`.
+
+                      Máy chủ dựng `payment_url` bằng số của LẦN TRẢ SẮP TỚI — với đơn vừa đặt thì
+                      đó là tiền cọc, không phải cả phần còn thiếu. In nhầm trường thì nút ghi 4
+                      triệu còn cổng đòi 2 triệu, và khách dừng lại tự hỏi có nhầm không.
+                    */}
+                    {item.payment_url && Number(item.payment_amount ?? item.balance_due ?? 0) > 0 && (
                       <a
                         href={item.payment_url}
                         className="px-3.5 py-1.5 text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl transition-colors flex items-center gap-1.5"
                       >
                         <CreditCard className="w-3.5 h-3.5" />
-                        Thanh toán {formatPrice(Number(item.balance_due))}
+                        {Number(item.payment_amount ?? 0) > 0
+                          && Number(item.payment_amount) < Number(item.balance_due ?? 0)
+                          ? "Đặt cọc"
+                          : "Thanh toán"}{" "}
+                        {formatPrice(Number(item.payment_amount ?? item.balance_due))}
                       </a>
                     )}
                     {coTheTuHuy(item) && (
@@ -726,7 +774,11 @@ export const MyBookingsTab: React.FC = () => {
             <span className="text-xs font-bold text-primary-600 bg-primary-50 px-2.5 py-1 rounded-full uppercase tracking-wider border border-primary-200">
               Theo dõi hành trình tour #{selectedBooking?.id}
             </span>
-            {selectedBooking && renderStatusBadge(selectedBooking.status)}
+            {selectedBooking
+              && renderStatusBadge(
+                selectedBooking.status,
+                Number(selectedBooking.balance_due ?? 0),
+              )}
           </div>
         }
         subtitle={

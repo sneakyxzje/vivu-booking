@@ -73,10 +73,18 @@ class ContractPrintController extends Controller
             'daThu' => $daThu,
             'conPhaiTra' => max(0.0, $tongTien - $daThu),
             /*
-             * Hạn chốt danh sách làm hạn thanh toán. Đó là mốc điều hành phải trả tiền cho khách
-             * sạn và nhà xe, nên cũng là mốc muộn nhất tiền của khách phải về.
+             * Hạn TRẢ NỐT, không phải hạn chốt danh sách.
+             *
+             * Trước đây dòng này in hạn chốt — ngày khởi hành trừ ba — và điều khoản ngay bên dưới
+             * gắn vào con số ấy quyền hủy chỗ của công ty. Nhưng `CancelUnpaidBalances` hủy đơn từ
+             * ngày khởi hành trừ MƯỜI. Bản hợp đồng có chữ ký của cả hai bên đang cho khách thêm
+             * bảy ngày mà hệ thống không tôn trọng: đơn bị hủy và cọc bị giữ trước cái hạn ghi
+             * trong chính văn bản họ đã ký.
+             *
+             * Hai mốc ấy đo cùng một chỗ (ngày khởi hành) nhưng phục vụ hai việc khác nhau — một
+             * cái nói về tiền, một cái nói về chỗ — nên không được mượn nhau. Xem `Booking::balanceDueAt()`.
              */
-            'hanThanhToan' => $this->ngay($booking->schedule?->booking_deadline),
+            'hanThanhToan' => $this->ngay($booking->balanceDueAt()),
             'dongGia' => $this->dongGia($booking, $tour),
             'giamGia' => $giamGia,
             'tongTien' => $tongTien,

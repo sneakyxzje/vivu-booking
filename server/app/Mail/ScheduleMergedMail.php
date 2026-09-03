@@ -51,6 +51,16 @@ class ScheduleMergedMail extends Mailable implements ShouldQueue
                 'ngayCu' => $this->ngayCu,
                 'ngayMoi' => $this->ngayMoi,
                 'lyDo' => $this->lyDo,
+                /*
+                 * Đơn còn nợ bao nhiêu, và hạn trả nốt MỚI.
+                 *
+                 * Lá thư từng khẳng định "cùng số tiền, chỉ có ngày đi là thay đổi". Vế đầu đúng,
+                 * vế sau thì không: hạn trả nốt neo vào ngày khởi hành, nên ghép sang chuyến sớm
+                 * hơn kéo cái hạn ấy lại — thường về quá khứ. Khách đọc xong yên trí không phải
+                 * làm gì, rồi nhận lá "đơn đã tới hạn thanh toán" với hai ngày ân hạn.
+                 */
+                'conThieu' => app(\App\Services\BookingPaymentService::class)->balanceDue($this->booking),
+                'hanTraNotMoi' => $this->booking->balanceDueAt(),
                 'frontendBookingUrl' => rtrim(config('app.frontend_url'), '/')
                     . '/booking-success/' . $this->booking->public_token,
             ],

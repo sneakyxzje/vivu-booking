@@ -86,15 +86,33 @@
                                         tour, dựa trên số ngày còn lại tới ngày khởi hành.
                                     </span>
                                 </p>
-                            @elseif($booking->paid_at)
+                            @elseif($daThu > 0)
+                                {{--
+                                    Gác sau SỐ ĐÃ THU, không gác sau `paid_at`.
+
+                                    Mốc ấy chỉ đóng khi thu đủ, nên nhánh này trước đây không bao giờ chạy cho
+                                    người mới cọc — đúng nhóm bị lá thư này ảnh hưởng nặng nhất. Khách cọc năm
+                                    triệu, quá hạn trả nốt, mất trọn cọc, và nhận về một lá thư chỉ ghi giá trị
+                                    đơn mà không nói một chữ nào về tiền của họ.
+                                --}}
                                 <p style="margin:14px 0 0;font-size:14px;color:#9f1239;background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:12px 14px;line-height:1.6;">
+                                    Quý khách đã thanh toán
+                                    <strong>{{ number_format($daThu, 0, ',', '.') }} VNĐ</strong>.
                                     Theo chính sách hủy có hiệu lực tại thời điểm đặt tour, đơn hủy ở thời điểm
-                                    này <strong>không được hoàn tiền</strong>. Nếu Quý khách cho rằng có nhầm lẫn,
-                                    vui lòng liên hệ tổng đài để chúng tôi kiểm tra lại.
+                                    này <strong>không được hoàn lại khoản nào</strong>. Nếu Quý khách cho rằng có
+                                    nhầm lẫn, vui lòng liên hệ tổng đài để chúng tôi kiểm tra lại.
                                 </p>
                             @endif
 
-                            @if($booking->vnpay_transaction_no)
+                            {{--
+                                Chỉ hứa gọi điện hoàn tiền khi THẬT SỰ có tiền để hoàn.
+
+                                Cột `vnpay_transaction_no` chỉ nói khách từng trả qua cổng, không nói công ty
+                                còn nợ họ đồng nào. Thiếu điều kiện ấy thì đoạn này chạy ngay dưới đoạn vừa
+                                báo "không được hoàn lại khoản nào" — một lá thư tự cãi chính nó, và người đọc
+                                sẽ ngồi đợi một cuộc gọi không bao giờ tới.
+                            --}}
+                            @if($booking->vnpay_transaction_no && $tienHoan > 0)
                                 <p style="margin:14px 0 0;font-size:13px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;">
                                     Đơn hàng đã thanh toán qua VNPay (mã giao dịch {{ $booking->vnpay_transaction_no }}).
                                     Bộ phận chăm sóc khách hàng sẽ liên hệ Quý khách trong vòng 3 ngày làm việc

@@ -441,6 +441,70 @@ class BalanceDueFlowTest extends TestCase
         );
     }
 
+    // --- Lá thư gửi trước khi đổi chuyến thì coi như chưa gửi ---------------------------------
+
+    /** Dựng một lần đổi chuyến đã duyệt vào thời điểm chỉ định. */
+    private function daDoiChuyen(Booking $don, \Illuminate\Support\Carbon $luc): void
+    {
+        \App\Models\BookingTransfer::create([
+            'booking_id' => $don->id,
+            'from_schedule_id' => null,
+            'to_schedule_id' => $don->tour_schedule_id,
+            'initiated_by' => 'company',
+            'price_difference' => 0,
+            'fee' => 0,
+            'reason' => 'Ghép chuyến',
+            'approved_at' => $luc,
+        ]);
+    }
+
+    /**
+     * Lá cảnh báo cuối gửi TRƯỚC lần đổi chuyến thì không cho phép hủy.
+     *
+     * Nó nói về hạn của một ngày khởi hành đã không còn tồn tại. Không loại nó ra thì một cái mốc
+     * hai tháng tuổi vẫn thỏa điều kiện ân hạn ngay lập tức, và đơn bị hủy vì một cái hạn chưa lá
+     * thư nào nói tới.
+     */
+    public function test_thu_gui_truoc_khi_doi_chuyen_thi_khong_cho_huy(): void
+    {
+        $don = $this->daNhacDayDu($this->donDaCoc($this->chuyen(9)));
+
+        // Đơn được chuyển sang chuyến này SAU khi lá thư đã gửi.
+        $this->daDoiChuyen($don, now()->subDay());
+
+        $this->artisan('bookings:cancel-unpaid-balances')->assertSuccessful();
+
+        $this->assertSame('confirmed', $don->fresh()->status);
+        Mail::assertNotQueued(BookingCancelledMail::class);
+    }
+
+    /** Và lá lạc hậu ấy cũng không chặn lệnh nhắc gửi lá mới cho chuyến mới. */
+    public function test_thu_lac_hau_khong_chan_lan_nhac_moi(): void
+    {
+        $don = $this->daNhacDayDu($this->donDaCoc($this->chuyen(11)));
+        $this->daDoiChuyen($don, now()->subDay());
+
+        $this->artisan('bookings:send-balance-reminders')->assertSuccessful();
+
+        Mail::assertQueued(
+            BalanceReminderMail::class,
+            fn (BalanceReminderMail $thu) => $thu->booking->id === $don->id,
+        );
+    }
+
+    /** Đổi chuyến TRƯỚC khi gửi thư thì lá thư vẫn còn hiệu lực — không nới ân hạn oan. */
+    public function test_doi_chuyen_truoc_khi_gui_thu_thi_thu_van_co_hieu_luc(): void
+    {
+        $don = $this->donDaCoc($this->chuyen(9));
+
+        $this->daDoiChuyen($don, now()->subDays(30));
+        $this->daNhacDayDu($don);
+
+        $this->artisan('bookings:cancel-unpaid-balances')->assertSuccessful();
+
+        $this->assertSame('cancelled', $don->fresh()->status);
+    }
+
     /**
      * Đơn đoàn không nhận lá cảnh báo cuối.
      *

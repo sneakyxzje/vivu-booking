@@ -12,8 +12,14 @@
             <td align="center">
                 <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:640px;max-width:94%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
                     <tr>
-                        <td style="background:#16a34a;padding:24px 28px;color:#ffffff;">
-                            <h1 style="margin:0;font-size:22px;line-height:1.35;">Đơn đặt tour đã được xác nhận</h1>
+                        {{-- Đầu thư đổi giọng theo việc đơn còn nợ hay không.
+
+                             `confirmed` giờ có hai nghĩa: đã trả xong, hoặc mới cọc và chỗ đã được giữ. Gọi cả hai
+                             là "đã được xác nhận" nói với người mới cọc rằng họ không còn gì phải làm. --}}
+                        <td style="background:{{ $conThieu > 0 ? '#0b817a' : '#16a34a' }};padding:24px 28px;color:#ffffff;">
+                            <h1 style="margin:0;font-size:22px;line-height:1.35;">
+                                {{ $conThieu > 0 ? 'Chỗ của Quý khách đã được giữ' : 'Đơn đặt tour đã được xác nhận' }}
+                            </h1>
                             <p style="margin:8px 0 0;font-size:14px;opacity:.92;">Mã đặt tour #{{ $booking->id }}</p>
                         </td>
                     </tr>
@@ -21,7 +27,12 @@
                         <td style="padding:26px 28px;">
                             <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
                                 Kính chào <strong>{{ $booking->customer_name }}</strong>,
-                                đơn đặt tour của Quý khách đã được Vivu Booking xác nhận.
+                                @if($conThieu > 0)
+                                    Vivu Booking đã nhận khoản đặt cọc và giữ chỗ cho Quý khách. Đơn còn một khoản
+                                    cần thanh toán trước ngày đi.
+                                @else
+                                    đơn đặt tour của Quý khách đã được Vivu Booking xác nhận.
+                                @endif
                             </p>
 
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:18px 0;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">

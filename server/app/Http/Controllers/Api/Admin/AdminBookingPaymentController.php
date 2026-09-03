@@ -280,8 +280,15 @@ class AdminBookingPaymentController extends Controller
             ->paginate($filters['per_page'] ?? 20);
 
         $dong = collect($bookings->items())->map(function (Booking $booking) {
-            $hanChot = $booking->schedule?->booking_deadline
-                ?? $booking->schedule?->defaultBookingDeadline();
+            /*
+             * Hạn TRẢ NỐT, không phải hạn chốt danh sách.
+             *
+             * Màn này sinh ra để trả lời "đơn nào cần gọi đòi tiền, và gấp tới đâu". Trước đây nó
+             * lấy hạn chốt — ngày khởi hành trừ ba — nên điều hành thấy đơn còn thong thả suốt bảy
+             * ngày, trong khi `SendBalanceReminders` đã gửi cảnh báo cuối và `CancelUnpaidBalances`
+             * sắp quét tới. Đúng cái màn để đòi tiền lại báo sai thời điểm phải đòi.
+             */
+            $hanTraNot = $booking->balanceDueAt();
 
             return [
                 'id' => $booking->id,
@@ -294,14 +301,8 @@ class AdminBookingPaymentController extends Controller
                 'total_amount' => round((float) $booking->total_amount),
                 'net_paid' => $this->payments->netPaid($booking),
                 'balance_due' => $this->payments->balanceDue($booking),
-                /*
-                 * Hạn chốt danh sách làm hạn thu tiền.
-                 *
-                 * Đó là mốc điều hành phải trả tiền cho khách sạn và nhà xe, nên cũng là mốc muộn
-                 * nhất tiền của khách phải về — cùng cách bản in hợp đồng đang nói với khách.
-                 */
-                'due_by' => $hanChot?->toDateTimeString(),
-                'overdue' => $hanChot !== null && now()->gte($hanChot),
+                'due_by' => $hanTraNot?->toDateTimeString(),
+                'overdue' => $hanTraNot !== null && now()->gte($hanTraNot),
                 'status' => $booking->status,
             ];
         })->values();

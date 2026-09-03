@@ -69,8 +69,20 @@ class SendBalanceReminders extends Command
              * tiền là đòi lần hai. Lệnh hủy vốn đã không đụng tới nhóm này, nên lá thư cũng chẳng
              * cứu họ khỏi điều gì — nó chỉ có thể gây hiểu nhầm.
              */
-            $chuaTungNhac = $booking->balance_reminder_sent_at === null
-                && $booking->balance_final_notice_at === null
+            /*
+             * Lá gửi TRƯỚC lần đổi chuyến gần nhất thì coi như chưa gửi.
+             *
+             * Nó nói về hạn của một ngày khởi hành đã không còn tồn tại. Không bỏ qua nó thì đơn
+             * chuyển sang chuyến xa hơn vĩnh viễn không nhận thư nào về hạn mới, rồi tới hạn ấy bị
+             * lệnh hủy quét ngay vì cái mốc cũ đã quá ân hạn từ lâu.
+             */
+            $daNhacNhe = $booking->balance_reminder_sent_at !== null
+                && !$booking->nhacDaLacHau($booking->balance_reminder_sent_at);
+            $daNhacCuoi = $booking->balance_final_notice_at !== null
+                && !$booking->nhacDaLacHau($booking->balance_final_notice_at);
+
+            $chuaTungNhac = !$daNhacNhe
+                && !$daNhacCuoi
                 && $booking->payments()->whereIn('kind', BookingPayment::THU)->exists();
 
             /*
@@ -110,8 +122,10 @@ class SendBalanceReminders extends Command
                 continue;
             }
 
-            // Chưa tới lượt, hoặc đã gửi lá này rồi.
-            if ($conBaoNhieuNgay > $soNgayNhac || $booking->{$cot} !== null) {
+            // Chưa tới lượt, hoặc đã gửi lá này rồi cho chính chuyến hiện tại.
+            $daGuiLaNay = $laCanhBaoCuoi ? $daNhacCuoi : $daNhacNhe;
+
+            if ($conBaoNhieuNgay > $soNgayNhac || $daGuiLaNay) {
                 continue;
             }
 
