@@ -123,52 +123,40 @@ export default function PolicyPage() {
     <div className="bg-canvas animate-fade-in">
       {/* Cùng bề rộng và cùng lề với thanh điều hướng, để trang không lệch khỏi phần còn lại. */}
       <div className="mx-auto max-w-[1440px] px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-        <span className="tag-upper bg-primary-50 text-primary-700">Điều khoản</span>
+        <span className="tag-upper bg-primary-50 text-primary-700">
+          Điều khoản
+        </span>
 
         <h1 className="text-display-xl text-ink mt-4 sm:text-[32px]">
           Chính sách &amp; Điều khoản
         </h1>
 
-        <p className="text-body-md text-body mt-3">
-          Mức hoàn tiền, quy định đổi chuyến, điều khoản sử dụng và cách chúng tôi giữ dữ liệu của
-          bạn — gộp trong một trang. Bảng phí ở mục 2 đọc thẳng từ hệ thống, là mức thực sự áp khi
-          bạn hủy, không phải một bản chép tay có thể lệch.
-        </p>
-
         {loading && (
-          <p className="text-body-sm text-muted mt-10">Đang tải chính sách...</p>
+          <p className="text-body-sm text-muted mt-10">
+            Đang tải chính sách...
+          </p>
         )}
 
         {error && (
           <p className="text-body-sm mt-10 text-rose-700">
             Không tải được chính sách. Vui lòng thử lại, hoặc gọi tổng đài{" "}
-            <strong className="font-semibold">1900 1234</strong> để được đọc trực tiếp.
+            <strong className="font-semibold">1900 1234</strong> để được đọc
+            trực tiếp.
           </p>
         )}
 
         {data && (
           <>
-            {data.cancellation.effective_from && (
-              <p className="text-caption-sm text-muted mt-6">
-                Áp dụng từ {data.cancellation.effective_from}. Đơn đặt trước thời điểm này giữ
-                nguyên điều khoản cũ.
-              </p>
-            )}
-
-            {/*
-              Căn cứ pháp lý.
-
-              Không phải để trang trí: chính sách hủy tour là quan hệ dân sự có luật chuyên ngành
-              điều chỉnh, và một văn bản điều khoản không dẫn căn cứ thì đọc như nội quy tự đặt.
-            */}
             <p className="text-body-sm text-muted mt-6">
-              Văn bản này được xây dựng trên cơ sở Luật Du lịch số 09/2017/QH14, Nghị định
-              168/2017/NĐ-CP quy định chi tiết một số điều của Luật Du lịch, và Bộ luật Dân sự số
-              91/2015/QH13.
+              Văn bản này được xây dựng trên cơ sở Luật Du lịch số 09/2017/QH14,
+              Nghị định 168/2017/NĐ-CP quy định chi tiết một số điều của Luật Du
+              lịch, và Bộ luật Dân sự số 91/2015/QH13.
             </p>
 
             {/* --- 1. Giải thích từ ngữ --- */}
-            <h2 className="text-display-sm text-ink mt-12">1. Giải thích từ ngữ</h2>
+            <h2 className="text-display-sm text-ink mt-12">
+              1. Giải thích từ ngữ
+            </h2>
 
             <p className="text-body-md text-body mt-3">
               Trong toàn bộ văn bản này, các từ ngữ dưới đây được hiểu như sau:
@@ -178,40 +166,47 @@ export default function PolicyPage() {
               <div>
                 <dt className="text-ink font-semibold">Chuyến khởi hành</dt>
                 <dd className="text-body">
-                  Một lần tổ chức cụ thể của một chương trình tour, có ngày giờ khởi hành, số chỗ
-                  tối đa và số khách tối thiểu riêng. Cùng một tour có thể có nhiều chuyến khởi hành
-                  khác nhau.
+                  Một lần tổ chức cụ thể của một chương trình tour, có ngày giờ
+                  khởi hành, số chỗ tối đa và số khách tối thiểu riêng. Cùng một
+                  tour có thể có nhiều chuyến khởi hành khác nhau.
                 </dd>
               </div>
               <div>
                 <dt className="text-ink font-semibold">Hạn chốt danh sách</dt>
                 <dd className="text-body">
-                  Thời điểm công ty ngừng nhận đặt chỗ mới cho một chuyến và chốt số lượng với nhà
-                  cung cấp, mặc định {data.booking.deadline_days} ngày trước giờ khởi hành. Sau mốc
-                  này, chỗ của khách đã được thanh toán cho khách sạn và nhà vận chuyển.
+                  Thời điểm công ty ngừng nhận đặt chỗ mới cho một chuyến và
+                  chốt số lượng với nhà cung cấp, mặc định{" "}
+                  {data.booking.deadline_days} ngày trước giờ khởi hành. Sau mốc
+                  này, chỗ của khách đã được thanh toán cho khách sạn và nhà vận
+                  chuyển.
                 </dd>
               </div>
               <div>
                 <dt className="text-ink font-semibold">Số khách tối thiểu</dt>
                 <dd className="text-body">
-                  Số khách thấp nhất để một chuyến đủ điều kiện khởi hành. Chuyến không đạt số này
-                  tới hạn chốt danh sách sẽ bị hủy theo mục 3.
+                  Số khách thấp nhất để một chuyến đủ điều kiện khởi hành.
+                  Chuyến không đạt số này tới hạn chốt danh sách sẽ bị hủy theo
+                  mục 3.
                 </dd>
               </div>
               <div>
-                <dt className="text-ink font-semibold">Sự kiện bất khả kháng</dt>
+                <dt className="text-ink font-semibold">
+                  Sự kiện bất khả kháng
+                </dt>
                 <dd className="text-body">
-                  Sự kiện xảy ra một cách khách quan, không thể lường trước và không thể khắc phục
-                  dù đã áp dụng mọi biện pháp cần thiết trong khả năng cho phép: thiên tai, thời
-                  tiết cực đoan, dịch bệnh, quyết định của cơ quan nhà nước có thẩm quyền, hoặc việc
-                  nhà cung cấp dịch vụ không thực hiện được nghĩa vụ vì các lý do nêu trên.
+                  Sự kiện xảy ra một cách khách quan, không thể lường trước và
+                  không thể khắc phục dù đã áp dụng mọi biện pháp cần thiết
+                  trong khả năng cho phép: thiên tai, thời tiết cực đoan, dịch
+                  bệnh, quyết định của cơ quan nhà nước có thẩm quyền, hoặc việc
+                  nhà cung cấp dịch vụ không thực hiện được nghĩa vụ vì các lý
+                  do nêu trên.
                 </dd>
               </div>
               <div>
                 <dt className="text-ink font-semibold">Ngày làm việc</dt>
                 <dd className="text-body">
-                  Các ngày từ thứ Hai đến thứ Sáu, không tính ngày nghỉ lễ, Tết theo quy định của
-                  pháp luật lao động.
+                  Các ngày từ thứ Hai đến thứ Sáu, không tính ngày nghỉ lễ, Tết
+                  theo quy định của pháp luật lao động.
                 </dd>
               </div>
             </dl>
@@ -222,14 +217,16 @@ export default function PolicyPage() {
             </h2>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">2.1.</strong> Mục này áp dụng đối với
-              trường hợp khách hàng chủ động yêu cầu hủy đơn hàng. Trường hợp công ty hủy chuyến
-              khởi hành được điều chỉnh tại mục 3 và không áp dụng biểu phí quy định tại mục này.
+              <strong className="font-semibold text-ink">2.1.</strong> Mục này
+              áp dụng đối với trường hợp khách hàng chủ động yêu cầu hủy đơn
+              hàng. Trường hợp công ty hủy chuyến khởi hành được điều chỉnh tại
+              mục 3 và không áp dụng biểu phí quy định tại mục này.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">2.2.</strong> Mức hoàn được xác định căn
-              cứ vào số ngày còn lại tính đến giờ khởi hành ghi trên đơn hàng, theo giờ Việt Nam:
+              <strong className="font-semibold text-ink">2.2.</strong> Mức hoàn
+              được xác định căn cứ vào số ngày còn lại tính đến giờ khởi hành
+              ghi trên đơn hàng, theo giờ Việt Nam:
             </p>
 
             <div className="mt-5 overflow-x-auto">
@@ -249,14 +246,19 @@ export default function PolicyPage() {
                 </thead>
                 <tbody>
                   {data.cancellation.rules.map((bac, i) => (
-                    <tr key={i} className="border-b border-hairline-soft last:border-b-0">
+                    <tr
+                      key={i}
+                      className="border-b border-hairline-soft last:border-b-0"
+                    >
                       <td className="text-body-md text-ink py-3.5 pr-6 whitespace-nowrap">
                         {bac.window}
                       </td>
                       <td className="text-body-md text-ink py-3.5 pr-6 font-semibold tabular-nums">
                         {bac.refund_percent}%
                       </td>
-                      <td className="text-body-sm text-muted py-3.5">{bac.note ?? "—"}</td>
+                      <td className="text-body-sm text-muted py-3.5">
+                        {bac.note ?? "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -264,61 +266,70 @@ export default function PolicyPage() {
             </div>
 
             {data.cancellation.description ? (
-              <p className="text-body-sm text-muted mt-3">{data.cancellation.description}</p>
+              <p className="text-body-sm text-muted mt-3">
+                {data.cancellation.description}
+              </p>
             ) : null}
 
             <p className="text-body-md text-body mt-5">
-              <strong className="font-semibold text-ink">2.3.</strong> Số ngày quy định tại khoản
-              2.2 được tính đến phần lẻ và không làm tròn lên. Yêu cầu hủy gửi trước giờ khởi hành
-              47 giờ tương ứng 1,96 ngày và được xếp vào bậc dưới 2 ngày.
+              <strong className="font-semibold text-ink">2.3.</strong> Số ngày
+              quy định tại khoản 2.2 được tính đến phần lẻ và không làm tròn
+              lên. Yêu cầu hủy gửi trước giờ khởi hành 47 giờ tương ứng 1,96
+              ngày và được xếp vào bậc dưới 2 ngày.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">2.4.</strong> Phí hủy được tính trên tổng
-              giá trị đơn hàng. Số tiền hoàn bằng số tiền khách hàng đã thực thanh toán trừ đi phí
-              hủy và trong mọi trường hợp{" "}
-              <strong className="font-semibold text-ink">không nhỏ hơn 0</strong>. Khách hàng không
-              phải thanh toán thêm bất kỳ khoản nào khi hủy, kể cả khi phí hủy lớn hơn số tiền đã
-              thanh toán.
+              <strong className="font-semibold text-ink">2.4.</strong> Phí hủy
+              được tính trên tổng giá trị đơn hàng. Số tiền hoàn bằng số tiền
+              khách hàng đã thực thanh toán trừ đi phí hủy và trong mọi trường
+              hợp{" "}
+              <strong className="font-semibold text-ink">
+                không nhỏ hơn 0
+              </strong>
+              . Khách hàng không phải thanh toán thêm bất kỳ khoản nào khi hủy,
+              kể cả khi phí hủy lớn hơn số tiền đã thanh toán.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">2.5.</strong> Đơn hàng chưa thanh toán
-              được khách hàng hủy trực tiếp trên hệ thống và không làm phát sinh nghĩa vụ tài chính
-              của khách hàng.
+              <strong className="font-semibold text-ink">2.5.</strong> Đơn hàng
+              chưa thanh toán được khách hàng hủy trực tiếp trên hệ thống và
+              không làm phát sinh nghĩa vụ tài chính của khách hàng.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">2.6.</strong> Đơn hàng đã thanh toán một
-              phần hoặc toàn bộ chỉ được hủy sau khi khách hàng gửi yêu cầu hủy và được công ty
-              chấp thuận. Đơn hàng giữ nguyên hiệu lực cho đến thời điểm được chấp thuận. Kết quả
-              xử lý, bao gồm cả trường hợp từ chối và lý do từ chối, được thông báo tới địa chỉ thư
-              điện tử khách hàng đã đăng ký.
+              <strong className="font-semibold text-ink">2.6.</strong> Đơn hàng
+              đã thanh toán một phần hoặc toàn bộ chỉ được hủy sau khi khách
+              hàng gửi yêu cầu hủy và được công ty chấp thuận. Đơn hàng giữ
+              nguyên hiệu lực cho đến thời điểm được chấp thuận. Kết quả xử lý,
+              bao gồm cả trường hợp từ chối và lý do từ chối, được thông báo tới
+              địa chỉ thư điện tử khách hàng đã đăng ký.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">2.7.</strong> Trước khi xác nhận hủy, hệ
-              thống hiển thị mức hoàn và số tiền dự kiến nhận lại tương ứng với thời điểm gửi yêu
-              cầu để khách hàng đối chiếu.
+              <strong className="font-semibold text-ink">2.7.</strong> Trước khi
+              xác nhận hủy, hệ thống hiển thị mức hoàn và số tiền dự kiến nhận
+              lại tương ứng với thời điểm gửi yêu cầu để khách hàng đối chiếu.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">2.8.</strong> Khách hàng không có mặt tại
-              điểm đón vào giờ khởi hành và không thông báo trước được xác định là không sử dụng
-              dịch vụ. Đơn hàng trong trường hợp này không được hoàn tiền.
+              <strong className="font-semibold text-ink">2.8.</strong> Khách
+              hàng không có mặt tại điểm đón vào giờ khởi hành và không thông
+              báo trước được xác định là không sử dụng dịch vụ. Đơn hàng trong
+              trường hợp này không được hoàn tiền.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">2.9.</strong> Đơn hàng không còn được hủy
-              kể từ thời điểm chuyến khởi hành bắt đầu. Chuyến đang thực hiện hoặc đã kết thúc
-              không thuộc phạm vi điều chỉnh của mục này.
+              <strong className="font-semibold text-ink">2.9.</strong> Đơn hàng
+              không còn được hủy kể từ thời điểm chuyến khởi hành bắt đầu.
+              Chuyến đang thực hiện hoặc đã kết thúc không thuộc phạm vi điều
+              chỉnh của mục này.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">2.10.</strong> Việc hủy đơn hàng có hiệu
-              lực kể từ thời điểm được ghi nhận trên hệ thống và không được khôi phục. Khách hàng
-              có nhu cầu tham gia trở lại thực hiện đặt đơn hàng mới theo chỗ còn trống tại thời
-              điểm đặt.
+              <strong className="font-semibold text-ink">2.10.</strong> Việc hủy
+              đơn hàng có hiệu lực kể từ thời điểm được ghi nhận trên hệ thống
+              và không được khôi phục. Khách hàng có nhu cầu tham gia trở lại
+              thực hiện đặt đơn hàng mới theo chỗ còn trống tại thời điểm đặt.
             </p>
 
             {/* --- 3. Công ty hủy chuyến --- */}
@@ -327,44 +338,52 @@ export default function PolicyPage() {
             </h2>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">3.1.</strong> Công ty có quyền hủy một
-              chuyến khởi hành trong các trường hợp sau: số lượng khách đăng ký không đạt số khách
-              tối thiểu tính đến hạn chốt danh sách; xảy ra sự kiện bất khả kháng theo định nghĩa
-              tại mục 1; hoặc nhà cung cấp dịch vụ không thực hiện được nghĩa vụ và công ty không
-              thu xếp được phương án thay thế phù hợp.
+              <strong className="font-semibold text-ink">3.1.</strong> Công ty
+              có quyền hủy một chuyến khởi hành trong các trường hợp sau: số
+              lượng khách đăng ký không đạt số khách tối thiểu tính đến hạn chốt
+              danh sách; xảy ra sự kiện bất khả kháng theo định nghĩa tại mục 1;
+              hoặc nhà cung cấp dịch vụ không thực hiện được nghĩa vụ và công ty
+              không thu xếp được phương án thay thế phù hợp.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">3.2.</strong> Trong mọi trường hợp công ty
-              là bên hủy, khách hàng được{" "}
-              <strong className="font-semibold text-ink">hoàn 100%</strong> số tiền đã thanh toán,
-              không khấu trừ bất kỳ khoản phí nào và không phụ thuộc vào thời điểm hủy. Biểu phí
-              quy định tại mục 2 không áp dụng.
+              <strong className="font-semibold text-ink">3.2.</strong> Trong mọi
+              trường hợp công ty là bên hủy, khách hàng được{" "}
+              <strong className="font-semibold text-ink">hoàn 100%</strong> số
+              tiền đã thanh toán, không khấu trừ bất kỳ khoản phí nào và không
+              phụ thuộc vào thời điểm hủy. Biểu phí quy định tại mục 2 không áp
+              dụng.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">3.3.</strong> Khách hàng được lựa chọn
-              giữa việc nhận lại toàn bộ số tiền đã thanh toán hoặc chuyển sang một chuyến khởi
-              hành khác. Việc chuyển chuyến trong trường hợp này không thu phí đổi lịch và không bị
-              giới hạn bởi hạn chốt danh sách của chuyến đã hủy. Trường hợp chuyến khởi hành mới có
-              giá khác với chuyến ban đầu, phần chênh lệch được thu thêm hoặc hoàn lại tương ứng
-              theo quy định tại mục 4.
+              <strong className="font-semibold text-ink">3.3.</strong> Khách
+              hàng được lựa chọn giữa việc nhận lại toàn bộ số tiền đã thanh
+              toán hoặc chuyển sang một chuyến khởi hành khác. Việc chuyển
+              chuyến trong trường hợp này không thu phí đổi lịch và không bị
+              giới hạn bởi hạn chốt danh sách của chuyến đã hủy. Trường hợp
+              chuyến khởi hành mới có giá khác với chuyến ban đầu, phần chênh
+              lệch được thu thêm hoặc hoàn lại tương ứng theo quy định tại mục
+              4.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">3.4.</strong> Đơn hàng chưa thanh toán
-              thuộc chuyến khởi hành bị hủy được công ty hủy và hoàn trả toàn bộ số chỗ. Khách hàng
-              được mời đặt lại một chuyến khởi hành khác.
+              <strong className="font-semibold text-ink">3.4.</strong> Đơn hàng
+              chưa thanh toán thuộc chuyến khởi hành bị hủy được công ty hủy và
+              hoàn trả toàn bộ số chỗ. Khách hàng được mời đặt lại một chuyến
+              khởi hành khác.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              <strong className="font-semibold text-ink">3.5.</strong> Công ty thông báo bằng thư
-              điện tử tới địa chỉ khách hàng đã đăng ký ngay khi có quyết định hủy, nêu rõ lý do và
-              phương án xử lý đối với đơn hàng.
+              <strong className="font-semibold text-ink">3.5.</strong> Công ty
+              thông báo bằng thư điện tử tới địa chỉ khách hàng đã đăng ký ngay
+              khi có quyết định hủy, nêu rõ lý do và phương án xử lý đối với đơn
+              hàng.
             </p>
 
             {/* --- 4. Chuyển chuyến --- */}
-            <h2 className="text-display-sm text-ink mt-14">4. Chuyển sang chuyến khác</h2>
+            <h2 className="text-display-sm text-ink mt-14">
+              4. Chuyển sang chuyến khác
+            </h2>
 
             <ul className="text-body-md text-body mt-3 list-disc space-y-2 pl-5 marker:text-muted-soft">
               <li>
@@ -372,7 +391,8 @@ export default function PolicyPage() {
                     chốt danh sách. In ra "báo trước 0 ngày" thì câu này thành vô nghĩa. */}
                 {data.transfer.notice_days > 0 ? (
                   <>
-                    Khách hàng đề nghị đổi chuyến cần báo trước giờ khởi hành ít nhất{" "}
+                    Khách hàng đề nghị đổi chuyến cần báo trước giờ khởi hành ít
+                    nhất{" "}
                     <strong className="font-semibold text-ink">
                       {data.transfer.notice_days} ngày
                     </strong>
@@ -381,46 +401,59 @@ export default function PolicyPage() {
                 ) : (
                   <>
                     Khách hàng đề nghị đổi chuyến tới trước{" "}
-                    <strong className="font-semibold text-ink">hạn chốt danh sách</strong> của cả
-                    chuyến đang đặt lẫn chuyến muốn đổi sang.{" "}
+                    <strong className="font-semibold text-ink">
+                      hạn chốt danh sách
+                    </strong>{" "}
+                    của cả chuyến đang đặt lẫn chuyến muốn đổi sang.{" "}
                   </>
                 )}
-                {data.transfer.free_transfers} lần đổi đầu tiên miễn phí; từ lần thứ{" "}
-                {data.transfer.free_transfers + 1} trở đi thu phí đổi lịch{" "}
+                {data.transfer.free_transfers} lần đổi đầu tiên miễn phí; từ lần
+                thứ {data.transfer.free_transfers + 1} trở đi thu phí đổi lịch{" "}
                 <strong className="font-semibold text-ink">
                   {formatPrice(data.transfer.fee)}
                 </strong>
                 .
               </li>
               <li>
-                Chênh lệch giá giữa hai chuyến được thu thêm hoặc hoàn lại tương ứng.
+                Chênh lệch giá giữa hai chuyến được thu thêm hoặc hoàn lại tương
+                ứng.
               </li>
               <li>
-                Sau hạn chốt danh sách, đơn không còn chuyển được sang chuyến khác, vì chỗ ở chuyến
-                cũ đã thanh toán cho nhà cung cấp. Trường hợp này xử lý theo mục 2.
+                Sau hạn chốt danh sách, đơn không còn chuyển được sang chuyến
+                khác, vì chỗ ở chuyến cũ đã thanh toán cho nhà cung cấp. Trường
+                hợp này xử lý theo mục 2.
               </li>
               <li>
-                Công ty <strong className="font-semibold text-ink">không đơn phương</strong> chuyển
-                khách sang chuyến khác. Mọi lần chuyển đều phải được trao đổi và có sự đồng ý của
-                khách hàng; nội dung trao đổi được ghi lại kèm thời điểm.
+                Công ty{" "}
+                <strong className="font-semibold text-ink">
+                  không đơn phương
+                </strong>{" "}
+                chuyển khách sang chuyến khác. Mọi lần chuyển đều phải được trao
+                đổi và có sự đồng ý của khách hàng; nội dung trao đổi được ghi
+                lại kèm thời điểm.
               </li>
             </ul>
 
             {/* --- 5. Bất khả kháng --- */}
-            <h2 className="text-display-sm text-ink mt-14">5. Sự kiện bất khả kháng</h2>
+            <h2 className="text-display-sm text-ink mt-14">
+              5. Sự kiện bất khả kháng
+            </h2>
 
             <p className="text-body-md text-body mt-3">
-              Khi xảy ra sự kiện bất khả kháng như định nghĩa tại mục 1, hai bên không phải chịu
-              trách nhiệm về việc không thực hiện được nghĩa vụ do sự kiện đó gây ra. Công ty sẽ
-              thông báo cho khách hàng trong thời gian sớm nhất và đưa ra phương án thay thế: đổi
-              lịch trình, chuyển sang chuyến khởi hành khác, hoặc hủy chuyến và hoàn tiền theo mục
-              3.
+              Khi xảy ra sự kiện bất khả kháng như định nghĩa tại mục 1, hai bên
+              không phải chịu trách nhiệm về việc không thực hiện được nghĩa vụ
+              do sự kiện đó gây ra. Công ty sẽ thông báo cho khách hàng trong
+              thời gian sớm nhất và đưa ra phương án thay thế: đổi lịch trình,
+              chuyển sang chuyến khởi hành khác, hoặc hủy chuyến và hoàn tiền
+              theo mục 3.
             </p>
 
             <p className="text-body-md text-body mt-3">
               Khách hàng phải dời chuyến vì sự kiện bất khả kháng{" "}
-              <strong className="font-semibold text-ink">không chịu phí đổi lịch</strong>, kể cả
-              khi đây không phải lần đổi đầu tiên.
+              <strong className="font-semibold text-ink">
+                không chịu phí đổi lịch
+              </strong>
+              , kể cả khi đây không phải lần đổi đầu tiên.
             </p>
 
             {/* --- 6. Thời hạn và cách thức hoàn tiền --- */}
@@ -431,153 +464,184 @@ export default function PolicyPage() {
             <ul className="text-body-md text-body mt-3 list-disc space-y-2 pl-5 marker:text-muted-soft">
               <li>
                 Bộ phận chăm sóc khách hàng liên hệ trong vòng{" "}
-                <strong className="font-semibold text-ink">3 ngày làm việc</strong> kể từ khi đơn
-                được hủy, để xác nhận số tiền hoàn và thông tin tài khoản nhận tiền.
+                <strong className="font-semibold text-ink">
+                  3 ngày làm việc
+                </strong>{" "}
+                kể từ khi đơn được hủy, để xác nhận số tiền hoàn và thông tin
+                tài khoản nhận tiền.
               </li>
               <li>
-                Tiền được hoàn về đúng tài khoản đã dùng để thanh toán. Trường hợp thanh toán qua
-                cổng VNPay, thời gian tiền về phụ thuộc thêm vào ngân hàng phát hành thẻ.
+                Tiền được hoàn về đúng tài khoản đã dùng để thanh toán. Trường
+                hợp thanh toán qua cổng VNPay, thời gian tiền về phụ thuộc thêm
+                vào ngân hàng phát hành thẻ.
               </li>
               <li>
-                Mọi khoản thu và hoàn của một đơn đều được ghi vào sổ giao dịch của đơn đó; khách
-                hàng xem lại được khi tra cứu đơn.
+                Mọi khoản thu và hoàn của một đơn đều được ghi vào sổ giao dịch
+                của đơn đó; khách hàng xem lại được khi tra cứu đơn.
               </li>
             </ul>
 
             {/* --- 7. Trách nhiệm của hai bên --- */}
-            <h2 className="text-display-sm text-ink mt-14">7. Trách nhiệm của hai bên</h2>
+            <h2 className="text-display-sm text-ink mt-14">
+              7. Trách nhiệm của hai bên
+            </h2>
 
-            <p className="text-title-md text-ink mt-4">Công ty có trách nhiệm</p>
+            <p className="text-title-md text-ink mt-4">
+              Công ty có trách nhiệm
+            </p>
 
             <ul className="text-body-md text-body mt-2 list-disc space-y-2 pl-5 marker:text-muted-soft">
               <li>
-                Tổ chức chuyến đi đúng chương trình đã bán: phương tiện di chuyển, lưu trú, các bữa
-                ăn và điểm tham quan ghi trong lịch trình.
+                Tổ chức chuyến đi đúng chương trình đã bán: phương tiện di
+                chuyển, lưu trú, các bữa ăn và điểm tham quan ghi trong lịch
+                trình.
               </li>
               <li>
-                Bố trí phương án thay thế tương đương khi một hạng mục trong chương trình không
-                thực hiện được, và chịu chi phí phát sinh của phương án đó.
+                Bố trí phương án thay thế tương đương khi một hạng mục trong
+                chương trình không thực hiện được, và chịu chi phí phát sinh của
+                phương án đó.
               </li>
               <li>
-                Thông báo kịp thời mọi thay đổi ảnh hưởng tới chuyến đi, và không thu bất kỳ khoản
-                phát sinh nào của khách hàng khi chưa có sự đồng ý của họ.
+                Thông báo kịp thời mọi thay đổi ảnh hưởng tới chuyến đi, và
+                không thu bất kỳ khoản phát sinh nào của khách hàng khi chưa có
+                sự đồng ý của họ.
               </li>
             </ul>
 
-            <p className="text-title-md text-ink mt-5">Khách hàng có trách nhiệm</p>
+            <p className="text-title-md text-ink mt-5">
+              Khách hàng có trách nhiệm
+            </p>
 
             <ul className="text-body-md text-body mt-2 list-disc space-y-2 pl-5 marker:text-muted-soft">
               <li>
-                Cung cấp thông tin chính xác khi đặt tour và khai danh sách hành khách: họ tên, giấy
-                tờ tùy thân, số điện thoại, email.
+                Cung cấp thông tin chính xác khi đặt tour và khai danh sách hành
+                khách: họ tên, giấy tờ tùy thân, số điện thoại, email.
               </li>
               <li>
-                Có mặt đúng giờ tại điểm tập kết. Khách không có mặt lúc khởi hành được xử lý như
-                trường hợp hủy sát ngày theo mục 2.
+                Có mặt đúng giờ tại điểm tập kết. Khách không có mặt lúc khởi
+                hành được xử lý như trường hợp hủy sát ngày theo mục 2.
               </li>
               <li>
-                Tự chi trả các khoản chi tiêu cá nhân ngoài chương trình, và tuân thủ hướng dẫn của
-                hướng dẫn viên về an toàn trong suốt hành trình.
+                Tự chi trả các khoản chi tiêu cá nhân ngoài chương trình, và
+                tuân thủ hướng dẫn của hướng dẫn viên về an toàn trong suốt hành
+                trình.
               </li>
             </ul>
 
             {/* --- 8. Hỏi đáp --- */}
-            <h2 className="text-display-sm text-ink mt-14">8. Câu hỏi thường gặp</h2>
+            <h2 className="text-display-sm text-ink mt-14">
+              8. Câu hỏi thường gặp
+            </h2>
 
             <div className="mt-1">
               <CauHoi hoi="Tôi được hoàn bao nhiêu tiền khi hủy?">
                 <p>
-                  Phần trăm lấy theo bảng phía trên, tính theo số ngày còn lại tới giờ khởi hành.
+                  Phần trăm lấy theo bảng phía trên, tính theo số ngày còn lại
+                  tới giờ khởi hành.
                 </p>
                 <p>
-                  Có một chi tiết dễ nhầm: <strong>phí hủy tính trên tổng giá trị đơn</strong>, còn
-                  tiền hoàn thì trừ trên <strong>số bạn đã thực trả</strong>. Nếu bạn mới đặt cọc
-                  một phần mà hủy sát ngày đi, phần cọc ấy có thể mất hết. Đổi lại, tiền hoàn không
-                  bao giờ âm — hủy tour thì bạn không phải nộp thêm đồng nào, kể cả khi phí hủy lớn
-                  hơn số đã trả.
+                  Có một chi tiết dễ nhầm:{" "}
+                  <strong>phí hủy tính trên tổng giá trị đơn</strong>, còn tiền
+                  hoàn thì trừ trên <strong>số bạn đã thực trả</strong>. Nếu bạn
+                  mới đặt cọc một phần mà hủy sát ngày đi, phần cọc ấy có thể
+                  mất hết. Đổi lại, tiền hoàn không bao giờ âm — hủy tour thì
+                  bạn không phải nộp thêm đồng nào, kể cả khi phí hủy lớn hơn số
+                  đã trả.
                 </p>
               </CauHoi>
 
               <CauHoi hoi="Công ty hủy chuyến thì tôi có mất phí không?">
                 <p>
-                  Không. Chuyến bị hủy vì phía công ty — thời tiết, không đủ số khách tối thiểu, sự
-                  cố nhà cung cấp — thì bạn được <strong>hoàn 100% số đã trả</strong>, không trừ
-                  bất kỳ khoản nào, bất kể còn mấy ngày tới ngày đi. Bảng phí phía trên chỉ áp khi
-                  chính bạn là người hủy.
+                  Không. Chuyến bị hủy vì phía công ty — thời tiết, không đủ số
+                  khách tối thiểu, sự cố nhà cung cấp — thì bạn được{" "}
+                  <strong>hoàn 100% số đã trả</strong>, không trừ bất kỳ khoản
+                  nào, bất kể còn mấy ngày tới ngày đi. Bảng phí phía trên chỉ
+                  áp khi chính bạn là người hủy.
                 </p>
               </CauHoi>
 
               <CauHoi hoi="Chuyến không đủ khách thì sao?">
                 <p>
-                  Mỗi chuyến có một số khách tối thiểu để chạy được. Không đạt tới hạn chốt danh
-                  sách thì công ty hủy chuyến và hoàn đủ tiền, hoặc mời bạn chuyển sang một chuyến
-                  khác nếu bạn muốn — quyền chọn là của bạn.
+                  Mỗi chuyến có một số khách tối thiểu để chạy được. Không đạt
+                  tới hạn chốt danh sách thì công ty hủy chuyến và hoàn đủ tiền,
+                  hoặc mời bạn chuyển sang một chuyến khác nếu bạn muốn — quyền
+                  chọn là của bạn.
                 </p>
               </CauHoi>
 
               <CauHoi hoi="Tôi đổi sang chuyến khác được không?">
                 <p>
-                  Được, và <strong>{data.transfer.free_transfers} lần đầu miễn phí</strong>. Bạn
-                  đổi được tới trước{" "}
+                  Được, và{" "}
+                  <strong>
+                    {data.transfer.free_transfers} lần đầu miễn phí
+                  </strong>
+                  . Bạn đổi được tới trước{" "}
                   {data.transfer.notice_days > 0 ? (
                     <>
-                      ngày khởi hành ít nhất <strong>{data.transfer.notice_days} ngày</strong>
+                      ngày khởi hành ít nhất{" "}
+                      <strong>{data.transfer.notice_days} ngày</strong>
                     </>
                   ) : (
                     <strong>hạn chốt danh sách</strong>
                   )}
-                  ; từ lần đổi thứ{" "}
-                  {data.transfer.free_transfers + 1} trở đi có phí đổi lịch{" "}
-                  <strong>{formatPrice(data.transfer.fee)}</strong>, vì mỗi lần đổi đều kéo theo
-                  việc báo lại với khách sạn và nhà xe.
+                  ; từ lần đổi thứ {data.transfer.free_transfers + 1} trở đi có
+                  phí đổi lịch <strong>{formatPrice(data.transfer.fee)}</strong>
+                  , vì mỗi lần đổi đều kéo theo việc báo lại với khách sạn và
+                  nhà xe.
                 </p>
                 <p>
-                  Chuyến mới đắt hơn thì bù chênh lệch, rẻ hơn thì được hoàn phần chênh. Việc đổi
-                  chuyến do bộ phận điều hành thực hiện sau khi trao đổi và thống nhất với bạn —
-                  công ty không tự dời ngày đi của khách.
+                  Chuyến mới đắt hơn thì bù chênh lệch, rẻ hơn thì được hoàn
+                  phần chênh. Việc đổi chuyến do bộ phận điều hành thực hiện sau
+                  khi trao đổi và thống nhất với bạn — công ty không tự dời ngày
+                  đi của khách.
                 </p>
               </CauHoi>
 
               <CauHoi hoi="Vì sao sát ngày đi lại không đổi được chuyến nữa?">
                 <p>
-                  Mỗi chuyến có một <strong>hạn chốt danh sách</strong>, mặc định{" "}
-                  {data.booking.deadline_days} ngày trước khởi hành. Qua mốc đó, suất của bạn đã
-                  được trả tiền cho khách sạn và nhà xe, không rút lại được — nên nó không chuyển đi
-                  đâu được nữa.
+                  Mỗi chuyến có một <strong>hạn chốt danh sách</strong>, mặc
+                  định {data.booking.deadline_days} ngày trước khởi hành. Qua
+                  mốc đó, suất của bạn đã được trả tiền cho khách sạn và nhà xe,
+                  không rút lại được — nên nó không chuyển đi đâu được nữa.
                 </p>
                 <p>
-                  Nếu sau mốc đó bạn không đi được, đây là trường hợp hủy đơn chứ không phải đổi
-                  chuyến, và áp bảng phí phía trên.
+                  Nếu sau mốc đó bạn không đi được, đây là trường hợp hủy đơn
+                  chứ không phải đổi chuyến, và áp bảng phí phía trên.
                 </p>
               </CauHoi>
 
               <CauHoi hoi="Đặt xong bao lâu thì phải thanh toán?">
                 <p>
-                  Đơn giữ chỗ trong <strong>{data.booking.payment_ttl_minutes} phút</strong>. Quá
-                  thời gian đó mà chưa thanh toán, hệ thống tự hủy đơn và trả chỗ lại cho khách
-                  khác. Bạn vẫn đặt lại được nếu chuyến còn chỗ.
+                  Đơn giữ chỗ trong{" "}
+                  <strong>{data.booking.payment_ttl_minutes} phút</strong>. Quá
+                  thời gian đó mà chưa thanh toán, hệ thống tự hủy đơn và trả
+                  chỗ lại cho khách khác. Bạn vẫn đặt lại được nếu chuyến còn
+                  chỗ.
                 </p>
               </CauHoi>
 
               <CauHoi hoi="Công ty sửa bảng phí thì đơn tôi đã đặt có bị ảnh hưởng không?">
                 <p>
-                  Không. Đơn của bạn <strong>giữ nguyên bảng phí tại thời điểm bạn đặt</strong> —
-                  hệ thống chép điều khoản vào chính đơn đó lúc đặt, chứ không đọc lại bảng hiện
-                  hành khi bạn hủy. Bảng phí mới chỉ áp cho đơn đặt từ thời điểm nó có hiệu lực trở
-                  đi.
+                  Không. Đơn của bạn{" "}
+                  <strong>giữ nguyên bảng phí tại thời điểm bạn đặt</strong> —
+                  hệ thống chép điều khoản vào chính đơn đó lúc đặt, chứ không
+                  đọc lại bảng hiện hành khi bạn hủy. Bảng phí mới chỉ áp cho
+                  đơn đặt từ thời điểm nó có hiệu lực trở đi.
                 </p>
               </CauHoi>
 
               <CauHoi hoi="Đi dọc đường phát sinh chi phí thì ai trả?">
                 <p>
-                  Những gì tour đã bao gồm — di chuyển từ điểm A tới điểm B, chỗ ở, các bữa ăn ghi
-                  trong chương trình — thì công ty lo, kể cả khi phải đổi phương án vì mưa bão hay
-                  xe hỏng. Đó là thứ công ty đã bán cho bạn.
+                  Những gì tour đã bao gồm — di chuyển từ điểm A tới điểm B, chỗ
+                  ở, các bữa ăn ghi trong chương trình — thì công ty lo, kể cả
+                  khi phải đổi phương án vì mưa bão hay xe hỏng. Đó là thứ công
+                  ty đã bán cho bạn.
                 </p>
                 <p>
-                  Chi tiêu cá nhân ngoài chương trình — đồ uống thêm, mua sắm, dịch vụ bạn tự chọn
-                  thêm — thì bạn tự chi trả. Mọi khoản phát sinh cần bạn trả đều phải được thông báo
-                  và có sự đồng ý của bạn trước khi thu.
+                  Chi tiêu cá nhân ngoài chương trình — đồ uống thêm, mua sắm,
+                  dịch vụ bạn tự chọn thêm — thì bạn tự chi trả. Mọi khoản phát
+                  sinh cần bạn trả đều phải được thông báo và có sự đồng ý của
+                  bạn trước khi thu.
                 </p>
               </CauHoi>
 
@@ -590,89 +654,108 @@ export default function PolicyPage() {
                   >
                     Tra cứu đơn
                   </Link>{" "}
-                  bằng mã đơn, hoặc mở mục Đơn của tôi nếu bạn có tài khoản. Trước khi xác nhận, hệ
-                  thống hiện sẵn số tiền bạn sẽ được hoàn theo đúng bảng trên.
+                  bằng mã đơn, hoặc mở mục Đơn của tôi nếu bạn có tài khoản.
+                  Trước khi xác nhận, hệ thống hiện sẵn số tiền bạn sẽ được hoàn
+                  theo đúng bảng trên.
                 </p>
               </CauHoi>
             </div>
 
             {/* --- 3. Điều khoản sử dụng --- */}
-            <h2 id="dieu-khoan" className="text-display-sm text-ink mt-14 scroll-mt-24">
+            <h2
+              id="dieu-khoan"
+              className="text-display-sm text-ink mt-14 scroll-mt-24"
+            >
               9. Điều khoản sử dụng
             </h2>
 
             <ul className="text-body-md text-body mt-3 list-disc space-y-2.5 pl-5 marker:text-muted-soft">
               <li>
-                Bạn chịu trách nhiệm về tính chính xác của thông tin cung cấp khi đặt tour: họ tên,
-                giấy tờ tùy thân, số điện thoại và email liên hệ. Thông tin sai có thể khiến bạn
-                không lên được phương tiện hoặc không nhận được thông báo về chuyến đi.
+                Bạn chịu trách nhiệm về tính chính xác của thông tin cung cấp
+                khi đặt tour: họ tên, giấy tờ tùy thân, số điện thoại và email
+                liên hệ. Thông tin sai có thể khiến bạn không lên được phương
+                tiện hoặc không nhận được thông báo về chuyến đi.
               </li>
               <li>
                 Đơn đặt tour chỉ được giữ chỗ trong{" "}
                 <strong className="font-semibold text-ink">
                   {data.booking.payment_ttl_minutes} phút
                 </strong>{" "}
-                kể từ khi khởi tạo. Quá thời hạn mà chưa thanh toán, hệ thống tự hủy đơn và nhường
-                chỗ cho khách khác.
+                kể từ khi khởi tạo. Quá thời hạn mà chưa thanh toán, hệ thống tự
+                hủy đơn và nhường chỗ cho khách khác.
               </li>
               <li>
-                Đơn đã thanh toán là cam kết giữ chỗ chính thức giữa Vivu Booking và bạn, kèm theo
-                bảng phí hủy tại thời điểm đặt như nêu ở mục 1.
+                Đơn đã thanh toán là cam kết giữ chỗ chính thức giữa Vivu
+                Booking và bạn, kèm theo bảng phí hủy tại thời điểm đặt như nêu
+                ở mục 1.
               </li>
               <li>
-                Vivu Booking có quyền từ chối hoặc hủy các đơn có dấu hiệu gian lận, kèm hoàn tiền
-                theo quy định.
+                Vivu Booking có quyền từ chối hoặc hủy các đơn có dấu hiệu gian
+                lận, kèm hoàn tiền theo quy định.
               </li>
               <li>
-                Mỗi chuyến có số khách tối thiểu để khởi hành. Không đủ số lượng tới hạn chốt danh
-                sách, công ty hủy chuyến và hoàn đủ tiền — xem mục 2.
+                Mỗi chuyến có số khách tối thiểu để khởi hành. Không đủ số lượng
+                tới hạn chốt danh sách, công ty hủy chuyến và hoàn đủ tiền — xem
+                mục 2.
               </li>
             </ul>
 
             {/* --- 4. Chính sách bảo mật --- */}
-            <h2 id="bao-mat" className="text-display-sm text-ink mt-14 scroll-mt-24">
+            <h2
+              id="bao-mat"
+              className="text-display-sm text-ink mt-14 scroll-mt-24"
+            >
               10. Bảo mật thông tin khách hàng
             </h2>
 
             <ul className="text-body-md text-body mt-3 list-disc space-y-2.5 pl-5 marker:text-muted-soft">
               <li>
-                Thông tin cá nhân của bạn chỉ được dùng để xử lý đơn đặt tour, làm bảo hiểm du lịch
-                và chăm sóc khách hàng.
+                Thông tin cá nhân của bạn chỉ được dùng để xử lý đơn đặt tour,
+                làm bảo hiểm du lịch và chăm sóc khách hàng.
               </li>
               <li>
-                Mật khẩu được mã hóa một chiều — kể cả nhân viên công ty cũng không đọc được. Giao
-                dịch thanh toán xử lý qua cổng VNPay với chữ ký bảo mật; Vivu Booking không lưu
-                thông tin thẻ của bạn.
+                Mật khẩu được mã hóa một chiều — kể cả nhân viên công ty cũng
+                không đọc được. Giao dịch thanh toán xử lý qua cổng VNPay với
+                chữ ký bảo mật; Vivu Booking không lưu thông tin thẻ của bạn.
               </li>
               <li>
-                Chúng tôi không chia sẻ dữ liệu khách hàng cho bên thứ ba ngoài phạm vi phục vụ
-                chuyến đi, tức đơn vị vận chuyển và lưu trú của chính chuyến bạn đặt.
+                Chúng tôi không chia sẻ dữ liệu khách hàng cho bên thứ ba ngoài
+                phạm vi phục vụ chuyến đi, tức đơn vị vận chuyển và lưu trú của
+                chính chuyến bạn đặt.
               </li>
               <li>
-                Mọi lần công ty liên hệ với bạn về một đơn — gọi điện, nhắn tin, gửi email — đều
-                được ghi lại kèm thời điểm và nội dung, để cả hai bên đối chiếu khi cần.
+                Mọi lần công ty liên hệ với bạn về một đơn — gọi điện, nhắn tin,
+                gửi email — đều được ghi lại kèm thời điểm và nội dung, để cả
+                hai bên đối chiếu khi cần.
               </li>
               <li>
-                Bạn có thể yêu cầu chỉnh sửa hoặc xóa thông tin cá nhân qua email hỗ trợ bên dưới.
+                Bạn có thể yêu cầu chỉnh sửa hoặc xóa thông tin cá nhân qua
+                email hỗ trợ bên dưới.
               </li>
             </ul>
 
             {/* --- 11. Giải quyết tranh chấp --- */}
-            <h2 className="text-display-sm text-ink mt-14">11. Giải quyết tranh chấp</h2>
+            <h2 className="text-display-sm text-ink mt-14">
+              11. Giải quyết tranh chấp
+            </h2>
 
             <p className="text-body-md text-body mt-3">
-              Mọi vướng mắc phát sinh trong quá trình thực hiện được hai bên ưu tiên giải quyết bằng
-              thương lượng trên tinh thần thiện chí. Khách hàng gửi phản ánh qua tổng đài hoặc email
-              hỗ trợ; công ty phản hồi trong vòng 3 ngày làm việc.
+              Mọi vướng mắc phát sinh trong quá trình thực hiện được hai bên ưu
+              tiên giải quyết bằng thương lượng trên tinh thần thiện chí. Khách
+              hàng gửi phản ánh qua tổng đài hoặc email hỗ trợ; công ty phản hồi
+              trong vòng 3 ngày làm việc.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              Trường hợp thương lượng không đạt kết quả, tranh chấp được đưa ra Tòa án nhân dân có
-              thẩm quyền tại nơi công ty đặt trụ sở chính, theo quy định của pháp luật Việt Nam.
+              Trường hợp thương lượng không đạt kết quả, tranh chấp được đưa ra
+              Tòa án nhân dân có thẩm quyền tại nơi công ty đặt trụ sở chính,
+              theo quy định của pháp luật Việt Nam.
             </p>
 
             {/* --- 12. Hiệu lực --- */}
-            <h2 className="text-display-sm text-ink mt-14">12. Hiệu lực thi hành</h2>
+            <h2 className="text-display-sm text-ink mt-14">
+              12. Hiệu lực thi hành
+            </h2>
 
             <p className="text-body-md text-body mt-3">
               {data.cancellation.effective_from ? (
@@ -684,22 +767,28 @@ export default function PolicyPage() {
                   .{" "}
                 </>
               ) : null}
-              Đơn đặt tour phát sinh trước thời điểm này tiếp tục áp dụng bảng phí tại thời điểm
-              đặt — hệ thống lưu điều khoản vào từng đơn ngay khi khách hàng đặt, nên việc công ty
-              cập nhật chính sách không làm thay đổi thỏa thuận đã ký kết.
+              Đơn đặt tour phát sinh trước thời điểm này tiếp tục áp dụng bảng
+              phí tại thời điểm đặt — hệ thống lưu điều khoản vào từng đơn ngay
+              khi khách hàng đặt, nên việc công ty cập nhật chính sách không làm
+              thay đổi thỏa thuận đã ký kết.
             </p>
 
             <p className="text-body-md text-body mt-3">
-              Công ty có quyền sửa đổi văn bản này và sẽ công bố phiên bản mới kèm thời điểm bắt đầu
-              áp dụng ngay trên trang này.
+              Công ty có quyền sửa đổi văn bản này và sẽ công bố phiên bản mới
+              kèm thời điểm bắt đầu áp dụng ngay trên trang này.
             </p>
 
             {/* --- Liên hệ --- */}
-            <h2 className="text-display-sm text-ink mt-14">Còn điều gì chưa rõ</h2>
+            <h2 className="text-display-sm text-ink mt-14">
+              Còn điều gì chưa rõ
+            </h2>
 
             <p className="text-body-md text-body mt-3">
               Gọi tổng đài{" "}
-              <a href="tel:19001234" className="font-semibold text-primary-600 hover:underline">
+              <a
+                href="tel:19001234"
+                className="font-semibold text-primary-600 hover:underline"
+              >
                 1900 1234
               </a>{" "}
               trong khung 8:00 – 21:00 hằng ngày, hoặc gửi email tới{" "}

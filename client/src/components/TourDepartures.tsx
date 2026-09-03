@@ -1,7 +1,10 @@
 import { useMemo, useState } from "react";
 import type { Tour, TourSchedule } from "@/types/tour";
 import { formatPrice } from "@/utils/format";
-import { getAvailableSlots, getScheduleUnavailableReason } from "@/utils/schedule";
+import {
+  getAvailableSlots,
+  getScheduleUnavailableReason,
+} from "@/utils/schedule";
 
 /**
  * Lịch trình khởi hành — bảng chọn ngày đi trên trang chi tiết tour.
@@ -92,7 +95,8 @@ const maChuyen = (tour: Tour, schedule: TourSchedule): string => {
   return `VVB${String(tour.id).padStart(3, "0")}-${String(schedule.id).padStart(3, "0")}-${phan}`;
 };
 
-const khoaThang = (schedule: TourSchedule): string => schedule.start_date.slice(0, 7);
+const khoaThang = (schedule: TourSchedule): string =>
+  schedule.start_date.slice(0, 7);
 
 const nhanThang = (khoa: string): { thang: string; nam: string } => {
   const [nam, thang] = khoa.split("-");
@@ -158,10 +162,16 @@ type Props = {
   onScheduleChange: (schedule: TourSchedule) => void;
 };
 
-export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Props) => {
+export const TourDepartures = ({
+  tour,
+  selectedSchedule,
+  onScheduleChange,
+}: Props) => {
   const schedules = useMemo(
     () =>
-      [...(tour.schedules ?? [])].sort((a, b) => a.start_date.localeCompare(b.start_date)),
+      [...(tour.schedules ?? [])].sort((a, b) =>
+        a.start_date.localeCompare(b.start_date),
+      ),
     [tour.schedules],
   );
 
@@ -214,8 +224,8 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
           Lịch trình khởi hành
         </h2>
         <p className="mt-3 text-sm text-gray-500">
-          Tour này chưa mở lịch khởi hành nào. Vui lòng liên hệ tổng đài để được báo ngày đi dự
-          kiến.
+          Tour này chưa mở lịch khởi hành nào. Vui lòng liên hệ tổng đài để được
+          báo ngày đi dự kiến.
         </p>
       </div>
     );
@@ -251,8 +261,12 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
                   : "border-gray-200 bg-white text-gray-400 hover:border-primary-200 hover:text-primary-600"
               }`}
             >
-              <span className="block text-sm font-bold leading-tight">{thang}</span>
-              <span className="block text-xs leading-tight opacity-80">{nam}</span>
+              <span className="block text-sm font-bold leading-tight">
+                {thang}
+              </span>
+              <span className="block text-xs leading-tight opacity-80">
+                {nam}
+              </span>
             </button>
           );
         })}
@@ -295,7 +309,9 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
               <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
                 <span
                   className={`rounded-lg px-3.5 py-1.5 text-sm font-bold ${
-                    dangChon ? "bg-primary-50 text-primary-700" : "bg-gray-100 text-gray-700"
+                    dangChon
+                      ? "bg-primary-50 text-primary-700"
+                      : "bg-gray-100 text-gray-700"
                   }`}
                 >
                   {thuTrongTuan(ngayDi)}, {dinhDangNgay(ngayDi)}
@@ -335,7 +351,9 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
 
               {dangChon && (
                 <div className="border-t border-gray-100 px-5 pb-5 pt-4">
-                  <p className="text-center text-sm font-semibold text-gray-700">Hành trình</p>
+                  <p className="text-center text-sm font-semibold text-gray-700">
+                    Hành trình
+                  </p>
 
                   <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 md:divide-x md:divide-gray-100">
                     {/*
@@ -373,10 +391,17 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
 
                   <div className="mt-3 grid grid-cols-1 gap-x-10 gap-y-3 sm:grid-cols-2">
                     {bangGia.map((hang) => (
-                      <div key={hang.nhan} className="flex items-baseline justify-between gap-4">
+                      <div
+                        key={hang.nhan}
+                        className="flex items-baseline justify-between gap-4"
+                      >
                         <span className="text-sm">
-                          <strong className="font-semibold text-gray-900">{hang.nhan}</strong>
-                          <span className="block text-xs text-gray-400">({hang.tuoi})</span>
+                          <strong className="font-semibold text-gray-900">
+                            {hang.nhan}
+                          </strong>
+                          <span className="block text-xs text-gray-400">
+                            ({hang.tuoi})
+                          </span>
                         </span>
                         <span className="font-plus-jakarta font-bold text-red-600 tabular-nums">
                           {formatPrice(hang.gia)}
@@ -393,7 +418,9 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
                   <div className="mt-5 flex flex-wrap gap-x-8 gap-y-2 rounded-xl bg-gray-50 px-4 py-3 text-sm">
                     <span className="text-gray-600">
                       Số chỗ còn lại:{" "}
-                      <strong className="font-semibold text-gray-900">{conLai}</strong>
+                      <strong className="font-semibold text-gray-900">
+                        {conLai}
+                      </strong>
                     </span>
                     {schedule.booking_deadline && (
                       <span className="text-gray-600">
@@ -408,10 +435,14 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
 
                   {tour.pickup_location && (
                     <p className="mt-4 rounded-xl border border-orange-100 bg-orange-50/70 px-4 py-3 text-sm leading-relaxed text-orange-800">
-                      Điểm đón: <strong className="font-semibold">{tour.pickup_location}</strong>.
-                      Hướng dẫn viên liên hệ với quý khách trước ngày khởi hành. Vui lòng khai đủ
-                      thông tin hành khách trước hạn chốt danh sách, vì sau mốc đó danh sách đã gửi
-                      cho nhà cung cấp và không sửa được nữa.
+                      Điểm đón:{" "}
+                      <strong className="font-semibold">
+                        {tour.pickup_location}
+                      </strong>
+                      . Hướng dẫn viên liên hệ với quý khách trước ngày khởi
+                      hành. Vui lòng khai đủ thông tin hành khách trước hạn chốt
+                      danh sách, vì sau mốc đó danh sách đã gửi cho nhà cung cấp
+                      và không sửa được nữa.
                     </p>
                   )}
                 </div>
