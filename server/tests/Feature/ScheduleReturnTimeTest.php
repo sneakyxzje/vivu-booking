@@ -200,6 +200,39 @@ class ScheduleReturnTimeTest extends TestCase
         ]))->assertStatus(422)->assertJsonValidationErrors('schedules');
     }
 
+    /**
+     * Chuyến về sáng hôm sau vẫn giữ chỗ của hướng dẫn viên tới đúng lúc đó.
+     *
+     * Đây là hệ quả quan trọng nhất của việc cho điều hành đặt mốc kết thúc, và là chỗ dễ lọt
+     * nhất: phép kiểm trùng lịch từng tính khoảng bận theo số ngày của tour, nên một chuyến xe
+     * đêm kết thúc ngày thứ tư vẫn để hướng dẫn viên "rảnh" từ sáng hôm ấy.
+     */
+    public function test_chuyen_ve_sang_hom_sau_van_chan_phan_cong_trung(): void
+    {
+        $guide = User::factory()->create(['role' => 'guide', 'status' => 'active']);
+        $ngayDi = $this->ngayDi();
+
+        // Chuyến xe đêm: khởi hành 22h, trả khách 5h sáng ngày thứ tư.
+        $tour = $this->taoTour([
+            'start_date' => $ngayDi . ' 22:00',
+            'end_date' => Carbon::parse($ngayDi)->addDays(3)->format('Y-m-d') . ' 05:00',
+            'max_people' => 30,
+            'min_people' => 4,
+            'guide_ids' => [$guide->id],
+        ]);
+
+        $chuyenDem = $tour->schedules()->firstOrFail();
+        $this->assertTrue($chuyenDem->guides()->where('users.id', $guide->id)->exists());
+
+        // Chuyến khác khởi hành sáng ngày thứ tư — lúc người này còn đang trên xe về.
+        $this->postJson('/api/admin/tours', $this->payloadTour([
+            'start_date' => Carbon::parse($ngayDi)->addDays(3)->format('Y-m-d') . ' 08:00',
+            'max_people' => 30,
+            'min_people' => 4,
+            'guide_ids' => [$guide->id],
+        ]))->assertStatus(422);
+    }
+
     /** Chuyến cũ trong cơ sở dữ liệu không bị đụng tới cho tới khi có người thật sự sửa nó. */
     public function test_chuyen_cu_giu_nguyen_moc_ket_thuc(): void
     {

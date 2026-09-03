@@ -250,15 +250,36 @@ class ScheduleGuideService
     }
 
     /**
-     * Khoảng ngày chuyến chiếm chỗ của hướng dẫn viên.
+     * Khoảng thời gian chuyến chiếm chỗ của hướng dẫn viên.
      *
-     * Lấy theo số ngày của tour chứ không theo end_date, vì chuyến cũ có thể chưa đặt end_date.
+     * Đọc `end_date` khi có, chỉ suy từ số ngày của tour khi cột ấy rỗng.
+     *
+     * Trước đây hàm này **luôn** suy từ số ngày, với lý do "chuyến cũ có thể chưa đặt end_date".
+     * Lý do ấy hết đúng từ hai phía: migration `2026_08_11_000002` đã điền `end_date` cho toàn bộ
+     * hàng cũ, và nay điều hành đặt thẳng mốc kết thúc cho từng chuyến.
+     *
+     * Hậu quả của bản cũ là một lỗ thật: chuyến đi xe đêm, khởi hành 22h và trả khách 5h sáng hôm
+     * sau, kết thúc vào ngày thứ tư của một tour ba ngày. Tính theo số ngày thì hướng dẫn viên
+     * được coi là rảnh từ ngày thứ tư, nên xếp được họ vào một chuyến khác khởi hành sáng hôm ấy —
+     * trong lúc họ vẫn đang trên xe về.
+     *
+     * Bốn đường cùng gọi hàm này: xếp người (`conflictFor`), bàn giao giữa chuyến, màn "ai phù
+     * hợp", và danh sách người rảnh ở biểu mẫu tour. Sửa ở đây là sửa cả bốn.
+     *
+     * Mốc đầu vẫn `startOfDay`: một người đã đi chuyến khởi hành 22h thì cả ngày hôm đó coi như
+     * bận, không nhận thêm chuyến sáng cùng ngày. Mốc cuối giữ nguyên giờ thật, để một chuyến về
+     * chiều không chặn mất chuyến khởi hành ngày hôm sau.
      *
      * @return array{0: Carbon, 1: Carbon}
      */
     public function periodOf(TourSchedule $schedule): array
     {
         $start = Carbon::parse($schedule->start_date)->startOfDay();
+
+        if (!empty($schedule->end_date)) {
+            return [$start, Carbon::parse($schedule->end_date)];
+        }
+
         $soNgay = max(1, (int) ($schedule->tour?->number_of_days ?? 1));
 
         return [$start, $start->copy()->addDays($soNgay - 1)];
