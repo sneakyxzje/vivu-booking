@@ -21,13 +21,22 @@ import { getAvailableSlots, getScheduleUnavailableReason } from "@/utils/schedul
  * tháng 9 của tour Cao Bằng", và tổng đài tra ngược được về đúng chuyến. Ngày nào cần mã do người
  * đặt thì thêm cột thật rồi đọc từ đó, đừng sửa hàm này thành mã có ý nghĩa nghiệp vụ.
  *
+ * ## Giờ đi có thật, giờ về thì không
+ *
+ * `start_date` và `end_date` đều là cột `dateTime` — migration `2026_08_06` đã đổi `start_date`
+ * từ `date` sang — và form quản trị có ô **Giờ đi** với mặc định 08:00, sửa được từng chuyến hoặc
+ * hàng loạt. Nên giờ khởi hành là dữ liệu người ta nhập thật, và bảng này hiện nó.
+ *
+ * `end_date` thì khác: `AdminTourController` tự tính nó bằng `start_date + (số ngày - 1)`, nên
+ * phần giờ của nó **luôn bằng giờ đi** chứ không phải giờ đoàn về. In nó ra dưới nhãn "giờ về" là
+ * nói với khách rằng xe về lúc 08:00 trong khi 08:00 là giờ xe chạy. Chưa có ô nhập giờ về ở đâu
+ * cả, nên chiều về chỉ hiện ngày. Ngày nào thêm ô ấy thì hiện, không phải trước đó.
+ *
  * ## Những gì cố ý KHÔNG hiện
  *
- * Bản mẫu của các hãng lớn còn có giờ xe chạy từng chiều, phụ thu phòng đơn, và hạng "trẻ nhỏ"
- * tách khỏi "trẻ em". Hệ thống này không có dữ liệu nào cho ba thứ đó: `tour_schedules` chỉ lưu
- * ngày, không lưu giờ; không có bảng phụ thu; và bảng giá chỉ chia ba hạng. Bịa ra một khung giờ
- * cho đẹp là in lên trang một lời hứa không ai kiểm được — chỗ nào không có dữ liệu thì bỏ hẳn
- * dòng đó.
+ * Bản mẫu của các hãng lớn còn có phụ thu phòng đơn và hạng "trẻ nhỏ" tách khỏi "trẻ em". Hệ
+ * thống này không có bảng phụ thu, và bảng giá chỉ chia ba hạng. Bịa ra cho đủ ô là in lên trang
+ * một con số không ai kiểm được — chỗ nào không có dữ liệu thì bỏ hẳn dòng đó.
  */
 
 /** Thứ trong tuần viết tắt kiểu Việt: T2..T7 và CN. */
@@ -53,6 +62,25 @@ const parseNgay = (chuoi: string): Date => {
 
 const dinhDangNgay = (ngay: Date): string =>
   `${String(ngay.getDate()).padStart(2, "0")}/${String(ngay.getMonth() + 1).padStart(2, "0")}/${ngay.getFullYear()}`;
+
+/**
+ * Giờ trong chuỗi máy chủ trả về, hoặc null nếu không có giờ đáng nói.
+ *
+ * Máy chủ trả "2026-09-09 08:00:00" — giờ Việt Nam dạng mộc, không hậu tố múi giờ, xem
+ * `TourSchedule::serializeDate`. Cắt thẳng từ chuỗi chứ không qua `Date` để không có chỗ nào cộng
+ * trừ mất bảy tiếng.
+ *
+ * Nửa đêm bị coi là "không đặt giờ" và không hiện. Đây là một đánh đổi có ý thức: form quản trị
+ * mặc định 08:00 nên chuyến nhập đàng hoàng luôn có giờ thật, còn 00:00 gần như chỉ đến từ dữ
+ * liệu cũ tạo trước khi có ô giờ. Cái giá là một chuyến khởi hành đúng nửa đêm sẽ không hiện giờ.
+ */
+const gioCua = (chuoi?: string | null): string | null => {
+  if (!chuoi || chuoi.length < 16) return null;
+
+  const gio = chuoi.slice(11, 16);
+
+  return gio === "00:00" ? null : gio;
+};
 
 /** Mã đọc qua điện thoại được. Xem chú thích đầu tệp: suy ra, không phải cột. */
 const maChuyen = (tour: Tour, schedule: TourSchedule): string => {
@@ -192,6 +220,8 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
           const dangChon = selectedSchedule?.id === schedule.id;
           const ngayDi = parseNgay(schedule.start_date);
           const ngayVe = ngayVeCua(tour, schedule);
+          const gioDi = gioCua(schedule.start_date);
+          const gioChot = gioCua(schedule.booking_deadline);
           const conLai = getAvailableSlots(schedule);
 
           return (
@@ -264,6 +294,11 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
                           </span>
                         )}
                       </div>
+                      {gioDi && (
+                        <p className="mt-1 text-sm font-semibold text-gray-900">
+                          Giờ khởi hành: {gioDi}
+                        </p>
+                      )}
                       <div className="mt-2 flex items-baseline justify-between gap-3 border-t border-dashed border-gray-200 pt-2 text-sm text-gray-700">
                         <span>{tour.start_location ?? "—"}</span>
                         <span>{tour.end_location ?? "—"}</span>
@@ -324,6 +359,7 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
                         Hạn chốt danh sách:{" "}
                         <strong className="font-semibold text-gray-900">
                           {dinhDangNgay(parseNgay(schedule.booking_deadline))}
+                          {gioChot ? ` ${gioChot}` : ""}
                         </strong>
                       </span>
                     )}
