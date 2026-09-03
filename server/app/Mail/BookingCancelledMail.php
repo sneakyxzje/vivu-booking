@@ -42,6 +42,13 @@ class BookingCancelledMail extends Mailable implements ShouldQueue
                  * về tiền của họ.
                  */
                 'daThu' => app(BookingPaymentService::class)->netPaid($this->booking),
+                /*
+                 * Phần khách CÒN ĐƯỢC NHẬN, không phải con số trong cột `refund_amount`.
+                 *
+                 * Cột ấy mang nghĩa vụ GỘP từ đầu tới giờ, nên với đơn đã được hoàn một phần trước
+                 * khi hủy, in thẳng nó ra là hứa nhiều hơn thực tế sẽ chuyển.
+                 */
+                'conDuocNhan' => app(BookingPaymentService::class)->refundOutstanding($this->booking),
                 'frontendBookingUrl' => rtrim(config('app.frontend_url'), '/')
                     . '/booking-success/' . $this->booking->public_token,
             ],

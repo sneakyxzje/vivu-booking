@@ -274,6 +274,25 @@ class BookingPaymentService
     }
 
     /**
+     * Quy một mức hoàn do bảng phí quyết về đúng quy ước GỘP của cột `refund_amount`.
+     *
+     * Cột ấy mang nghĩa "tổng nghĩa vụ từ đầu tới giờ", vì `refundOutstanding()` luôn trừ đi các
+     * dòng đã hoàn. `syncRefundDueAfterPriceDrop()` viết đúng quy ước ấy; các đường HỦY thì không —
+     * chúng ghi thẳng số từ `CancellationPolicyService::quote()`, mà số đó tính trên `netPaid` nên
+     * đã trừ khoản hoàn trước đó rồi. Trừ hai lần, và lần nào cũng là tiền thật.
+     *
+     * Cảnh lộ ra: đơn 10 triệu, khách cọc 5 triệu, được chuyển sang chuyến rẻ hơn nên đơn còn 4
+     * triệu và kế toán đã chi lại 1 triệu. Khách hủy ở mốc còn hoàn đủ. `quote()` đọc `netPaid` = 4
+     * triệu; cột ghi 4 triệu; `refundOutstanding()` trừ tiếp 1 triệu đã chi thành 3 triệu — trong
+     * khi công ty đang giữ 4 triệu của họ. Chi thiếu đúng bằng phần đã hoàn, và không màn hình nào
+     * phát hiện vì đơn rời khỏi hàng đợi ngay khi chi nốt con số sai ấy.
+     */
+    public function nghiaVuHoanGop(Booking $booking, float $hoanTheoBangPhi): float
+    {
+        return round($this->refunded($booking) + $hoanTheoBangPhi);
+    }
+
+    /**
      * Tổng tiền THỰC THU của một tập đơn, dùng cho các con số tổng kết.
      *
      * Các màn hình thống kê vẫn cộng `total_amount` và gọi kết quả là doanh thu. Đó là giá trị đơn

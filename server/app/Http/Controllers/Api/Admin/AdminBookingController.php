@@ -540,7 +540,9 @@ class AdminBookingController extends Controller
                  * Hai đường hủy kia đã ghi từ trước: yêu cầu hủy của khách (BookingChangeRequest-
                  * Service) và hủy cả chuyến (ScheduleCancellationService).
                  */
-                'refund_amount' => $duBao['refund_amount'],
+                // Quy về nghĩa vụ GỘP: cột này luôn bị `refundOutstanding()` trừ đi phần đã hoàn,
+                // nên ghi thẳng số của bảng phí (vốn tính trên `netPaid`) là trừ hai lần.
+                'refund_amount' => $this->payments->nghiaVuHoanGop($booking, $duBao['refund_amount']),
             ]);
 
             $this->holdService->releaseHold($booking, $schedule);

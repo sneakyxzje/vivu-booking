@@ -172,7 +172,8 @@ class CancelUnpaidBalances extends Command
                 'cancel_type' => 'unpaid_balance',
                 'cancel_reason' => $lyDo,
                 'cancelled_at' => now(),
-                'refund_amount' => $duBao['refund_amount'],
+                // Quy về nghĩa vụ GỘP, cùng quy ước với `syncRefundDueAfterPriceDrop()`.
+                'refund_amount' => $this->payments->nghiaVuHoanGop($locked, $duBao['refund_amount']),
             ]);
 
             $this->holdService->releaseHold($locked, $schedule);

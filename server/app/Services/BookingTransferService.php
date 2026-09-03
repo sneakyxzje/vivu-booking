@@ -492,21 +492,55 @@ class BookingTransferService
     /**
      * Tổng tiền nếu đơn này nằm ở chuyến đích.
      *
-     * Tính lại từ giá của tour đích theo đúng cơ cấu khách, chứ không giữ nguyên tổng cũ: đổi
-     * sang tour khác thì giá người lớn, trẻ em, em bé đều khác. Giảm giá đã áp giữ nguyên, vì
-     * khách đã dùng mã đó rồi.
+     * Đổi sang tour KHÁC thì tính lại từ bảng giá của tour đích, vì giá người lớn, trẻ em, em bé
+     * đều khác. Giảm giá đã áp giữ nguyên, vì khách đã dùng mã đó rồi.
+     *
+     * ## Cùng tour thì giữ nguyên đơn giá của ĐƠN
+     *
+     * Chuyến không có bảng giá riêng, nên với chuyển cùng tour, "tính lại" chỉ có đúng một tác dụng:
+     * thay giá lúc bán bằng giá hôm nay. Khách mua tháng Giêng giá ba triệu, tháng Năm công ty nâng
+     * lên bốn triệu, tháng Chín xe hỏng nên công ty tự dời họ sang chuyến khác của chính tour ấy —
+     * và đơn đã trả đủ bỗng thiếu hai triệu, vì công ty vừa đổi lịch vừa đã tăng giá.
+     *
+     * Đơn giá được chép vào đơn ngay lúc đặt đúng để chống chuyện đó (xem `Booking`), nên ở đây đọc
+     * lại chính nó.
+     *
+     * ## Đơn ĐOÀN không có bảng giá nào để mà tính
+     *
+     * Giá đoàn là giá thương lượng: `(số khách − suất miễn phí) × đơn giá báo`, và cả đoàn được ghi
+     * vào `adult_count` với ba cột đơn giá để trống (xem `GroupBookingService`). Áp bảng giá lẻ lên
+     * cơ cấu ấy vừa thay giá hợp đồng bằng giá niêm yết, vừa tính tiền cả những suất miễn phí của
+     * trưởng đoàn. Đoàn bốn mươi người báo giá 57 triệu thành 80 triệu chỉ vì được dời chuyến.
+     *
+     * Nên tổng của đơn đoàn giữ nguyên. Muốn đổi giá thì thương lượng lại qua luồng đoàn, đó là nơi
+     * duy nhất biết `quoted_price_per_person` và `quoted_free_slots`.
      */
     public function recalculateTotal(Booking $booking, TourSchedule $toSchedule): float
     {
         $tour = $toSchedule->tour;
 
-        if (!$tour) {
+        if (!$tour || $booking->isGroup()) {
             return (float) $booking->total_amount;
         }
 
-        $tamTinh = ((int) $booking->adult_count) * (float) $tour->adult_price
-            + ((int) $booking->child_count) * (float) $tour->child_price
-            + ((int) $booking->infant_count) * (float) $tour->infant_price;
+        /*
+         * Lùi về bảng giá tour khi đơn không có đơn giá riêng.
+         *
+         * Cột đơn giá được thêm sau, nên đơn cũ để trống. Đọc thẳng ra 0 thì một lần dời chuyến do
+         * công ty gây ra sẽ hạ tổng đơn về 0 và sinh ra nghĩa vụ hoàn bằng cả số đã thu.
+         */
+        $cungTour = (int) $toSchedule->tour_id === (int) $booking->tour_id;
+        $donGia = fn (string $cot) => $cungTour && (float) $booking->{$cot} > 0
+            ? (float) $booking->{$cot}
+            : (float) $tour->{$cot};
+
+        $giaNguoiLon = $donGia('adult_price');
+        $giaTreEm = $donGia('child_price');
+        $giaEmBe = $donGia('infant_price');
+
+        $tamTinh = ((int) $booking->adult_count) * $giaNguoiLon
+            + ((int) $booking->child_count) * $giaTreEm
+            + ((int) $booking->infant_count) * $giaEmBe;
 
         return round(max(0, $tamTinh - (float) $booking->discount_amount), 2);
     }

@@ -35,7 +35,34 @@ class BookingChangeRequestService
         private CancellationPolicyService $cancellationPolicy,
         private BookingHoldService $holdService,
         private BookingAuditLogger $auditLogger,
+        private BookingPaymentService $payments,
     ) {
+    }
+
+    /**
+     * Số tiền hoàn lúc DUYỆT: đóng băng bậc phần trăm, không đóng băng số tiền.
+     *
+     * Bậc phí phải chốt tại thời điểm GỬI — đó là chủ ý, và có bài kiểm canh: khách gửi yêu cầu
+     * hôm còn hai mươi ngày rồi điều hành duyệt muộn ba hôm thì không được rơi xuống bậc thấp hơn.
+     *
+     * Nhưng thứ được đóng băng lâu nay là con số tuyệt đối, mà con số ấy tính trên số đã thu tại
+     * lúc gửi. Không luật nào chặn thu tiếp trong lúc yêu cầu đang chờ: trang tra cứu vẫn dựng liên
+     * kết trả nốt, cổng vẫn nhận, sổ vẫn ghi. Khách cọc năm triệu, gửi yêu cầu hủy ở mốc hoàn đủ,
+     * rồi trả nốt năm triệu trong lúc chờ — số đóng băng vẫn là năm, và họ mất đúng phần vừa trả.
+     *
+     * Nên tính lại số tiền theo bậc đã chốt, trên số đã thu HIỆN TẠI.
+     */
+    private function tienHoanKhiDuyet(Booking $booking, BookingChangeRequest $yeuCau): float
+    {
+        $phanTram = (int) ($yeuCau->estimated_refund_percent ?? 0);
+        $phiHuy = round(round((float) $booking->total_amount) * (100 - $phanTram) / 100);
+
+        // `paidForTour()` chứ không `netPaid()`: cùng nguồn mà `quote()` dùng, nên đơn cũ chưa có
+        // bút toán nào (chỉ có mốc `paid_at`) vẫn ra đúng số thay vì ra 0.
+        return $this->payments->nghiaVuHoanGop(
+            $booking,
+            max(0.0, $this->payments->paidForTour($booking) - $phiHuy),
+        );
     }
 
     /**
@@ -153,8 +180,8 @@ class BookingChangeRequestService
                 'cancel_type' => 'by_customer',
                 'cancelled_at' => now(),
                 'cancelled_by' => $locked->requested_by,
-                // Số khách nhận là số đã chốt lúc gửi, không phải số tính lại bây giờ.
-                'refund_amount' => $locked->estimated_refund,
+                // Bậc phí chốt lúc gửi; số tiền tính lại theo số đã thu hiện tại. Xem `tienHoanKhiDuyet()`.
+                'refund_amount' => $this->tienHoanKhiDuyet($booking, $locked),
             ]);
 
             $this->holdService->releaseHold($booking, $schedule);

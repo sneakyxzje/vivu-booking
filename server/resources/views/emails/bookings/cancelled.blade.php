@@ -57,7 +57,8 @@
                                 vừa đọc tin chuyến đi bị hủy.
                             --}}
                             @php
-                                $tienHoan = (float) ($booking->refund_amount ?? 0);
+                                // Số khách còn được nhận, không phải nghĩa vụ gộp trong cột.
+                                $tienHoan = (float) $conDuocNhan;
                                 $congTyHuy = $booking->cancel_type === 'by_company';
                             @endphp
 

@@ -309,7 +309,14 @@ class ScheduleCancellationService
      */
     private function hoanDu(Booking $don, TourSchedule $schedule, string $reason): float
     {
-        $soTien = $this->soTienDaTra($don);
+        /*
+         * Nghĩa vụ GỘP: tổng đã THU, chưa trừ phần đã hoàn.
+         *
+         * `soTienDaTra()` trả về số RÒNG (thu trừ hoàn). Ghi số ròng vào cột này rồi để
+         * `refundOutstanding()` trừ tiếp phần đã hoàn là trừ hai lần — đơn từng được hoàn một phần
+         * vì chuyển sang chuyến rẻ hơn sẽ bị chi thiếu đúng bằng phần ấy.
+         */
+        $soTien = $this->payments->nghiaVuHoanGop($don, $this->soTienDaTra($don));
         $trangThaiCu = (string) $don->status;
 
         $lyDo = 'Công ty hủy chuyến. ' . $reason . ' Quý khách được hoàn đủ số tiền đã thanh toán.';

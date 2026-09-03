@@ -5,7 +5,9 @@ import type {
   PassengerInput,
   PassengerListResponse,
 } from "@/services/bookingService";
+import tourService from "@/services/tourService";
 import type { Booking } from "@/types";
+import type { AxiosError } from "axios";
 import { formatDate, formatDateTime, formatPrice } from "@/utils/format";
 import { Modal } from "@/components/Modal";
 import { DateTimePicker } from "@/components/DateTimePicker";
@@ -54,6 +56,8 @@ export const MyBookingsTab: React.FC = () => {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [reviewError, setReviewError] = useState("");
 
   // Hủy đơn chưa thanh toán
   const [cancelTarget, setCancelTarget] = useState<ExtendedBooking | null>(
@@ -740,7 +744,15 @@ export const MyBookingsTab: React.FC = () => {
                         Yêu cầu hủy
                       </button>
                     )}
-                    {item.status === "confirmed" && (
+                    {/*
+                      Chỉ khách ĐÃ ĐI XONG mới đánh giá được.
+
+                      Máy chủ đã ràng đúng như vậy (`ReviewController`, luật số 1), và điều khoản
+                      mục 16 cũng viết thế. Nút này thì hiện trên đơn `confirmed` — tức người vừa
+                      đặt chỗ tuần trước chấm được năm sao cho một chuyến chưa khởi hành, rồi nhận
+                      lỗi từ máy chủ ở bước gửi.
+                    */}
+                    {item.status === "completed" && (
                       <button
                         onClick={() => setShowReviewModal(item)}
                         className="px-3.5 py-1.5 text-xs font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-xl transition-colors flex items-center gap-1.5 border border-amber-200"
@@ -1653,15 +1665,41 @@ export const MyBookingsTab: React.FC = () => {
               Cảm ơn bạn đã gửi đánh giá!
             </h4>
             <p className="text-xs text-gray-500">
-              Ý kiến đóng góp của bạn giúp Vivu Booking nâng cao chất lượng dịch
-              vụ hơn nữa.
+              Đánh giá của bạn đang chờ duyệt và sẽ hiển thị trên trang tour sau
+              khi được kiểm duyệt.
             </p>
           </div>
         ) : (
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
+              /*
+               * Gửi thật lên máy chủ.
+               *
+               * Trước đây chỗ này chỉ bật một cờ rồi hiện "Cảm ơn bạn đã gửi đánh giá" — một câu
+               * cảm ơn cho bài viết không hề tồn tại. Khách quay lại trang tour tìm nhận xét của
+               * mình, không thấy đâu, rồi gửi lại lần nữa.
+               */
               e.preventDefault();
-              setReviewSubmitted(true);
+
+              if (!showReviewModal?.tour?.id || reviewSaving) return;
+
+              setReviewSaving(true);
+              setReviewError("");
+
+              try {
+                await tourService.review(showReviewModal.tour.id, {
+                  rating: reviewRating,
+                  comment: reviewComment.trim(),
+                });
+                setReviewSubmitted(true);
+              } catch (err) {
+                setReviewError(
+                  (err as AxiosError<{ message?: string }>)?.response?.data?.message
+                    ?? "Không gửi được đánh giá. Vui lòng thử lại.",
+                );
+              } finally {
+                setReviewSaving(false);
+              }
             }}
             className="space-y-4"
           >
@@ -1699,11 +1737,18 @@ export const MyBookingsTab: React.FC = () => {
               />
             </div>
 
+            {reviewError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700">
+                {reviewError}
+              </div>
+            )}
+
             <button
               type="submit"
-              className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-colors"
+              disabled={reviewSaving}
+              className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-colors disabled:opacity-50"
             >
-              Gửi đánh giá tour
+              {reviewSaving ? "Đang gửi..." : "Gửi đánh giá tour"}
             </button>
           </form>
         )}
