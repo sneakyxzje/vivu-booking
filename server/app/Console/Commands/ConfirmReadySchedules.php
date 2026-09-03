@@ -202,7 +202,15 @@ class ConfirmReadySchedules extends Command
                 $canCo,
                 $hanChot ? ', hạn chốt ' . $hanChot->format('d/m/Y H:i') : '',
             ),
-            '/admin/schedules/' . $schedule->id,
+            /*
+             * Về màn quản lý chuyến, không phải một trang chi tiết theo id.
+             *
+             * Trước đây trỏ `/admin/schedules/{id}`, một địa chỉ không có trong bộ định tuyến —
+             * bấm vào thông báo là rơi vào trang 404. Giao diện chỉ có danh sách `/admin/schedules`,
+             * và đó cũng đúng là nơi làm việc mà thông báo này yêu cầu: cho chạy, hủy chuyến, hoặc
+             * ghép với chuyến khác.
+             */
+            '/admin/schedules',
         );
     }
 

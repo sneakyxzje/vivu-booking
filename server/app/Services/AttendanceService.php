@@ -433,7 +433,17 @@ class AttendanceService
                 $schedule->tour?->title ?? 'Tour',
                 $schedule->start_date?->format('d/m/Y H:i') ?? 'chưa rõ',
             ),
-            '/admin/schedules/' . $schedule->getKey(),
+            /*
+             * Đi thẳng tới màn ĐIỂM DANH của chính chuyến đó.
+             *
+             * Trước đây trỏ `/admin/schedules/{id}` — một địa chỉ không có trong bộ định tuyến của
+             * giao diện, nên bấm vào thông báo là rơi vào trang 404. Màn quản lý chuyến chỉ có
+             * dạng danh sách `/admin/schedules`, không có trang chi tiết theo id.
+             *
+             * Và điểm danh mới là chỗ đúng: người đọc thông báo này cần xem ai vắng, ghi chú, đối
+             * chiếu ảnh — tất cả nằm ở đó chứ không ở danh sách chuyến.
+             */
+            '/admin/tour-schedules/' . $schedule->getKey() . '/attendance',
         );
     }
 
