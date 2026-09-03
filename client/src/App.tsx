@@ -34,7 +34,6 @@ import ScheduleManagement from "@/pages/admin/ScheduleManagement";
 import AuditLogManagement from "@/pages/admin/AuditLogManagement";
 import SandboxLab from "@/pages/admin/SandboxLab";
 import ChangeRequestManagement from "@/pages/admin/ChangeRequestManagement";
-import CancellationPolicyManagement from "@/pages/admin/CancellationPolicyManagement";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
 import GuideAssignments from "@/pages/guide/GuideAssignments";
 import { GuideTours } from "@/pages/guide/GuideTours";
@@ -293,10 +292,6 @@ const router = createBrowserRouter([
           {
             path: "/admin/change-requests",
             element: <ChangeRequestManagement />,
-          },
-          {
-            path: "/admin/cancellation-policies",
-            element: <CancellationPolicyManagement />,
           },
           {
             path: "/admin/bookings",
