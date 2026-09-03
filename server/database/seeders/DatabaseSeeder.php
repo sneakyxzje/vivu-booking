@@ -40,6 +40,14 @@ class DatabaseSeeder extends Seeder
             // Chạy cuối: dựng tour thử nghiệm phủ mọi tình huống A, B, C, D, H để thử tay.
             // Seed lại riêng bằng: php artisan db:seed --class=BusinessScenarioSeeder
             BusinessScenarioSeeder::class,
+            /*
+             * Sáu đơn ở sáu chặng của luồng đặt cọc, để thử hai lệnh nhắc và hủy.
+             *
+             * Mốc thời gian của nhóm này tính lùi từ lúc seed, nên nó trôi khỏi mốc sau vài ngày.
+             * Seed lại riêng trước mỗi buổi thử bằng:
+             *   php artisan db:seed --class=DepositFlowSeeder
+             */
+            DepositFlowSeeder::class,
         ]);
     }
 }
