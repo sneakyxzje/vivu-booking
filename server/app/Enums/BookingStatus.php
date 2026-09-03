@@ -70,20 +70,16 @@ enum BookingStatus: string
         ], true);
     }
 
-    /**
-     * Đơn đang chiếm chỗ trên chuyến.
-     * NoShow vẫn tính là chiếm chỗ vì khách đã trả tiền và chỗ đó đã mất.
+    /*
+     * ĐÃ GỠ: `holdsSeat()`.
+     *
+     * Câu hỏi "đơn này có đang chiếm chỗ không" trên thực tế được trả lời bằng SQL ở
+     * `CheckSeatConsistency::occupiedSeats()` — nó phải hỏi cho cả một bảng chứ không cho từng bản
+     * ghi, nên không dùng được hàm này. Không dòng nào gọi tới nó.
+     *
+     * Xem lý do đầy đủ ở chú thích cùng loại trong `PassengerCheckinStatus`: một hàm mang tên như
+     * một luật mà không ai gọi thì tệ hơn là không có, vì nó làm người đọc tin rằng luật đang chạy.
      */
-    public function holdsSeat(): bool
-    {
-        return in_array($this, [
-            self::Pending,
-            self::DepositPaid,
-            self::Paid,
-            self::Confirmed,
-            self::NoShow,
-        ], true);
-    }
 
     /**
      * Đơn đã trả tiền, tính vào số khách để quyết định chốt chuyến.

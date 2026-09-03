@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Enums\ScheduleStatus;
 use App\Enums\TransferReasonCategory;
 use App\Http\Controllers\Controller;
+use App\Mail\BookingTransferredMail;
 use App\Models\Booking;
 use App\Models\BookingTransfer;
 use App\Models\CustomerContactLog;
@@ -12,6 +13,9 @@ use App\Models\TourSchedule;
 use App\Services\BookingTransferService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 /**
  * I05 - Điều hành chuyển đơn sang chuyến khác.
@@ -148,6 +152,20 @@ class AdminTransferController extends Controller
             nhomLyDo: TransferReasonCategory::from($validated['reason_category']),
         );
 
+        /*
+         * Báo cho khách bằng một bản viết.
+         *
+         * Khách đã đồng ý qua điện thoại — luật `assertDaHoiKhach` bắt buộc điều đó — nhưng biết
+         * qua một cuộc gọi không giống có một lá thư: ngày đi mới là thứ người ta phải xin nghỉ
+         * phép, đặt vé tới điểm tập kết, báo lại người nhà. Đây cũng là nơi duy nhất khách đọc
+         * được phần chênh lệch tiền.
+         *
+         * Gửi ở controller chứ không trong `BookingTransferService`: hai luồng chuyển hàng loạt —
+         * hủy cả chuyến và ghép chuyến — cũng gọi service ấy nhưng đã có thư riêng của chúng, nên
+         * đặt vào service là gửi hai lá cho cùng một sự việc.
+         */
+        $this->baoChoKhach($banGhi);
+
         $chenh = (float) $banGhi->price_difference + (float) $banGhi->fee;
 
         return $this->success(
@@ -158,6 +176,32 @@ class AdminTransferController extends Controller
                     ? sprintf('Đã chuyển chuyến. Chuyến mới rẻ hơn %s đồng, xử lý theo chính sách công nợ.', number_format(abs($chenh), 0, ',', '.'))
                     : 'Đã chuyển chuyến, không phát sinh chênh lệch.'),
         );
+    }
+
+    /**
+     * Thư xác nhận đổi chuyến.
+     *
+     * Thư hỏng không được làm hỏng việc đã xong: đơn đã chuyển, chỗ đã dịch ở cả hai chuyến, bản
+     * ghi đã lưu. Máy chủ thư trục trặc thì ghi log để người ta gọi điện — cùng nguyên tắc đang áp
+     * ở `ScheduleCancellationService::baoChoKhach()`.
+     */
+    private function baoChoKhach(BookingTransfer $banGhi): void
+    {
+        $email = $banGhi->booking?->customer_email;
+
+        if (!$email) {
+            return;
+        }
+
+        try {
+            Mail::to($email)->send(new BookingTransferredMail($banGhi));
+        } catch (Throwable $e) {
+            Log::warning('Không gửi được thư báo chuyển chuyến.', [
+                'booking_id' => $banGhi->booking_id,
+                'transfer_id' => $banGhi->getKey(),
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /** Lịch sử chuyển của một đơn, để biết đã đổi mấy lần và còn được miễn phí không. */

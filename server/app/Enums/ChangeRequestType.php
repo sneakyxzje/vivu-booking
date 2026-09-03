@@ -34,16 +34,16 @@ enum ChangeRequestType: string
         };
     }
 
-    /**
-     * Loại nào đã có luồng xử lý thật.
+    /*
+     * ĐÃ GỠ: `isImplemented()`.
      *
-     * Ba loại còn lại đã khai sẵn vì bảng dùng chung, nhưng chưa có nhóm nào cài đặt. Tạo yêu
-     * cầu thuộc loại chưa cài đặt sẽ sinh ra bản ghi không ai duyệt được.
+     * Nó canh việc tạo yêu cầu thuộc loại chưa có luồng xử lý. Nhưng chỉ có đúng một đường tạo
+     * yêu cầu — `BookingChangeRequestService::requestCancellation()` — và đường đó ghi cứng
+     * `ChangeRequestType::Cancel`, nên không có gì để canh. Không dòng nào gọi tới nó.
+     *
+     * Ba loại còn lại vẫn khai ở trên vì bảng dùng chung; khi nhóm nào cài đặt chúng thì dựng lại
+     * phép canh cùng lúc với đường ghi mới, chứ không để nó nằm sẵn mà không ai gọi.
      */
-    public function isImplemented(): bool
-    {
-        return $this === self::Cancel;
-    }
 
     /** @return array<int, string> */
     public static function values(): array

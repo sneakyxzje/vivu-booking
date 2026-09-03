@@ -33,7 +33,7 @@ class AppServiceProvider extends ServiceProvider
      */
     private function dangKyHanMuc(): void
     {
-        foreach (['api', 'login', 'register', 'email', 'reset'] as $nhom) {
+        foreach (['api', 'login', 'register', 'email', 'reset', 'discount'] as $nhom) {
             RateLimiter::for($nhom, fn (Request $request) => $this->hanMuc($nhom, $request));
         }
     }

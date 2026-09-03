@@ -390,9 +390,11 @@ class PassengerPolicyService
         return max(0, (int) $booking->guests - $booking->passengers()->count());
     }
 
-    /** @return \Illuminate\Support\Collection<int, BookingPassenger> */
-    public function contactsOf(Booking $booking)
-    {
-        return $booking->passengers()->where('is_contact', true)->get();
-    }
+    /*
+     * ĐÃ GỠ: `contactsOf()`.
+     *
+     * Nó trả về những hành khách được đánh dấu là người liên hệ của nhóm. Không dòng nào gọi tới:
+     * bản xuất danh sách đoàn đọc thẳng cột `is_contact` khi dựng từng dòng, còn `manifestWarnings()`
+     * chỉ cần biết nhóm đã chọn người liên hệ hay chưa.
+     */
 }

@@ -4,10 +4,14 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Enums\ReviewStatus;
 use App\Http\Controllers\Controller;
+use App\Mail\ReviewModeratedMail;
 use App\Models\Review;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 /**
  * Hàng đợi kiểm duyệt đánh giá, và chỗ công ty trả lời khách.
@@ -63,6 +67,8 @@ class AdminReviewController extends Controller
             'moderation_note' => null,
         ])->save();
 
+        $this->baoNguoiViet($review);
+
         return $this->success(
             $this->dong($review->fresh(['user:id,name,email', 'tour:id,title,slug', 'moderatedBy:id,name'])),
             'Đã duyệt. Đánh giá này giờ hiện công khai và được tính vào điểm của tour.',
@@ -91,10 +97,44 @@ class AdminReviewController extends Controller
             'moderation_note' => trim($data['reason']),
         ])->save();
 
+        $this->baoNguoiViet($review);
+
         return $this->success(
             $this->dong($review->fresh(['user:id,name,email', 'tour:id,title,slug', 'moderatedBy:id,name'])),
             'Đã từ chối. Đánh giá không hiện công khai và không tính vào điểm của tour.',
         );
+    }
+
+    /**
+     * Báo cho người viết biết bài của họ được đăng hay bị từ chối.
+     *
+     * Phải là thư, không phải thông báo trong hệ thống: hộp thông báo chỉ mở cho điều hành và
+     * hướng dẫn viên, khách không có màn hình nào để đọc.
+     *
+     * Người viết vẫn thấy trạng thái khi mở lại trang tour, nên đây không phải lỗ hổng — nhưng nó
+     * đòi họ chủ động quay lại đúng chỗ và để ý một dòng chữ nhỏ. Đánh giá là thứ người ta bỏ công
+     * viết rồi chờ xem có được đăng không; im lặng khiến họ tưởng bấm gửi không ăn và gửi lại lần
+     * nữa, đúng điều mà chú thích ở `ReviewController` đã lo từ đầu.
+     *
+     * Thư hỏng thì ghi log rồi đi tiếp: quyết định kiểm duyệt đã lưu xong và không phụ thuộc vào nó.
+     */
+    private function baoNguoiViet(Review $review): void
+    {
+        $email = $review->user?->email;
+
+        if (!$email) {
+            return;
+        }
+
+        try {
+            Mail::to($email)->send(new ReviewModeratedMail($review->fresh(['tour:id,title,slug', 'user:id,name'])));
+        } catch (Throwable $e) {
+            Log::warning('Không gửi được thư báo kết quả kiểm duyệt đánh giá.', [
+                'review_id' => $review->getKey(),
+                'status' => $review->status->value,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

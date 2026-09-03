@@ -51,14 +51,17 @@ enum PassengerCheckinStatus: string
         return $this !== self::Present;
     }
 
-    /**
-     * Khách đã rời đoàn thì các điểm dừng còn lại của hành trình cũng không còn ý nghĩa,
-     * mở luồng xét hoàn phần dịch vụ chưa sử dụng.
+    /*
+     * ĐÃ GỠ: `endsParticipation()`.
+     *
+     * Nó trả lời "khách đã rời đoàn chưa", để mở luồng xét hoàn phần dịch vụ chưa dùng. Luồng ấy
+     * chưa được xây, và không dòng nào gọi hàm này.
+     *
+     * Một hàm mang tên như một luật, nằm cạnh những luật đang có hiệu lực thật, nhưng không ai gọi
+     * — đó chính là cái bẫy đã khiến luật "điểm dừng bắt buộc ảnh" nằm chết mà vẫn có bài kiểm thử
+     * xanh: người đọc mã tin rằng hệ thống đang thực thi nó. Ý định vẫn còn trong
+     * docs/nghiep-vu/04-luong-dieu-hanh.md; dựng lại hàm khi thật sự có luồng gọi nó.
      */
-    public function endsParticipation(): bool
-    {
-        return $this === self::LeftEarly;
-    }
 
     /**
      * Trạng thái cần báo ngay cho điều hành thay vì chỉ ghi vào báo cáo cuối chuyến.

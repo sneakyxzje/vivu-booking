@@ -420,32 +420,32 @@ class ScheduleMergeTest extends TestCase
 
     /**
      * Ghép A vào B rồi B vào C thì khách của A phải nhìn thấy C, không phải B.
+     *
+     * Kiểm qua đúng cơ chế thật: mỗi lần ghép, `moveBooking()` trỏ lại `tour_schedule_id` của đơn
+     * sang chuyến đích, nên sau hai lần ghép đơn đã nằm ở C — khách tra cứu là thấy ngay ngày mới,
+     * không cần ai đi dò ngược chuỗi ghép.
+     *
+     * Bài này trước đây gọi `ScheduleMergeService::finalScheduleOf()`, một hàm đi theo chuỗi
+     * `merged_into_schedule_id` để tìm chuyến cuối. Hàm ấy **không có nơi nào trong ứng dụng gọi
+     * tới** — chỉ bài kiểm thử này gọi — nên nó chứng minh một đường đi mà khách chưa bao giờ đi
+     * qua, trong khi đường khách thật sự đi thì không bài nào kiểm. Nay đổi lại cho đúng.
      */
-    public function test_ghep_day_chuyen_thi_tra_ve_chuyen_cuoi_cung(): void
+    public function test_ghep_day_chuyen_thi_don_nam_o_chuyen_cuoi_cung(): void
     {
         $chuyenC = $this->taoChuyen(now()->addDays(22));
 
-        $this->taoDon($this->nguon);
+        $don = $this->taoDon($this->nguon);
         $this->taoDon($this->dich);
 
         $this->service()->merge($this->nguon, $this->dich, 'Ghep A vao B vi thieu khach.', $this->dieuHanh);
         $this->service()->merge($this->dich->fresh(), $chuyenC, 'Ghep B vao C vi van thieu khach.', $this->dieuHanh);
 
+        $this->assertSame($chuyenC->id, (int) $don->fresh()->tour_schedule_id);
         $this->assertSame(
-            $chuyenC->id,
-            $this->service()->finalScheduleOf($this->nguon->fresh())->getKey(),
+            $chuyenC->start_date->toDateTimeString(),
+            $don->fresh()->departure_date,
+            'Ngày khởi hành trên đơn phải là ngày của chuyến cuối, vì đó là ngày khách sẽ đi.',
         );
-    }
-
-    /** Dữ liệu hỏng trỏ vòng tròn thì không được treo vô hạn. */
-    public function test_chuoi_ghep_tro_vong_tron_thi_van_dung_lai(): void
-    {
-        $this->nguon->forceFill(['merged_into_schedule_id' => $this->dich->id])->save();
-        $this->dich->forceFill(['merged_into_schedule_id' => $this->nguon->id])->save();
-
-        $ketQua = $this->service()->finalScheduleOf($this->nguon->fresh());
-
-        $this->assertNotNull($ketQua);
     }
 
     // --- Dấu vết và API -----------------------------------------------------------------

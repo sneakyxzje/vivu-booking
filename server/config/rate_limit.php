@@ -46,10 +46,22 @@ return [
     |
     */
 
+    /*
+    | discount  Ô nhập mã giảm giá ở trang đặt tour.
+    |
+    |        Cùng loại với ô đăng nhập: đây là chỗ đoán được thứ của người khác. Mã giảm giá là
+    |        chuỗi ngắn, dễ đoán ("HE2026", "SALE50"), và không giới hạn thì một kịch bản tự động
+    |        dò được cả kho mã trong vài phút — kể cả mã nội bộ chỉ định phát cho một nhóm khách.
+    |
+    |        Rộng hơn ô đăng nhập vì người thật có thể gõ sai vài lần rồi thử mã khác, nhưng vẫn
+    |        đủ chặt để việc dò không còn rẻ.
+    */
+
     'api' => env('RATE_LIMIT_API', '60,1'),
     'login' => env('RATE_LIMIT_LOGIN', '10,1'),
     'register' => env('RATE_LIMIT_REGISTER', '5,1'),
     'email' => env('RATE_LIMIT_EMAIL', '5,10'),
     'reset' => env('RATE_LIMIT_RESET', '10,10'),
+    'discount' => env('RATE_LIMIT_DISCOUNT', '20,1'),
 
 ];

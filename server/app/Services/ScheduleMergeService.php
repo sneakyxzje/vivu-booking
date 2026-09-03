@@ -422,34 +422,18 @@ class ScheduleMergeService
         );
     }
 
-    /**
-     * Chuyến cuối cùng của một chuỗi ghép.
+    /*
+     * ĐÃ GỠ: `finalScheduleOf()`.
      *
-     * Ghép dây chuyền A vào B rồi B vào C thì khách của A phải nhìn thấy C, không phải B. Đi
-     * theo chuỗi thay vì chỉ đọc một bước, và có chặn vòng lặp phòng dữ liệu hỏng trỏ vòng tròn.
+     * Nó đi theo chuỗi `merged_into_schedule_id` để tìm chuyến cuối của một dây chuyền ghép, với
+     * lý lẽ "khách của A phải nhìn thấy C, không phải B". Lý lẽ đúng — nhưng điều ấy đã được bảo
+     * đảm bởi chính `moveBooking()`: mỗi lần ghép, đơn được trỏ thẳng sang chuyến đích, nên sau
+     * A→B→C đơn đã nằm ở C. Không dòng nào trong ứng dụng gọi tới hàm này.
+     *
+     * Nguy hiểm của một hàm như vậy không phải ở chỗ nó thừa, mà ở chỗ nó **trông như một luật
+     * đang chạy**. Bài kiểm thử của nó cũng xanh, nên nhìn vào càng tin — trong khi đường khách
+     * thật sự đi thì không bài nào kiểm. `ScheduleMergeTest` nay kiểm đúng đường đó.
+     *
+     * Cột `merged_into_schedule_id` vẫn giữ: nó là dấu vết chuyến này đã bị ghép đi đâu.
      */
-    public function finalScheduleOf(TourSchedule $schedule, int $maxDepth = 10): TourSchedule
-    {
-        $hienTai = $schedule;
-        $daQua = [$schedule->getKey()];
-
-        for ($i = 0; $i < $maxDepth; $i++) {
-            $tiepTheo = $hienTai->merged_into_schedule_id;
-
-            if (!$tiepTheo || in_array($tiepTheo, $daQua, true)) {
-                break;
-            }
-
-            $ke = TourSchedule::query()->find($tiepTheo);
-
-            if (!$ke) {
-                break;
-            }
-
-            $daQua[] = $ke->getKey();
-            $hienTai = $ke;
-        }
-
-        return $hienTai;
-    }
 }

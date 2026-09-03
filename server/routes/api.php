@@ -123,7 +123,15 @@ Route::get('/bookings/{publicToken}/refund-quote', [CustomerBookingController::c
  * phải nhận lại được tiền. Chỉ mở khi đơn thật sự còn nợ khách, xem RefundAccountService.
  */
 Route::put('/bookings/{publicToken}/refund-account', [CustomerBookingController::class, 'updateRefundAccount']);
-Route::post('/discount-codes/validate', [DiscountCodeController::class, 'validateCode']);
+/*
+ * Kiểm mã giảm giá trước khi đặt.
+ *
+ * Hạn mức riêng cùng lý do với nhóm tài khoản ở trên: đây là một ô đoán được thứ của người khác.
+ * Mã giảm giá là chuỗi ngắn dễ đoán, và không giới hạn thì một kịch bản tự động dò được cả kho mã
+ * — kể cả mã nội bộ chỉ định phát cho một nhóm khách.
+ */
+Route::post('/discount-codes/validate', [DiscountCodeController::class, 'validateCode'])
+    ->middleware('throttle:discount');
 
 /*
  * Chính sách công ty, đọc được mà không cần đăng nhập.

@@ -334,8 +334,16 @@ class BookingPaymentService
      * Các đơn tạo trước khi sổ mở cho đơn lẻ không có bút toán nào; với chúng, mốc `bookings.paid_at`
      * là bằng chứng duy nhất còn lại về thời điểm tiền về. Cộng riêng nhóm ấy, và chỉ nhóm KHÔNG có
      * dòng nào trong sổ — nếu không thì một đơn vừa có sổ vừa có mốc sẽ bị cộng hai lần.
+     *
+     * ## Lọc theo trạng thái đơn
+     *
+     * `$trangThaiDon` để hỏi "doanh thu của nhóm đơn tính vào doanh thu" mà **không phải nạp từng
+     * đơn về bộ nhớ** như `sumPaidForTour()`. Cùng một định nghĩa, chỉ khác là phép cộng chạy
+     * trong cơ sở dữ liệu — đó là thứ giữ cho bảng điều khiển không chậm dần theo số đơn bán được.
+     *
+     * @param  array<int, string>|null  $trangThaiDon
      */
-    public function sumCollectedBetween(?Carbon $tu, ?Carbon $den): float
+    public function sumCollectedBetween(?Carbon $tu, ?Carbon $den, ?array $trangThaiDon = null): float
     {
         $trongKhoang = static function ($query, string $cot) use ($tu, $den) {
             if ($tu) {
@@ -349,18 +357,23 @@ class BookingPaymentService
             return $query;
         };
 
+        $locTheoDon = static fn ($query) => $trangThaiDon === null
+            ? $query
+            : $query->whereHas('booking', fn ($b) => $b->whereIn('status', $trangThaiDon));
+
         $thu = (float) $trongKhoang(
-            BookingPayment::query()->whereIn('kind', BookingPayment::THU),
+            $locTheoDon(BookingPayment::query()->whereIn('kind', BookingPayment::THU)),
             'paid_at',
         )->sum('amount');
 
         $hoan = (float) $trongKhoang(
-            BookingPayment::query()->where('kind', BookingPayment::HOAN),
+            $locTheoDon(BookingPayment::query()->where('kind', BookingPayment::HOAN)),
             'paid_at',
         )->sum('amount');
 
         $donCu = (float) $trongKhoang(
             Booking::query()
+                ->when($trangThaiDon !== null, fn ($q) => $q->whereIn('status', $trangThaiDon))
                 ->whereNotNull('paid_at')
                 ->whereDoesntHave('payments', fn ($p) => $p->whereIn(
                     'kind',

@@ -8,6 +8,7 @@ import {
   getAvailableSlots,
   getScheduleUnavailableReason,
   getSeatCount,
+  HAN_CHOT_MAC_DINH_NGAY,
   isScheduleBookable,
 } from "@/utils/schedule";
 import type { AxiosError } from "axios";
@@ -46,6 +47,8 @@ type BookingFormProps = {
   onSubmit: (event: FormEvent) => void;
   /** Bảng phí hủy đang có hiệu lực, đọc từ máy chủ. Rỗng khi chưa tải xong. */
   bacHoan: PolicyTier[];
+  /** Hạn chốt mặc định theo cấu hình máy chủ, áp cho chuyến không đặt hạn riêng. */
+  hanChotNgay: number;
 };
 
 type BookingSidebarProps = {
@@ -96,6 +99,7 @@ const BookingForm = ({
   onChange,
   onSubmit,
   bacHoan,
+  hanChotNgay,
 }: BookingFormProps) => {
   const totalGuestCount = form.adultCount + form.childCount + form.infantCount;
   /*
@@ -108,7 +112,11 @@ const BookingForm = ({
   const seatCount = getSeatCount(form.adultCount, form.childCount);
   const selectedSchedule = schedules.find((schedule) => String(schedule.id) === form.tourScheduleId);
   const availableSlots = getScheduleAvailableSlots(selectedSchedule);
-  const scheduleUnavailableReason = getScheduleUnavailableReason(selectedSchedule, tour.status);
+  const scheduleUnavailableReason = getScheduleUnavailableReason(
+    selectedSchedule,
+    tour.status,
+    hanChotNgay,
+  );
   const isOverCapacity = Boolean(selectedSchedule) && seatCount > availableSlots;
 
   const handleInputChange =
@@ -219,7 +227,7 @@ const BookingForm = ({
             required
           >
             {schedules.map((schedule) => {
-              const reason = getScheduleUnavailableReason(schedule, tour.status);
+              const reason = getScheduleUnavailableReason(schedule, tour.status, hanChotNgay);
               return (
                 <option key={schedule.id} value={schedule.id} disabled={Boolean(reason)}>
                   Khởi hành: {formatDateTime(schedule.start_date)} (Còn {getScheduleAvailableSlots(schedule)} chỗ){schedule.booking_deadline ? ` - Hạn chốt: ${formatDateTime(schedule.booking_deadline)}` : ""}{reason ? ` (${reason})` : ""}
@@ -611,6 +619,14 @@ export const BookingTour = () => {
    * hứa một đằng còn lúc hủy đơn trừ tiền một nẻo.
    */
   const [bacHoan, setBacHoan] = useState<PolicyTier[]>([]);
+  /*
+   * Số ngày trước khởi hành mà chuyến ngừng nhận đặt, lấy từ cấu hình máy chủ.
+   *
+   * Chuyến không đặt hạn chốt riêng vẫn có hạn — máy chủ suy ra bằng ngày khởi hành trừ số ngày
+   * này. Giao diện phải dùng đúng con số ấy, không đoán, nếu không nó mời khách vào một chuyến mà
+   * máy chủ sẽ từ chối ở bước cuối.
+   */
+  const [hanChotNgay, setHanChotNgay] = useState(HAN_CHOT_MAC_DINH_NGAY);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -619,7 +635,10 @@ export const BookingTour = () => {
     policyService
       .get()
       .then((data) => {
-        if (!huy) setBacHoan(data?.cancellation.rules ?? []);
+        if (huy || !data) return;
+
+        setBacHoan(data.cancellation.rules ?? []);
+        setHanChotNgay(data.booking.deadline_days || HAN_CHOT_MAC_DINH_NGAY);
       })
       .catch(() => undefined);
 
@@ -703,6 +722,8 @@ export const BookingTour = () => {
       const response = await bookingService.validateDiscountCode({
         code: form.discountCode.trim(),
         order_amount: subtotalAmount,
+        // Để máy chủ kiểm luôn giới hạn theo người, đúng phép đếm mà lượt tạo đơn dùng.
+        email: form.customerEmail.trim() || undefined,
       });
       setAppliedDiscountCode(response.data.data.code);
       setDiscountAmount(Number(response.data.data.discount_amount));
@@ -806,6 +827,7 @@ export const BookingTour = () => {
               onChange={updateForm}
               onSubmit={handleSubmit}
               bacHoan={bacHoan}
+              hanChotNgay={hanChotNgay}
             />
           </div>
 

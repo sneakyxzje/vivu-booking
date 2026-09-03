@@ -163,7 +163,14 @@ const bookingService = {
 
   getById: (publicToken: string) =>
     api.get<{ success: boolean; data: Booking }>(`/bookings/${publicToken}`),
-  validateDiscountCode: (payload: { code: string; order_amount: number }) =>
+  /**
+   * Kiểm mã giảm giá trước khi đặt.
+   *
+   * Gửi kèm `email` khách đang điền để máy chủ kiểm luôn giới hạn theo người — lượt tạo đơn có
+   * kiểm điều đó, nên nếu bước xem trước bỏ qua thì khách thấy "đã áp dụng" rồi đơn lại tính giá
+   * gốc mà không hiểu vì sao.
+   */
+  validateDiscountCode: (payload: { code: string; order_amount: number; email?: string }) =>
     api.post<ValidateDiscountResponse>("/discount-codes/validate", payload),
 
   getMyBookings: () => api.get("/my-bookings"),

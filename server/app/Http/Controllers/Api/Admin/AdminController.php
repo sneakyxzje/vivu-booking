@@ -74,29 +74,37 @@ class AdminController extends Controller
             ->limit(5)
             ->get();
 
-        // Thống kê booking/doanh thu: gom một lần rồi tính bằng PHP
-        // để chạy đồng nhất trên cả SQLite (dev) lẫn MySQL (production).
-        $allBookings = Booking::query()
-            ->with('tour:id,title,start_location')
-            // `paid_at` cần cho phép cộng doanh thu: đơn tạo trước khi sổ giao dịch mở cho đơn lẻ
-            // không có dòng nào trong sổ, và mốc này là nguồn duy nhất còn lại của chúng.
-            ->get(['id', 'tour_id', 'customer_name', 'guests', 'total_amount', 'status', 'created_at', 'paid_at']);
+        /*
+         * Mọi con số dưới đây tính bằng câu lệnh gộp, KHÔNG nạp bảng đơn hàng về bộ nhớ.
+         *
+         * Bản cũ kéo **toàn bộ** bảng `bookings` kèm quan hệ tour rồi đếm và cộng bằng PHP, với lý
+         * do cho SQLite và MySQL chạy giống nhau. Lý do ấy đúng cho vài chục dòng dữ liệu mẫu và
+         * sai dần theo thời gian: mỗi đơn mới là một đối tượng nữa phải dựng lên mỗi lần ai đó mở
+         * bảng điều khiển. Đến vài chục nghìn đơn thì trang chậm rồi hết bộ nhớ — và nó hỏng đúng
+         * lúc hệ thống đang chạy tốt nhất, tức lúc bán được nhiều nhất.
+         *
+         * Các phép đếm và cộng ở đây đều là SQL chuẩn, chạy như nhau trên cả hai hệ.
+         */
+        $demTheoTrangThai = Booking::query()
+            ->selectRaw('status, count(*) as so_luong')
+            ->groupBy('status')
+            ->pluck('so_luong', 'status');
 
-        $confirmedBookings = $allBookings->where('status', 'confirmed');
+        $dem = static fn (string $trangThai): int => (int) ($demTheoTrangThai[$trangThai] ?? 0);
 
         // Doanh thu phải gom cả đơn đã chốt sau chuyến, không chỉ 'confirmed'. Từ D03, đơn của
         // chuyến đã đi xong chuyển sang 'completed' hoặc 'no_show'; lọc đúng 'confirmed' thì cứ
         // mỗi chuyến kết thúc doanh thu lại tụt xuống mà không ai hiểu tiền đi đâu.
-        $revenueBookings = $allBookings->whereIn('status', BookingStatus::revenueValues());
+        $trangThaiDoanhThu = BookingStatus::revenueValues();
         $totalCapacity = (int) TourSchedule::sum('max_people');
 
         $bookingSummary = [
-            'total_bookings' => $allBookings->count(),
-            'pending_bookings' => $allBookings->where('status', 'pending')->count(),
-            'confirmed_bookings' => $confirmedBookings->count(),
-            'completed_bookings' => $allBookings->where('status', 'completed')->count(),
-            'no_show_bookings' => $allBookings->where('status', 'no_show')->count(),
-            'cancelled_bookings' => $allBookings->where('status', 'cancelled')->count(),
+            'total_bookings' => (int) $demTheoTrangThai->sum(),
+            'pending_bookings' => $dem(BookingStatus::Pending->value),
+            'confirmed_bookings' => $dem(BookingStatus::Confirmed->value),
+            'completed_bookings' => $dem(BookingStatus::Completed->value),
+            'no_show_bookings' => $dem(BookingStatus::NoShow->value),
+            'cancelled_bookings' => $dem(BookingStatus::Cancelled->value),
             /*
              * Doanh thu là tiền ĐÃ VỀ, cộng từ sổ giao dịch.
              *
@@ -104,7 +112,7 @@ class AdminController extends Controller
              * nhận mà khách còn nợ vẫn cộng đủ, nên con số trên bảng điều khiển luôn cao hơn số dư
              * tài khoản thật và không đối chiếu được với sổ sách.
              */
-            'total_revenue' => $payments->sumPaidForTour($revenueBookings),
+            'total_revenue' => $payments->sumCollectedBetween(null, null, $trangThaiDoanhThu),
             /*
              * Gom theo NGÀY TIỀN VỀ, không theo ngày đơn được tạo.
              *
@@ -113,10 +121,16 @@ class AdminController extends Controller
              * ấy không đối chiếu được với sao kê ngân hàng, mà đối chiếu sao kê là việc duy nhất
              * người ta dùng nó. Với đơn đoàn trả nhiều đợt thì độ lệch còn lớn hơn.
              */
-            'revenue_this_month' => $payments->sumCollectedBetween(now()->startOfMonth(), now()),
+            'revenue_this_month' => $payments->sumCollectedBetween(
+                now()->startOfMonth(),
+                now(),
+                $trangThaiDoanhThu,
+            ),
             // Tổng giá trị đơn đã bán, tách riêng: nó trả lời câu "bán được bao nhiêu", khác hẳn
             // câu "thu về bao nhiêu" ở trên.
-            'contracted_value' => (float) $revenueBookings->sum('total_amount'),
+            'contracted_value' => (float) Booking::query()
+                ->whereIn('status', $trangThaiDoanhThu)
+                ->sum('total_amount'),
             'new_customers_this_month' => User::where('role', 'customer')
                 ->where('created_at', '>=', now()->startOfMonth())
                 ->count(),
@@ -126,14 +140,23 @@ class AdminController extends Controller
         ];
 
         $currentYear = now()->year;
-        $confirmedThisYear = $confirmedBookings
-            ->filter(fn ($booking) => (int) $booking->created_at?->year === $currentYear);
 
-        $monthlyPerformance = collect(range(1, 12))->map(function (int $month) use ($confirmedThisYear, $payments, $currentYear) {
-            $inMonth = $confirmedThisYear
-                ->filter(fn ($booking) => (int) $booking->created_at?->month === $month);
+        /*
+         * Số đơn đặt theo từng tháng trong năm — đếm bằng SQL, không lọc bằng PHP.
+         *
+         * Trích tháng theo cách chạy được trên cả SQLite lẫn MySQL: gom theo bảy ký tự đầu của
+         * `created_at` ("2026-09"). `MONTH()` không có ở SQLite, còn `strftime()` không có ở MySQL.
+         */
+        $donTheoThang = Booking::query()
+            ->where('status', BookingStatus::Confirmed->value)
+            ->whereYear('created_at', $currentYear)
+            ->selectRaw('substr(created_at, 1, 7) as thang, count(*) as so_luong')
+            ->groupBy('thang')
+            ->pluck('so_luong', 'thang');
 
+        $monthlyPerformance = collect(range(1, 12))->map(function (int $month) use ($donTheoThang, $payments, $currentYear, $trangThaiDoanhThu) {
             $dauThang = Carbon::create($currentYear, $month, 1)->startOfMonth();
+            $khoa = $dauThang->format('Y-m');
 
             return [
                 'name' => 'T' . $month,
@@ -145,27 +168,35 @@ class AdminController extends Controller
                  * một trong hai con số sai, và biểu đồ không nói được câu nào cho ra câu nào.
                  */
                 'revenue' => round(
-                    $payments->sumCollectedBetween($dauThang, $dauThang->copy()->endOfMonth()) / 1_000_000,
+                    $payments->sumCollectedBetween(
+                        $dauThang,
+                        $dauThang->copy()->endOfMonth(),
+                        $trangThaiDoanhThu,
+                    ) / 1_000_000,
                     1,
                 ),
-                'bookings' => $inMonth->count(),
+                'bookings' => (int) ($donTheoThang[$khoa] ?? 0),
             ];
         })->values();
 
-        $destinations = $confirmedBookings
-            ->groupBy(fn ($booking) => $booking->tour?->start_location ?? 'Khác')
-            ->map(fn ($group, $location) => [
-                'name' => $location,
-                'value' => (int) $group->sum('guests'),
-            ])
-            ->sortByDesc('value')
-            ->take(6)
+        // Điểm khởi hành được đặt nhiều nhất — gộp ở cơ sở dữ liệu, chỉ mang về sáu dòng.
+        $destinations = Booking::query()
+            ->join('tours', 'tours.id', '=', 'bookings.tour_id')
+            ->where('bookings.status', BookingStatus::Confirmed->value)
+            ->selectRaw('coalesce(tours.start_location, ?) as name, sum(bookings.guests) as value', ['Khác'])
+            ->groupBy('name')
+            ->orderByDesc('value')
+            ->limit(6)
+            ->get()
+            ->map(fn ($dong) => ['name' => $dong->name, 'value' => (int) $dong->value])
             ->values();
 
-        $recentBookings = $allBookings
-            ->sortByDesc('created_at')
-            ->take(6)
-            ->map(fn ($booking) => [
+        $recentBookings = Booking::query()
+            ->with('tour:id,title')
+            ->latest('created_at')
+            ->limit(6)
+            ->get(['id', 'tour_id', 'customer_name', 'total_amount', 'status', 'created_at'])
+            ->map(fn (Booking $booking) => [
                 'id' => $booking->id,
                 'customer' => $booking->customer_name,
                 'tour' => $booking->tour?->title ?? 'Tour #' . $booking->tour_id,

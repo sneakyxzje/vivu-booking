@@ -24,17 +24,16 @@ enum IncidentType: string
         };
     }
 
-    /**
-     * Loại này mặc định do hãng chịu chi phí hay không.
+    /*
+     * ĐÃ GỠ: `thuongDoHangChiu()`.
      *
-     * Chỉ là gợi ý ban đầu cho điều hành, không phải quyết định của hệ thống: cùng một cơn bão
-     * có khoản hãng chịu (xe thay thế) và khoản khách chịu (đêm phòng ở thêm). Người quyết vẫn
-     * là điều hành, xem bảng phân bổ ở tài liệu 04 mục 6.3.
+     * Nó gợi ý mặc định người chịu chi phí theo loại sự cố. Màn xử lý sự cố không đọc nó: điều
+     * hành chọn người chịu cho từng khoản, và `IncidentService` lùi về `who_bears` của phương án
+     * khi dòng để trống. Không dòng nào gọi tới nó.
+     *
+     * Nguyên tắc phân bổ vẫn ở docs/nghiep-vu/04-luong-dieu-hanh.md mục 6.3. Muốn gợi ý sẵn cho
+     * người bấm thì thêm nó vào phần `options` của màn sự cố cùng lúc với việc dựng lại hàm này.
      */
-    public function thuongDoHangChiu(): bool
-    {
-        return in_array($this, [self::Vehicle, self::Supplier], true);
-    }
 
     /** @return array<int, string> */
     public static function values(): array
