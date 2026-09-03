@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import guideService from "@/services/guideService";
 import type { GuideBooking, BookingStatus } from "@/types/guide";
 import { BookingStatusBadge } from "@/components/guide/GuideStatusBadge";
+import { formatDateTime } from "@/utils/format";
 
 const formatPrice = (v: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -11,14 +12,15 @@ const formatPrice = (v: number) =>
     maximumFractionDigits: 0,
   }).format(v);
 
-const formatDate = (d: string) =>
-  new Date(d.trim().replace(" ", "T")).toLocaleString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+/*
+ * ĐÃ GỠ: bản dựng ngày riêng của màn này.
+ *
+ * Nó cho ra đúng dạng "09/09/2026 06:00" như bản dùng chung, nên không sai — nhưng là bản thứ hai
+ * của cùng một luật, và bản thứ hai luôn là bản không được sửa khi luật đổi. Nó cũng thiếu hai
+ * việc bản chung làm: trả "-" khi giá trị rỗng, và trả nguyên chuỗi thay vì "Invalid Date" khi
+ * máy chủ gửi về thứ không đọc được.
+ */
+const formatDate = formatDateTime;
 
 type StatusFilter = "all" | BookingStatus;
 

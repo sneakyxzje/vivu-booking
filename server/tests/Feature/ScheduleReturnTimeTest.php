@@ -233,6 +233,94 @@ class ScheduleReturnTimeTest extends TestCase
         ]))->assertStatus(422);
     }
 
+    /** Hai mốc giữa được lưu đúng thứ điều hành điền. */
+    public function test_luu_duoc_moc_toi_noi_va_moc_roi_diem_den(): void
+    {
+        $ngayDi = $this->ngayDi();
+
+        $tour = $this->taoTour([
+            'start_date' => $ngayDi . ' 22:00',
+            'arrival_at' => Carbon::parse($ngayDi)->addDay()->format('Y-m-d') . ' 05:00',
+            'return_departure_at' => Carbon::parse($ngayDi)->addDays(2)->format('Y-m-d') . ' 20:00',
+            'end_date' => Carbon::parse($ngayDi)->addDays(3)->format('Y-m-d') . ' 05:00',
+            'max_people' => 30,
+            'min_people' => 4,
+        ]);
+
+        $chuyen = $tour->schedules()->firstOrFail();
+
+        $this->assertSame('05:00', $chuyen->arrival_at->format('H:i'));
+        $this->assertSame('20:00', $chuyen->return_departure_at->format('H:i'));
+    }
+
+    /** Bỏ trống hai mốc giữa vẫn hợp lệ — phần lớn chuyến cũ đang như vậy. */
+    public function test_bo_trong_hai_moc_giua_van_tao_duoc_chuyen(): void
+    {
+        $tour = $this->taoTour([
+            'start_date' => $this->ngayDi() . ' 06:00',
+            'max_people' => 30,
+            'min_people' => 4,
+        ]);
+
+        $chuyen = $tour->schedules()->firstOrFail();
+
+        $this->assertNull($chuyen->arrival_at);
+        $this->assertNull($chuyen->return_departure_at);
+    }
+
+    /**
+     * Bốn mốc phải xếp đúng thứ tự đường đi.
+     *
+     * Ở đây mốc "tới điểm đến" bị điền trước cả giờ xe chạy — không phải một lựa chọn nghiệp vụ
+     * nào, chỉ là gõ nhầm ngày.
+     */
+    public function test_toi_noi_truoc_gio_khoi_hanh_thi_bi_tu_choi(): void
+    {
+        $ngayDi = $this->ngayDi();
+
+        $this->postJson('/api/admin/tours', $this->payloadTour([
+            'start_date' => $ngayDi . ' 06:00',
+            'arrival_at' => $ngayDi . ' 04:00',
+            'end_date' => Carbon::parse($ngayDi)->addDays(2)->format('Y-m-d') . ' 18:00',
+            'max_people' => 30,
+            'min_people' => 4,
+        ]))->assertStatus(422)->assertJsonValidationErrors('schedules');
+    }
+
+    /** Rời điểm đến trước khi tới nơi cũng là gõ nhầm. */
+    public function test_roi_diem_den_truoc_khi_toi_noi_thi_bi_tu_choi(): void
+    {
+        $ngayDi = $this->ngayDi();
+
+        $this->postJson('/api/admin/tours', $this->payloadTour([
+            'start_date' => $ngayDi . ' 06:00',
+            'arrival_at' => Carbon::parse($ngayDi)->addDay()->format('Y-m-d') . ' 12:00',
+            'return_departure_at' => Carbon::parse($ngayDi)->addDay()->format('Y-m-d') . ' 08:00',
+            'end_date' => Carbon::parse($ngayDi)->addDays(2)->format('Y-m-d') . ' 18:00',
+            'max_people' => 30,
+            'min_people' => 4,
+        ]))->assertStatus(422)->assertJsonValidationErrors('schedules');
+    }
+
+    /** Điền một nửa vẫn hợp lệ: chỉ kiểm những mốc thật sự có. */
+    public function test_chi_dien_moc_toi_noi_van_hop_le(): void
+    {
+        $ngayDi = $this->ngayDi();
+
+        $tour = $this->taoTour([
+            'start_date' => $ngayDi . ' 06:00',
+            'arrival_at' => $ngayDi . ' 14:00',
+            'end_date' => Carbon::parse($ngayDi)->addDays(2)->format('Y-m-d') . ' 18:00',
+            'max_people' => 30,
+            'min_people' => 4,
+        ]);
+
+        $chuyen = $tour->schedules()->firstOrFail();
+
+        $this->assertSame('14:00', $chuyen->arrival_at->format('H:i'));
+        $this->assertNull($chuyen->return_departure_at);
+    }
+
     /** Chuyến cũ trong cơ sở dữ liệu không bị đụng tới cho tới khi có người thật sự sửa nó. */
     public function test_chuyen_cu_giu_nguyen_moc_ket_thuc(): void
     {

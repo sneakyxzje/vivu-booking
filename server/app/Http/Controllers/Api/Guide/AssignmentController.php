@@ -49,6 +49,15 @@ class AssignmentController extends Controller
                     'tour_title' => $sc->tour?->title,
                     'start_date' => $sc->start_date,
                     'end_date' => $sc->end_date,
+                    /*
+                     * Giờ tới nơi và giờ rời điểm đến, do điều hành áng chừng.
+                     *
+                     * Khách đọc được hai mốc này trên trang tour trước khi đặt, nên người dẫn đoàn
+                     * cũng phải thấy — nếu không thì khách hỏi "mấy giờ tới Sa Pa" và người đứng
+                     * cạnh họ là người duy nhất không biết công ty đã hứa gì.
+                     */
+                    'arrival_at' => $sc->arrival_at,
+                    'return_departure_at' => $sc->return_departure_at,
                     'number_of_days' => (int) ($sc->tour?->number_of_days ?? 1),
                     'status' => $trangThai->value,
                     'status_label' => $trangThai->label(),

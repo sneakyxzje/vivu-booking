@@ -236,6 +236,57 @@ class AdminTourController extends Controller
         ]);
     }
 
+    /**
+     * Bốn mốc của một chuyến phải xếp đúng thứ tự đường đi.
+     *
+     * rời điểm khởi hành → tới điểm đến → rời điểm đến → về tới nơi
+     *
+     * Hai mốc giữa để trống được, và phần lớn chuyến cũ đang trống. Chỉ kiểm những mốc thật sự
+     * được điền, theo từng cặp liền kề — điền một nửa vẫn hợp lệ.
+     *
+     * Cho phép hai mốc bằng nhau ở khoảng giữa: tour trong ngày có thể tới nơi rồi quay đầu gần
+     * như tức thì, và chặn chuyện đó chỉ để cho gọn công thức là chặn một tình huống có thật.
+     *
+     * @param  array<int, array{0: string, 1: Carbon|null}>  $moc
+     */
+    private function assertThuTuCacMoc(array $moc): void
+    {
+        $daDien = array_values(array_filter($moc, fn (array $cap) => $cap[1] !== null));
+
+        for ($i = 1; $i < count($daDien); $i++) {
+            [$tenTruoc, $truoc] = $daDien[$i - 1];
+            [$tenSau, $sau] = $daDien[$i];
+
+            if ($sau->greaterThanOrEqualTo($truoc)) {
+                continue;
+            }
+
+            throw ValidationException::withMessages([
+                'schedules' => sprintf(
+                    'Chuyến khởi hành %s có mốc "%s" (%s) xảy ra trước mốc "%s" (%s).',
+                    $daDien[0][1]->format('d/m/Y H:i'),
+                    $tenSau,
+                    $sau->format('d/m/Y H:i'),
+                    $tenTruoc,
+                    $truoc->format('d/m/Y H:i'),
+                ),
+            ]);
+        }
+    }
+
+    /**
+     * Đọc một mốc tùy chọn từ dữ liệu biểu mẫu.
+     *
+     * Chuỗi rỗng và null đều nghĩa là "không điền": ô ngày giờ để trống gửi lên chuỗi rỗng, và
+     * `Carbon::parse('')` trả về thời điểm hiện tại — một mốc bịa ra không ai nhập.
+     */
+    private function mocTuyChon(array $item, string $khoa): ?Carbon
+    {
+        $giaTri = $item[$khoa] ?? null;
+
+        return ($giaTri === null || $giaTri === '') ? null : Carbon::parse($giaTri);
+    }
+
     public function availableGuides(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -331,6 +382,14 @@ class AdminTourController extends Controller
             'schedules.*.start_date' => ['required_with:schedules', 'date', 'after_or_equal:today'],
             // Mốc kết thúc do điều hành đặt. Bỏ trống thì suy từ số ngày của tour — xem ngayVe().
             'schedules.*.end_date' => ['nullable', 'date'],
+            /*
+             * Hai mốc giữa: tới điểm đến, và rời điểm đến để về.
+             *
+             * Giờ áng chừng do điều hành điền, không suy ra được từ đâu. Thứ tự bốn mốc kiểm ở
+             * `assertThuTuCacMoc()` chứ không ở đây, để thông báo lỗi gọi được tên từng mốc.
+             */
+            'schedules.*.arrival_at' => ['nullable', 'date'],
+            'schedules.*.return_departure_at' => ['nullable', 'date'],
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
             'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
             'schedules.*.booking_deadline' => ['nullable', 'date'],
@@ -424,14 +483,26 @@ class AdminTourController extends Controller
                 $endDate = $this->ngayVe($startDate, $numberOfDay, $item['end_date'] ?? null);
                 $this->assertKetThucSauKhoiHanh($startDate, $endDate);
 
+                $toiNoi = $this->mocTuyChon($item, 'arrival_at');
+                $roiDiem = $this->mocTuyChon($item, 'return_departure_at');
+
+                $this->assertThuTuCacMoc([
+                    ['rời điểm khởi hành', $startDate],
+                    ['tới điểm đến', $toiNoi],
+                    ['rời điểm đến', $roiDiem],
+                    ['về tới nơi', $endDate],
+                ]);
+
                 // booking_deadline: không truyền thì lấy mốc mặc định của hệ thống.
                 $bookingDeadline = isset($item['booking_deadline'])
                     ? Carbon::parse($item['booking_deadline'])
                     : TourSchedule::hanChotMacDinhTu($startDate);
 
                 $created = $tour->schedules()->create([
-                    'start_date'       => $startDate,
-                    'end_date'         => $endDate,
+                    'start_date'          => $startDate,
+                    'end_date'            => $endDate,
+                    'arrival_at'          => $toiNoi,
+                    'return_departure_at' => $roiDiem,
                     'max_people'       => $item['max_people'],
                     'min_people'       => $item['min_people'] ?? 1,
                     'booking_deadline' => $bookingDeadline,
@@ -526,6 +597,14 @@ class AdminTourController extends Controller
             'schedules.*.start_date' => ['required_with:schedules', 'date'],
             // Mốc kết thúc do điều hành đặt. Bỏ trống thì suy từ số ngày của tour — xem ngayVe().
             'schedules.*.end_date' => ['nullable', 'date'],
+            /*
+             * Hai mốc giữa: tới điểm đến, và rời điểm đến để về.
+             *
+             * Giờ áng chừng do điều hành điền, không suy ra được từ đâu. Thứ tự bốn mốc kiểm ở
+             * `assertThuTuCacMoc()` chứ không ở đây, để thông báo lỗi gọi được tên từng mốc.
+             */
+            'schedules.*.arrival_at' => ['nullable', 'date'],
+            'schedules.*.return_departure_at' => ['nullable', 'date'],
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
             'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
             'schedules.*.booking_deadline' => ['nullable', 'date'],
@@ -636,6 +715,16 @@ class AdminTourController extends Controller
                 $endDate   = $this->ngayVe($startDate, $numberOfDay, $item['end_date'] ?? null);
                 $this->assertKetThucSauKhoiHanh($startDate, $endDate);
 
+                $toiNoi = $this->mocTuyChon($item, 'arrival_at');
+                $roiDiem = $this->mocTuyChon($item, 'return_departure_at');
+
+                $this->assertThuTuCacMoc([
+                    ['rời điểm khởi hành', $startDate],
+                    ['tới điểm đến', $toiNoi],
+                    ['rời điểm đến', $roiDiem],
+                    ['về tới nơi', $endDate],
+                ]);
+
                 /*
                  * Hạn chốt chỉ đụng tới khi biểu mẫu thực sự gửi trường ấy lên.
                  *
@@ -651,6 +740,8 @@ class AdminTourController extends Controller
                 $payload = [
                     'start_date' => $startDate,
                     'end_date'   => $endDate,
+                    'arrival_at'          => $toiNoi,
+                    'return_departure_at' => $roiDiem,
                     'max_people' => $item['max_people'],
                     'min_people' => $item['min_people'] ?? ($schedule?->min_people ?? 1),
                 ];
@@ -952,6 +1043,32 @@ class AdminTourController extends Controller
             return true;
         }
 
+        /*
+         * Hai mốc điều khiển vòng đời cũng nằm trong khóa.
+         *
+         * Trước đây phép này chỉ soi `min_people` và `booking_deadline`, trong khi `$payload` bên
+         * dưới ghi cả `start_date` lẫn `end_date` không điều kiện. Nên biểu mẫu tour dời được ngày
+         * khởi hành của một chuyến ĐANG CHẠY mà không gì chặn — thông báo khóa nói "không sửa được
+         * thông tin chuyến" nhưng phạm vi thi hành hẹp hơn hẳn lời nói.
+         *
+         * Hai mốc này không phải trường mô tả: `start_date` là mốc mọi phép tính phí hủy đếm
+         * ngược tới, còn `end_date` quyết định lúc nào chuyến đóng và đơn được chốt. Sửa chúng sau
+         * khi đoàn đã lên đường là viết lại quá khứ.
+         *
+         * `arrival_at` và `return_departure_at` cố ý ĐỨNG NGOÀI khóa: chúng chỉ là giờ dự kiến cho
+         * khách đọc, không dòng nào ra quyết định dựa vào chúng, và đính chính giờ tới nơi giữa
+         * chuyến khi xe kẹt đường là việc nên làm chứ không nên chặn.
+         */
+        if ($this->doiMoc($schedule->start_date, $item['start_date'] ?? null)) {
+            return true;
+        }
+
+        // Chỉ so khi biểu mẫu thực sự gửi lên: thiếu trường thì mốc kết thúc được suy lại từ số
+        // ngày của tour, và so một giá trị suy ra với giá trị đã lưu sẽ báo đổi trong khi không ai đổi.
+        if (array_key_exists('end_date', $item) && $this->doiMoc($schedule->end_date, $item['end_date'])) {
+            return true;
+        }
+
         if (! array_key_exists('booking_deadline', $item)) {
             return false;
         }
@@ -964,6 +1081,24 @@ class AdminTourController extends Controller
         }
 
         return ! $hanMoi->equalTo($hanCu);
+    }
+
+    /**
+     * Một mốc đã lưu có khác thứ biểu mẫu gửi lên không.
+     *
+     * So bằng `equalTo` chứ không so chuỗi: biểu mẫu gửi "2026-09-09T06:00" còn cột lưu
+     * "2026-09-09 06:00:00" — cùng một thời điểm, khác cách viết, và so chuỗi sẽ báo đổi mỗi lần
+     * lưu dù không ai chạm vào ô ấy.
+     */
+    private function doiMoc(?Carbon $cu, mixed $moi): bool
+    {
+        $mocMoi = ($moi === null || $moi === '') ? null : Carbon::parse($moi);
+
+        if ($cu === null || $mocMoi === null) {
+            return ($cu === null) !== ($mocMoi === null);
+        }
+
+        return ! $cu->equalTo($mocMoi);
     }
 
     private function validateScheduleRules(array $schedules): ?string

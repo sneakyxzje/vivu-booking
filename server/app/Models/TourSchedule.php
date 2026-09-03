@@ -23,6 +23,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, User> $guides
  * @property \Illuminate\Support\Carbon $start_date
  * @property \Illuminate\Support\Carbon|null $end_date
+ * @property \Illuminate\Support\Carbon|null $arrival_at
+ * @property \Illuminate\Support\Carbon|null $return_departure_at
  * @property int $max_people
  * @property int $min_people
  * @property \Illuminate\Support\Carbon|null $booking_deadline
@@ -42,6 +44,9 @@ class TourSchedule extends Model
         'tour_id',
         'start_date',
         'end_date',
+        // Hai mốc giữa, do điều hành áng chừng. Xem migration 2026_09_03_000002.
+        'arrival_at',
+        'return_departure_at',
         'max_people',
         'min_people',
         'booking_deadline',
@@ -62,6 +67,8 @@ class TourSchedule extends Model
         'status'           => ScheduleStatus::class,
         'start_date'       => 'datetime',
         'end_date'         => 'datetime',
+        'arrival_at'          => 'datetime',
+        'return_departure_at' => 'datetime',
         'booking_deadline' => 'datetime',
         'understaffed_alert_sent_at' => 'datetime',
         'confirmed_at'     => 'datetime',
@@ -72,16 +79,19 @@ class TourSchedule extends Model
     /**
      * Trả về chuỗi ngày giờ mộc, không kèm hậu tố múi giờ.
      *
-     * Ứng dụng chạy múi giờ UTC nhưng các cột ngày giờ ở đây lưu giờ Việt Nam dưới dạng mộc:
-     * admin nhập 05:30 nghĩa là 05:30 giờ Việt Nam, và cột lưu đúng chuỗi đó.
+     * Các cột ngày giờ ở đây lưu giờ Việt Nam dưới dạng mộc: admin nhập 05:30 nghĩa là 05:30 giờ
+     * Việt Nam, và cột lưu đúng chuỗi đó.
      *
-     * Mặc định Laravel serialize Carbon thành ISO8601 kèm hậu tố Z, tức là tuyên bố với client
-     * rằng 05:30 là giờ UTC. Trình duyệt ở GMT+7 sẽ hiển thị thành 12:30, lệch 7 tiếng trên
-     * mọi giờ khởi hành và hạn chốt.
+     * Mặc định Laravel serialize Carbon thành ISO8601 rồi quy về UTC kèm hậu tố Z. Với
+     * `APP_TIMEZONE=Asia/Ho_Chi_Minh` như hiện nay thì phép quy đổi ấy khứ hồi không mất mát, nên
+     * trình duyệt vẫn hiện đúng — nhưng nó biến một mốc treo tường thành một mốc tuyệt đối, và
+     * chuỗi trả về không còn đọc bằng mắt được.
      *
-     * Trước khi các cột này được cast sang datetime, API trả chuỗi mộc nên client hiển thị đúng.
-     * Giữ nguyên định dạng đó để không đổi hợp đồng API, trong khi phía máy chủ vẫn có Carbon
-     * để so sánh.
+     * Chú thích cũ ở đây nói ứng dụng chạy UTC và client sẽ thấy lệch 7 tiếng. Điều đó **đúng vào
+     * lúc viết** và không còn đúng nữa. Giữ định dạng mộc vì hai lẽ: nó là hợp đồng API mà client
+     * đang đọc (`parseDate` ở `utils/format.ts` neo chuỗi không có múi giờ về giờ địa phương), và
+     * nó khiến giá trị chịu được việc ai đó đổi `APP_TIMEZONE` — thứ mà bản ISO8601 không chịu
+     * được, vì lúc ấy 05:30 sẽ bị tuyên bố là 05:30 UTC.
      */
     protected function serializeDate(\DateTimeInterface $date): string
     {

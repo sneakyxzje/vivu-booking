@@ -53,5 +53,16 @@ export const toDateTimeLocalValue = (value?: string | null): string => {
 export const getEndDate = (startDate: string, numberOfDays: number) => {
   const date = parseDate(startDate);
   date.setDate(date.getDate() + Math.max(0, numberOfDays - 1));
-  return date.toLocaleDateString("vi-VN");
+
+  /*
+   * Cùng bộ tùy chọn với `formatDate`, không gọi `toLocaleDateString` trần.
+   *
+   * Gọi trần thì `vi-VN` trả "9/9/2026" còn `formatDate` trả "09/09/2026" — hai dạng ngày cạnh
+   * nhau trên cùng một màn hình, và người đọc phải tự hiểu chúng là một.
+   */
+  return date.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 };

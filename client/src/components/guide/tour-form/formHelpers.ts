@@ -81,6 +81,15 @@ export const taoChuyen = (
   uid: khoaChuyenMoi(),
   start_date: batDau,
   end_date: ketThucMacDinh(batDau, macDinh?.soNgay ?? 1, macDinh?.gioVe),
+  /*
+   * Hai mốc giữa để TRỐNG, không gợi ý gì.
+   *
+   * Khác mốc kết thúc: mốc ấy còn suy được từ số ngày của tour, còn giờ tới nơi thì phụ thuộc
+   * quãng đường và loại xe — không có con số nào đoán hộ mà không sai. Điền sẵn một giờ bịa rồi
+   * in lên trang cho khách đọc tệ hơn hẳn để trống.
+   */
+  arrival_at: "",
+  return_departure_at: "",
   min_people: macDinh?.toiThieu ?? SO_KHACH_TOI_THIEU_MAC_DINH,
   max_people: macDinh?.toiDa ?? SO_KHACH_TOI_DA_MAC_DINH,
   booking_deadline: hanChotMacDinh(batDau),

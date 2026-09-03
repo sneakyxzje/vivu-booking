@@ -151,6 +151,8 @@ export const buildTourPayload = (form: unknown) => {
           id?: number;
           start_date: string;
           end_date?: string;
+          arrival_at?: string;
+          return_departure_at?: string;
           max_people: string;
           min_people?: string;
           booking_deadline?: string;
@@ -169,6 +171,15 @@ export const buildTourPayload = (form: unknown) => {
     if (item.end_date) {
       data.append(`schedules[${index}][end_date]`, item.end_date);
     }
+    /*
+     * Hai mốc giữa gửi cả khi RỖNG, khác `end_date` ở trên.
+     *
+     * Chúng để trống được, nên người dùng phải xóa được một mốc đã điền. Chỉ gửi khi có thì lần
+     * lưu sau máy chủ không thấy trường ấy và giữ nguyên giá trị cũ — thao tác xóa không bao giờ
+     * ăn, và không ai hiểu vì sao.
+     */
+    data.append(`schedules[${index}][arrival_at]`, item.arrival_at ?? "");
+    data.append(`schedules[${index}][return_departure_at]`, item.return_departure_at ?? "");
     data.append(`schedules[${index}][max_people]`, String(item.max_people));
     data.append(`schedules[${index}][min_people]`, String(item.min_people ?? 1));
     if (item.booking_deadline) {
@@ -221,6 +232,14 @@ export interface GuideAssignment {
   tour_title: string | null;
   start_date: string;
   end_date: string | null;
+  /**
+   * Giờ tới điểm đến và giờ rời điểm đến, do điều hành áng chừng. Rỗng ở chuyến chưa ai điền.
+   *
+   * Khách đọc được hai mốc này trên trang tour trước khi đặt, nên người dẫn đoàn phải thấy — nếu
+   * không thì khách hỏi "mấy giờ tới nơi" và người đứng cạnh họ là người duy nhất không biết.
+   */
+  arrival_at: string | null;
+  return_departure_at: string | null;
   number_of_days: number;
   status: string;
   status_label: string;
