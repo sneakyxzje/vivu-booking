@@ -51,6 +51,14 @@ export interface ScheduleFormItem {
    * nói được điều đó. Ô mở sẵn một gợi ý theo số ngày, rồi người nhập sửa.
    */
   end_date: string;
+  /**
+   * Mốc đoàn tới điểm đến, và mốc rời điểm đến để về.
+   *
+   * Giờ áng chừng do điều hành điền — không suy ra được từ quãng đường hay loại xe. Để trống được
+   * và phần lớn chuyến cũ đang trống; giao diện khách giấu dòng nào rỗng thay vì đoán hộ.
+   */
+  arrival_at: string;
+  return_departure_at: string;
   max_people: string;
   min_people: string;
   booking_deadline: string;

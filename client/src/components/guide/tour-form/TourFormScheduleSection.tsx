@@ -815,6 +815,34 @@ export const TourFormScheduleSection: React.FC<Props> = ({
 
                           <div>
                             <label className="mb-1 block text-[11px] font-bold text-gray-600">
+                              Tới điểm đến
+                            </label>
+                            <DateTimePicker
+                              withTime
+                              value={item.arrival_at}
+                              onChange={(giaTri) => capNhat(item.uid, { arrival_at: giaTri })}
+                              placeholder="Giờ áng chừng"
+                              buttonClassName={`${fieldClass} flex items-center gap-2 !py-2 text-left text-xs`}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-1 block text-[11px] font-bold text-gray-600">
+                              Rời điểm đến
+                            </label>
+                            <DateTimePicker
+                              withTime
+                              value={item.return_departure_at}
+                              onChange={(giaTri) =>
+                                capNhat(item.uid, { return_departure_at: giaTri })
+                              }
+                              placeholder="Giờ áng chừng"
+                              buttonClassName={`${fieldClass} flex items-center gap-2 !py-2 text-left text-xs`}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-1 block text-[11px] font-bold text-gray-600">
                               Hạn chốt đặt
                             </label>
                             <DateTimePicker

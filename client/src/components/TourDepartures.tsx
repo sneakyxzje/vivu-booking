@@ -109,6 +109,48 @@ const ngayVeCua = (tour: Tour, schedule: TourSchedule): Date => {
   return ve;
 };
 
+/**
+ * Một chặng của chuyến: hàng giờ nằm thẳng cột trên hàng địa điểm.
+ *
+ * Giờ nào không có thì để trống ô ấy chứ không đẩy ô còn lại sang chỗ khác — hai hàng phải khớp
+ * cột, nếu không thì giờ tới nơi hiện ra bên dưới tên nơi đi.
+ */
+const Chang = ({
+  nhan,
+  ngay,
+  gioDau,
+  gioCuoi,
+  noiDau,
+  noiCuoi,
+  className,
+}: {
+  nhan: string;
+  ngay: string;
+  gioDau: string | null;
+  gioCuoi: string | null;
+  noiDau?: string | null;
+  noiCuoi?: string | null;
+  className?: string;
+}) => (
+  <div className={className}>
+    <p className="text-sm text-gray-500">
+      {nhan}: <strong className="font-semibold text-gray-900">{ngay}</strong>
+    </p>
+
+    {(gioDau || gioCuoi) && (
+      <div className="mt-2 flex items-baseline justify-between gap-3 text-sm font-semibold text-gray-900 tabular-nums">
+        <span>{gioDau ?? ""}</span>
+        <span>{gioCuoi ?? ""}</span>
+      </div>
+    )}
+
+    <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-dashed border-gray-200 pt-2 text-sm text-gray-700">
+      <span>{noiDau ?? "—"}</span>
+      <span>{noiCuoi ?? "—"}</span>
+    </div>
+  </div>
+);
+
 type Props = {
   tour: Tour;
   selectedSchedule: TourSchedule | null;
@@ -233,6 +275,12 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
            */
           const gioVeThat = gioCua(schedule.end_date);
           const gioVe = gioVeThat && gioVeThat !== gioDi ? gioVeThat : null;
+          /*
+           * Hai mốc giữa không cần mẹo so sánh nào: chúng chỉ tồn tại khi có người điền, nên có
+           * giá trị nghĩa là có người đã áng chừng thật.
+           */
+          const gioToiNoi = gioCua(schedule.arrival_at);
+          const gioRoiDiem = gioCua(schedule.return_departure_at);
           const conLai = getAvailableSlots(schedule);
 
           return (
@@ -292,52 +340,32 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
 
                   <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2 md:divide-x md:divide-gray-100">
                     {/*
-                      Không nhắc lại phương tiện ở đây.
+                      Hai chặng, mỗi chặng một hàng giờ và một hàng địa điểm thẳng cột với nhau:
+                      giờ trái nằm trên nơi khởi hành của chặng, giờ phải nằm trên nơi tới.
 
-                      `vehicle_info` là thuộc tính của TOUR, giống hệt nhau ở mọi chuyến, nên in nó
-                      cạnh từng mốc ngày là lặp một câu dài hai lần trong cùng một thẻ mà không
-                      thêm thông tin nào để chọn giữa các ngày. Thông tin xe đã có ở khối mô tả
-                      tour phía trên và trong chi tiết đơn sau khi đặt.
+                      Không nhắc lại phương tiện ở đây — `vehicle_info` là thuộc tính của TOUR,
+                      giống hệt nhau ở mọi chuyến, nên in cạnh từng mốc là lặp một câu dài mà không
+                      thêm gì để chọn giữa các ngày.
                     */}
-                    <div className="md:pr-6">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-sm text-gray-500">
-                          Ngày đi:{" "}
-                          <strong className="font-semibold text-gray-900">
-                            {dinhDangNgay(ngayDi)}
-                          </strong>
-                        </span>
-                      </div>
-                      {gioDi && (
-                        <p className="mt-1 text-sm font-semibold text-gray-900">
-                          Giờ khởi hành: {gioDi}
-                        </p>
-                      )}
-                      <div className="mt-2 flex items-baseline justify-between gap-3 border-t border-dashed border-gray-200 pt-2 text-sm text-gray-700">
-                        <span>{tour.start_location ?? "—"}</span>
-                        <span>{tour.end_location ?? "—"}</span>
-                      </div>
-                    </div>
+                    <Chang
+                      nhan="Ngày đi"
+                      ngay={dinhDangNgay(ngayDi)}
+                      gioDau={gioDi}
+                      gioCuoi={gioToiNoi}
+                      noiDau={tour.start_location}
+                      noiCuoi={tour.end_location}
+                      className="md:pr-6"
+                    />
 
-                    <div className="md:pl-6">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-sm text-gray-500">
-                          Ngày về:{" "}
-                          <strong className="font-semibold text-gray-900">
-                            {dinhDangNgay(ngayVe)}
-                          </strong>
-                        </span>
-                      </div>
-                      {gioVe && (
-                        <p className="mt-1 text-sm font-semibold text-gray-900">
-                          Giờ về dự kiến: {gioVe}
-                        </p>
-                      )}
-                      <div className="mt-2 flex items-baseline justify-between gap-3 border-t border-dashed border-gray-200 pt-2 text-sm text-gray-700">
-                        <span>{tour.end_location ?? "—"}</span>
-                        <span>{tour.start_location ?? "—"}</span>
-                      </div>
-                    </div>
+                    <Chang
+                      nhan="Ngày về"
+                      ngay={dinhDangNgay(ngayVe)}
+                      gioDau={gioRoiDiem}
+                      gioCuoi={gioVe}
+                      noiDau={tour.end_location}
+                      noiCuoi={tour.start_location}
+                      className="md:pl-6"
+                    />
                   </div>
 
                   <p className="mt-6 text-center text-sm font-semibold text-gray-700">

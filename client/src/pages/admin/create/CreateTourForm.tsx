@@ -263,6 +263,8 @@ export const CreateTourForm: React.FC = () => {
                * người ta vào chỉ để sửa tiêu đề.
                */
               end_date: toDateTimeLocalValue(item.end_date),
+              arrival_at: toDateTimeLocalValue(item.arrival_at),
+              return_departure_at: toDateTimeLocalValue(item.return_departure_at),
               max_people: String(item.max_people ?? 10),
               min_people: String(item.min_people ?? 5),
               booking_deadline: toDateTimeLocalValue(item.booking_deadline),

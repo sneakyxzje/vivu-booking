@@ -23,6 +23,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read \Illuminate\Database\Eloquent\Collection<int, User> $guides
  * @property \Illuminate\Support\Carbon $start_date
  * @property \Illuminate\Support\Carbon|null $end_date
+ * @property \Illuminate\Support\Carbon|null $arrival_at
+ * @property \Illuminate\Support\Carbon|null $return_departure_at
  * @property int $max_people
  * @property int $min_people
  * @property \Illuminate\Support\Carbon|null $booking_deadline
@@ -42,6 +44,9 @@ class TourSchedule extends Model
         'tour_id',
         'start_date',
         'end_date',
+        // Hai mốc giữa, do điều hành áng chừng. Xem migration 2026_09_03_000002.
+        'arrival_at',
+        'return_departure_at',
         'max_people',
         'min_people',
         'booking_deadline',
@@ -62,6 +67,8 @@ class TourSchedule extends Model
         'status'           => ScheduleStatus::class,
         'start_date'       => 'datetime',
         'end_date'         => 'datetime',
+        'arrival_at'          => 'datetime',
+        'return_departure_at' => 'datetime',
         'booking_deadline' => 'datetime',
         'understaffed_alert_sent_at' => 'datetime',
         'confirmed_at'     => 'datetime',

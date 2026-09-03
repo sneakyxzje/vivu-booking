@@ -96,6 +96,13 @@ export interface TourSchedule {
    * đây khai thiếu — nên trước giờ giao diện phải tự suy ngày về từ số ngày của tour.
    */
   end_date?: string;
+  /**
+   * Mốc đoàn tới điểm đến, và mốc rời điểm đến để về.
+   *
+   * Giờ áng chừng do điều hành điền, có thể rỗng — trang chi tiết giấu dòng nào rỗng thay vì đoán.
+   */
+  arrival_at?: string | null;
+  return_departure_at?: string | null;
   max_people: number;
   booked_people: number;
   // Vòng đời chuyến khởi hành, khớp App\Enums\ScheduleStatus.
