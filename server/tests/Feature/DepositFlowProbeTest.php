@@ -193,34 +193,13 @@ class DepositFlowProbeTest extends TestCase
     // --- Chặng 3: thu nốt tại điểm tập trung -------------------------------------------------
 
     /**
-     * ĐÂY LÀ CHỖ GÃY: hướng dẫn viên không thu nốt được của đơn đã cọc.
+     * Khách trả nốt tại văn phòng, điều hành ghi nhận — đây là đường thu offline.
      *
-     * Nút xác nhận của hướng dẫn viên chỉ nhận đơn đang `pending`. Đơn đã cọc mang trạng thái
-     * `confirmed`, nên toàn bộ đường thu tiền tại bến đóng lại với họ — đúng cái đường mà mô hình
-     * "trả nốt lúc lên xe" dựa vào.
+     * Tiền chỉ đi qua tay điều hành, không qua hướng dẫn viên: người đứng ở bến không cầm tiền và
+     * cũng không phải khai gì. Ai trả bằng cách nào thì cũng chỉ có hai đường về sổ — cổng thanh
+     * toán tự ghi, hoặc điều hành ghi tay.
      */
-    public function test_chang3_huong_dan_vien_khong_thu_not_duoc(): void
-    {
-        Mail::fake();
-        $don = $this->datTour();
-        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayBaoVe($don, self::COC)));
-
-        Sanctum::actingAs($this->huongDanVien);
-
-        $this->putJson("/api/guide/bookings/{$don->id}/confirm", [
-            'amount' => self::CON_LAI,
-            'method' => 'cash',
-        ])->assertStatus(400);
-
-        $this->assertEquals(
-            self::CON_LAI,
-            $this->so()->balanceDue($don->fresh()),
-            'Tiền mặt khách đưa tại bến không vào được sổ.',
-        );
-    }
-
-    /** Điều hành thì thu nốt được — nhưng phải ngồi ở văn phòng, không ở bến. */
-    public function test_chang3_dieu_hanh_van_thu_not_duoc(): void
+    public function test_chang3_dieu_hanh_ghi_nhan_khoan_tra_not(): void
     {
         Mail::fake();
         $don = $this->datTour();
@@ -234,8 +213,34 @@ class DepositFlowProbeTest extends TestCase
             'method' => 'cash',
         ])->assertOk();
 
-        $this->assertEquals(0.0, $this->so()->balanceDue($don->fresh()));
-        $this->assertNotNull($don->fresh()->paid_at);
+        $daSua = $don->fresh();
+
+        $this->assertEquals(0.0, $this->so()->balanceDue($daSua));
+        $this->assertNotNull($daSua->paid_at, 'Thu đủ thì mốc đã-thanh-toán phải đóng.');
+
+        $this->assertDatabaseHas('booking_payments', [
+            'booking_id' => $don->id,
+            'method' => 'cash',
+            'recorded_by' => $this->dieuHanh->id,
+        ]);
+    }
+
+    /** Không ghi quá phần còn thiếu — gõ nhầm một chữ số thì bị chặn ngay. */
+    public function test_chang3_khong_ghi_qua_phan_con_thieu(): void
+    {
+        Mail::fake();
+        $don = $this->datTour();
+        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayBaoVe($don, self::COC)));
+
+        Sanctum::actingAs($this->dieuHanh);
+
+        $this->postJson("/api/admin/bookings/{$don->id}/payments", [
+            'kind' => 'balance',
+            'amount' => self::TONG,
+            'method' => 'cash',
+        ])->assertStatus(422);
+
+        $this->assertEquals(self::CON_LAI, $this->so()->balanceDue($don->fresh()));
     }
 
     // --- Chặng 4: những thứ ăn theo số tiền đã thu -------------------------------------------

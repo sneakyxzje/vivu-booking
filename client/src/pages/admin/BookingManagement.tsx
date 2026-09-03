@@ -1361,7 +1361,16 @@ export default function BookingManagement() {
                       }}
                       className="rounded border border-gray-200 bg-white px-2 py-0.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 transition-colors"
                     >
-                      Ghi khoản thu
+                      {/*
+                        Nhãn đổi theo việc đơn đã trả một phần hay chưa trả gì.
+
+                        Từ khi bán theo cọc, thao tác hay gặp nhất ở đây là ghi nốt phần đuôi của một
+                        đơn đã cọc — số tiền đã điền sẵn đúng phần còn thiếu, nên với người dùng thì
+                        đây là một nút "xác nhận đã trả nốt" chứ không phải một biểu mẫu kế toán.
+                      */}
+                      {ledger.net_paid > 0 && ledger.balance_due > 0
+                        ? "Xác nhận đã trả nốt"
+                        : "Ghi khoản thu"}
                     </button>
                   )}
                 </div>
