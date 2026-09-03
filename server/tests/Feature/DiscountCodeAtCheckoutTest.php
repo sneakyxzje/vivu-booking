@@ -76,6 +76,7 @@ class DiscountCodeAtCheckoutTest extends TestCase
             'customer_email' => 'khach-' . Str::random(5) . '@example.com',
             'customer_phone' => '0901234567',
             'adult_count' => 2,
+            'accept_terms' => true,
             'discount_code' => $ma,
         ]);
     }

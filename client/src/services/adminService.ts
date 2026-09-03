@@ -868,6 +868,18 @@ export interface BookingAuditEntry {
   created_at: string;
 }
 
+/**
+ * Ai hủy đơn — và đây là câu hỏi về TIỀN, không phải một nhãn phân loại.
+ *
+ * `by_customer`: khách đổi ý, gọi lên nhờ điều hành bấm hộ. Áp bảng phí hủy.
+ * `by_company`: công ty đơn phương không thực hiện đơn này. Hoàn đủ số đã thu.
+ *
+ * Trước đây màn hủy ghi cứng `by_company` nhưng vẫn áp bảng phí, và mẫu thư báo hủy đọc đúng cột
+ * ấy rồi khẳng định với khách "không áp dụng phí hủy — hoàn đủ 100%" trong khi hệ thống vừa giữ
+ * lại 30%.
+ */
+export type CancelType = "by_customer" | "by_company";
+
 /** Hậu quả của việc hủy một đơn, tính trước khi thực hiện. */
 export interface CancelPreview {
   /** Số giờ còn lại tới khởi hành. Âm nghĩa là đã qua giờ đi. */
@@ -889,6 +901,10 @@ export interface CancelPreview {
    * Khi true thì bảng phí không áp: khách từ chối một thay đổi họ không hề chọn, nên hoàn đủ.
    */
   moved_by_company: boolean;
+  /** Người bấm đã chọn "công ty hủy" — lý do miễn phí hủy thứ hai, do người quyết chứ không suy ra. */
+  company_initiated: boolean;
+  /** Gộp cả hai lý do trên: có được miễn bảng phí hay không. */
+  fee_waived: boolean;
 }
 
 const adminService = {
@@ -1546,14 +1562,31 @@ const adminService = {
     return response.data?.data ?? [];
   },
 
-  getCancelPreview: async (id: number): Promise<CancelPreview | null> => {
-    const response = await api.get(`/admin/bookings/${id}/cancel-preview`);
+  /**
+   * Dự báo hủy, tính theo đúng loại hủy sắp chọn.
+   *
+   * Khách đổi ý thì áp bảng phí; công ty đơn phương hủy thì hoàn đủ số đã thu. Hai con số khác
+   * nhau, nên màn xem trước phải hỏi máy chủ theo đúng lựa chọn — nếu không thì số hiện ra và số
+   * thực chi là hai số khác nhau.
+   */
+  getCancelPreview: async (
+    id: number,
+    cancelType: CancelType = "by_customer",
+  ): Promise<CancelPreview | null> => {
+    const response = await api.get(`/admin/bookings/${id}/cancel-preview`, {
+      params: { cancel_type: cancelType },
+    });
     return extractObject<CancelPreview>(response);
   },
 
-  cancelBooking: async (id: number, reason: string): Promise<Booking | null> => {
+  cancelBooking: async (
+    id: number,
+    reason: string,
+    cancelType: CancelType = "by_customer",
+  ): Promise<Booking | null> => {
     const response = await api.put(`/admin/bookings/${id}/cancel`, {
       cancel_reason: reason,
+      cancel_type: cancelType,
     });
     return extractObject<Booking>(response);
   },

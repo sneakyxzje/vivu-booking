@@ -71,6 +71,7 @@ class SeatConsistencyCommandTest extends TestCase
             'adult_count' => 2,
             'child_count' => 1,
             'infant_count' => 2,
+            'accept_terms' => true,
         ])->assertStatus(201);
 
         $don = Booking::query()->latest('id')->firstOrFail();

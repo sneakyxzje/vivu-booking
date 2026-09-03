@@ -100,6 +100,17 @@ class AdminBookingController extends Controller
         ]);
     }
 
+    /**
+     * Hai loại hủy đơn mà quản trị được chọn, và chúng dẫn tới hai cách tính tiền khác nhau.
+     *
+     * `hold_expired` và `force_majeure` cũng là giá trị hợp lệ của cột `cancel_type`, nhưng chúng
+     * do tác vụ nền và luồng hủy chuyến ghi — không phải thứ người ta bấm ở màn này.
+     */
+    private const LOAI_HUY = ['by_customer', 'by_company'];
+
+    /** Khách đổi ý là trường hợp thường gặp, và là lựa chọn không đụng tới tiền của công ty. */
+    private const HUY_MAC_DINH = 'by_customer';
+
     /** Các kiểu sắp xếp màn hình được phép yêu cầu. */
     private const THU_TU = [
         'latest',
@@ -378,8 +389,14 @@ class AdminBookingController extends Controller
      * chết, và người hủy phải biết điều đó trước khi hủy chứ không phải phát hiện ra khi thấy
      * số chỗ không nhúc nhích.
      */
-    public function cancelPreview(int $id): JsonResponse
+    public function cancelPreview(Request $request, int $id): JsonResponse
     {
+        // Xem trước phải tính theo đúng loại hủy mà người dùng sắp chọn, nếu không con số trên màn
+        // hình và con số thực chi là hai số khác nhau.
+        $validated = $request->validate([
+            'cancel_type' => ['nullable', Rule::in(self::LOAI_HUY)],
+        ]);
+
         $booking = Booking::query()
             ->with(['schedule', 'cancellationPolicy.rules'])
             ->find($id);
@@ -389,6 +406,7 @@ class AdminBookingController extends Controller
         }
 
         $schedule = $booking->schedule;
+        $congTyHuy = ($validated['cancel_type'] ?? self::HUY_MAC_DINH) === 'by_company';
 
         $coTheHuy = true;
         $lyDoChan = null;
@@ -400,7 +418,7 @@ class AdminBookingController extends Controller
             $lyDoChan = $e->getMessage();
         }
 
-        $duBao = $this->cancellationPolicy->quote($booking, $schedule);
+        $duBao = $this->cancellationPolicy->quote($booking, $schedule, congTyHuy: $congTyHuy);
 
         return $this->success($duBao + [
             'can_cancel' => $coTheHuy,
@@ -440,9 +458,28 @@ class AdminBookingController extends Controller
     {
         $validated = $request->validate([
             'cancel_reason' => 'required|string|max:500',
+            /*
+             * AI hủy — và đây là câu hỏi về TIỀN, không phải một nhãn phân loại.
+             *
+             * `by_customer`: khách đổi ý, gọi lên nhờ điều hành bấm hộ. Áp bảng phí hủy.
+             * `by_company`: công ty đơn phương không thực hiện đơn này. Hoàn đủ số đã thu.
+             *
+             * Trước đây màn này ghi cứng `by_company` nhưng vẫn áp bảng phí, tức bản ghi tự mâu
+             * thuẫn với chính số tiền nó vừa tính. Tệ hơn: mẫu thư báo hủy đọc đúng cột ấy rồi
+             * khẳng định với khách "không áp dụng phí hủy — đủ 100% số tiền Quý khách đã thanh
+             * toán", trong khi hệ thống vừa giữ lại 30%.
+             *
+             * Mặc định là `by_customer` vì đó là trường hợp thường gặp, và vì nó là lựa chọn KHÔNG
+             * đổi số tiền so với hành vi cũ — chỉ ghi đúng lại loại hủy. Nhánh hoàn đủ thì phải
+             * chọn tường minh: chi thêm tiền của công ty là quyết định cần có người đứng tên.
+             */
+            'cancel_type' => ['nullable', Rule::in(self::LOAI_HUY)],
         ], [
             'cancel_reason.required' => 'Vui lòng nhập lý do hủy đơn.',
         ]);
+
+        $loaiHuy = $validated['cancel_type'] ?? self::HUY_MAC_DINH;
+        $congTyHuy = $loaiHuy === 'by_company';
 
         $target = Booking::query()->find($id);
 
@@ -450,7 +487,7 @@ class AdminBookingController extends Controller
             return $this->error('Không tìm thấy đơn đặt hàng', 404);
         }
 
-        $booking = DB::transaction(function () use ($target, $validated, $request) {
+        $booking = DB::transaction(function () use ($target, $validated, $request, $loaiHuy, $congTyHuy) {
             $schedule = $target->tour_schedule_id
                 ? TourSchedule::query()
                     ->whereKey($target->tour_schedule_id)
@@ -483,12 +520,13 @@ class AdminBookingController extends Controller
              * Đường khách xin hủy đã ghi khoản này từ đầu; đường quản trị hủy thẳng thì không, và
              * đó lại chính là đường chạm tiền mà không qua bước duyệt nào.
              */
-            $duBao = $this->cancellationPolicy->quote($booking, $schedule);
+            $duBao = $this->cancellationPolicy->quote($booking, $schedule, congTyHuy: $congTyHuy);
 
             $booking->update([
                 'status' => 'cancelled',
                 'cancel_reason' => $validated['cancel_reason'],
-                'cancel_type' => 'by_company',
+                // Ghi đúng loại người dùng đã chọn, và nó khớp với chính con số vừa tính ở trên.
+                'cancel_type' => $loaiHuy,
                 'cancelled_at' => now(),
                 'cancelled_by' => $request->user()?->id,
                 /*
@@ -516,6 +554,9 @@ class AdminBookingController extends Controller
                 [
                     'refund_amount' => $duBao['refund_amount'],
                     'refund_percent' => $duBao['refund_percent'],
+                    // Ai hủy quyết định có áp phí hay không, nên nó phải nằm trong nhật ký cùng
+                    // con số — ba tháng sau không ai suy ngược ra được từ mỗi số tiền.
+                    'cancel_type' => $loaiHuy,
                     // Chỗ có về kho hay thành ghế chết là hệ quả quan trọng nhất của lần hủy này,
                     // và người đọc nhật ký sau này không tự tính lại được vì hạn chốt đã trôi qua.
                     'seats_released' => (bool) $booking->fresh()->seats_released,

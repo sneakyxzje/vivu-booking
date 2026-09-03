@@ -83,6 +83,7 @@ class BookingHoldExpiryTest extends TestCase
             'customer_name' => 'Khach Moi',
             'customer_email' => 'khach-moi@example.com',
             'adult_count' => 4,
+            'accept_terms' => true,
         ]);
 
         $response->assertCreated();
@@ -106,6 +107,7 @@ class BookingHoldExpiryTest extends TestCase
             'customer_name' => 'Khach Moi',
             'customer_email' => 'khach-moi@example.com',
             'adult_count' => 4,
+            'accept_terms' => true,
         ]);
 
         $response->assertUnprocessable();

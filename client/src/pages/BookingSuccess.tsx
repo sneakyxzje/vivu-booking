@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import bookingService from "@/services/bookingService";
+import { RefundPolicyCard } from "@/components/RefundPolicyCard";
 import { CreditCardIcon, ChevronRightIcon } from "@/components/Icons";
 
 type Booking = {
@@ -127,6 +128,14 @@ export default function BookingSuccess() {
     refund_account_holder: "",
     refund_bank_account: "",
     refund_bank_name: "",
+    /*
+     * Địa chỉ thư đã dùng khi đặt — máy chủ đòi để xác thực.
+     *
+     * Mã tra cứu một mình là chưa đủ cho thao tác này: nó đi trong thư, mà thư thì được chuyển
+     * tiếp và mở trên máy dùng chung. Đây là ô quyết định tiền chảy về đâu, nên nó cần đúng mức
+     * bảo vệ mà tuyến sửa danh sách hành khách đã có từ trước.
+     */
+    customer_email: "",
   });
   const [refundSaving, setRefundSaving] = useState(false);
   const [refundSaved, setRefundSaved] = useState(false);
@@ -387,7 +396,17 @@ export default function BookingSuccess() {
 
         <div className="grid gap-8 lg:grid-cols-12 items-start">
           <div className="lg:col-span-8 space-y-8">
-            {/* Điều khoản hủy và số tiền hoàn nếu hủy bây giờ. Đơn đã hủy rồi thì không cần nữa. */}
+            {/*
+              Điều khoản hủy và số tiền hoàn nếu hủy bây giờ. Đơn đã hủy rồi thì không cần nữa.
+
+              Thẻ này đã được viết xong từ lâu (`RefundPolicyCard`) — đúng thứ tài liệu 03 mục 5.2
+              đòi là bắt buộc — nhưng không trang nào import nó, nên trên thực tế khách vãng lai
+              không có chỗ nào xem trước mức hoàn trước khi quyết định hủy. Chỗ trống ở đây chỉ còn
+              lại đúng dòng chú thích này.
+            */}
+            {!cancelled && (booking.public_token || id) && (
+              <RefundPolicyCard publicToken={String(booking.public_token ?? id)} />
+            )}
 
             <div className="rounded-xl bg-white p-6 md:p-8 border border-gray-100 shadow-sm">
               <h2 className="mb-6 text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta">
@@ -632,6 +651,19 @@ export default function BookingSuccess() {
                         placeholder="Ngân hàng"
                         className="w-full rounded-lg border border-gray-300 px-3 py-2"
                       />
+                      <input
+                        type="email"
+                        value={refundForm.customer_email}
+                        onChange={(e) =>
+                          setRefundForm((f) => ({ ...f, customer_email: e.target.value }))
+                        }
+                        placeholder="Email bạn đã dùng khi đặt tour (để xác nhận)"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Chúng tôi hỏi lại email để chắc chắn người nhập số tài khoản đúng là chủ
+                        đơn — mã tra cứu nằm trong thư và thư thì có thể được chuyển tiếp.
+                      </p>
 
                       {refundError && (
                         <p className="text-rose-700">{refundError}</p>
@@ -639,7 +671,7 @@ export default function BookingSuccess() {
 
                       <button
                         type="button"
-                        disabled={refundSaving}
+                        disabled={refundSaving || !refundForm.customer_email.trim()}
                         onClick={luuTaiKhoanHoanTien}
                         className="w-full rounded-lg bg-amber-600 py-3 font-bold text-white hover:bg-amber-700 disabled:opacity-50"
                       >

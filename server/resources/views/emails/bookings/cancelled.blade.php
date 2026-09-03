@@ -56,13 +56,41 @@
                                 thu. Nói thẳng con số ra đây, vì đó là câu hỏi đầu tiên của người
                                 vừa đọc tin chuyến đi bị hủy.
                             --}}
-                            @if($booking->cancel_type === 'by_company' && (float) ($booking->refund_amount ?? 0) > 0)
+                            @php
+                                $tienHoan = (float) ($booking->refund_amount ?? 0);
+                                $congTyHuy = $booking->cancel_type === 'by_company';
+                            @endphp
+
+                            @if($congTyHuy && $tienHoan > 0)
                                 <p style="margin:14px 0 0;font-size:14px;color:#065f46;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;line-height:1.6;">
                                     Đây là quyết định từ phía công ty, không phải lỗi của Quý khách,
                                     nên <strong>không áp dụng phí hủy</strong>.<br>
                                     Số tiền hoàn lại:
-                                    <strong style="font-size:17px;">{{ number_format((float) $booking->refund_amount, 0, ',', '.') }} VNĐ</strong>
+                                    <strong style="font-size:17px;">{{ number_format($tienHoan, 0, ',', '.') }} VNĐ</strong>
                                     &mdash; đủ 100% số tiền Quý khách đã thanh toán.
+                                </p>
+                            @elseif($tienHoan > 0)
+                                {{--
+                                    Khách chủ động hủy: phải nói ra con số thật, kèm việc có trừ phí.
+
+                                    Trước đây nhánh này không tồn tại — mọi lần hủy đều đi vào câu "hoàn đủ 100%"
+                                    ở trên vì `cancel_type` bị ghi cứng thành `by_company`. Khách hủy trước 10
+                                    ngày bị trừ 30% vẫn nhận được thư nói họ được hoàn đủ, và cuộc gọi khiếu nại
+                                    sau đó bắt đầu từ chính lá thư này.
+                                --}}
+                                <p style="margin:14px 0 0;font-size:14px;color:#1f2937;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px;line-height:1.6;">
+                                    Số tiền hoàn lại:
+                                    <strong style="font-size:17px;color:#065f46;">{{ number_format($tienHoan, 0, ',', '.') }} VNĐ</strong><br>
+                                    <span style="font-size:13px;color:#6b7280;">
+                                        Mức hoàn tính theo chính sách hủy có hiệu lực tại thời điểm Quý khách đặt
+                                        tour, dựa trên số ngày còn lại tới ngày khởi hành.
+                                    </span>
+                                </p>
+                            @elseif($booking->paid_at)
+                                <p style="margin:14px 0 0;font-size:14px;color:#9f1239;background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:12px 14px;line-height:1.6;">
+                                    Theo chính sách hủy có hiệu lực tại thời điểm đặt tour, đơn hủy ở thời điểm
+                                    này <strong>không được hoàn tiền</strong>. Nếu Quý khách cho rằng có nhầm lẫn,
+                                    vui lòng liên hệ tổng đài để chúng tôi kiểm tra lại.
                                 </p>
                             @endif
 

@@ -123,10 +123,28 @@ class ReviewController extends Controller
          *
          * `no_show` không nhận: khách không có mặt thì không có gì để kể về chuyến đi.
          */
+        /*
+         * Nhận diện theo tài khoản HOẶC theo địa chỉ thư đã dùng khi đặt.
+         *
+         * Đặt tour không đòi tài khoản — đó là quyết định xuyên suốt của hệ thống, và khách vãng
+         * lai vẫn khai được danh sách hành khách, vẫn tra cứu được đơn, vẫn nhận lại được tiền
+         * hoàn. Nhưng riêng ở đây, phép lọc chỉ hỏi `customer_id`, mà đơn vãng lai thì cột ấy luôn
+         * rỗng. Hệ quả: người đã đi thật, đã trả tiền thật, vĩnh viễn không đánh giá được — kể cả
+         * sau khi lập tài khoản bằng đúng địa chỉ thư đã đặt.
+         *
+         * Đó cũng là mất mát về nghiệp vụ, không chỉ về công bằng: nhóm khách vãng lai chiếm phần
+         * lớn lượt đặt, nên hệ thống đang tự chặn phần lớn nguồn đánh giá của chính mình.
+         *
+         * So bằng `lower()` để chạy giống nhau trên SQLite và MySQL: một bên phân biệt hoa thường
+         * ở phép `=`, bên kia thì không, và người ta gõ địa chỉ thư theo đủ kiểu.
+         */
         $daDi = Booking::query()
             ->where('tour_id', $data['tour_id'])
-            ->where('customer_id', $user->id)
             ->where('status', BookingStatus::Completed->value)
+            ->where(function ($q) use ($user) {
+                $q->where('customer_id', $user->id)
+                    ->orWhereRaw('lower(customer_email) = ?', [mb_strtolower(trim($user->email))]);
+            })
             ->exists();
 
         if (!$daDi) {

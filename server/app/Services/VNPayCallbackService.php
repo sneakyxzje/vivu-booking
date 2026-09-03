@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\ScheduleStatus;
+use App\Exceptions\BusinessRuleException;
 use App\Models\Booking;
 use App\Models\BookingPayment;
 use App\Models\PaymentLog;
@@ -111,7 +112,7 @@ class VNPayCallbackService
                 : null;
 
             if ($booking->status === 'pending') {
-                return $this->xuLyDonChoThanhToan($booking, $schedule, $thanhCong, $soTien, $maGiaoDich);
+                return $this->xuLyDonChoThanhToan($booking, $thanhCong, $soTien, $maGiaoDich);
             }
 
             /*
@@ -138,13 +139,29 @@ class VNPayCallbackService
                 return $this->khoiPhucDonQuaHan($booking, $schedule, $soTien, $maGiaoDich, $query);
             }
 
-            if ($thanhCong && !$booking->paid_at) {
-                Log::warning('Thanh toán thành công cho đơn không còn hiệu lực (đã hủy) — cần hoàn tiền thủ công.', [
-                    'booking_id' => $booking->id,
-                    'booking_status' => $booking->status,
-                    'transaction_no' => $maGiaoDich,
-                    'amount' => $soTien,
-                ]);
+            /*
+             * Tiền về thật nhưng không có chỗ nào để ghi. Phải kêu lên, cả hai nhánh.
+             *
+             * Trước đây chỉ nhánh thứ nhất được ghi log, nên trường hợp hay xảy ra hơn lại đi qua
+             * im lặng: khách mở hai tab trả tiền hai lần cho một đơn. Lần thứ hai mang mã giao dịch
+             * khác nên phép chống trùng không bắt, đơn thì đã `confirmed` và hết nợ nên không nhánh
+             * nào nhận — hàm trả `RspCode 00` cho VNPay rồi bỏ qua. Kế toán đối chiếu sao kê thấy
+             * một khoản không thuộc về đơn nào và không có gì trong hệ thống giải thích được.
+             */
+            if ($thanhCong) {
+                Log::warning(
+                    $booking->paid_at
+                        ? 'Tiền về cho đơn đã thu đủ — nhiều khả năng khách trả hai lần, cần hoàn tay.'
+                        : 'Thanh toán thành công cho đơn không còn hiệu lực (đã hủy) — cần hoàn tiền thủ công.',
+                    [
+                        'booking_id' => $booking->id,
+                        'booking_status' => $booking->status,
+                        'transaction_no' => $maGiaoDich,
+                        'amount' => $soTien,
+                        'net_paid' => $this->paymentService->netPaid($booking),
+                        'total_amount' => (float) $booking->total_amount,
+                    ],
+                );
             }
 
             return $this->ketQua(null, $thanhCong, self::RSP_THANH_CONG, $booking->id);
@@ -152,30 +169,43 @@ class VNPayCallbackService
     }
 
     /**
-     * Đơn đang chờ thanh toán: trả tiền thành công thì xác nhận, thất bại thì nhả chỗ.
+     * Đơn đang chờ thanh toán: trả tiền thành công thì xác nhận, thất bại thì để nguyên.
+     *
+     * Không nhận `$schedule` nữa — từ khi lần trả tiền hỏng thôi không hủy đơn, nhánh này không
+     * còn chạm tới kho chỗ của chuyến nữa.
      *
      * @return array{booking: Booking|null, booking_id: int|null, successful: bool, rsp_code: string}
      */
     private function xuLyDonChoThanhToan(
         Booking $booking,
-        ?TourSchedule $schedule,
         bool $thanhCong,
         float $soTien,
         ?string $maGiaoDich,
     ): array {
-        $booking->update([
-            'status' => $thanhCong ? 'confirmed' : 'cancelled',
-            'vnpay_transaction_no' => $thanhCong ? $maGiaoDich : null,
-            'confirmed_at' => $thanhCong ? now() : null,
-            // Hết mười phút giữ chỗ: đơn đã xác nhận, tác vụ nhả chỗ không được đụng tới.
-            'expires_at' => $thanhCong ? null : $booking->expires_at,
-        ]);
-
+        /*
+         * Trả tiền THẤT BẠI thì đơn giữ nguyên `pending`, không hủy.
+         *
+         * Trước đây nhánh này hủy đơn và nhả chỗ ngay lập tức. Nhưng "thất bại" ở cổng thanh toán
+         * phần lớn là những chuyện khách sửa được trong một phút: gõ sai OTP, thẻ không đủ số dư,
+         * chọn nhầm ngân hàng, hoặc bấm nút Hủy trên trang ngân hàng để quay ra đổi thẻ khác. Hủy
+         * đơn ngay nghĩa là họ quay lại thì chỗ đã mất, và phải đặt lại từ đầu — có khi chỗ ấy vừa
+         * bị người khác lấy trong đúng khoảng thời gian đó.
+         *
+         * Thời hạn giữ chỗ sinh ra chính là để đựng khoảng này. Đơn ở lại `pending` tới `expires_at`
+         * rồi `BookingHoldService` tự dọn nếu khách thật sự bỏ cuộc — không cần một đường hủy thứ
+         * hai chạy sớm hơn hạn mà cả hệ thống đang cam kết với khách.
+         */
         if (!$thanhCong) {
-            $this->holdService->releaseHold($booking, $schedule);
-
             return $this->ketQua(null, false, self::RSP_THANH_CONG, $booking->id);
         }
+
+        $booking->update([
+            'status' => 'confirmed',
+            'vnpay_transaction_no' => $maGiaoDich,
+            'confirmed_at' => now(),
+            // Hết mười phút giữ chỗ: đơn đã xác nhận, tác vụ nhả chỗ không được đụng tới.
+            'expires_at' => null,
+        ]);
 
         /*
          * `paid_at` KHÔNG đóng ở đây — sổ giao dịch đóng nó, và chỉ khi đã thu đủ giá tour. Đóng
@@ -297,15 +327,34 @@ class VNPayCallbackService
             return;
         }
 
-        $this->paymentService->record(
-            $booking,
-            'balance',
-            $soTien,
-            'gateway',
-            $maGiaoDich,
-            'Thanh toán qua VNPay',
-            null,
-        );
+        /*
+         * Sổ từ chối khoản thu vượt số còn thiếu — ở đây thì KHÔNG được ném lỗi ra ngoài.
+         *
+         * Tiền đã nằm trong tài khoản công ty rồi; ném lỗi chỉ làm giao dịch quay lại và VNPay
+         * nhận mã lỗi rồi gọi lại mãi, trong khi lần gọi nào cũng sẽ hỏng như nhau. Việc đúng là
+         * ghi một cảnh báo thật to để có người xử lý tay, giống hệt cách hàm `handle()` đang xử lý
+         * khoản tiền về cho một đơn đã hủy.
+         */
+        try {
+            $this->paymentService->record(
+                $booking,
+                'balance',
+                $soTien,
+                'gateway',
+                $maGiaoDich,
+                'Thanh toán qua VNPay',
+                null,
+            );
+        } catch (BusinessRuleException $e) {
+            Log::warning('Tiền về qua cổng vượt số đơn còn thiếu — cần đối chiếu và hoàn tay.', [
+                'booking_id' => $booking->id,
+                'transaction_no' => $maGiaoDich,
+                'amount' => $soTien,
+                'total_amount' => (float) $booking->total_amount,
+                'net_paid' => $this->paymentService->netPaid($booking),
+                'reason' => $e->getMessage(),
+            ]);
+        }
     }
 
     /** @param  array<string, mixed>  $query */

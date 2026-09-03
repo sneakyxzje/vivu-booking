@@ -6,6 +6,7 @@ import type {
   BookingContractInfo,
   BookingListSummary,
   CancelPreview,
+  CancelType,
   ContactLog,
   TransferOption,
   TransferReasonCategory,
@@ -100,6 +101,8 @@ export default function BookingManagement() {
   const [buocChuyen, setBuocChuyen] = useState(0);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelPreview, setCancelPreview] = useState<CancelPreview | null>(null);
+  /** Ai hủy — quyết định có áp bảng phí hay hoàn đủ. Xem `CancelType`. */
+  const [loaiHuy, setLoaiHuy] = useState<CancelType>("by_customer");
   const [previewLoading, setPreviewLoading] = useState(false);
 
   // E04 - Dòng thời gian thay đổi của đơn
@@ -455,6 +458,31 @@ export default function BookingManagement() {
     openTransferForm();
   };
 
+  /**
+   * Tải lại dự báo theo đúng loại hủy đang chọn.
+   *
+   * Khách đổi ý thì áp bảng phí; công ty đơn phương hủy thì hoàn đủ số đã thu. Hai con số khác
+   * nhau, nên đổi lựa chọn phải hỏi lại máy chủ — không thì số hiện ra và số thực chi lệch nhau.
+   */
+  const taiDuBaoHuy = async (loai: CancelType) => {
+    if (!selectedBooking) return;
+
+    setPreviewLoading(true);
+
+    try {
+      setCancelPreview(await adminService.getCancelPreview(selectedBooking.id, loai));
+    } catch (err) {
+      setActionError(extractApiError(err, "Không lấy được dự báo hủy đơn."));
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const doiLoaiHuy = async (loai: CancelType) => {
+    setLoaiHuy(loai);
+    await taiDuBaoHuy(loai);
+  };
+
   const openCancelForm = async () => {
     if (!selectedBooking) return;
 
@@ -462,15 +490,11 @@ export default function BookingManagement() {
     setCancelMode(true);
     setActionError("");
     setCancelPreview(null);
-    setPreviewLoading(true);
+    // Mặc định là khách đổi ý — trường hợp thường gặp, và là lựa chọn không đụng tới tiền của
+    // công ty. Nhánh hoàn đủ phải được chọn tường minh.
+    setLoaiHuy("by_customer");
 
-    try {
-      setCancelPreview(await adminService.getCancelPreview(selectedBooking.id));
-    } catch (err) {
-      setActionError(extractApiError(err, "Không lấy được dự báo hủy đơn."));
-    } finally {
-      setPreviewLoading(false);
-    }
+    await taiDuBaoHuy("by_customer");
   };
 
   // Cập nhật đơn trong cả modal lẫn danh sách sau khi admin thao tác
@@ -636,7 +660,11 @@ export default function BookingManagement() {
     setActionLoading(true);
     setActionError("");
     try {
-      const updated = await adminService.cancelBooking(selectedBooking.id, cancelReason.trim());
+      const updated = await adminService.cancelBooking(
+        selectedBooking.id,
+        cancelReason.trim(),
+        loaiHuy,
+      );
       if (updated) {
         applyBookingUpdate(updated);
         setCancelMode(false);
@@ -1773,6 +1801,49 @@ export default function BookingManagement() {
                     : null,
               noiDung: (
                 <>
+                  {/*
+                    Ai hủy — hỏi TRƯỚC khi hiện con số, vì chính nó quyết định con số.
+
+                    Trước đây màn này không hỏi: mã ghi cứng `by_company` cho mọi lần hủy nhưng vẫn
+                    áp bảng phí. Bản ghi tự mâu thuẫn với số tiền của nó, và thư báo hủy đọc đúng
+                    cột ấy rồi nói với khách rằng họ được hoàn đủ 100% trong khi vừa bị trừ 30%.
+                  */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+                      Ai hủy đơn này
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {[
+                        {
+                          gt: "by_customer" as const,
+                          ten: "Khách đổi ý",
+                          moTa: "Khách gọi lên xin hủy. Áp bảng phí hủy theo thời điểm.",
+                        },
+                        {
+                          gt: "by_company" as const,
+                          ten: "Công ty hủy",
+                          moTa: "Công ty không thực hiện đơn này. Hoàn đủ số đã thu, không áp phí.",
+                        },
+                      ].map((muc) => (
+                        <button
+                          key={muc.gt}
+                          type="button"
+                          onClick={() => doiLoaiHuy(muc.gt)}
+                          className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                            loaiHuy === muc.gt
+                              ? "border-rose-400 bg-rose-50"
+                              : "border-gray-200 bg-white hover:bg-gray-50"
+                          }`}
+                        >
+                          <span className="block text-sm font-bold text-gray-900">{muc.ten}</span>
+                          <span className="mt-0.5 block text-[11px] leading-relaxed text-gray-500">
+                            {muc.moTa}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   {previewLoading && (
                     <p className="text-xs font-medium text-gray-500">
                       Đang tính mức hoàn và tình trạng chỗ...
@@ -1803,6 +1874,13 @@ export default function BookingManagement() {
                         <p className="rounded-md bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
                           Đơn này đang ở chuyến do công ty dời tới. Khách từ chối một thay đổi họ
                           không chọn nên không chịu phí hủy — hoàn đủ số đã thu.
+                        </p>
+                      )}
+
+                      {cancelPreview.company_initiated && !cancelPreview.moved_by_company && (
+                        <p className="rounded-md bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
+                          Bạn đang chọn "Công ty hủy": bảng phí không áp, khách nhận lại đủ số đã
+                          thu. Thư báo hủy sẽ nói đúng như vậy.
                         </p>
                       )}
 
@@ -1865,7 +1943,9 @@ export default function BookingManagement() {
               noiDung: (
                 <div className="space-y-2 text-sm">
                   <p className="text-gray-700">
-                    Hủy đơn <b>BK-{selectedBooking.id}</b> của {selectedBooking.customer_name}.
+                    Hủy đơn <b>BK-{selectedBooking.id}</b> của {selectedBooking.customer_name},
+                    ghi nhận là{" "}
+                    <b>{loaiHuy === "by_company" ? "công ty hủy" : "khách đổi ý"}</b>.
                   </p>
                   {cancelPreview && (
                     <p className="text-gray-700">

@@ -112,17 +112,67 @@ class RefundAccountTest extends TestCase
             'plans' => [['booking_id' => $don->id, 'action' => 'refund']],
         ])->assertOk();
 
-        // Khách không đăng nhập, chỉ có mã tra cứu trong thư báo hủy.
+        // Khách không đăng nhập, chỉ có mã tra cứu trong thư báo hủy — và địa chỉ thư đã đặt.
         app('auth')->forgetGuards();
 
-        $this->putJson('/api/bookings/' . $don->public_token . '/refund-account', self::TAI_KHOAN)
-            ->assertOk();
+        $this->putJson(
+            '/api/bookings/' . $don->public_token . '/refund-account',
+            self::TAI_KHOAN + ['customer_email' => $don->customer_email],
+        )->assertOk();
 
         $daSua = $don->fresh();
 
         $this->assertSame('0123456789', $daSua->refund_bank_account);
         $this->assertSame('Vietcombank', $daSua->refund_bank_name);
         $this->assertSame('NGUYEN VAN A', $daSua->refund_account_holder);
+    }
+
+    /**
+     * Mã tra cứu thôi chưa đủ để đổi nơi tiền sẽ chảy về.
+     *
+     * Đây là ô quyết định TIỀN ĐI ĐÂU, nhạy cảm hơn hẳn danh sách hành khách — mà tuyến sửa hành
+     * khách đã đòi thêm địa chỉ thư từ trước. Mã tra cứu đi trong thư, và thư thì được chuyển tiếp,
+     * mở trên máy dùng chung, nằm lại trong lịch sử trình duyệt.
+     */
+    public function test_sai_email_thi_khong_doi_duoc_tai_khoan_nhan_tien(): void
+    {
+        Mail::fake();
+        $don = $this->taoDonDaTra();
+
+        Sanctum::actingAs($this->dieuHanh);
+        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/cancel', [
+            'reason' => 'Bao vao nen chuyen khong the khoi hanh.',
+            'plans' => [['booking_id' => $don->id, 'action' => 'refund']],
+        ])->assertOk();
+
+        app('auth')->forgetGuards();
+
+        $this->putJson(
+            '/api/bookings/' . $don->public_token . '/refund-account',
+            self::TAI_KHOAN + ['customer_email' => 'ke-nhat-duoc-lien-ket@example.com'],
+        )->assertStatus(403);
+
+        $this->assertNull($don->fresh()->refund_bank_account);
+    }
+
+    /** Thiếu hẳn địa chỉ thư thì từ chối ngay ở bước kiểm dữ liệu. */
+    public function test_thieu_email_thi_khong_ghi_duoc_tai_khoan(): void
+    {
+        Mail::fake();
+        $don = $this->taoDonDaTra();
+
+        Sanctum::actingAs($this->dieuHanh);
+        $this->postJson('/api/admin/schedules/' . $this->chuyen->id . '/cancel', [
+            'reason' => 'Bao vao nen chuyen khong the khoi hanh.',
+            'plans' => [['booking_id' => $don->id, 'action' => 'refund']],
+        ])->assertOk();
+
+        app('auth')->forgetGuards();
+
+        $this->putJson('/api/bookings/' . $don->public_token . '/refund-account', self::TAI_KHOAN)
+            ->assertStatus(422);
+
+        $this->assertNull($don->fresh()->refund_bank_account);
     }
 
     /** Kế toán đọc được ngay số tài khoản ở hàng đợi hoàn tiền. */

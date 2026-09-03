@@ -41,6 +41,20 @@ export const LY_DO_DOI_HAN_TOI_THIEU = 10;
 export const getAvailableSlots = (schedule?: TourSchedule | null): number =>
   schedule ? Math.max(0, schedule.max_people - schedule.booked_people) : 0;
 
+/**
+ * Số GHẾ một đơn chiếm của chuyến — khác số NGƯỜI đi.
+ *
+ * Em bé dưới hai tuổi ngồi cùng bố mẹ nên không chiếm ghế riêng. Máy chủ đã tính đúng như vậy từ
+ * lâu (`Booking::tinhSoGhe`, migration 2026_09_02_000002), nhưng giao diện thì vẫn so tổng số
+ * người với số chỗ còn lại — nên một gia đình hai người lớn kèm một em bé bị khóa nút "+" trong
+ * khi chuyến còn đúng hai chỗ và máy chủ hoàn toàn chấp nhận đơn ấy.
+ *
+ * Bản sao của một luật thì phải nói cùng một điều với bản gốc; đây là nơi duy nhất giao diện được
+ * quy đổi người sang ghế.
+ */
+export const getSeatCount = (adultCount: number, childCount: number): number =>
+  Math.max(0, Number(adultCount) || 0) + Math.max(0, Number(childCount) || 0);
+
 export const isDeadlineOverdue = (schedule?: TourSchedule | null): boolean =>
   schedule?.booking_deadline ? new Date(schedule.booking_deadline) < new Date() : false;
 

@@ -104,8 +104,80 @@ class PassengerPolicyService
      */
     public function validateList(Booking $booking, array $passengers): void
     {
+        $this->assertKhongVuotSoDaMua($booking, $passengers);
         $this->assertKhongTrungGiayTo($passengers);
         $this->assertTuoiKhopPhanLoai($booking, $passengers);
+    }
+
+    /**
+     * Danh sách khai không được đông hơn số khách đã mua.
+     *
+     * ## Vì sao đây là một luật chứ không phải chuyện hiển nhiên
+     *
+     * Danh sách hành khách chính là thứ gửi cho khách sạn, nhà xe và công ty bảo hiểm. Trước luật
+     * này, một đơn mua **một** ghế khai được **sáu** người và hệ thống nhận hết: bản xuất danh sách
+     * đoàn in ra sáu cái tên, sáu suất ăn được báo, trong khi sổ chỉ thu tiền của một người. Không
+     * màn hình nào phát hiện, vì `missingCount()` chỉ đếm phần THIẾU nên nó trả về 0 và trông như
+     * đã khai đủ.
+     *
+     * ## Vì sao "nhỏ hơn hoặc bằng", không phải "bằng đúng"
+     *
+     * Khai dở là chuyện bình thường: người đại diện đặt cho cả nhà rồi mới đi hỏi từng người số
+     * căn cước. Chặn ở mức "bằng đúng" là bắt họ ngồi chờ đủ thông tin mới được lưu gì cả.
+     *
+     * ## Vì sao cơ cấu loại khách chỉ kiểm với đơn LẺ
+     *
+     * Đơn lẻ trả tiền theo từng loại khách, nên khai một trẻ em thành người lớn — hay ngược lại —
+     * là khai lệch với số tiền đã trả. Đơn đoàn thì giá là một con số thương lượng cho mỗi đầu
+     * người và cả đoàn được ghi vào `adult_count` (xem `GroupBookingService::confirm`), nên áp
+     * phép kiểm ấy sẽ cấm đoàn khai trẻ em — một luật vô lý sinh ra từ cách lưu dữ liệu.
+     *
+     * @param  array<int, array<string, mixed>>  $passengers
+     */
+    private function assertKhongVuotSoDaMua(Booking $booking, array $passengers): void
+    {
+        $soKhachDaMua = (int) $booking->guests;
+
+        if ($soKhachDaMua > 0 && count($passengers) > $soKhachDaMua) {
+            throw new BusinessRuleException(sprintf(
+                'Đơn này đặt %d khách nhưng danh sách đang khai %d người. Muốn thêm người thì phải '
+                    . 'đặt thêm chỗ, vì mỗi tên trong danh sách là một suất gửi cho nhà cung cấp.',
+                $soKhachDaMua,
+                count($passengers),
+            ));
+        }
+
+        if ($booking->isGroup()) {
+            return;
+        }
+
+        $daMuaTheoLoai = [
+            'adult' => (int) $booking->adult_count,
+            'child' => (int) $booking->child_count,
+            'infant' => (int) $booking->infant_count,
+        ];
+
+        // Đơn cũ chưa tách loại khách thì cả ba cột bằng 0; khi ấy không có gì để đối chiếu.
+        if (array_sum($daMuaTheoLoai) === 0) {
+            return;
+        }
+
+        foreach (['adult', 'child', 'infant'] as $loai) {
+            $daKhai = count(array_filter(
+                $passengers,
+                static fn (array $nguoi): bool => ($nguoi['type'] ?? null) === $loai,
+            ));
+
+            if ($daKhai > $daMuaTheoLoai[$loai]) {
+                throw new BusinessRuleException(sprintf(
+                    'Đơn này đặt %d %s nhưng danh sách đang khai %d. Loại khách quyết định giá vé, '
+                        . 'nên số khai không vượt được số đã mua.',
+                    $daMuaTheoLoai[$loai],
+                    $this->nhanLoai($loai),
+                    $daKhai,
+                ));
+            }
+        }
     }
 
     /**

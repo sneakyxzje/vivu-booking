@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\BookingStatus;
 use App\Enums\PassengerCheckinStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Models\BookingPassenger;
@@ -11,7 +12,7 @@ use App\Models\PassengerCheckin;
 use App\Models\PassengerCheckinHistory;
 use App\Models\TourSchedule;
 use App\Models\User;
-use App\Notifications\PassengerAbsentAtBoundaryNotification;
+use App\Notifications\Alert;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -31,7 +32,8 @@ class AttendanceService
     private const MIN_NOTE_LENGTH = 10;
 
     public function __construct(
-        private ScheduleLifecycleService $lifecycle
+        private ScheduleLifecycleService $lifecycle,
+        private Notifier $notifier,
     ) {
     }
 
@@ -227,7 +229,9 @@ class AttendanceService
          * Đặt sau transaction để đảm bảo điểm danh
          * đã được lưu thành công trước khi gửi notification.
          */
-        if ($status === PassengerCheckinStatus::Absent) {
+        // Hỏi chính enum thay vì so cứng với `Absent`: luật "trạng thái nào cần báo động ngay" là
+        // của trạng thái, và nó đã được khai ở `PassengerCheckinStatus::needsOperatorAlert()`.
+        if ($status->needsOperatorAlert()) {
             $this->notifyAdminIfBoundaryCheckpoint(
                 $schedule,
                 $checkpoint,
@@ -279,24 +283,32 @@ class AttendanceService
         TourSchedule $schedule,
         ItineraryCheckpoint $checkpoint
     ) {
+        /*
+         * Lọc theo CHUYẾN, không chỉ theo điểm dừng.
+         *
+         * Điểm dừng thuộc về lịch trình của TOUR, nên mọi chuyến của cùng một tour dùng chung một
+         * bộ điểm dừng. Hỏi `itinerary_checkpoint_id` mà quên `tour_schedule_id` sẽ kéo về cả bản
+         * ghi điểm danh của những chuyến khác — và khi đó đoàn hôm nay trông như đã điểm danh xong
+         * chỉ vì đoàn tuần trước đã đi qua đúng điểm ấy.
+         */
         $daGhi = PassengerCheckin::query()
-            ->where(
-                'itinerary_checkpoint_id',
-                $checkpoint->getKey()
-            )
+            ->where('tour_schedule_id', $schedule->getKey())
+            ->where('itinerary_checkpoint_id', $checkpoint->getKey())
             ->pluck('booking_passenger_id');
 
         return BookingPassenger::query()
             ->whereHas('booking', function ($query) use ($schedule) {
+                /*
+                 * Chỉ đơn đã vào danh sách đoàn, cùng tập với `AttendanceController::update()`.
+                 *
+                 * Trước đây điều kiện là "khác cancelled và transferred", tức gồm cả đơn đang giữ
+                 * chỗ chưa trả tiền. Những người ấy không nằm trong danh sách điểm danh nên không
+                 * bao giờ được ghi, và danh sách "còn thiếu" vì thế không bao giờ rỗng — luật chốt
+                 * điểm dừng dựa vào nó sẽ không bao giờ chạy tới.
+                 */
                 $query
-                    ->where(
-                        'tour_schedule_id',
-                        $schedule->getKey()
-                    )
-                    ->whereNotIn(
-                        'status',
-                        ['cancelled', 'transferred']
-                    );
+                    ->where('tour_schedule_id', $schedule->getKey())
+                    ->whereIn('status', BookingStatus::manifestValues());
             })
             ->whereNotIn('id', $daGhi)
             ->get();
@@ -395,26 +407,34 @@ class AttendanceService
         }
 
         /*
-         * Tìm tất cả tài khoản admin.
+         * Gửi qua `Notifier` như mọi thông báo khác của hệ thống.
+         *
+         * Trước đây chỗ này dùng một lớp thông báo riêng ghi xuống các khóa `type` / `message` /
+         * `passenger_name`, trong khi `NotificationController` đọc `kind` / `title` / `body` / `url`.
+         * Hai hình dạng không khớp nên bản ghi vẫn được tạo nhưng **hiện ra một dòng trắng** trong
+         * hộp thư của điều hành: có thông báo, không có chữ nào, bấm vào không đi đâu.
+         *
+         * Đi chung một đường với sáu loại thông báo còn lại thì không lệch được nữa, và nó cũng
+         * thừa hưởng luôn hai thứ `Notifier` đã lo: chỉ gửi cho admin đang hoạt động, và nuốt lỗi
+         * để một sự cố ở khâu thông báo không kéo ngược việc điểm danh vừa ghi xong.
          */
-        User::query()
-            ->where('role', 'admin')
-            ->get()
-            ->each(function (User $admin) use (
-                $schedule,
-                $checkpoint,
-                $passenger,
-                $isFirstCheckpoint
-            ) {
-                $admin->notify(
-                    new PassengerAbsentAtBoundaryNotification(
-                        $schedule,
-                        $passenger,
-                        $checkpoint,
-                        $isFirstCheckpoint,
-                    )
-                );
-            });
+        $schedule->loadMissing('tour:id,title');
+
+        $viTri = $isFirstCheckpoint ? 'điểm đón đầu tiên' : 'điểm cuối';
+
+        $this->notifier->toiDieuHanh(
+            Alert::KHACH_VANG_MAT,
+            sprintf('Khách vắng tại %s — chuyến #%d', $viTri, $schedule->getKey()),
+            sprintf(
+                '%s vắng mặt tại "%s" (%s). %s · khởi hành %s.',
+                $passenger->name,
+                $checkpoint->name,
+                $viTri,
+                $schedule->tour?->title ?? 'Tour',
+                $schedule->start_date?->format('d/m/Y H:i') ?? 'chưa rõ',
+            ),
+            '/admin/schedules/' . $schedule->getKey(),
+        );
     }
 
     /**

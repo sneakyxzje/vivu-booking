@@ -47,9 +47,18 @@ class CloudinaryService
         return $secureUrl;
     }
 
+    /**
+     * Đọc qua `config()`, không gọi thẳng `env()`.
+     *
+     * `env()` chỉ còn đọc được khi tệp `.env` được nạp. Trên máy chạy thật người ta chạy
+     * `php artisan config:cache` để tăng tốc, và từ giây đó **mọi lời gọi `env()` ngoài tệp config
+     * đều trả về null** — Laravel không nạp `.env` nữa. Kết quả là mọi lượt tải ảnh ném
+     * "Thiếu cấu hình CLOUDINARY_URL" dù biến môi trường vẫn nằm nguyên đó, và lỗi chỉ xuất hiện
+     * sau khi tối ưu cấu hình chứ không xuất hiện lúc phát triển.
+     */
     private function credentials(): array
     {
-        $url = env('CLOUDINARY_URL');
+        $url = config('services.cloudinary.url');
 
         if (!$url) {
             throw new RuntimeException('Thiếu cấu hình CLOUDINARY_URL.');

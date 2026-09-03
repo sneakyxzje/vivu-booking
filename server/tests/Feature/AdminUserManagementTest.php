@@ -45,6 +45,7 @@ class AdminUserManagementTest extends TestCase
             'customer_name' => 'Khach Bi Khoa',
             'customer_email' => $khach->email,
             'adult_count' => 1,
+            'accept_terms' => true,
         ])->assertStatus(403);
 
         $this->assertSame(0, \App\Models\Booking::query()->count());

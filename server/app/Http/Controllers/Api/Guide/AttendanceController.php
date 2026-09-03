@@ -226,6 +226,26 @@ class AttendanceController extends Controller
                 $daTonTai ? $updated++ : $created++;
                 $saved++;
             }
+
+            /*
+             * Điểm dừng bắt buộc ảnh: chốt xong cả điểm mà chưa có ảnh thì không cho ghi.
+             *
+             * Luật này (tài liệu 04 §5.3) đã có sẵn ở `AttendanceService::assertCheckpointCompletable()`
+             * kèm bài kiểm thử xanh — nhưng **không đường ghi nào gọi nó**, nên trên thực tế hướng
+             * dẫn viên vẫn điểm danh xong cả trạm dừng mà không cần tấm ảnh nào. Một luật có mã, có
+             * test, và không có hiệu lực.
+             *
+             * Chỉ áp vào đúng lúc điểm dừng đã ghi đủ mọi hành khách — tức lúc "chốt". Áp cho từng
+             * lần lưu thì hướng dẫn viên không lưu tạm được giữa chừng, mà ngoài hiện trường người
+             * ta ghi dần theo từng nhóm khách xuống xe. `pendingPassengers()` trả về những người
+             * còn thiếu; rỗng nghĩa là điểm dừng vừa hoàn tất.
+             *
+             * Ném ở đây kéo cả lô về, nên không có trạng thái nửa vời: hoặc ghi được cả, hoặc chưa
+             * ghi gì và người dùng biết phải tải ảnh lên trước.
+             */
+            if ($this->attendanceService->pendingPassengers($schedule, $checkpoint)->isEmpty()) {
+                $this->attendanceService->assertCheckpointCompletable($schedule, $checkpoint);
+            }
         });
 
         $checkins = PassengerCheckin::query()

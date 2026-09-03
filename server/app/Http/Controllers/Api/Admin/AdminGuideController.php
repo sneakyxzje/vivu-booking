@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Enums\ScheduleStatus;
 use App\Http\Controllers\Controller;
+use App\Models\TourSchedule;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -145,6 +147,32 @@ class AdminGuideController extends Controller
             ->all();
     }
 
+    /**
+     * Xóa hướng dẫn viên — chặn khi họ còn đang phụ trách một chuyến đã chốt hoặc đang đi.
+     *
+     * ## Vì sao phải chặn
+     *
+     * `User` dùng xóa mềm, và quan hệ `guides()` của chuyến chịu global scope của nó. Nghĩa là xóa
+     * một hướng dẫn viên sẽ **âm thầm gỡ họ khỏi mọi chuyến** họ đang dẫn: bảng phân công vẫn còn
+     * hàng nhưng không truy vấn nào nhìn thấy nữa. Một đoàn ba mươi khách đang trên đường bỗng
+     * không còn ai phụ trách trên hệ thống — hướng dẫn viên mất luôn quyền điểm danh, báo sự cố và
+     * xin bàn giao, giữa lúc họ đang đứng cùng đoàn.
+     *
+     * Xóa tour đã có hàng rào đúng như vậy từ lâu (`TourDeletionService::blockers()`), kèm cả màn
+     * xem trước. Xóa người thì không có gì cả — cùng một hậu quả vận hành, hai mức bảo vệ khác nhau.
+     *
+     * ## Vì sao không chặn với chuyến chưa chốt
+     *
+     * Chuyến còn ở giai đoạn bán thì đổi người là chuyện bình thường của xếp lịch, và điều hành
+     * còn thời gian cử người khác. Ranh giới là lúc chuyến đã chốt chạy — từ đó có khách đã trả
+     * tiền và đang trông vào đúng chuyến ấy.
+     *
+     * ## Khóa hay xóa
+     *
+     * Người nghỉ việc thì **khóa tài khoản** (`PUT /admin/users/{id}/status`) đúng hơn: nó thu hồi
+     * phiên đăng nhập, chặn đăng nhập mới, mà vẫn giữ tên họ trên các biên bản bàn giao và nhật ký
+     * điểm danh cũ. Câu thông báo bên dưới nói thẳng lối đi đó.
+     */
     public function destroy(int $id): JsonResponse
     {
         $guide = User::where('role', 'guide')->find($id);
@@ -153,8 +181,39 @@ class AdminGuideController extends Controller
             return $this->error('Không tìm thấy hướng dẫn viên', 404);
         }
 
+        $dangPhuTrach = TourSchedule::query()
+            ->whereHas('guides', fn ($q) => $q->whereKey($guide->id))
+            ->whereIn('status', [
+                ScheduleStatus::Confirmed->value,
+                ScheduleStatus::InProgress->value,
+            ])
+            ->count();
+
+        if ($dangPhuTrach > 0) {
+            return $this->error(sprintf(
+                'Không xóa được: %s còn phụ trách %d chuyến đã chốt hoặc đang đi. Xóa bây giờ là gỡ '
+                    . 'họ khỏi đoàn giữa chừng, và đoàn mất người chịu trách nhiệm trên hệ thống. '
+                    . 'Hãy bàn giao các chuyến đó cho người khác trước, hoặc khóa tài khoản thay vì '
+                    . 'xóa nếu họ chỉ nghỉ việc.',
+                $guide->name,
+                $dangPhuTrach,
+            ), 422);
+        }
+
+        /*
+         * Thu hồi phiên đăng nhập, giống hệt lúc khóa tài khoản.
+         *
+         * Xóa mềm không làm token hết hiệu lực: `auth:sanctum` vẫn nhận nó, và các tuyến dùng chung
+         * như `/api/me` không đi qua phép kiểm vai trò nào. Người vừa bị xóa mà còn giữ token trong
+         * trình duyệt thì vẫn gọi được API.
+         */
+        $guide->tokens()->delete();
         $guide->delete(); // Xóa mềm (Soft Delete) do đã thêm trait SoftDeletes vào model User
 
-        return $this->success(null, 'Xóa hướng dẫn viên thành công');
+        return $this->success(null, sprintf(
+            'Đã xóa %s và thu hồi mọi phiên đăng nhập. Biên bản bàn giao và nhật ký điểm danh cũ '
+                . 'vẫn giữ nguyên tên họ.',
+            $guide->name,
+        ));
     }
 }

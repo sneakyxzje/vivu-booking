@@ -274,6 +274,7 @@ class PublicPassengerDeclarationTest extends TestCase
             'adult_count' => 2,
             'child_count' => 0,
             'infant_count' => 0,
+            'accept_terms' => true,
         ])->assertStatus(201);
 
         $donMoi = Booking::query()->latest('id')->first();

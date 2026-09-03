@@ -68,6 +68,17 @@ class BookingController extends Controller
             'infant_count' => 'nullable|integer|min:0',
             'note' => 'nullable|string|max:1000',
             'discount_code' => 'nullable|string|max:50',
+            /*
+             * Khách phải xác nhận đã đọc điều khoản TRƯỚC khi đặt.
+             *
+             * Đơn đã chép sẵn bảng phí hủy vào chính nó lúc tạo, nên hệ thống luôn biết điều khoản
+             * nào áp cho đơn nào. Thứ còn thiếu là bằng chứng khách đã được cho xem nó — và đó
+             * đúng là chỗ mọi khiếu nại hoàn tiền bắt đầu: "không ai bảo tôi mất 30%".
+             *
+             * Kiểm ở máy chủ chứ không chỉ ở ô tích trên trình duyệt: một ô tích chỉ tồn tại trong
+             * trình duyệt thì không phải bằng chứng, nó biến mất ngay khi đóng trang.
+             */
+            'accept_terms' => ['accepted'],
             'passengers' => 'nullable|array|max:50',
             'passengers.*.name' => 'required_with:passengers|string|max:255',
             'passengers.*.type' => 'required_with:passengers|in:adult,child,infant',
@@ -257,6 +268,9 @@ class BookingController extends Controller
                  * lên toàn bộ đơn đã bán.
                  */
                 'cancellation_policy_id' => \App\Models\CancellationPolicy::dangApDung()?->id,
+                // Cặp đôi với dòng trên: một bên là điều khoản nào áp cho đơn này, một bên là lúc
+                // khách xác nhận đã đọc nó. Thiếu vế thứ hai thì vế thứ nhất không chứng minh được gì.
+                'terms_accepted_at' => now(),
             ]);
             // Ghi qua PassengerPolicyService để danh sách khai lúc đặt chịu đúng những luật mà
             // danh sách sửa về sau phải chịu. Hai đường ghi mà hai bộ luật thì sớm muộn cũng có
@@ -537,9 +551,24 @@ class BookingController extends Controller
      */
     public function updateRefundAccount(Request $request, string $publicToken): JsonResponse
     {
+        /*
+         * Phải kèm đúng địa chỉ thư đã đặt — mã tra cứu thôi là chưa đủ.
+         *
+         * Đây là ô quyết định TIỀN SẼ CHẢY VỀ ĐÂU, nhạy cảm hơn hẳn danh sách hành khách — mà
+         * chính tuyến sửa hành khách (`PassengerController::publicUpdate`) đã đòi thêm yếu tố này
+         * từ trước, với đúng lý lẽ đang áp ở đây: mã tra cứu đi trong thư, mà thư thì được chuyển
+         * tiếp, mở trên máy dùng chung và nằm lại trong lịch sử trình duyệt.
+         *
+         * Thiếu phép kiểm này, ai nhặt được đường dẫn trong một thư chuyển tiếp cũng đổi được số
+         * tài khoản nhận khoản hoàn của người khác. Người thật luôn có sẵn địa chỉ ấy.
+         */
         $validated = $request->validate(
-            RefundAccountService::validationRules(),
-            RefundAccountService::validationMessages(),
+            RefundAccountService::validationRules() + [
+                'customer_email' => ['required', 'email'],
+            ],
+            RefundAccountService::validationMessages() + [
+                'customer_email.required' => 'Nhập địa chỉ email bạn đã dùng khi đặt tour để xác nhận.',
+            ],
         );
 
         $booking = Booking::query()->where('public_token', $publicToken)->first();
@@ -549,6 +578,13 @@ class BookingController extends Controller
                 'success' => false,
                 'message' => 'Không tìm thấy đơn đặt tour.',
             ], 404);
+        }
+
+        if (!$booking->khopEmail($validated['customer_email'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email không khớp với đơn này. Vui lòng nhập đúng địa chỉ đã dùng khi đặt tour.',
+            ], 403);
         }
 
         app(RefundAccountService::class)->update($booking, $validated);

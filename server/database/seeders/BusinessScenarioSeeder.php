@@ -251,9 +251,15 @@ class BusinessScenarioSeeder extends Seeder
             ['ma' => 'S7', 'gio' => -120, 'status' => ScheduleStatus::Completed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Đã kết thúc, đơn chờ chốt'],
             // Chuyến đã hủy thì không cần ai dẫn: để trống cho thấy trạng thái "Chưa phân công".
             ['ma' => 'S8', 'gio' => 360, 'status' => ScheduleStatus::Cancelled, 'min' => 4, 'so_hdv' => 0, 'mo_ta' => 'Chuyến bị hủy, trạng thái cuối'],
-            // Hạn chốt rơi vào trong 18 giờ tới, tức nằm trong cửa sổ 24 giờ mà lệnh chốt chuyến
-            // xét tới. Đặt xa hơn thì lệnh không nhìn tới chuyến này và chạy xong không thấy gì.
-            ['ma' => 'S9', 'gio' => 90, 'status' => ScheduleStatus::Open, 'min' => 2, 'so_hdv' => 1, 'mo_ta' => 'Đủ khách tối thiểu và tới hạn chốt: lệnh sẽ tự chốt'],
+            /*
+             * Khởi hành sau 66 giờ, tức hạn chốt (khởi hành trừ 3 ngày) đã trôi qua 6 tiếng.
+             *
+             * Phải là hạn ĐÃ QUA, không phải hạn sắp tới. Lệnh chốt chuyến quét những chuyến có hạn
+             * rơi trong cửa sổ 24 giờ, nhưng chỉ chốt khi hạn thật sự qua rồi — chuyến còn hạn thì
+             * vẫn phải bán tiếp cho tới đúng cái mốc đã hiện ra cho khách. Đặt `gio` lớn hơn 72 thì
+             * hạn còn ở tương lai và chuyến này không minh họa được điều nó sinh ra để minh họa.
+             */
+            ['ma' => 'S9', 'gio' => 66, 'status' => ScheduleStatus::Open, 'min' => 2, 'so_hdv' => 1, 'mo_ta' => 'Đủ khách tối thiểu và đã qua hạn chốt: lệnh sẽ tự chốt'],
             // Hai chuyến sát ngày nhau, mỗi chuyến ít khách. Đây là tình huống ghép chuyến:
             // không chuyến nào đủ mức tối thiểu, dồn về một thì cả hai đoàn đều được đi.
             ['ma' => 'S10', 'gio' => 600, 'status' => ScheduleStatus::Open, 'min' => 6, 'so_hdv' => 1, 'mo_ta' => 'Ít khách, dùng làm chuyến nguồn để ghép'],

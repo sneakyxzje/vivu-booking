@@ -57,4 +57,22 @@ return [
         'hash_secret' => env('VNPAY_HASH_SECRET'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Cloudinary
+    |--------------------------------------------------------------------------
+    |
+    | Dạng `cloudinary://api_key:api_secret@cloud_name`.
+    |
+    | Khai ở đây chứ không gọi `env()` thẳng trong `CloudinaryService`: sau khi chạy
+    | `php artisan config:cache` trên máy thật, Laravel thôi nạp tệp `.env` và mọi lời gọi
+    | `env()` nằm ngoài thư mục `config/` trả về null. Ảnh sẽ ngừng tải lên kèm thông báo
+    | "thiếu cấu hình" trong khi biến môi trường vẫn nằm nguyên đó.
+    |
+    */
+
+    'cloudinary' => [
+        'url' => env('CLOUDINARY_URL'),
+    ],
+
 ];

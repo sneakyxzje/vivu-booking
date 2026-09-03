@@ -48,6 +48,9 @@ use Illuminate\Database\Eloquent\Model;
     'refund_account_holder',
     'cancellation_plan',
     'cancellation_policy_id',
+    // Mốc khách tích ô "đã đọc và đồng ý" lúc đặt. Bằng chứng cho việc họ được xem điều khoản
+    // TRƯỚC khi trả tiền, không phải sau khi muốn hủy.
+    'terms_accepted_at',
     'vnpay_transaction_no',
     'group_booking_request_id',
     'paid_at',
@@ -61,6 +64,7 @@ class Booking extends Model
     {
         return [
             'expires_at' => 'datetime',
+            'terms_accepted_at' => 'datetime',
             'departure_reminder_sent_at' => 'datetime',
             'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',

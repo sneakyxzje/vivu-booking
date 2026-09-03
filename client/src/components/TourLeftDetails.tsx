@@ -1,5 +1,7 @@
-import React, { useState } from "react";
-import type { Tour, Service, TourItinerary } from "@/types";
+import React, { useEffect, useState } from "react";
+import type { Tour, Service, TourItinerary, TourSchedule } from "@/types";
+import policyService from "@/services/policyService";
+import type { PolicyResponse } from "@/services/policyService";
 import {
   MapPinIcon,
   ClockIcon,
@@ -11,7 +13,8 @@ import { TourReviewsSection } from "@/components/TourReviewsSection";
 
 interface TourLeftDetailsProps {
   tour: Tour;
-  selectedSchedule: any;
+  /** Chuyến khách đang chọn ở thanh bên. Null khi tour chưa có chuyến nào còn bán. */
+  selectedSchedule: TourSchedule | null;
 }
 
 const getServiceIcon = (name: string) => {
@@ -105,6 +108,37 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
   const [expandedDay, setExpandedDay] = useState<number | null>(1);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
+  /*
+   * Chính sách hủy đọc từ máy chủ, không viết cứng trong giao diện.
+   *
+   * Bảng phí nằm trong cơ sở dữ liệu và điều hành sửa được. Chép nó thành chữ ở đây thì có hai
+   * bản: bản khách đọc trước khi mua, và bản hệ thống tính lúc hủy. Hai bản giống nhau đúng tới
+   * lần sửa đầu tiên — và ở dự án này chúng đã lệch từ lâu: trang tour hứa "hủy trước 15 ngày
+   * miễn phí hoàn toàn" trong khi hệ thống giữ lại 10%, hứa "trong vòng 3 ngày mất 100%" trong
+   * khi bậc 2–4 ngày vẫn hoàn 30%.
+   *
+   * `PolicyPage` đã đọc từ đây từ lâu; trang chi tiết tour — nơi khách thật sự đọc điều khoản
+   * trước khi bấm đặt — thì chưa.
+   */
+  const [policy, setPolicy] = useState<PolicyResponse | null>(null);
+
+  useEffect(() => {
+    let huy = false;
+
+    policyService
+      .get()
+      .then((data) => {
+        if (!huy) setPolicy(data);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      huy = true;
+    };
+  }, []);
+
+  const bacHoan = policy?.cancellation.rules ?? [];
+
   const toggleDay = (dayNum: number) => {
     setExpandedDay(expandedDay === dayNum ? null : dayNum);
   };
@@ -116,11 +150,33 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
   const faqs = [
     {
       q: "Giá tour hiển thị đã bao gồm những chi phí gì?",
-      a: "Giá tour hiển thị đã trọn gói bao gồm: xe du lịch máy lạnh đưa đón khứ hồi, lưu trú tiêu chuẩn khách sạn/resort cao cấp, các bữa ăn ngon đặc sản địa phương theo lịch trình, vé vào cổng tham quan lần 1 tại các điểm trong lịch trình và hướng dẫn viên đồng hành nhiệt tình suốt tuyến du lịch.",
+      /*
+       * Đọc từ dịch vụ của chính tour này, không kể một danh sách chung.
+       *
+       * Bản cũ liệt kê cứng "xe máy lạnh, resort cao cấp, bữa ăn đặc sản..." cho MỌI tour, kể cả
+       * tour một ngày không có lưu trú. Danh sách thật đã nằm sẵn ở `tour.services` do quản trị
+       * nhập, và nó là thứ duy nhất đúng với từng tour.
+       */
+      a: tour.services && tour.services.length > 0
+        ? "Giá tour đã bao gồm: " +
+          tour.services.map((dv: Service) => dv.name).join(", ") +
+          ". Các chi phí cá nhân ngoài chương trình do Quý khách tự chi trả."
+        : "Danh sách dịch vụ đi kèm của tour này đang được cập nhật. Vui lòng liên hệ tổng đài để được tư vấn chi tiết trước khi đặt.",
     },
     {
       q: "Quy định về việc hủy đặt tour và hoàn tiền như thế nào?",
-      a: "Bạn có thể hủy tour hoàn toàn miễn phí nếu thực hiện trước ngày khởi hành tối thiểu 15 ngày. Nếu hủy muộn hơn, chúng tôi sẽ khấu trừ theo tỷ lệ được quy định rõ trong phần chính sách hoàn hủy của tour (từ 30% đến 100% tùy mốc thời gian).",
+      /*
+       * Câu trả lời dựng từ bảng phí THẬT, không viết cứng.
+       *
+       * Bản cũ khẳng định "hủy trước 15 ngày là hoàn toàn miễn phí" trong khi hệ thống giữ lại
+       * 10%, và "trong vòng 3 ngày mất 100%" trong khi bậc 2–4 ngày vẫn hoàn 30%. Đây là trang
+       * khách đọc TRƯỚC khi trả tiền, nên mỗi con số sai ở đây là một khiếu nại sau khi hủy.
+       */
+      a: bacHoan.length > 0
+        ? "Mức hoàn phụ thuộc thời điểm hủy: " +
+          bacHoan.map((bac) => `${bac.window} hoàn ${bac.refund_percent}%`).join("; ") +
+          ". Phí hủy tính trên giá trị đơn, tiền hoàn trừ trên số tiền đã thanh toán."
+        : "Mức hoàn phụ thuộc thời điểm hủy, xem bảng chi tiết ở mục Chính sách hoàn hủy bên dưới.",
     },
     {
       q: "Có chính sách giảm giá riêng cho trẻ em không?",
@@ -561,36 +617,62 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
               <span className="w-1.5 h-6 bg-primary-600 rounded-full"></span>
               Giá tour bao gồm
             </h4>
-            <ul className="list-disc pl-5 text-gray-500 space-y-1.5">
-              <li>
-                Vé máy bay/Phương tiện di chuyển đời mới khứ hồi theo lịch trình.
-              </li>
-              <li>Nghỉ dưỡng tiêu chuẩn khách sạn hoặc resort sang trọng.</li>
-              <li>Các bữa ăn chất lượng theo thực đơn đặc sản vùng miền.</li>
-              <li>Vé vào cổng các điểm tham quan đã bao gồm trong chương trình.</li>
-              <li>Hướng dẫn viên kinh nghiệm, năng động nhiệt tình suốt tuyến.</li>
-              <li>Bảo hiểm du lịch mức bồi thường tối đa 50.000.000đ/vụ.</li>
-            </ul>
+            {/*
+              Danh sách dịch vụ THẬT của tour, lấy từ dữ liệu quản trị nhập.
+
+              Bản cũ ở đây là một danh sách viết cứng giống hệt nhau cho mọi tour — kể cả những
+              dòng hứa hẹn cụ thể như "bảo hiểm du lịch mức bồi thường tối đa 50.000.000đ/vụ",
+              một cam kết bằng con số cho thứ hệ thống không hề quản lý. Mà ngay phía trên trang
+              này đã có khối dịch vụ đọc từ `tour.services`, nên cùng một trang nói hai điều khác
+              nhau về cùng một câu hỏi.
+            */}
+            {tour.services && tour.services.length > 0 ? (
+              <ul className="list-disc pl-5 text-gray-500 space-y-1.5">
+                {tour.services.map((service: Service) => (
+                  <li key={service.id}>
+                    {service.name}
+                    {service.description ? ` — ${service.description}` : ""}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-400 italic">
+                Chưa cập nhật danh sách dịch vụ đi kèm. Vui lòng liên hệ tổng đài để được tư vấn
+                chi tiết.
+              </p>
+            )}
           </div>
 
           <div className="space-y-3">
             <h4 className="font-bold text-gray-800 flex items-center gap-1.5">
               <span className="w-1.5 h-6 bg-red-500 rounded-full"></span>
               Chính sách hoàn hủy
+              {policy?.cancellation.name && (
+                <span className="text-xs font-medium text-gray-400">
+                  · {policy.cancellation.name}
+                </span>
+              )}
             </h4>
-            <ul className="list-disc pl-5 text-gray-500 space-y-1.5">
-              <li>Hủy trước 15 ngày khởi hành: Miễn phí hoàn toàn.</li>
-              <li>
-                Hủy từ 8 đến 14 ngày trước khởi hành: Phí hủy 30% giá tour.
-              </li>
-              <li>
-                Hủy từ 4 đến 7 ngày trước khởi hành: Phí hủy 50% giá tour.
-              </li>
-              <li>
-                Hủy trong vòng 3 ngày trước khởi hành: Phí hủy 100% giá tour.
-              </li>
-              <li>Các dịp Lễ, Tết áp dụng chính sách riêng biệt.</li>
-            </ul>
+
+            {bacHoan.length > 0 ? (
+              <>
+                <ul className="list-disc pl-5 text-gray-500 space-y-1.5">
+                  {bacHoan.map((bac) => (
+                    <li key={bac.window}>
+                      {bac.window}: hoàn <strong className="text-gray-700">{bac.refund_percent}%</strong>
+                      {bac.note ? ` — ${bac.note}` : ""}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Phí hủy tính trên giá trị đơn, tiền hoàn trừ trên số tiền đã thanh toán. Hủy
+                  không bao giờ phát sinh khoản phải nộp thêm. Điều khoản áp dụng cho đơn của bạn
+                  là điều khoản có hiệu lực tại thời điểm đặt, sửa về sau không hồi tố.
+                </p>
+              </>
+            ) : (
+              <p className="text-gray-400 italic">Đang tải chính sách hoàn hủy...</p>
+            )}
           </div>
         </div>
       </div>

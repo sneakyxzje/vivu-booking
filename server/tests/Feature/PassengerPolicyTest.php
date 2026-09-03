@@ -62,8 +62,18 @@ class PassengerPolicyTest extends TestCase
         ]);
     }
 
-    private function taoDon(int $guests = 2): Booking
+    /**
+     * Dựng một đơn với cơ cấu khách nói rõ ràng.
+     *
+     * Nhận riêng số trẻ em và em bé thay vì mặc định gộp hết vào người lớn, vì danh sách khai
+     * không được vượt số đã mua **theo từng loại** — loại khách quyết định giá vé. Bài nào khai
+     * trẻ em thì đơn của nó phải thật sự có mua vé trẻ em, nếu không thì bài kiểm thử đang mô tả
+     * một tình huống không tồn tại trên thực tế.
+     */
+    private function taoDon(int $guests = 2, int $child = 0, int $infant = 0): Booking
     {
+        $adult = max(0, $guests - $child - $infant);
+
         return Booking::create([
             'public_token' => (string) Str::uuid(),
             'tour_id' => $this->schedule->tour_id,
@@ -73,9 +83,10 @@ class PassengerPolicyTest extends TestCase
             'customer_email' => $this->khach->email,
             'departure_date' => $this->schedule->start_date,
             'guests' => $guests,
-            'adult_count' => $guests,
-            'child_count' => 0,
-            'infant_count' => 0,
+            'seats' => $adult + $child,
+            'adult_count' => $adult,
+            'child_count' => $child,
+            'infant_count' => $infant,
             'total_amount' => 5_000_000 * $guests,
             'status' => 'confirmed',
             'paid_at' => now()->subDay(),
@@ -284,7 +295,8 @@ class PassengerPolicyTest extends TestCase
 
     public function test_khong_co_ngay_sinh_thi_bo_qua_luat_tuoi(): void
     {
-        $don = $this->taoDon(1);
+        // Đơn mua đúng một vé trẻ em, vì bài này khai một trẻ em.
+        $don = $this->taoDon(guests: 1, child: 1);
         Sanctum::actingAs($this->khach);
 
         $this->putJson("/api/my-bookings/{$don->id}/passengers", [
@@ -303,7 +315,8 @@ class PassengerPolicyTest extends TestCase
      */
     public function test_tre_em_va_em_be_khong_bi_tinh_la_thieu_giay_to(): void
     {
-        $don = $this->taoDon(guests: 3);
+        // Một người lớn, một trẻ em, một em bé — đúng cơ cấu mà bài này sắp khai.
+        $don = $this->taoDon(guests: 3, child: 1, infant: 1);
         Sanctum::actingAs($this->khach);
 
         $response = $this->putJson("/api/my-bookings/{$don->id}/passengers", [
@@ -451,6 +464,7 @@ class PassengerPolicyTest extends TestCase
             'customer_email' => 'khach@example.com',
             'customer_phone' => '0901234567',
             'adult_count' => 2,
+            'accept_terms' => true,
             'passengers' => [
                 ['name' => 'Nguyen Van An', 'type' => 'adult', 'identity_number' => '001199001234'],
                 ['name' => 'Tran Thi Binh', 'type' => 'adult', 'identity_number' => '001199001234'],

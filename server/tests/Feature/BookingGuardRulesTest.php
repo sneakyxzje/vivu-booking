@@ -58,6 +58,9 @@ class BookingGuardRulesTest extends TestCase
             'customer_email' => 'khach@example.com',
             'customer_phone' => '0901234567',
             'adult_count' => 2,
+            // Khách phải xác nhận đã đọc điều khoản hủy trước khi đặt. Máy chủ đòi trường này,
+            // nên mọi payload đặt tour trong bộ kiểm thử cũng phải mang nó.
+            'accept_terms' => true,
         ], $ghiDe);
     }
 

@@ -53,6 +53,7 @@ class BookingPassengerTest extends TestCase
             'customer_email' => 'vana@example.com',
             'adult_count' => 1,
             'child_count' => 1,
+            'accept_terms' => true,
             'passengers' => [
                 [
                     'name' => 'Nguyen Van A',

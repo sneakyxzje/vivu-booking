@@ -214,8 +214,27 @@ class AdminBookingPaymentController extends Controller
         $daThu = '(SELECT COALESCE(SUM(bp.amount), 0) FROM booking_payments bp'
             . ' WHERE bp.booking_id = bookings.id AND bp.kind IN (?, ?))';
 
+        /*
+         * Gồm cả đơn của chuyến ĐÃ ĐI XONG.
+         *
+         * Trước đây bộ lọc chỉ nhận `paidValues()` — confirmed/paid/deposit_paid. Nhưng khi chuyến
+         * kết thúc, `bookings:finalize-completed` chuyển đơn sang `completed` hoặc `no_show`, và
+         * đúng giây ấy khoản nợ biến mất khỏi màn hình này: dòng của khách rơi ra khỏi danh sách,
+         * ô "tổng phải thu" tụt xuống, không ai được báo gì.
+         *
+         * Trớ trêu là chính màn hình này xếp đơn sắp khởi hành lên đầu với lý lẽ *"sau khi đoàn đi
+         * rồi thì đòi khó hơn nhiều"* — rồi giấu luôn nhóm khó đòi nhất đi. Nợ không tự mất khi
+         * khách đã đi; nó chỉ khó đòi hơn, nên càng phải nhìn thấy.
+         *
+         * `no_show` cũng tính: khách không có mặt thì không được hoàn, phần chưa trả vẫn là nợ.
+         */
+        $trangThaiConNo = array_merge(
+            BookingStatus::paidValues(),
+            [BookingStatus::Completed->value, BookingStatus::NoShow->value],
+        );
+
         $truyVan = fn () => Booking::query()
-            ->whereIn('status', BookingStatus::paidValues())
+            ->whereIn('status', $trangThaiConNo)
             ->whereRaw($daThu . ' < bookings.total_amount', BookingPayment::THU)
             /*
              * Loại đúng một nhóm: đơn KHÔNG có bút toán nào mà đã đóng mốc thanh toán.

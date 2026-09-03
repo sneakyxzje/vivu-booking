@@ -249,20 +249,76 @@ class HeldSeatsTest extends TestCase
         $this->assertSame(4, (int) $schedule->fresh()->booked_people);
     }
 
-    public function test_ghi_lai_ai_huy_va_huy_kieu_gi(): void
+    /**
+     * Không nói ai hủy thì mặc định là KHÁCH đổi ý — và khi đó bảng phí được áp.
+     *
+     * Trước đây màn này ghi cứng `by_company` cho mọi lần hủy, trong khi vẫn trừ phí theo bảng.
+     * Bản ghi tự mâu thuẫn với chính số tiền của nó, và mẫu thư báo hủy đọc đúng cột ấy rồi nói
+     * với khách rằng họ được hoàn đủ 100%.
+     */
+    public function test_mac_dinh_la_khach_huy_va_co_ap_phi_huy(): void
     {
         [, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
         $admin = $this->taoAdmin();
         Sanctum::actingAs($admin);
 
         $this->putJson("/api/admin/bookings/{$booking->id}/cancel", [
-            'cancel_reason' => 'Doi lich trinh',
+            'cancel_reason' => 'Khach goi dien xin huy vi ban viec dot xuat',
+        ])->assertOk();
+
+        $booking->refresh();
+
+        $this->assertSame('by_customer', $booking->cancel_type);
+        $this->assertSame($admin->id, $booking->cancelled_by);
+        $this->assertNotNull($booking->cancelled_at);
+
+        $this->assertLessThan(
+            4_000_000,
+            (float) $booking->refund_amount,
+            'Khách đổi ý thì phải áp bảng phí hủy, không hoàn đủ.',
+        );
+    }
+
+    /**
+     * Chọn "công ty hủy" thì hoàn ĐỦ số đã thu, không áp bảng phí.
+     *
+     * Bảng phí dành cho người đổi ý; ở đây bên bán là bên không thực hiện. Cùng nguyên tắc mà luồng
+     * hủy cả chuyến đã áp từ trước — chỉ là màn hủy từng đơn chưa có đường nào diễn đạt nó.
+     */
+    public function test_cong_ty_huy_thi_hoan_du_khong_ap_phi(): void
+    {
+        [, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
+        $admin = $this->taoAdmin();
+        Sanctum::actingAs($admin);
+
+        $this->putJson("/api/admin/bookings/{$booking->id}/cancel", [
+            'cancel_reason' => 'Xe hong khong the thay the, cong ty khong phuc vu duoc don nay',
+            'cancel_type' => 'by_company',
         ])->assertOk();
 
         $booking->refresh();
 
         $this->assertSame('by_company', $booking->cancel_type);
-        $this->assertSame($admin->id, $booking->cancelled_by);
-        $this->assertNotNull($booking->cancelled_at);
+        $this->assertSame(4_000_000.0, (float) $booking->refund_amount);
+    }
+
+    /** Dự báo phải tính theo đúng loại hủy sắp chọn, nếu không số trên màn hình khác số thực chi. */
+    public function test_du_bao_doi_theo_loai_huy(): void
+    {
+        [, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
+        Sanctum::actingAs($this->taoAdmin());
+
+        $khachHuy = $this->getJson("/api/admin/bookings/{$booking->id}/cancel-preview")
+            ->assertOk()
+            ->json('data');
+
+        $congTyHuy = $this->getJson(
+            "/api/admin/bookings/{$booking->id}/cancel-preview?cancel_type=by_company",
+        )->assertOk()->json('data');
+
+        $this->assertLessThan(100, $khachHuy['refund_percent']);
+        $this->assertSame(100, $congTyHuy['refund_percent']);
+        $this->assertTrue($congTyHuy['company_initiated']);
+        $this->assertGreaterThan($khachHuy['refund_amount'], $congTyHuy['refund_amount']);
     }
 }

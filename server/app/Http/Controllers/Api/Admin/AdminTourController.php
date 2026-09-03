@@ -16,7 +16,9 @@ use App\Models\User;
 use App\Enums\BookingStatus;
 use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
+use App\Notifications\Alert;
 use App\Services\CloudinaryService;
+use App\Services\Notifier;
 use App\Services\GuideSuitabilityService;
 use App\Services\ScheduleDeadlineService;
 use App\Services\ScheduleGuideService;
@@ -40,6 +42,7 @@ class AdminTourController extends Controller
         protected ScheduleGuideService $scheduleGuides,
         protected GuideSuitabilityService $guideSuitability,
         protected TourDeletionService $tourDeletion,
+        protected Notifier $notifier,
     ) {
     }
 
@@ -157,12 +160,20 @@ class AdminTourController extends Controller
      * trả tiền vẫn trông như đủ khách, và điều hành chỉ biết vào phút cuối.
      *
      * Dùng `withSum` để ra một truy vấn cho cả danh sách, không phải mỗi chuyến một truy vấn.
+     *
+     * Cộng theo GHẾ, không theo người — đúng đơn vị mà `ConfirmReadySchedules` so với `min_people`
+     * và `booked_people` đang đếm. Cộng `guests` ở đây thì màn hình báo một con số còn lệnh nền
+     * quyết theo một con số khác, và người dùng không có cách nào biết vì sao chuyến "đủ khách"
+     * trên màn hình lại không được chốt.
+     *
+     * Biểu thức lùi về `guests` khi `seats` bằng 0 là bản SQL của `Booking::seatsTaken()`, giống
+     * hệt cách `CheckSeatConsistency` đang làm.
      */
     private function kemSoKhachDaTra(): \Closure
     {
         return fn ($query) => $query->withSum(
             ['bookings as paid_people' => fn ($b) => $b->whereIn('status', BookingStatus::paidValues())],
-            'guests',
+            DB::raw('CASE WHEN seats > 0 THEN seats ELSE guests END'),
         );
     }
 
@@ -309,7 +320,10 @@ class AdminTourController extends Controller
             }
         }
 
-        $tour = DB::transaction(function () use ($request, $validated, $categoryIds, $serviceIds, $itineraries, $schedules, $numberOfDay) {
+        /** @var array<int, array<int, int>> khóa là id chuyến, giá trị là id những người mới */
+        $nguoiMoiTheoChuyen = [];
+
+        $tour = DB::transaction(function () use ($request, $validated, $categoryIds, $serviceIds, $itineraries, $schedules, $numberOfDay, &$nguoiMoiTheoChuyen) {
             $this->validateScheduleGuideAssignments($schedules, $numberOfDay);
             if ($request->hasFile('thumbnail_file')) {
                 $validated['thumbnail'] = $this->cloudinaryService->uploadImage(
@@ -383,8 +397,11 @@ class AdminTourController extends Controller
                 ]);
 
                 // Phân công đi qua bảng nối. Chồng lịch đã được kiểm ở validateScheduleGuideAssignments
-                // trước khi vào giao dịch này, nên ở đây chỉ ghi.
-                $created->guides()->sync($this->guideIdsOf($item));
+                // ngay đầu giao dịch này, nên ở đây chỉ ghi.
+                $nguoiMoiTheoChuyen[$created->id] = $this->phanCongVaTraVeNguoiMoi(
+                    $created,
+                    $this->guideIdsOf($item),
+                );
             }
 
             if ($request->hasFile('images')) {
@@ -403,6 +420,8 @@ class AdminTourController extends Controller
 
             return $tour->load(['categories', 'services', 'images', 'itineraries', 'schedules']);
         });
+
+        $this->baoNguoiMoiDuocPhanCong($nguoiMoiTheoChuyen);
 
         return $this->success([
             'tour' => new TourResource($tour),
@@ -509,7 +528,28 @@ class AdminTourController extends Controller
             }
         }
 
-        $tour = DB::transaction(function () use ($request, $tour, $validated, $categoryIds, $serviceIds, $itineraries, $schedules, $numberOfDay) {
+        /*
+         * Ai vừa được thêm vào chuyến nào, gom trong giao dịch và báo sau khi nó chốt.
+         *
+         * Thông báo đã gửi thì không gọi về được, còn giao dịch thì vẫn có thể quay lại — cùng lý
+         * do đang áp ở `ScheduleCancellationService` và `ScheduleGuideService`.
+         *
+         * @var array<int, array<int, int>> khóa là id chuyến, giá trị là id những người mới
+         */
+        $nguoiMoiTheoChuyen = [];
+
+        $tour = DB::transaction(function () use ($request, $tour, $validated, $categoryIds, $serviceIds, $itineraries, $schedules, $numberOfDay, &$nguoiMoiTheoChuyen) {
+            /*
+             * Luật trùng lịch hướng dẫn viên — kiểm ở ĐÂY, không chỉ ở `store()`.
+             *
+             * Thiếu dòng này thì form sửa tour là một cửa sau đi vòng qua đúng luật mà đường phân
+             * công lẻ (`assignScheduleGuide`) đang chặn: một người được gán cho hai chuyến chồng
+             * ngày, và không có gì báo lại. Đúng khuôn lỗi mà chú thích của
+             * `ScheduleGuideService::lyDoChan()` đã cảnh báo — luật có ở đường ghi này mà thiếu ở
+             * đường ghi kia.
+             */
+            $this->validateScheduleGuideAssignments($schedules, $numberOfDay);
+
             if ($request->hasFile('thumbnail_file')) {
                 $validated['thumbnail'] = $this->cloudinaryService->uploadImage(
                     $request->file('thumbnail_file')
@@ -616,7 +656,10 @@ class AdminTourController extends Controller
                         );
                     }
 
-                    $schedule->guides()->sync($this->guideIdsOf($item));
+                    $nguoiMoiTheoChuyen[$schedule->id] = $this->phanCongVaTraVeNguoiMoi(
+                        $schedule,
+                        $this->guideIdsOf($item),
+                    );
 
                     $keptScheduleIds[] = $schedule->id;
                     continue;
@@ -630,7 +673,10 @@ class AdminTourController extends Controller
                     'status'        => $item['status'] ?? 'open',
                 ]);
 
-                $created->guides()->sync($this->guideIdsOf($item));
+                $nguoiMoiTheoChuyen[$created->id] = $this->phanCongVaTraVeNguoiMoi(
+                    $created,
+                    $this->guideIdsOf($item),
+                );
 
                 $keptScheduleIds[] = $created->id;
             }
@@ -673,9 +719,70 @@ class AdminTourController extends Controller
             return $tour->fresh(['categories', 'services', 'images', 'itineraries', 'schedules.guides:id,name,email,phone,status']);
         });
 
+        $this->baoNguoiMoiDuocPhanCong($nguoiMoiTheoChuyen);
+
         return $this->success([
             'tour' => new TourResource($tour),
         ], 'Cập nhật tour thành công');
+    }
+
+    /**
+     * Ghi danh sách hướng dẫn viên của một chuyến, trả về những ai là NGƯỜI MỚI.
+     *
+     * Cần biết ai mới vì thông báo chỉ gửi cho họ: điều hành lưu tour vì đủ thứ lý do, và bắn lại
+     * thông báo cho những người vốn đã ở trong chuyến là cách nhanh nhất để họ ngừng đọc thông báo.
+     *
+     * `sync()` với mảng id thuần **không** đụng tới hàng pivot đã có, nên mốc `accepted_at` của
+     * người đang ở lại được giữ nguyên.
+     *
+     * @param  array<int, int>  $idMoi
+     * @return array<int, int>
+     */
+    private function phanCongVaTraVeNguoiMoi(TourSchedule $schedule, array $idMoi): array
+    {
+        $truocDo = $schedule->guides()->pluck('users.id')->all();
+
+        $schedule->guides()->sync($idMoi);
+
+        return array_values(array_diff($idMoi, $truocDo));
+    }
+
+    /**
+     * Báo cho những người vừa được thêm vào chuyến qua form sửa tour.
+     *
+     * Trước đây đường ghi này im lặng hoàn toàn: điều hành gán người ở form tour thì người được
+     * gán không biết gì, trong khi gán ở màn phân công lẻ thì có thông báo. Cùng một việc, hai kết
+     * quả khác nhau tùy người bấm vào nút nào.
+     *
+     * @param  array<int, array<int, int>>  $theoChuyen
+     */
+    private function baoNguoiMoiDuocPhanCong(array $theoChuyen): void
+    {
+        foreach ($theoChuyen as $scheduleId => $idMoi) {
+            if ($idMoi === []) {
+                continue;
+            }
+
+            $schedule = TourSchedule::query()->with('tour:id,title')->find($scheduleId);
+
+            if (!$schedule) {
+                continue;
+            }
+
+            foreach (User::query()->whereIn('id', $idMoi)->get() as $guide) {
+                $this->notifier->toiNguoiDung(
+                    $guide,
+                    Alert::PHAN_CONG,
+                    sprintf('Bạn được phân công chuyến #%d', $schedule->getKey()),
+                    sprintf(
+                        '%s · khởi hành %s',
+                        $schedule->tour?->title ?? 'Tour',
+                        $schedule->start_date?->format('d/m/Y H:i') ?? 'chưa rõ',
+                    ),
+                    '/guide/assignments',
+                );
+            }
+        }
     }
 
     /**

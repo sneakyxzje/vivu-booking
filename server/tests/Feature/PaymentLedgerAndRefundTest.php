@@ -86,6 +86,7 @@ class PaymentLedgerAndRefundTest extends TestCase
             'customer_name' => $this->khach->name,
             'customer_email' => $this->khach->email,
             'adult_count' => $nguoiLon,
+            'accept_terms' => true,
         ])->assertStatus(201);
 
         return Booking::query()->latest('id')->firstOrFail();

@@ -14,6 +14,7 @@ use App\Models\Tour;
 use App\Models\TourSchedule;
 use App\Models\User;
 use App\Services\BookingPaymentService;
+use Illuminate\Support\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -104,11 +105,15 @@ class AdminController extends Controller
              * tài khoản thật và không đối chiếu được với sổ sách.
              */
             'total_revenue' => $payments->sumPaidForTour($revenueBookings),
-            'revenue_this_month' => $payments->sumPaidForTour(
-                $revenueBookings->filter(
-                    fn ($booking) => $booking->created_at?->greaterThanOrEqualTo(now()->startOfMonth()),
-                ),
-            ),
+            /*
+             * Gom theo NGÀY TIỀN VỀ, không theo ngày đơn được tạo.
+             *
+             * Cách cũ lọc đơn có `created_at` trong tháng rồi cộng số đã thu của chúng — nên một
+             * đơn đặt cuối tháng trước mà trả tiền đầu tháng này được tính vào tháng trước. Con số
+             * ấy không đối chiếu được với sao kê ngân hàng, mà đối chiếu sao kê là việc duy nhất
+             * người ta dùng nó. Với đơn đoàn trả nhiều đợt thì độ lệch còn lớn hơn.
+             */
+            'revenue_this_month' => $payments->sumCollectedBetween(now()->startOfMonth(), now()),
             // Tổng giá trị đơn đã bán, tách riêng: nó trả lời câu "bán được bao nhiêu", khác hẳn
             // câu "thu về bao nhiêu" ở trên.
             'contracted_value' => (float) $revenueBookings->sum('total_amount'),
@@ -124,15 +129,25 @@ class AdminController extends Controller
         $confirmedThisYear = $confirmedBookings
             ->filter(fn ($booking) => (int) $booking->created_at?->year === $currentYear);
 
-        $monthlyPerformance = collect(range(1, 12))->map(function (int $month) use ($confirmedThisYear, $payments) {
+        $monthlyPerformance = collect(range(1, 12))->map(function (int $month) use ($confirmedThisYear, $payments, $currentYear) {
             $inMonth = $confirmedThisYear
                 ->filter(fn ($booking) => (int) $booking->created_at?->month === $month);
 
+            $dauThang = Carbon::create($currentYear, $month, 1)->startOfMonth();
+
             return [
                 'name' => 'T' . $month,
-                // Cùng định nghĩa với `total_revenue` ở trên: tiền đã thu, không phải giá trị đơn.
-                // Biểu đồ và ô tổng nói hai con số khác nhau là chỗ người đọc mất lòng tin vào cả hai.
-                'revenue' => round($payments->sumPaidForTour($inMonth) / 1_000_000, 1),
+                /*
+                 * Cột doanh thu gom theo tháng TIỀN VỀ; cột số đơn gom theo tháng ĐẶT.
+                 *
+                 * Hai trục cố ý khác nhau vì chúng trả lời hai câu khác nhau: "tháng này thu được
+                 * bao nhiêu" và "tháng này bán được mấy đơn". Trộn chúng vào một mốc thời gian thì
+                 * một trong hai con số sai, và biểu đồ không nói được câu nào cho ra câu nào.
+                 */
+                'revenue' => round(
+                    $payments->sumCollectedBetween($dauThang, $dauThang->copy()->endOfMonth()) / 1_000_000,
+                    1,
+                ),
                 'bookings' => $inMonth->count(),
             ];
         })->values();

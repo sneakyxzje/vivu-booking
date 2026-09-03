@@ -35,6 +35,15 @@ class Alert extends Notification
     public const SU_CO = 'incident_reported';
 
     /**
+     * Khách vắng mặt tại điểm đón đầu tiên hoặc điểm cuối của hành trình.
+     *
+     * Hai mốc ấy khác các điểm dừng giữa đường: vắng ở điểm đón nghĩa là khách không lên đoàn, còn
+     * vắng ở điểm cuối nghĩa là họ chưa về cùng đoàn — cả hai đều là việc điều hành phải xử lý ngay
+     * chứ không phải đọc lại trong báo cáo cuối chuyến.
+     */
+    public const KHACH_VANG_MAT = 'passenger_absent';
+
+    /**
      * Chuyến tới hạn chốt danh sách mà chưa đủ số khách tối thiểu.
      *
      * Hệ thống cố ý không tự hủy: chạy lỗ một chuyến nhỏ để giữ khách quen, hay hủy và đền bù, là

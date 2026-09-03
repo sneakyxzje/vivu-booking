@@ -35,6 +35,13 @@ export interface CreateBookingPayload {
   note?: string;
   discount_code?: string;
   passengers?: PassengerPayload[];
+  /**
+   * Khách xác nhận đã đọc chính sách hủy. Máy chủ bắt buộc và ghi mốc lên đơn.
+   *
+   * Đơn đã chép sẵn bảng phí hủy vào chính nó lúc tạo, nên hệ thống luôn biết điều khoản nào áp
+   * cho đơn nào; trường này là vế còn lại — bằng chứng khách được cho xem nó trước khi trả tiền.
+   */
+  accept_terms: boolean;
 }
 
 export interface CreateBookingResponse {
@@ -255,6 +262,14 @@ const bookingService = {
       refund_bank_account: string;
       refund_bank_name: string;
       refund_account_holder: string;
+      /**
+       * Địa chỉ thư đã dùng khi đặt, bắt buộc.
+       *
+       * Đây là ô quyết định tiền sẽ chảy về đâu — nhạy cảm hơn hẳn danh sách hành khách, mà tuyến
+       * sửa hành khách đã đòi thêm yếu tố này từ trước. Mã tra cứu đi trong thư, và thư thì được
+       * chuyển tiếp, mở trên máy dùng chung, nằm lại trong lịch sử trình duyệt.
+       */
+      customer_email: string;
     },
   ) =>
     api.put<{ success: boolean; message: string }>(

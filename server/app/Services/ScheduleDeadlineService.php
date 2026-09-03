@@ -424,9 +424,17 @@ class ScheduleDeadlineService
         }
 
         if ($huong === 'later' && $soDonGheChet > 0) {
+            /*
+             * Câu cũ chỉ khách tới "mở lại từng đơn ở màn hình quản lý đặt chỗ" — nhưng tuyến mở
+             * lại đơn đã hủy đã được gỡ có chủ đích (xem chú thích ở `AdminBookingController`, chỗ
+             * hàm `reopen()` từng nằm). Nó chỉ người dùng đi tìm một cái nút không còn tồn tại.
+             *
+             * Đường đúng còn lại là tăng sức chứa của chuyến: một quyết định nhìn thấy rõ, và là
+             * đúng thứ `BookingHoldService` mô tả khi giải thích vì sao ghế chết không tự mở lại.
+             */
             $canhBao[] = sprintf(
-                '%d chỗ của %d đơn đã hủy vẫn đang bị giữ và không tự trả về kho. Muốn bán lại '
-                . 'thì mở lại từng đơn ở màn hình quản lý đặt chỗ.',
+                '%d chỗ của %d đơn đã hủy vẫn đang bị giữ và không tự trả về kho. Muốn bán thêm '
+                . 'thì tăng số chỗ tối đa của chuyến, sau khi đã xin được suất từ nhà cung cấp.',
                 $soGheChet,
                 $soDonGheChet,
             );

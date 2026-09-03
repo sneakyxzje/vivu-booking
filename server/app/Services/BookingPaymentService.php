@@ -8,6 +8,7 @@ use App\Exceptions\BusinessRuleException;
 use App\Models\Booking;
 use App\Models\BookingPayment;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -82,6 +83,31 @@ class BookingPaymentService
                     'Không hoàn quá số đã thu: đơn này mới thu thực %s đ.',
                     number_format($daThu, 0, ',', '.'),
                 ));
+            }
+
+            /*
+             * Không thu quá số đơn còn thiếu — luật đặt ở ĐÂY, không ở từng nơi gọi.
+             *
+             * Phép chặn này vốn chỉ có ở `recordManualCollection()`, tức chỉ bảo vệ đúng nút "xác
+             * nhận đơn". Màn sổ giao dịch (`POST /admin/bookings/{id}/payments`) gọi thẳng hàm này
+             * nên đi vòng qua được: gõ nhầm 20.000.000 cho một đơn 2.000.000 thì hệ thống nhận, và
+             * 18 triệu thừa không hiện ở màn hình nào — `balance_due` về 0 nên nó rời khỏi danh sách
+             * phải thu, còn `refund_amount` vẫn rỗng nên nó không bao giờ vào danh sách phải trả.
+             *
+             * Nói cách khác: tiền thừa của khách biến mất khỏi mọi báo cáo. Đó là lý do luật phải
+             * nằm ở cửa duy nhất mà mọi bút toán đều đi qua.
+             */
+            if (in_array($kind, BookingPayment::THU, true)) {
+                $conThieu = max(0.0, round((float) $fresh->total_amount) - $daThu);
+
+                if (round($amount) > $conThieu) {
+                    throw new BusinessRuleException(sprintf(
+                        'Đơn này chỉ còn thiếu %s đ, không ghi thu quá số đó được. Kiểm lại số tiền '
+                            . 'vừa nhập; nếu khách thật sự chuyển thừa thì ghi đúng phần của đơn rồi '
+                            . 'hoàn lại phần dư.',
+                        number_format($conThieu, 0, ',', '.'),
+                    ));
+                }
             }
 
             $payment = BookingPayment::query()->create([
@@ -286,6 +312,64 @@ class BookingPaymentService
             // Đơn tạo trước khi sổ mở cho đơn lẻ: đọc mốc `paid_at`, đúng như `paidForTour()`.
             return $booking->paid_at ? round((float) $booking->total_amount) : 0.0;
         }));
+    }
+
+    /**
+     * Tiền thực thu cho GIÁ TOUR trong một khoảng thời gian, tính theo NGÀY TIỀN VỀ.
+     *
+     * ## Vì sao cần, dù đã có `sumPaidForTour()`
+     *
+     * Hàm kia trả lời "tập đơn này đã thu bao nhiêu" — không có chiều thời gian. Bảng điều khiển
+     * lại hỏi "tháng này thu được bao nhiêu", và trước đây nó trả lời bằng cách lọc đơn theo
+     * `bookings.created_at` rồi cộng số đã thu của chúng. Hai chuyện khác hẳn nhau: một đơn đặt
+     * cuối tháng trước, trả tiền đầu tháng này, sẽ được cộng vào **tháng trước** — tức doanh thu
+     * gắn với ngày khách bấm đặt chứ không phải ngày tiền vào tài khoản.
+     *
+     * Với tour thì độ lệch ấy không nhỏ: đơn đoàn trả cọc rồi trả nốt cách nhau hàng tuần, và mỗi
+     * đợt tiền lại bị quy về đúng cái tháng đơn được tạo. Con số ấy không đối chiếu được với sao kê
+     * ngân hàng, mà đó là việc duy nhất người ta dùng nó.
+     *
+     * ## Đơn cũ chưa có sổ
+     *
+     * Các đơn tạo trước khi sổ mở cho đơn lẻ không có bút toán nào; với chúng, mốc `bookings.paid_at`
+     * là bằng chứng duy nhất còn lại về thời điểm tiền về. Cộng riêng nhóm ấy, và chỉ nhóm KHÔNG có
+     * dòng nào trong sổ — nếu không thì một đơn vừa có sổ vừa có mốc sẽ bị cộng hai lần.
+     */
+    public function sumCollectedBetween(?Carbon $tu, ?Carbon $den): float
+    {
+        $trongKhoang = static function ($query, string $cot) use ($tu, $den) {
+            if ($tu) {
+                $query->where($cot, '>=', $tu);
+            }
+
+            if ($den) {
+                $query->where($cot, '<=', $den);
+            }
+
+            return $query;
+        };
+
+        $thu = (float) $trongKhoang(
+            BookingPayment::query()->whereIn('kind', BookingPayment::THU),
+            'paid_at',
+        )->sum('amount');
+
+        $hoan = (float) $trongKhoang(
+            BookingPayment::query()->where('kind', BookingPayment::HOAN),
+            'paid_at',
+        )->sum('amount');
+
+        $donCu = (float) $trongKhoang(
+            Booking::query()
+                ->whereNotNull('paid_at')
+                ->whereDoesntHave('payments', fn ($p) => $p->whereIn(
+                    'kind',
+                    [...BookingPayment::THU, BookingPayment::HOAN],
+                )),
+            'paid_at',
+        )->sum('total_amount');
+
+        return round($thu - $hoan + $donCu);
     }
 
     /** Tổng các khoản THU của giá tour, chưa trừ khoản hoàn nào. */

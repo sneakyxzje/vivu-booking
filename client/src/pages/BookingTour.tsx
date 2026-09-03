@@ -1,10 +1,13 @@
 import bookingService from "@/services/bookingService";
+import policyService from "@/services/policyService";
+import type { PolicyTier } from "@/services/policyService";
 import tourService from "@/services/tourService";
 import type { Tour, TourSchedule } from "@/types";
 import { formatDateTime } from "@/utils/format";
 import {
   getAvailableSlots,
   getScheduleUnavailableReason,
+  getSeatCount,
   isScheduleBookable,
 } from "@/utils/schedule";
 import type { AxiosError } from "axios";
@@ -22,6 +25,8 @@ type BookingFormState = {
   infantCount: number;
   note: string;
   discountCode: string;
+  /** Khách đã tích ô "đã đọc và đồng ý chính sách hủy". Máy chủ cũng đòi và ghi lại mốc này. */
+  acceptTerms: boolean;
 };
 
 type BookingFormProps = {
@@ -37,8 +42,10 @@ type BookingFormProps = {
   discountApplying: boolean;
   onApplyDiscount: () => void;
   onClearDiscount: () => void;
-  onChange: (field: keyof BookingFormState, value: string | number) => void;
+  onChange: (field: keyof BookingFormState, value: string | number | boolean) => void;
   onSubmit: (event: FormEvent) => void;
+  /** Bảng phí hủy đang có hiệu lực, đọc từ máy chủ. Rỗng khi chưa tải xong. */
+  bacHoan: PolicyTier[];
 };
 
 type BookingSidebarProps = {
@@ -55,6 +62,7 @@ const initialForm: BookingFormState = {
   infantCount: 0,
   note: "",
   discountCode: "",
+  acceptTerms: false,
 };
 
 const formatCurrency = (value: number) =>
@@ -87,12 +95,21 @@ const BookingForm = ({
   onClearDiscount,
   onChange,
   onSubmit,
+  bacHoan,
 }: BookingFormProps) => {
   const totalGuestCount = form.adultCount + form.childCount + form.infantCount;
+  /*
+   * Kho chỗ trừ theo GHẾ, không theo người: em bé đi cùng bố mẹ không chiếm chỗ riêng.
+   *
+   * Trước đây màn này so tổng số người với số chỗ còn lại, tức tính em bé vào ghế — chặt hơn cả
+   * máy chủ. Gia đình hai người lớn kèm một em bé bị khóa nút "+" khi chuyến còn đúng hai chỗ,
+   * dù máy chủ chấp nhận đơn ấy không chút vướng mắc.
+   */
+  const seatCount = getSeatCount(form.adultCount, form.childCount);
   const selectedSchedule = schedules.find((schedule) => String(schedule.id) === form.tourScheduleId);
   const availableSlots = getScheduleAvailableSlots(selectedSchedule);
   const scheduleUnavailableReason = getScheduleUnavailableReason(selectedSchedule, tour.status);
-  const isOverCapacity = Boolean(selectedSchedule) && totalGuestCount > availableSlots;
+  const isOverCapacity = Boolean(selectedSchedule) && seatCount > availableSlots;
 
   const handleInputChange =
     (field: keyof BookingFormState) =>
@@ -107,9 +124,16 @@ const BookingForm = ({
   ) => {
     const minimum = field === "adultCount" ? 1 : 0;
     const nextValue = Math.max(minimum, Number(form[field] || 0) + delta);
-    const nextTotal = totalGuestCount - Number(form[field] || 0) + nextValue;
 
-    if (delta > 0 && (!selectedSchedule || scheduleUnavailableReason || nextTotal > availableSlots)) return;
+    // Chỉ người lớn và trẻ em ăn vào kho chỗ; thêm em bé không cần còn ghế trống.
+    const nextSeats =
+      field === "infantCount"
+        ? seatCount
+        : seatCount - Number(form[field] || 0) + nextValue;
+
+    if (delta > 0 && (!selectedSchedule || scheduleUnavailableReason || nextSeats > availableSlots)) {
+      return;
+    }
 
     onChange(field, nextValue);
   };
@@ -245,7 +269,12 @@ const BookingForm = ({
                   <button
                     type="button"
                     onClick={() => updateGuestCount(item.field, 1)}
-                    disabled={!selectedSchedule || Boolean(scheduleUnavailableReason) || totalGuestCount >= availableSlots}
+                    disabled={
+                      !selectedSchedule ||
+                      Boolean(scheduleUnavailableReason) ||
+                      // Em bé không chiếm ghế nên không bị số chỗ còn lại chặn.
+                      (item.field !== "infantCount" && seatCount >= availableSlots)
+                    }
                     className="h-10 w-10 text-lg font-bold text-gray-500 hover:text-primary-600 disabled:opacity-35 disabled:hover:text-gray-500"
                     aria-label={`Tăng ${item.label}`}
                   >
@@ -261,6 +290,18 @@ const BookingForm = ({
               <span className="font-semibold">Tổng số khách</span>
               <span className="font-bold">{totalGuestCount} khách</span>
             </div>
+            {/*
+              Nói rõ số ghế khi nó khác số người, để khách hiểu vì sao đơn ba người chỉ trừ hai
+              chỗ của chuyến — nếu không thì con số "còn lại X chỗ" trông như tính sai.
+            */}
+            {form.infantCount > 0 && (
+              <div className="flex items-center justify-between text-xs text-primary-700/80">
+                <span>Số chỗ chiếm trên xe</span>
+                <span className="font-semibold">
+                  {seatCount} chỗ · em bé dưới 2 tuổi ngồi cùng bố mẹ
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between border-t border-primary-100 pt-2">
               <span className="text-sm font-semibold text-primary-800">Tổng giá trị thanh toán</span>
               <span className="text-xl font-bold text-primary-600">{formatCurrency(totalAmount)}</span>
@@ -378,11 +419,71 @@ const BookingForm = ({
         </div>
       ) : null}
 
+      {/*
+        Ô đồng ý điều khoản — bắt buộc, và bảng phí hiện ngay cạnh nó.
+
+        Đơn đã chép sẵn chính sách hủy vào chính nó lúc tạo, nên hệ thống luôn biết điều khoản nào
+        áp cho đơn nào. Thứ trước đây còn thiếu là bằng chứng khách được cho xem nó TRƯỚC khi trả
+        tiền — và đó đúng là chỗ mọi khiếu nại hoàn tiền bắt đầu: "không ai bảo tôi mất 30%".
+
+        Bảng phí đặt ngay tại đây chứ không chỉ để một liên kết: một đường dẫn mở tab mới là thứ
+        gần như không ai bấm, còn con số đọc được tại chỗ thì khó nói là chưa từng nhìn thấy.
+      */}
+      <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4 space-y-3">
+        {bacHoan.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+              Nếu bạn hủy đơn này
+            </p>
+            <ul className="text-xs text-gray-600 space-y-0.5">
+              {bacHoan.map((bac) => (
+                <li key={bac.window} className="flex justify-between gap-3">
+                  <span>{bac.window}</span>
+                  <span className="font-semibold text-gray-800 whitespace-nowrap">
+                    hoàn {bac.refund_percent}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <label className="flex items-start gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.acceptTerms}
+            onChange={(event) => onChange("acceptTerms", event.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+          />
+          <span className="text-xs text-gray-700 leading-relaxed">
+            Tôi đã đọc và đồng ý với{" "}
+            <a
+              href="/chinh-sach"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-primary-600 underline"
+            >
+              chính sách hủy và hoàn tiền
+            </a>{" "}
+            của Vivu Booking. Tôi hiểu rằng mức hoàn phụ thuộc thời điểm hủy như bảng trên.
+          </span>
+        </label>
+      </div>
+
       <button
         className="w-full rounded-lg bg-primary-600 py-3.5 font-bold text-white shadow-md hover:bg-primary-700 hover:shadow-lg transition-all active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none text-sm cursor-pointer"
-        disabled={submitting || !form.tourScheduleId || isOverCapacity || Boolean(scheduleUnavailableReason)}
+        disabled={
+          submitting ||
+          !form.tourScheduleId ||
+          isOverCapacity ||
+          Boolean(scheduleUnavailableReason) ||
+          !form.acceptTerms
+        }
       >
-        {submitting ? "Đang xử lý đặt tour..." : scheduleUnavailableReason ?? "Xác nhận đặt tour"}
+        {submitting
+          ? "Đang xử lý đặt tour..."
+          : scheduleUnavailableReason ??
+            (form.acceptTerms ? "Xác nhận đặt tour" : "Vui lòng đồng ý điều khoản để tiếp tục")}
       </button>
     </form>
   );
@@ -502,7 +603,30 @@ export const BookingTour = () => {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [appliedDiscountCode, setAppliedDiscountCode] = useState<string | null>(null);
   const [discountApplying, setDiscountApplying] = useState(false);
+  /*
+   * Bảng phí hủy thật, để hiện ngay cạnh ô đồng ý điều khoản.
+   *
+   * Đọc từ máy chủ chứ không chép thành chữ: bảng này nằm trong cơ sở dữ liệu và điều hành sửa
+   * được, nên một bản sao trong giao diện chỉ đúng tới lần sửa đầu tiên — và từ đó trang đặt tour
+   * hứa một đằng còn lúc hủy đơn trừ tiền một nẻo.
+   */
+  const [bacHoan, setBacHoan] = useState<PolicyTier[]>([]);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    let huy = false;
+
+    policyService
+      .get()
+      .then((data) => {
+        if (!huy) setBacHoan(data?.cancellation.rules ?? []);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      huy = true;
+    };
+  }, []);
 
   useEffect(() => {
     const loadTour = async () => {
@@ -561,7 +685,7 @@ export const BookingTour = () => {
   );
 
 
-  const updateForm = (field: keyof BookingFormState, value: string | number) => {
+  const updateForm = (field: keyof BookingFormState, value: string | number | boolean) => {
     setForm((current) => ({ ...current, [field]: value }));
     if (["adultCount", "childCount", "infantCount", "discountCode"].includes(field)) {
       setAppliedDiscountCode(null);
@@ -624,6 +748,9 @@ export const BookingTour = () => {
         infant_count: Number(form.infantCount),
         note: form.note,
         discount_code: appliedDiscountCode ?? undefined,
+        // Máy chủ đòi trường này và ghi lại mốc xác nhận lên đơn — ô tích chỉ nằm trong trình
+        // duyệt thì không phải bằng chứng, nó biến mất ngay khi đóng trang.
+        accept_terms: form.acceptTerms,
       });
 
       const booking = {
@@ -678,6 +805,7 @@ export const BookingTour = () => {
               onClearDiscount={clearDiscountCode}
               onChange={updateForm}
               onSubmit={handleSubmit}
+              bacHoan={bacHoan}
             />
           </div>
 

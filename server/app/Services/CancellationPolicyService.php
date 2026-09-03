@@ -140,6 +140,15 @@ class CancellationPolicyService
      * 2. Kẹp dưới bằng 0. Khách hủy thì không bao giờ phải nộp thêm, kể cả khi phí hủy lớn hơn
      *    số đã thu.
      *
+     * 3. `$congTyHuy` là lúc **công ty** đơn phương hủy đơn này, không phải khách đổi ý. Khi ấy
+     *    hoàn đủ số đã thu, không áp bảng phí — cùng nguyên tắc mà luồng hủy cả chuyến đang dùng:
+     *    bảng phí dành cho người đổi ý, còn đây là bên bán không thực hiện.
+     *
+     *    Trước khi có tham số này, màn hủy đơn của quản trị áp bảng phí nhưng lại ghi cứng
+     *    `cancel_type = 'by_company'` lên đơn. Hai thứ ấy mâu thuẫn ngay trong một bản ghi, và thư
+     *    báo hủy đọc đúng cột kia rồi khẳng định với khách là "không áp dụng phí hủy, hoàn đủ 100%"
+     *    trong khi hệ thống vừa trừ của họ 30%.
+     *
      * @param  iterable<int, array<string, mixed>|object>|null  $rules
      * @return array{hours_before: float|null, refund_percent: int, total_amount: float, paid_amount: float, cancellation_fee: float, refund_amount: float}
      */
@@ -148,6 +157,7 @@ class CancellationPolicyService
         ?TourSchedule $schedule = null,
         ?iterable $rules = null,
         ?Carbon $now = null,
+        bool $congTyHuy = false,
     ): array {
         $schedule ??= $booking->schedule;
         $rules ??= $this->rulesFor($booking);
@@ -155,7 +165,8 @@ class CancellationPolicyService
         $hoursBefore = $this->hoursBeforeDeparture($schedule, $now);
 
         $doCongTyDoiNgay = $this->congTyDaDoiNgay($booking);
-        $refundPercent = $doCongTyDoiNgay ? 100 : $this->refundPercent($hoursBefore, $rules);
+        $mienPhiHuy = $doCongTyDoiNgay || $congTyHuy;
+        $refundPercent = $mienPhiHuy ? 100 : $this->refundPercent($hoursBefore, $rules);
 
         $totalAmount = round((float) $booking->total_amount);
         $paidAmount = $this->paidAmount($booking);
@@ -172,6 +183,10 @@ class CancellationPolicyService
             'refund_amount' => $refundAmount,
             // Để màn hình nói được VÌ SAO mức hoàn là 100%, thay vì để người bấm tự đoán.
             'moved_by_company' => $doCongTyDoiNgay,
+            // Hai lý do miễn phí hủy tách riêng: một cái hệ thống tự suy ra từ lịch sử chuyển
+            // chuyến, một cái do người bấm chọn. Màn hình cần phân biệt để giải thích đúng.
+            'company_initiated' => $congTyHuy,
+            'fee_waived' => $mienPhiHuy,
         ];
     }
 

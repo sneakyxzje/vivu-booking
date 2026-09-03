@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\BookingAuditAction;
 use App\Enums\GroupRequestStatus;
 use App\Exceptions\BusinessRuleException;
+use App\Mail\GroupBookingUpdateMail;
 use App\Models\Booking;
 use App\Models\BookingPayment;
 use App\Models\CancellationPolicy;
@@ -12,7 +13,10 @@ use App\Models\GroupBookingRequest;
 use App\Models\TourSchedule;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Booking theo đoàn: yêu cầu → báo giá → chốt → thu tiền nhiều đợt.
@@ -76,7 +80,7 @@ class GroupBookingService
             );
         }
 
-        return GroupBookingRequest::query()->create([
+        $yeuCau = GroupBookingRequest::query()->create([
             'public_token' => (string) Str::uuid(),
             'tour_id' => $schedule->tour_id,
             'tour_schedule_id' => $schedule->getKey(),
@@ -91,6 +95,42 @@ class GroupBookingService
             'note' => $data['note'] ?? null,
             'status' => GroupRequestStatus::PendingQuote,
         ]);
+
+        /*
+         * Gửi mã tra cứu về hòm thư ngay.
+         *
+         * Trước đây mã này chỉ tồn tại trong phản hồi API lúc bấm gửi — đóng tab là mất, và luồng
+         * đoàn không có tuyến "gửi lại mã" nào như đơn lẻ đã có. Người đại diện đoàn thường đặt hộ
+         * cả công ty rồi quay sang việc khác; không có thư thì họ không còn đường nào tra lại.
+         */
+        $this->baoChoKhach($yeuCau);
+
+        return $yeuCau;
+    }
+
+    /**
+     * Báo cho người đại diện đoàn về tiến triển của yêu cầu.
+     *
+     * Thư hỏng không được làm hỏng nghiệp vụ vừa xong: yêu cầu đã ghi, báo giá đã lưu, đơn đã chốt.
+     * Cùng nguyên tắc đang áp ở `ScheduleCancellationService` và `BookingAuditLogger`.
+     */
+    private function baoChoKhach(GroupBookingRequest $yeuCau): void
+    {
+        if (!$yeuCau->contact_email) {
+            return;
+        }
+
+        try {
+            Mail::to($yeuCau->contact_email)->send(
+                new GroupBookingUpdateMail($yeuCau->fresh(['tour', 'schedule', 'booking'])),
+            );
+        } catch (Throwable $e) {
+            Log::warning('Không gửi được thư cập nhật yêu cầu đoàn.', [
+                'group_request_id' => $yeuCau->getKey(),
+                'status' => $yeuCau->status->value,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -129,6 +169,10 @@ class GroupBookingService
             'quoted_by' => $actor->getKey(),
         ])->save();
 
+        // Điều hành vẫn gọi điện thương lượng như trước; thư này chỉ để lại một bản viết mà hai
+        // bên cùng mở lại được, kèm hạn hiệu lực của giá.
+        $this->baoChoKhach($request);
+
         return $request;
     }
 
@@ -145,7 +189,7 @@ class GroupBookingService
         // Nhả chỗ quá hạn trước, để đoàn dùng được ngay các slot khách lẻ vừa bỏ.
         $this->holdService->releaseOverdueForSchedule((int) $request->tour_schedule_id);
 
-        return DB::transaction(function () use ($request, $finalGuests, $actor) {
+        $don = DB::transaction(function () use ($request, $finalGuests, $actor) {
             $schedule = TourSchedule::query()
                 ->whereKey($request->tour_schedule_id)
                 ->lockForUpdate()
@@ -251,6 +295,12 @@ class GroupBookingService
 
             return $booking->load(['tour:id,title', 'schedule']);
         });
+
+        // Ngoài giao dịch: thư đã bay đi thì không gọi về được, còn giao dịch thì vẫn có thể quay
+        // lại. Cùng lý do đang áp ở `ScheduleCancellationService`.
+        $this->baoChoKhach($request->fresh());
+
+        return $don;
     }
 
     public function reject(GroupBookingRequest $request, string $reason, User $actor): void
@@ -263,6 +313,9 @@ class GroupBookingService
             'decided_at' => now(),
             'decided_by' => $actor->getKey(),
         ])->save();
+
+        // Từ chối càng phải báo: khách đang chờ và không có gì để tra nếu im lặng.
+        $this->baoChoKhach($request);
     }
 
     /** Khách rút yêu cầu. Sau khi chốt thì không rút được nữa - lúc đó là hủy đơn, có phí. */

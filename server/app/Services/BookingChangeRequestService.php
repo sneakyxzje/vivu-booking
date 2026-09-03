@@ -7,11 +7,16 @@ use App\Enums\BookingStatus;
 use App\Enums\ChangeRequestStatus;
 use App\Enums\ChangeRequestType;
 use App\Exceptions\BusinessRuleException;
+use App\Mail\BookingCancelledMail;
+use App\Mail\CancelRequestRejectedMail;
 use App\Models\Booking;
 use App\Models\BookingChangeRequest;
 use App\Models\TourSchedule;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 /**
  * F02, F03 - Khách xin hủy, điều hành duyệt.
@@ -176,8 +181,46 @@ class BookingChangeRequestService
                 'review_note' => $ghiChu,
             ]);
 
+            /*
+             * Báo cho khách sau khi giao dịch chốt.
+             *
+             * Đây là bước thiếu lâu nhất của nhóm F: đơn về `cancelled`, một khoản hoàn được lập,
+             * rồi không ai nói với người vừa xin hủy. Ba đường hủy còn lại — khách tự hủy đơn chưa
+             * trả tiền, quản trị hủy thẳng, hủy cả chuyến — đều gửi thư; riêng đường đi qua duyệt
+             * thì im lặng, và khách chỉ biết nếu tự đăng nhập vào xem.
+             *
+             * `afterCommit` chứ không gửi tại chỗ: thư đã bay đi thì không gọi về được, còn giao
+             * dịch thì vẫn có thể quay lại.
+             */
+            DB::afterCommit(fn () => $this->baoDaDuyet((int) $booking->getKey()));
+
             return $locked->fresh(['booking']);
         });
+    }
+
+    /**
+     * Thư báo đơn đã được hủy theo yêu cầu của khách.
+     *
+     * Thư hỏng không được làm hỏng việc đã xong: đơn đã hủy và khoản hoàn đã ghi là sự thật rồi,
+     * máy chủ thư trục trặc thì ghi log để người ta gọi điện. Cùng nguyên tắc đang áp ở
+     * `ScheduleCancellationService::baoChoKhach()`.
+     */
+    private function baoDaDuyet(int $bookingId): void
+    {
+        $don = Booking::query()->with(['tour', 'schedule'])->find($bookingId);
+
+        if (!$don || !$don->customer_email) {
+            return;
+        }
+
+        try {
+            Mail::to($don->customer_email)->send(new BookingCancelledMail($don));
+        } catch (Throwable $e) {
+            Log::warning('Không gửi được thư báo duyệt yêu cầu hủy.', [
+                'booking_id' => $bookingId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /** Từ chối thì bắt buộc có lý do, vì khách sẽ hỏi tại sao. */
@@ -209,10 +252,41 @@ class BookingChangeRequestService
                     ['request_id' => $locked->getKey()],
                     $lyDo,
                 );
+
+                /*
+                 * Từ chối càng phải báo hơn cả duyệt.
+                 *
+                 * Khách đang chờ một câu trả lời và đơn của họ **không** đổi gì cả — im lặng ở đây
+                 * nghĩa là họ tưởng yêu cầu vẫn đang treo, rồi ngày khởi hành tới nơi mà không ai
+                 * nói gì. Lý do từ chối đã bắt buộc phải có ở tầng controller, nên thư này luôn có
+                 * nội dung để giải thích.
+                 */
+                $bookingId = (int) $locked->booking->getKey();
+
+                DB::afterCommit(fn () => $this->baoBiTuChoi($bookingId, $lyDo));
             }
 
             return $locked->fresh(['booking']);
         });
+    }
+
+    /** Thư báo yêu cầu hủy bị từ chối, kèm lý do điều hành đã ghi. */
+    private function baoBiTuChoi(int $bookingId, string $lyDo): void
+    {
+        $don = Booking::query()->with(['tour', 'schedule'])->find($bookingId);
+
+        if (!$don || !$don->customer_email) {
+            return;
+        }
+
+        try {
+            Mail::to($don->customer_email)->send(new CancelRequestRejectedMail($don, $lyDo));
+        } catch (Throwable $e) {
+            Log::warning('Không gửi được thư báo từ chối yêu cầu hủy.', [
+                'booking_id' => $bookingId,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /** Khách rút lại yêu cầu khi chưa ai duyệt. Đơn giữ nguyên, không đụng gì tới chỗ. */

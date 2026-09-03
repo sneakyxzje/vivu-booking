@@ -37,6 +37,7 @@ class ScheduleAutomationTest extends TestCase
             'customer_name' => 'Khach Test',
             'customer_email' => 'khach-test@example.com',
             'adult_count' => 1,
+            'accept_terms' => true,
         ]);
 
         $response->assertUnprocessable()
@@ -69,8 +70,15 @@ class ScheduleAutomationTest extends TestCase
             'tour_id' => $tour->id,
             'status' => ScheduleStatus::Closed->value,
             'start_date' => now()->addDays(10),
-            // Chỉ chuyến đã tới hoặc sắp tới hạn chốt danh sách mới được xét.
-            'booking_deadline' => now()->addHours(2),
+            /*
+             * Hạn chốt đã TRÔI QUA.
+             *
+             * Chuyến chỉ được chốt khi hạn chốt danh sách thật sự qua rồi, không phải khi nó lọt
+             * vào cửa sổ quét của lệnh nền. Cửa sổ ấy để nhìn tới những chuyến sắp tới hạn mà cảnh
+             * báo sớm nếu thiếu khách; dùng nó làm điều kiện chốt thì chuyến ngừng bán trước hạn
+             * đúng bằng độ rộng cửa sổ, trong khi giao diện vẫn in cái hạn cũ ra cho khách đọc.
+             */
+            'booking_deadline' => now()->subMinutes(5),
             'min_people' => 2,
             'booked_people' => 2,
             'max_people' => 10,
@@ -103,6 +111,46 @@ class ScheduleAutomationTest extends TestCase
         Mail::assertQueued(
             BookingConfirmedMail::class,
             fn (BookingConfirmedMail $mail) => $mail->hasTo($booking->customer_email),
+        );
+    }
+
+    /**
+     * Đủ khách rồi vẫn phải bán tiếp cho tới đúng hạn chốt đã công bố.
+     *
+     * Lệnh này quét những chuyến có hạn chốt rơi vào `confirm_window_hours` giờ tới — cửa sổ ấy để
+     * **cảnh báo sớm** khi chuyến thiếu khách, lúc còn kịp quyết chạy hay hủy. Trước đây nó bị dùng
+     * luôn làm điều kiện chốt, nên chuyến đủ khách bị đóng bán sớm hơn hạn đúng bằng độ rộng cửa
+     * sổ: với mặc định 24 giờ, khách mất trọn ngày cuối trước cái mốc mà ô chọn ngày trên trang đặt
+     * tour vẫn đang in ra cho họ đọc.
+     *
+     * Hệ thống không được công bố một hạn rồi tự đóng cửa trước hạn đó.
+     */
+    public function test_du_khach_nhung_chua_toi_han_chot_thi_van_ban_tiep(): void
+    {
+        Mail::fake();
+
+        $tour = Tour::factory()->create();
+        $schedule = TourSchedule::factory()->create([
+            'tour_id' => $tour->id,
+            'status' => ScheduleStatus::Open->value,
+            'start_date' => now()->addDays(10),
+            // Nằm trong cửa sổ quét 24 giờ, nhưng CHƯA tới hạn.
+            'booking_deadline' => now()->addHours(20),
+            'min_people' => 2,
+            'booked_people' => 2,
+            'max_people' => 10,
+        ]);
+
+        $this->taoDonDaThanhToan($tour, $schedule, guests: 2);
+
+        $this->artisan('schedules:confirm-ready')->assertSuccessful();
+
+        $daChay = $schedule->fresh();
+
+        $this->assertSame(ScheduleStatus::Open, $daChay->status);
+        $this->assertTrue(
+            $daChay->isBookable(),
+            'Chuyến phải còn nhận đặt cho tới đúng hạn chốt đã hiện ra cho khách.',
         );
     }
 

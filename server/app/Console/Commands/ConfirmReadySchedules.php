@@ -82,8 +82,9 @@ class ConfirmReadySchedules extends Command
 
         $confirmed = 0;
         $notEnough = 0;
+        $chuaToiHan = 0;
 
-        $query->orderBy('id')->chunkById(100, function ($schedules) use (&$confirmed, &$notEnough) {
+        $query->orderBy('id')->chunkById(100, function ($schedules) use (&$confirmed, &$notEnough, &$chuaToiHan) {
             foreach ($schedules as $schedule) {
                 $paidPeople = $this->paidPeople($schedule);
                 $minPeople = max(1, (int) $schedule->min_people);
@@ -100,6 +101,33 @@ class ConfirmReadySchedules extends Command
                     $this->baoThieuKhach($schedule, $paidPeople, $minPeople);
 
                     $notEnough++;
+
+                    continue;
+                }
+
+                /*
+                 * Đủ khách rồi, nhưng chỉ chốt khi hạn chốt đã THẬT SỰ trôi qua.
+                 *
+                 * Cửa sổ `confirm_window_hours` là để lệnh này NHÌN TỚI những chuyến sắp tới hạn —
+                 * mục đích thật của nó là cảnh báo sớm ở nhánh thiếu khách bên trên, lúc còn kịp
+                 * quyết chạy hay hủy. Dùng chính cửa sổ ấy làm điều kiện chốt thì chuyến bị đóng
+                 * bán sớm hơn hạn đúng bằng độ rộng cửa sổ: chuyến `confirmed` không nhận đặt mới,
+                 * nên với mặc định 24 giờ, khách mất trọn ngày cuối trước cái mốc mà giao diện vẫn
+                 * đang in ra cho họ đọc.
+                 *
+                 * Nói cách khác: hệ thống công bố một hạn rồi tự đóng cửa trước hạn đó. Mốc duy
+                 * nhất đúng để chốt là chính hạn chốt danh sách.
+                 */
+                $hanChot = $schedule->booking_deadline ?? $schedule->defaultBookingDeadline();
+
+                if ($hanChot && now()->lt($hanChot)) {
+                    $this->line(sprintf(
+                        'Chuyến #%d đã đủ khách nhưng còn bán tới %s, chưa chốt.',
+                        $schedule->id,
+                        $hanChot->format('d/m/Y H:i'),
+                    ));
+
+                    $chuaToiHan++;
 
                     continue;
                 }
@@ -130,7 +158,10 @@ class ConfirmReadySchedules extends Command
         });
 
         $this->newLine();
-        $this->info("Đã chốt {$confirmed} chuyến, {$notEnough} chuyến chưa đủ khách.");
+        $this->info(
+            "Đã chốt {$confirmed} chuyến, {$notEnough} chuyến chưa đủ khách, "
+            . "{$chuaToiHan} chuyến đủ khách nhưng chưa tới hạn chốt."
+        );
 
         return self::SUCCESS;
     }
@@ -175,13 +206,27 @@ class ConfirmReadySchedules extends Command
         );
     }
 
-    /** Tổng số khách của các đơn đã trả tiền trên chuyến này. */
+    /**
+     * Tổng số GHẾ của các đơn đã trả tiền trên chuyến này.
+     *
+     * Đếm ghế chứ không đếm người, vì `min_people` được so với `max_people` và cột kia đếm ghế —
+     * `booked_people` cộng lên theo `Booking::tinhSoGhe()`, tức em bé đi cùng bố mẹ không tính.
+     *
+     * Cộng `guests` như trước là đo hai đầu của cùng một trục bằng hai cái thước: một chuyến
+     * `min_people = 4` bán được 2 người lớn kèm 2 em bé sẽ tự chốt chạy, trong khi chỉ có 2 suất
+     * thực sự bán được. Mức khách tối thiểu sinh ra để trả lời "chạy chuyến này có đủ bù chi phí
+     * không", và em bé không trả tiền thì không bù được gì.
+     *
+     * Đọc qua `seatsTaken()` thay vì cột `seats` để đơn tạo trước migration 2026_09_02_000002 —
+     * cột ấy bằng 0 vì chưa backfill — vẫn lùi về `guests` đúng như mọi chỗ khác trong hệ thống.
+     */
     private function paidPeople(TourSchedule $schedule): int
     {
         return (int) Booking::query()
             ->where('tour_schedule_id', $schedule->id)
             ->whereIn('status', BookingStatus::paidValues())
-            ->sum('guests');
+            ->get(['id', 'seats', 'guests'])
+            ->sum(fn (Booking $don): int => $don->seatsTaken());
     }
 
     /**

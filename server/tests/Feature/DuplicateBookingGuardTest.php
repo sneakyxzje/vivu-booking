@@ -59,6 +59,7 @@ class DuplicateBookingGuardTest extends TestCase
             'customer_email' => 'khach@example.com',
             'customer_phone' => '0901234567',
             'adult_count' => 2,
+            'accept_terms' => true,
         ], $ghiDe);
     }
 
