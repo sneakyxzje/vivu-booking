@@ -310,11 +310,8 @@ export default function TourDetail() {
           />
 
           {/* Right Sidebar Component */}
-          <TourRightSidebar
-            tour={tour}
-            selectedSchedule={selectedSchedule}
-            onScheduleChange={setSelectedSchedule}
-          />
+          {/* Thanh bên chỉ đọc: chọn ngày nằm ở bảng lịch khởi hành trong `TourLeftDetails`. */}
+          <TourRightSidebar tour={tour} selectedSchedule={selectedSchedule} />
 
         </div>
       </div>

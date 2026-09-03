@@ -16,8 +16,14 @@ import {
 
 interface TourRightSidebarProps {
   tour: Tour;
+  /**
+   * Chuyến đang chọn, do bảng "Lịch trình khởi hành" ở cột nội dung quyết định.
+   *
+   * Thanh bên chỉ ĐỌC, không đổi lựa chọn nữa — nên không còn `onScheduleChange`. Hai nơi cùng
+   * sửa một trạng thái thì phải nhìn giống nhau, mà ô xổ xuống ở đây không hiện được giá, số chỗ
+   * hay lý do chặn của từng ngày như bảng kia.
+   */
   selectedSchedule: TourSchedule | null;
-  onScheduleChange: (schedule: TourSchedule) => void;
 }
 
 const formatPrice = (value: number | string) =>
@@ -33,7 +39,6 @@ const getUnavailableReason = (schedule: TourSchedule | null, tour: Tour) =>
 export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
   tour,
   selectedSchedule,
-  onScheduleChange,
 }) => {
   const navigate = useNavigate();
 
@@ -42,14 +47,6 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
     ? (selectedSchedule.booked_people / selectedSchedule.max_people) * 100
     : 0;
   const selectedUnavailableReason = getUnavailableReason(selectedSchedule, tour);
-
-  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const sId = Number(e.target.value);
-    const found = tour.schedules?.find((s) => s.id === sId) ?? null;
-    if (found && isScheduleBookable(found, tour.status)) {
-      onScheduleChange(found);
-    }
-  };
 
   const handleBooking = () => {
     if (!selectedSchedule || !isScheduleBookable(selectedSchedule, tour.status)) return;
@@ -75,27 +72,28 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
           </div>
         </div>
 
+        {/*
+          Không còn ô chọn ngày ở đây.
+
+          Bảng "Lịch trình khởi hành" ở cột nội dung đã là chỗ chọn ngày, và nó hiện sẵn giá, số
+          chỗ, hạn chốt cùng lý do không đặt được của từng chuyến. Giữ thêm một ô xổ xuống ở thanh
+          bên là hai chỗ làm cùng một việc trên cùng một trang, mà cái ở đây lại nghèo thông tin
+          hơn hẳn — người dùng chọn ở đâu cũng được nhưng nhìn thấy hai thứ khác nhau.
+
+          Thanh bên giữ phần **báo lại chuyến đang chọn**: còn mấy chỗ, hạn chốt, và nút đặt.
+        */}
         <div className="border-t border-gray-100 pt-4">
           <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-            Chọn Ngày Khởi Hành
+            Ngày khởi hành đang chọn
           </label>
 
           {tour.schedules?.length ? (
             <div className="space-y-3">
-              <select
-                value={selectedSchedule?.id || ""}
-                onChange={handleSelectChange}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-3.5 text-sm font-semibold text-gray-800 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all duration-300"
-              >
-                {tour.schedules.map((schedule) => {
-                  const reason = getUnavailableReason(schedule, tour);
-                  return (
-                    <option key={schedule.id} value={schedule.id} disabled={Boolean(reason)}>
-                      {formatDateTime(schedule.start_date)}{reason ? ` (${reason})` : ""}
-                    </option>
-                  );
-                })}
-              </select>
+              <p className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-800">
+                {selectedSchedule
+                  ? formatDateTime(selectedSchedule.start_date)
+                  : "Chọn một ngày ở bảng Lịch trình khởi hành"}
+              </p>
 
               {selectedSchedule && (
                 <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 text-xs">
