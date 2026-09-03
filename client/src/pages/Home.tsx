@@ -17,7 +17,6 @@ import {
   HotelIcon,
   MagnifyingGlassIcon,
   ExclamationTriangleIcon,
-  InboxIcon,
   EnvelopeIcon,
   CurrencyDollarIcon,
   ShieldCheckIcon,
@@ -140,27 +139,13 @@ const TourGridError: React.FC<TourGridErrorProps> = ({ message, onRetry }) => (
   </div>
 );
 
-interface TourGridEmptyProps {
-  onClearFilters: () => void;
-}
-
-const TourGridEmpty: React.FC<TourGridEmptyProps> = ({ onClearFilters }) => (
-  <div className="text-center py-16 bg-white rounded-xl border border-gray-100 shadow-sm max-w-lg mx-auto flex flex-col items-center">
-    <InboxIcon className="w-12 h-12 text-gray-300 mb-4" />
-    <h3 className="text-lg font-bold text-gray-800">
-      Không tìm thấy tour phù hợp
-    </h3>
-    <p className="text-sm text-gray-500 mt-2">
-      Hãy thử thay đổi từ khóa tìm kiếm hoặc lọc theo danh mục khác nhé.
-    </p>
-    <button
-      onClick={onClearFilters}
-      className="mt-6 inline-flex items-center gap-2 bg-primary-50 text-primary-600 font-semibold text-sm px-5 py-2.5 rounded-full hover:bg-primary-100 transition-colors cursor-pointer"
-    >
-      Xóa bộ lọc
-    </button>
-  </div>
-);
+/*
+ * `TourGridEmpty` đã bị bỏ cùng với phép lọc tại chỗ.
+ *
+ * Nó tồn tại để nói "không tìm thấy tour phù hợp, hãy xóa bộ lọc" — một câu chỉ có nghĩa khi trang
+ * chủ tự lọc lấy. Giờ mọi phép lọc dẫn sang `/tours`, nên trang chủ không còn trạng thái "lọc xong
+ * không còn gì"; nó chỉ có thể trống khi công ty thật sự chưa có tour nào đang bán.
+ */
 
 // ── HOME PAGE ───────────────────────────────────────────────────────────────────
 
@@ -242,18 +227,45 @@ export const Home: React.FC = () => {
     }
   };
 
-  const [filteredTours, setFilteredTours] = useState<Tour[]>([]);
+  /**
+   * Số tour trưng bày trên trang chủ.
+   *
+   * Trang chủ là cửa vào, không phải danh mục. Toàn bộ việc duyệt và lọc thuộc về `/tours`, nơi đã
+   * có phân trang và lọc phía máy chủ đầy đủ.
+   */
+  const SO_TOUR_TRUNG_BAY = 8;
+
+  const [tongSoTour, setTongSoTour] = useState(0);
 
   // ── DATA FETCHING ────────────────────────────────────────────────────────────
 
+  /*
+   * Xin đúng số tour cần trưng, và giữ lại `meta.total`.
+   *
+   * Trước đây lời gọi này không truyền tham số nào, nên máy chủ trả trang một với mười hai tour rồi
+   * trang chủ vứt `meta` đi — tour thứ mười ba trở đi vô hình, và không có dòng nào nói là còn nữa.
+   *
+   * Giữ `total` để nút "Xem tất cả" nói được con số thật. Một lời mời ghi rõ "xem tất cả 56 tour"
+   * khác hẳn một chữ "xem thêm" chung chung: nó cho người đọc biết cái họ đang nhìn chỉ là một phần.
+   */
+  /*
+   * Không đặt trạng thái nào TRƯỚC lời gọi mạng.
+   *
+   * `loading` vốn khởi tạo là `true`, nên lần tải đầu không cần bật lại. Bật ở đây khiến hàm đổi
+   * trạng thái ngay trong thân effect — React gọi đó là đổ thác và cảnh báo đúng: mỗi lần vào trang
+   * sinh thừa một lượt vẽ lại. Nút thử lại thì cần, và nó tự lo lấy ở `thuLai()`.
+   */
   const fetchTours = async () => {
-    setLoading(true);
-    setError(null);
     try {
-      const res = await tourService.getAll();
+      const res = await tourService.getAll({
+        per_page: SO_TOUR_TRUNG_BAY,
+        sort: "featured",
+      });
+
       if (res.success) {
         setTours(res.data);
-        setFilteredTours(res.data);
+        setTongSoTour(res.meta.total);
+        setError(null);
       } else {
         setError("Không thể tải danh sách tour du lịch.");
       }
@@ -265,63 +277,32 @@ export const Home: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchTours();
-  }, []);
-
-  // ── CLIENT-SIDE FILTER ───────────────────────────────────────────────────────
-  // Khi có API thật, thay thế bằng cách truyền params vào tourService.getAll()
-  // và bỏ logic filter này đi.
-
-  const applyFilters = (overrides?: {
-    dest?: string;
-    start?: string;
-    category?: string;
-    duration?: string;
-  }) => {
-    const dest = overrides?.dest ?? searchDest;
-    const start = overrides?.start ?? searchStart;
-    const category = overrides?.category ?? selectedCategory;
-    const duration = overrides?.duration ?? selectedDuration;
-
-    let result = [...tours];
-
-    if (dest.trim()) {
-      const q = dest.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          (t.end_location && t.end_location.toLowerCase().includes(q)),
-      );
-    }
-
-    if (start.trim()) {
-      const q = start.toLowerCase();
-      result = result.filter((t) => t.start_location.toLowerCase().includes(q));
-    }
-
-    if (duration !== "all") {
-      if (duration === "1")
-        result = result.filter((t) => t.number_of_days === 1);
-      if (duration === "2-3")
-        result = result.filter(
-          (t) => t.number_of_days >= 2 && t.number_of_days <= 3,
-        );
-      if (duration === "4+")
-        result = result.filter((t) => t.number_of_days >= 4);
-    }
-
-    if (category !== "all") {
-      result = result.filter((t) =>
-        t.categories?.some((c) => c.slug === category),
-      );
-    }
-
-    setFilteredTours(result);
+  const thuLai = () => {
+    setLoading(true);
+    void fetchTours();
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    void fetchTours();
+  }, []);
+
+  /*
+   * ── MỌI PHÉP LỌC ĐỀU DẪN SANG /tours ─────────────────────────────────────────
+   *
+   * Trước đây màn này có hai kiểu lọc ngược nhau. Ô tìm kiếm chính chuyển sang `/tours` để máy chủ
+   * lọc trên toàn bộ danh mục; còn các chip danh mục và số ngày thì lọc ngay tại chỗ, trong đúng
+   * mười hai tour của trang một.
+   *
+   * Kiểu thứ hai hỏng theo cách khó thấy nhất: bấm chip "Khám phá" mà mọi tour thuộc danh mục ấy
+   * nằm từ vị trí mười ba trở đi thì trang chủ báo "không tìm thấy" cho những tour đang bán bình
+   * thường. Người dùng tin là không có, và đóng trang.
+   *
+   * Nên các chip giờ đi cùng một đường với ô tìm kiếm. Một kiểu lọc, chạy trên toàn bộ danh mục,
+   * và không có bản sao nào để lệch nhau về sau.
+   */
+  const chuyenSangDanhMuc = (ghiDe?: { category?: string; duration?: string }) => {
+    const category = ghiDe?.category ?? selectedCategory;
+    const duration = ghiDe?.duration ?? selectedDuration;
 
     const params = new URLSearchParams();
     const keyword = searchDest.trim();
@@ -329,29 +310,26 @@ export const Home: React.FC = () => {
 
     if (keyword) params.set("q", keyword);
     if (startLocation) params.set("start_location", startLocation);
-    if (selectedDuration !== "all") params.set("duration", selectedDuration);
-    if (selectedCategory !== "all") params.set("categories", selectedCategory);
+    if (duration !== "all") params.set("duration", duration);
+    if (category !== "all") params.set("categories", category);
 
     const queryString = params.toString();
     navigate(queryString ? `/tours?${queryString}` : "/tours");
   };
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    chuyenSangDanhMuc();
+  };
+
   const handleCategoryChange = (id: string) => {
     setSelectedCategory(id);
-    applyFilters({ category: id });
+    chuyenSangDanhMuc({ category: id });
   };
 
   const handleDurationChange = (val: string) => {
     setSelectedDuration(val);
-    applyFilters({ duration: val });
-  };
-
-  const handleClearFilters = () => {
-    setSearchDest("");
-    setSearchStart("");
-    setSelectedCategory("all");
-    setSelectedDuration("all");
-    setFilteredTours(tours);
+    chuyenSangDanhMuc({ duration: val });
   };
 
   // ── RENDER ───────────────────────────────────────────────────────────────────
@@ -509,19 +487,46 @@ export const Home: React.FC = () => {
         {loading && <TourGridSkeleton />}
 
         {!loading && error && tours.length === 0 && (
-          <TourGridError message={error} onRetry={fetchTours} />
+          <TourGridError message={error} onRetry={thuLai} />
         )}
 
-        {!loading && !error && filteredTours.length === 0 && (
-          <TourGridEmpty onClearFilters={handleClearFilters} />
+        {!loading && !error && tours.length === 0 && (
+          <p className="rounded-xl border border-gray-200 bg-white py-12 text-center text-sm text-gray-500">
+            Chưa có tour nào đang mở bán.
+          </p>
         )}
 
-        {!loading && filteredTours.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {filteredTours.map((tour) => (
-              <TourCard key={tour.id} tour={tour} />
-            ))}
-          </div>
+        {!loading && tours.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {tours.map((tour) => (
+                <TourCard key={tour.id} tour={tour} />
+              ))}
+            </div>
+
+            {/*
+              Nói thẳng đây chỉ là một phần, và còn bao nhiêu nữa.
+
+              Không có dòng này thì lưới tour trông như toàn bộ những gì công ty có — người đọc đếm
+              được tám cái và kết luận là hết. Con số thật lấy từ `meta.total` của cùng lời gọi API,
+              nên nó không thể lệch với thực tế.
+            */}
+            {tongSoTour > tours.length && (
+              <div className="mt-10 text-center">
+                <p className="text-sm text-gray-500">
+                  Đang hiển thị {tours.length} trong tổng số{" "}
+                  <span className="font-bold text-gray-900">{tongSoTour}</span> tour
+                </p>
+                <Link
+                  to="/tours"
+                  className="mt-4 inline-flex items-center gap-2 rounded-full border border-primary-200 bg-white px-8 py-3 text-sm font-bold text-primary-700 shadow-sm transition-all hover:bg-primary-50 hover:shadow-md"
+                >
+                  Xem tất cả {tongSoTour} tour
+                  <span aria-hidden="true">→</span>
+                </Link>
+              </div>
+            )}
+          </>
         )}
       </section>
 
