@@ -12,16 +12,29 @@
             <td align="center">
                 <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:640px;max-width:94%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
                     <tr>
-                        <td style="background:#16a34a;padding:24px 28px;color:#ffffff;">
-                            <h1 style="margin:0;font-size:22px;line-height:1.35;">Thanh toán thành công</h1>
-                            <p style="margin:8px 0 0;font-size:14px;opacity:.92;">Đơn đặt tour #{{ $booking->id }} đã được xác nhận</p>
+                        {{-- Tiêu đề nói đúng lần thanh toán này là lần nào. Gọi một khoản cọc là
+                             "thanh toán thành công" là nói với khách rằng họ không còn gì phải làm,
+                             rồi vài tuần sau đơn bị hủy vì chưa trả nốt. --}}
+                        <td style="background:{{ $conNo > 0 ? '#0b817a' : '#16a34a' }};padding:24px 28px;color:#ffffff;">
+                            <h1 style="margin:0;font-size:22px;line-height:1.35;">
+                                {{ $conNo > 0 ? 'Đã nhận tiền cọc' : 'Thanh toán thành công' }}
+                            </h1>
+                            <p style="margin:8px 0 0;font-size:14px;opacity:.92;">
+                                Đơn đặt tour #{{ $booking->id }}
+                                {{ $conNo > 0 ? 'đã được giữ chỗ' : 'đã được xác nhận' }}
+                            </p>
                         </td>
                     </tr>
                     <tr>
                         <td style="padding:26px 28px;">
                             <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
                                 Kính chào <strong>{{ $booking->customer_name }}</strong>,
-                                Vivu Booking đã ghi nhận thanh toán thành công cho đơn đặt tour của Quý khách
+                                @if ($conNo > 0)
+                                    Vivu Booking đã nhận được tiền cọc và giữ chỗ cho Quý khách. Còn một
+                                    khoản cần thanh toán trước ngày đi.
+                                @else
+                                    Vivu Booking đã ghi nhận thanh toán thành công cho đơn đặt tour của Quý khách.
+                                @endif
                             </p>
 
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:18px 0;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
@@ -58,13 +71,42 @@
                                     <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Mã giao dịch VNPay</td>
                                     <td style="padding:12px 14px;font-size:13px;font-weight:700;">{{ $booking->vnpay_transaction_no ?? 'Đang cập nhật' }}</td>
                                 </tr>
+                                {{-- Số đã thu đọc từ SỔ, không lấy `total_amount`: hai con số ấy chỉ
+                                     bằng nhau khi đơn đã trả xong, và lá thư này gửi cả lúc chưa. --}}
                                 <tr>
-                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Số tiền đã thanh toán</td>
+                                    <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">
+                                        {{ $conNo > 0 ? 'Đã thanh toán (tiền cọc)' : 'Số tiền đã thanh toán' }}
+                                    </td>
                                     <td style="padding:12px 14px;font-size:18px;font-weight:800;color:#16a34a;">
-                                        {{ number_format((float) $booking->total_amount, 0, ',', '.') }} VNĐ
+                                        {{ number_format($daThu, 0, ',', '.') }} VNĐ
                                     </td>
                                 </tr>
+                                @if ($conNo > 0)
+                                    <tr>
+                                        <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Còn phải thanh toán</td>
+                                        <td style="padding:12px 14px;font-size:18px;font-weight:800;color:#b45309;">
+                                            {{ number_format($conNo, 0, ',', '.') }} VNĐ
+                                        </td>
+                                    </tr>
+                                    @if ($hanTraNot)
+                                        <tr>
+                                            <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Hạn thanh toán phần còn lại</td>
+                                            <td style="padding:12px 14px;font-size:15px;font-weight:700;">
+                                                {{ $hanTraNot->format('d/m/Y') }}
+                                            </td>
+                                        </tr>
+                                    @endif
+                                @endif
                             </table>
+
+                            @if ($conNo > 0)
+                                <p style="margin:14px 0 0;font-size:13px;color:#7c2d12;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px 14px;line-height:1.6;">
+                                    <strong>Xin lưu ý:</strong> phần còn lại cần được thanh toán trước
+                                    @if ($hanTraNot) ngày <strong>{{ $hanTraNot->format('d/m/Y') }}</strong> @endif.
+                                    Chúng tôi sẽ gửi thư nhắc trước hạn. Quá hạn mà chưa nhận được thanh toán,
+                                    đơn sẽ được hủy và khoản đặt cọc không được hoàn lại.
+                                </p>
+                            @endif
 
                             <p style="margin:14px 0 0;font-size:13px;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 14px;">
                                 Quý khách vui lòng có mặt tại điểm đón trước giờ khởi hành ít nhất 30 phút và mang theo giấy tờ tùy thân.

@@ -100,8 +100,22 @@ const isPendingStatus = (status: string) =>
 const isCancelledStatus = (status: string) =>
   ["cancelled", "failed", "hủy", "đã hủy"].includes(status.toLowerCase());
 
-const getStatusBadge = (status: string) => {
+/**
+ * Nhãn trạng thái.
+ *
+ * `conNo` tách "đã cọc" khỏi "đã thanh toán": cả hai đều mang trạng thái `confirmed` ở máy chủ,
+ * nhưng với khách thì một bên còn việc phải làm và một bên thì không.
+ */
+const getStatusBadge = (status: string, conNo = 0) => {
   if (isPaidStatus(status)) {
+    if (conNo > 0) {
+      return (
+        <span className="bg-teal-50 text-teal-700 border border-teal-200 text-xs font-bold px-3 py-1 rounded-full">
+          Đã cọc
+        </span>
+      );
+    }
+
     return (
       <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-1 rounded-full">
         Đã thanh toán
@@ -323,14 +337,27 @@ export default function BookingSuccess() {
   const discountAmount = Number(booking.discount_amount ?? 0);
   const subtotalAmount = Number(booking.total_amount) + discountAmount;
   const guestBreakdown = `${booking.adult_count ?? 0} người lớn, ${booking.child_count ?? 0} trẻ em, ${booking.infant_count ?? 0} em bé`;
-  const headerTitle = paid
-    ? "Thanh toán thành công!"
-    : cancelled
-      ? "Đơn đặt tour đã bị hủy"
-      : paymentStatus === "failed"
-        ? "Thanh toán chưa hoàn tất"
-        : "Đặt tour thành công!";
-  const headerDescription = paid
+  /*
+   * Đơn đã xác nhận mà vẫn còn nợ thì chưa phải "đã thanh toán".
+   *
+   * Trạng thái `confirmed` giờ có hai nghĩa: đã trả xong, hoặc mới cọc và chỗ đã được giữ. Gọi cả
+   * hai là "Thanh toán thành công" nói với người mới cọc rằng họ không còn gì phải làm — rồi vài
+   * tuần sau đơn của họ bị hủy vì chưa trả nốt.
+   */
+  const daCocChuaDu = paid && remainingAmount > 0;
+
+  const headerTitle = daCocChuaDu
+    ? "Đã nhận tiền cọc, chỗ của bạn được giữ"
+    : paid
+      ? "Thanh toán thành công!"
+      : cancelled
+        ? "Đơn đặt tour đã bị hủy"
+        : paymentStatus === "failed"
+          ? "Thanh toán chưa hoàn tất"
+          : "Đặt tour thành công!";
+  const headerDescription = daCocChuaDu
+    ? `Booking BK${booking.id} đã được giữ chỗ. Còn ${formatCurrency(remainingAmount)} cần thanh toán${booking.balance_due_at ? ` trước ngày ${formatDateTime(booking.balance_due_at)}` : ""}; chúng tôi đã gửi chi tiết về ${booking.customer_email}.`
+    : paid
     ? `Booking BK${booking.id} đã được xác nhận. Thông tin hóa đơn và phiếu xác nhận đã được gửi về ${booking.customer_email}.`
     : cancelled
       ? `Đơn BK${booking.id} đã bị hủy${booking.cancel_reason ? ` — lý do: ${booking.cancel_reason}` : ""}. Nếu bạn đã thanh toán cho đơn này, chúng tôi sẽ liên hệ hoàn tiền. Cần hỗ trợ vui lòng liên hệ hotline.`
@@ -381,7 +408,7 @@ export default function BookingSuccess() {
               <h1 className="text-2xl md:text-2xl font-bold text-gray-900 font-plus-jakarta tracking-tight">
                 {headerTitle}
               </h1>
-              <span className="md:ml-2">{getStatusBadge(booking.status)}</span>
+              <span className="md:ml-2">{getStatusBadge(booking.status, remainingAmount)}</span>
             </div>
             <p className="mt-1.5 text-sm text-gray-500 leading-relaxed max-w-3xl">
               {headerDescription}
@@ -565,7 +592,7 @@ export default function BookingSuccess() {
                   <span className="text-gray-500 font-medium">
                     Trạng thái đặt chỗ
                   </span>
-                  <span>{getStatusBadge(booking.status)}</span>
+                  <span>{getStatusBadge(booking.status, remainingAmount)}</span>
                 </div>
               </div>
 
@@ -827,7 +854,7 @@ export default function BookingSuccess() {
                     <span className="font-medium text-gray-400">
                       Trạng thái
                     </span>
-                    <span>{getStatusBadge(booking.status)}</span>
+                    <span>{getStatusBadge(booking.status, remainingAmount)}</span>
                   </div>
                   <div className="border-t border-gray-200/60 pt-4 flex justify-between items-baseline">
                     <span className="font-bold text-gray-800 text-sm">

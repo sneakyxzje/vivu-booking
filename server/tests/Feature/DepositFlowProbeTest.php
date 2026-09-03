@@ -211,6 +211,53 @@ class DepositFlowProbeTest extends TestCase
         $this->assertEquals(self::CON_LAI, $res->json('data.balance_due'));
     }
 
+    /**
+     * Đặt tour sát ngày khởi hành thì phải trả ĐỦ, không có cọc.
+     *
+     * Hạn trả nốt là ngày đi trừ mười ngày, nên khách đặt chuyến khởi hành tuần sau có hạn ấy nằm ở
+     * quá khứ. Cho họ cọc là sinh ra một đơn quá hạn ngay lúc vừa tạo: trang tra cứu báo đỏ "đã quá
+     * hạn thanh toán" trước cả khi khách đóng tab, và sáng hôm sau lệnh hủy quét đơn ấy — mất cọc vì
+     * một cái hạn không ai kịp làm gì.
+     *
+     * Đây cũng là thông lệ của ngành: tour khởi hành trong tuần thì thu đủ, cọc là ưu đãi dành cho
+     * người đặt sớm.
+     */
+    public function test_dat_sat_ngay_thi_thu_du_khong_cho_coc(): void
+    {
+        Mail::fake();
+
+        $satNgay = TourSchedule::create([
+            'tour_id' => $this->tour->id,
+            'status' => ScheduleStatus::Open->value,
+            'start_date' => now()->addDays(7),
+            'end_date' => now()->addDays(8),
+            'booking_deadline' => now()->addDays(4),
+            'max_people' => 20,
+            'min_people' => 2,
+            'booked_people' => 0,
+        ]);
+
+        $this->postJson('/api/bookings', [
+            'tour_id' => $this->tour->id,
+            'tour_schedule_id' => $satNgay->id,
+            'customer_name' => 'Khach Dat Gap',
+            'customer_email' => 'gap-' . Str::random(5) . '@example.com',
+            'customer_phone' => '0901234567',
+            'adult_count' => 2,
+            'accept_terms' => true,
+        ])->assertStatus(201)
+            ->assertJsonPath('data.deposit_amount', self::TONG)
+            ->assertJsonPath('data.balance_amount', 0);
+
+        $don = Booking::query()->latest('id')->firstOrFail();
+
+        $this->assertEquals(
+            self::TONG,
+            $this->so()->nextPaymentAmount($don),
+            'Hạn trả nốt đã qua thì không còn hai đợt, phải thu đủ ngay.',
+        );
+    }
+
     // --- Chặng 2: khách tự trả nốt trước ngày đi ---------------------------------------------
 
     /** Trang tra cứu phải đưa ra liên kết trả nốt, đúng phần còn thiếu. */

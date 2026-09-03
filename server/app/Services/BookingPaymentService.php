@@ -558,6 +558,23 @@ class BookingPaymentService
             return $conThieu;
         }
 
+        /*
+         * Đặt sát ngày khởi hành thì KHÔNG có hai đợt — thu đủ ngay.
+         *
+         * Hạn trả nốt là ngày khởi hành trừ mười ngày, nên khách đặt tour đi trong tuần tới có hạn
+         * ấy nằm ở quá khứ. Cho họ cọc nghĩa là tạo ra một đơn quá hạn ngay lúc vừa sinh: trang tra
+         * cứu báo đỏ "đã quá hạn thanh toán" trước cả khi họ đóng tab, và sáng hôm sau lệnh hủy
+         * quét đơn ấy — khách mất cọc vì một cái hạn không ai kịp làm gì.
+         *
+         * Đây cũng là cách các hãng vẫn bán: cọc là ưu đãi cho người đặt sớm, đổi lại công ty có
+         * thời gian xoay xở. Không còn thời gian thì không còn cọc.
+         */
+        $hanTraNot = $booking->balanceDueAt();
+
+        if ($hanTraNot && now()->gte($hanTraNot)) {
+            return $conThieu;
+        }
+
         return min($conThieu, $booking->depositAmount());
     }
 
