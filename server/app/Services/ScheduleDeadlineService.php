@@ -378,17 +378,35 @@ class ScheduleDeadlineService
 
         $hanTraNot = $khoiHanh->copy()->subDays((int) config('booking.balance_due_days', 10));
 
-        if ($hanChotMoi->gte($hanTraNot)) {
+        /*
+         * Không đủ nếu hạn chốt chỉ cần đứng SAU hạn trả nốt — nó phải đứng sau đủ xa.
+         *
+         * Lượt hủy sớm nhất không rơi đúng vào hạn trả nốt mà muộn hơn: lệnh nhắc chạy mỗi ngày một
+         * lần nên thư sớm nhất đi vào hôm sau, rồi còn `balance_final_notice_days` ngày ân hạn kể
+         * từ lá thư ấy. Cộng lại là `ân hạn + 1` ngày sau hạn trả nốt.
+         *
+         * Hạn chốt đặt bên trong khoảng đó thì đã trôi qua vào lúc lượt hủy xảy ra, và
+         * `BookingHoldService::shouldReleaseSeats()` giữ nguyên số chỗ — mọi lượt hủy vì quá hạn
+         * thanh toán để lại một ghế chết. Đúng thứ luật này sinh ra để chặn, chỉ là lọt ở rìa.
+         *
+         * Với bộ mặc định (trả nốt 10 ngày, ân hạn 2, hạn chốt 3): mốc tối thiểu là ngày đi trừ 7,
+         * và hạn chốt ở ngày đi trừ 3 nằm thoải mái phía sau.
+         */
+        $anHan = (int) config('booking.balance_final_notice_days', 2);
+        $somNhat = $hanTraNot->copy()->addDays($anHan + 1);
+
+        if ($hanChotMoi->gte($somNhat)) {
             return null;
         }
 
         return sprintf(
-            'Hạn chốt danh sách (%s) không được sớm hơn hạn thanh toán phần còn lại (%s). '
-            . 'Tiền của khách phải về trước khi danh sách gửi đi nhà cung cấp, và khoảng giữa hai '
-            . 'mốc là thời gian để bán lại chỗ của khách bỏ cọc. Đảo thứ tự thì mọi lượt hủy đều '
-            . 'để lại một chỗ không bán lại được.',
+            'Hạn chốt danh sách (%s) quá sát hạn thanh toán phần còn lại (%s) — sớm nhất phải là %s. '
+            . 'Tiền của khách phải về trước khi danh sách gửi đi nhà cung cấp, và khoảng giữa hai mốc '
+            . 'là thời gian để bán lại chỗ của khách bỏ cọc. Đặt sát hơn thì lượt hủy vì quá hạn xảy '
+            . 'ra sau khi đã chốt danh sách, nên mỗi lần hủy để lại một chỗ không bán lại được.',
             $hanChotMoi->format('d/m/Y H:i'),
             $hanTraNot->format('d/m/Y H:i'),
+            $somNhat->format('d/m/Y H:i'),
         );
     }
 

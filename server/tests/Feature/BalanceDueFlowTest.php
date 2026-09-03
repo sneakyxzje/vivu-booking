@@ -449,34 +449,27 @@ class BalanceDueFlowTest extends TestCase
      * Khoảng giữa hai mốc chính là cửa sổ bán lại. Đảo thứ tự thì chỗ của người bỏ cọc không bán
      * lại được nữa, và mọi lượt hủy tự động đều để lại một ghế chết.
      */
-    public function test_han_chot_khong_duoc_som_hon_han_tra_not(): void
+    public function test_han_chot_phai_cach_han_tra_not_du_xa(): void
     {
         $khoiHanh = now()->addDays(25);
-        $hanTraNot = (int) config('booking.balance_due_days', 10);
+        $hanTraNot = (int) config('booking.balance_due_days', 10);   // 10
+        $anHan = (int) config('booking.balance_final_notice_days', 2); // 2
 
-        $this->assertNotNull(
-            \App\Services\ScheduleDeadlineService::lyDoDaoNguocHaiHan(
-                $khoiHanh,
-                $khoiHanh->copy()->subDays($hanTraNot + 10),
-            ),
-            'Hạn chốt 20 ngày trước khi đi thì sớm hơn hạn trả nốt — phải bị chặn.',
+        // Lượt hủy sớm nhất rơi vào hạn trả nốt + (ân hạn + 1) ngày, tức ngày đi trừ 7 với bộ mặc
+        // định. Hạn chốt phải nằm từ mốc ấy trở đi thì chỗ mới còn kịp về kho.
+        $somNhat = $hanTraNot - $anHan - 1; // 7
+
+        $chan = fn (int $truocNgayDi) => \App\Services\ScheduleDeadlineService::lyDoDaoNguocHaiHan(
+            $khoiHanh,
+            $khoiHanh->copy()->subDays($truocNgayDi),
         );
 
-        $this->assertNull(
-            \App\Services\ScheduleDeadlineService::lyDoDaoNguocHaiHan(
-                $khoiHanh,
-                $khoiHanh->copy()->subDays(3),
-            ),
-            'Hạn chốt mặc định nằm sau hạn trả nốt — hợp lệ.',
-        );
+        $this->assertNull($chan(3), 'Hạn chốt mặc định 3 ngày — thoải mái sau mốc tối thiểu.');
+        $this->assertNull($chan($somNhat), 'Đúng mốc tối thiểu vẫn chấp nhận.');
 
-        $this->assertNull(
-            \App\Services\ScheduleDeadlineService::lyDoDaoNguocHaiHan(
-                $khoiHanh,
-                $khoiHanh->copy()->subDays($hanTraNot),
-            ),
-            'Trùng đúng hạn trả nốt vẫn chấp nhận: cửa sổ bán lại bằng 0 chứ không âm.',
-        );
+        $this->assertNotNull($chan($somNhat + 1), 'Sát hơn một ngày là lượt hủy rơi sau hạn chốt.');
+        $this->assertNotNull($chan($hanTraNot), 'Trùng đúng hạn trả nốt: mọi lượt hủy đều thành ghế chết.');
+        $this->assertNotNull($chan($hanTraNot + 1), 'Sớm hơn hạn trả nốt: đảo hẳn thứ tự hai mốc.');
     }
 
     // --- Lá thư gửi trước khi đổi chuyến thì coi như chưa gửi ---------------------------------
