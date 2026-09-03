@@ -1639,22 +1639,13 @@ const adminService = {
 
   // Không còn `reopenBooking`: hủy là trạng thái kết thúc, hủy nhầm thì đặt lại đơn mới.
 
-  // --- CHÍNH SÁCH HỦY ---
   /*
-   * Một bảng phí hủy duy nhất cho toàn hệ thống — không còn danh sách, không tạo, không xóa.
-   * Máy chủ tự dựng bảng mặc định nếu cơ sở dữ liệu chưa có gì, nên hàm này không trả về null.
+   * Không còn hàm đọc/ghi chính sách hủy.
+   *
+   * Bảng phí là hằng số của hệ thống (`CancellationPolicyService::DEFAULT_RULES`), và trang chính
+   * sách phía khách vẫn đọc nó qua điểm cuối công khai `/policies`. Đường SỬA thì đóng: bậc phí
+   * buộc chặt với tỷ lệ cọc và hạn trả nốt, nên một ô nhập cho phép phá mối buộc ấy trong im lặng.
    */
-  getCancellationPolicy: async (): Promise<CancellationPolicy | null> => {
-    const response = await api.get("/admin/cancellation-policies");
-    return extractObject<CancellationPolicy>(response);
-  },
-
-  updateCancellationPolicy: async (
-    payload: CancellationPolicyPayload,
-  ): Promise<CancellationPolicy | null> => {
-    const response = await api.put("/admin/cancellation-policies", payload);
-    return extractObject<CancellationPolicy>(response);
-  },
 
   // --- GUIDES ---
   getGuides: async (page = 1): Promise<PaginatedResponse<Guide> | null> => {

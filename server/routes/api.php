@@ -56,7 +56,6 @@ use App\Http\Controllers\Api\Admin\AdminContactLogController;
 use App\Http\Controllers\Api\Admin\AdminTransferController;
 use App\Http\Controllers\Api\Admin\AdminDiscountCodeController;
 use App\Http\Controllers\Api\Admin\AdminAttendanceController;
-use App\Http\Controllers\Api\Admin\AdminCancellationPolicyController;
 use App\Http\Controllers\Api\Admin\AdminCategoryController;
 use App\Http\Controllers\Api\Admin\AdminContactMessageController;
 use App\Http\Controllers\Api\Admin\AdminReviewController;
@@ -489,13 +488,22 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         Route::apiResource('categories', AdminCategoryController::class);
 
         /*
-         * Chính sách hủy: **một bảng phí duy nhất**, không phải danh sách.
+         * Chính sách hủy KHÔNG còn sửa được từ màn quản trị.
          *
-         * Chỉ còn đọc và ghi — không tạo, không xóa. Đường dẫn giữ dạng số nhiều cho khỏi phải
-         * sửa mọi chỗ đang gọi, nhưng phía sau nó là đúng một bản ghi.
+         * Bảng phí giờ là một hằng số của hệ thống, viết trong `CancellationPolicyService::DEFAULT_RULES`
+         * và trình bày cho khách ở trang chính sách. Lý do bỏ đường sửa:
+         *
+         * Bậc phí không đứng một mình. Nó buộc chặt với tỷ lệ cọc và hạn trả nốt — cả ba được chọn
+         * cùng nhau sao cho phí tại hạn trả nốt vừa đúng bằng tiền cọc, để "quá hạn thì mất cọc"
+         * rơi ra từ chính bảng phí thay vì phải viết thêm một điều khoản. Cho sửa một trong ba con
+         * số qua giao diện là mời người ta phá mối buộc ấy mà không có gì cảnh báo: đổi bậc 8–12
+         * ngày xuống 30% thì khách bỏ ngang ở hạn trả nốt mất nhiều hơn cọc, còn nâng lên 70% thì
+         * họ được hoàn lại một phần cọc. Cả hai đều là tiền thật và không ai nhận ra cho tới lúc
+         * tổng đài nhận cuộc gọi.
+         *
+         * Đơn vẫn chép bảng phí đang hiệu lực vào chính nó lúc đặt, nên chứng từ của từng đơn không
+         * đổi. Chỉ có đường sửa là đóng lại.
          */
-        Route::get('cancellation-policies', [AdminCancellationPolicyController::class, 'index']);
-        Route::put('cancellation-policies', [AdminCancellationPolicyController::class, 'update']);
 
         /*
          * Kiểm duyệt đánh giá và trả lời khách.

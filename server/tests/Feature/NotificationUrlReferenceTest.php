@@ -48,7 +48,6 @@ class NotificationUrlReferenceTest extends TestCase
         '/admin/incidents',
         '/admin/handovers',
         '/admin/change-requests',
-        '/admin/cancellation-policies',
         '/admin/bookings',
         '/admin/group-bookings',
         '/admin/discount-codes',

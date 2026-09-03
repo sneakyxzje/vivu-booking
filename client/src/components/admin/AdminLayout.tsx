@@ -96,7 +96,10 @@ const navEntries: NavEntry[] = [
       "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01",
     ),
     items: [
-      { to: "/admin/bookings", label: "Hoá đơn" },
+      // "Đơn đặt hàng", không phải "Hoá đơn": màn này quản lý ĐƠN suốt vòng đời của nó — chờ thanh
+      // toán, đã cọc, đã chuyển chuyến, đã hủy. Hoá đơn là một chứng từ, và phần lớn đơn ở đây chưa
+      // có chứng từ nào.
+      { to: "/admin/bookings", label: "Đơn đặt hàng" },
       { to: "/admin/group-bookings", label: "Booking theo đoàn" },
       { to: "/admin/change-requests", label: "Yêu cầu huỷ" },
       /*
@@ -109,7 +112,14 @@ const navEntries: NavEntry[] = [
       // Một mục duy nhất cho tiền: sổ giao dịch, phải thu và phải trả là ba tab bên trong nó.
       // Tách ra ba mục thì người dùng phải nhớ vào đâu để hỏi gì, trong khi cả ba đọc chung một sổ.
       { to: "/admin/transactions", label: "Sổ giao dịch" },
-      { to: "/admin/cancellation-policies", label: "Chính sách hủy" },
+      /*
+       * Không còn mục "Chính sách hủy".
+       *
+       * Bảng phí là hằng số của hệ thống, viết trong `CancellationPolicyService::DEFAULT_RULES` và
+       * trình bày cho khách ở trang chính sách. Nó buộc chặt với tỷ lệ cọc và hạn trả nốt — ba con
+       * số được chọn cùng nhau sao cho phí tại hạn trả nốt vừa đúng bằng tiền cọc. Một ô nhập cho
+       * phép phá mối buộc ấy mà không cảnh báo gì, và hậu quả là tiền thật.
+       */
     ],
   },
   {
