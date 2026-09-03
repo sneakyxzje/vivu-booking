@@ -151,6 +151,55 @@ class ReceivablesTest extends TestCase
     }
 
     /**
+     * Ghi mọi khoản bằng nhãn "Tiền cọc" cũng ra đúng con số.
+     *
+     * `BookingPayment::THU` gồm cả `deposit` lẫn `balance`, và mọi phép cộng tiền trong hệ thống lọc
+     * theo cả tập ấy chứ không theo từng nhãn. Hai nhãn chỉ khác nhau ở chữ hiển thị trên sổ và ở bộ
+     * lọc loại bút toán — không ở bất kỳ phép tính nào.
+     *
+     * Bài này chốt điều đó lại: một đơn thu đủ bằng ba lần cọc phải rời danh sách y như đơn thu đủ
+     * một lần, kể cả khi mốc `paid_at` chưa đóng vì các bút toán được ghi thẳng vào bảng.
+     */
+    public function test_thu_du_bang_nhieu_lan_coc_van_khong_phai_cong_no(): void
+    {
+        $don = $this->taoDon('confirmed', null);
+
+        foreach ([1_500_000, 1_500_000, 1_000_000] as $lan) {
+            BookingPayment::create([
+                'booking_id' => $don->id,
+                'kind' => 'deposit',
+                'amount' => $lan,
+                'paid_at' => now(),
+            ]);
+        }
+
+        $this->assertNull($don->fresh()->paid_at, 'Ghi thẳng thì mốc thanh toán vẫn trống.');
+
+        $this->getJson('/api/admin/receivables')
+            ->assertOk()
+            ->assertJsonPath('data.data', []);
+    }
+
+    /** Và thu thiếu bằng nhãn cọc thì vẫn ra đúng phần còn thiếu. */
+    public function test_thu_thieu_bang_nhan_coc_van_ra_dung_so_con_thieu(): void
+    {
+        $don = $this->taoDon('confirmed', null);
+
+        BookingPayment::create([
+            'booking_id' => $don->id,
+            'kind' => 'deposit',
+            'amount' => 1_200_000,
+            'paid_at' => now(),
+        ]);
+
+        $res = $this->getJson('/api/admin/receivables')->assertOk();
+
+        $this->assertSame([$don->id], array_column($res->json('data.data'), 'id'));
+        $this->assertEquals(1_200_000.0, $res->json('data.data.0.net_paid'));
+        $this->assertEquals(2_800_000.0, $res->json('data.data.0.balance_due'));
+    }
+
+    /**
      * Đơn cũ không có bút toán nào nhưng đã đóng mốc thanh toán cũng không phải công nợ.
      *
      * Nhóm này tạo trước khi sổ mở cho đơn lẻ, nên `paid_at` là bằng chứng duy nhất còn lại rằng
