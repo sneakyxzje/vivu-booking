@@ -31,6 +31,36 @@ class AdminSandboxController extends Controller
     ) {
     }
 
+    /** Danh mục kịch bản nghiệp vụ, gom theo nhóm. */
+    public function scenarios(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => \App\Services\Sandbox\SandboxScenarioRunner::danhMuc(),
+        ]);
+    }
+
+    /**
+     * Chạy một kịch bản và trả về biên bản từng bước.
+     *
+     * Kịch bản tự dựng dữ liệu của nó và tự chấm từng bước, nên phản hồi này là thứ duy nhất giao
+     * diện cần — không phải gọi thêm ảnh chụp hay đối chiếu gì.
+     */
+    public function runScenario(Request $request): JsonResponse
+    {
+        $data = $request->validate(['id' => ['required', 'string']]);
+
+        $bienBan = app(\App\Services\Sandbox\SandboxScenarioRunner::class)->chay($data['id']);
+
+        return response()->json([
+            'success' => true,
+            'message' => $bienBan['dat']
+                ? 'Kịch bản chạy đúng ở mọi bước.'
+                : 'Có bước KHÔNG đạt — xem biên bản bên dưới.',
+            'data' => $bienBan,
+        ]);
+    }
+
     /** Danh sách mốc, lệnh và loại thư — để giao diện dựng nút mà không gõ lại chuỗi nào. */
     public function options(): JsonResponse
     {
