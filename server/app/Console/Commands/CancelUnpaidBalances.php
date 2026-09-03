@@ -266,11 +266,37 @@ class CancelUnpaidBalances extends Command
     private function donQuaHan()
     {
         $soNgay = (int) config('booking.balance_due_days', 10);
+        $soNgayAnHan = (int) config('booking.balance_final_notice_days', 2);
 
         $daThu = '(SELECT COALESCE(SUM(bp.amount), 0) FROM booking_payments bp'
             . ' WHERE bp.booking_id = bookings.id AND bp.kind IN (?, ?))';
 
         return Booking::query()
+            /*
+             * Chưa nhận cảnh báo cuối thì không hủy — và phải cách lá thư ấy một khoảng.
+             *
+             * Đây là điều kiện quan trọng nhất của cả lệnh, vì nó là thứ duy nhất bảo đảm không ai
+             * mất tiền vì một cái hạn mà chỉ mình hệ thống nhớ. Trước đây lệnh chỉ hỏi "đã quá hạn
+             * chưa", tức nó tin rằng hễ quá hạn thì chắc chắn đã có hai lá thư bay đi — một giả
+             * định đúng trong luồng thường và sai ở mọi luồng còn lại:
+             *
+             *   - Đơn được CHUYỂN sang chuyến gần hơn. Hạn trả nốt tính theo chuyến đích, nên đơn
+             *     quá hạn ngay lúc vừa chuyển. Lệnh nhắc bỏ qua nó (quá hạn rồi thì nhắc gì nữa),
+             *     lệnh hủy thì quét trúng — khách mất chuyến vì một cái hạn đã nằm ở quá khứ trước
+             *     cả khi họ đặt chân lên chuyến ấy. Tệ nhất là khi chính công ty gộp chuyến.
+             *   - Máy chủ thư hỏng đúng mấy ngày cửa sổ nhắc.
+             *   - Dữ liệu nhập từ ngoài vào, hoặc đơn cũ chưa có hai cột này.
+             *
+             * Khoảng ân hạn dùng lại `balance_final_notice_days`: trong luồng thường lá cuối gửi
+             * trước hạn đúng ngần ấy ngày nên điều kiện này tự thỏa, không làm chậm gì. Chỉ ở các
+             * luồng trên nó mới có tác dụng, và tác dụng đúng là điều ta muốn — cho người vừa bị
+             * dời ngày đúng bằng số thời gian mà người đi đường thường vẫn có.
+             *
+             * Lớp `BalanceDueFlowTest` vốn đã ghi luật này ở đầu file ("không được hủy ai chưa từng
+             * nhận lời nhắc") nhưng chưa có bài nào kiểm, và mã thì chưa từng thực thi nó.
+             */
+            ->whereNotNull('balance_final_notice_at')
+            ->where('balance_final_notice_at', '<=', now()->subDays($soNgayAnHan))
             ->with(['tour:id,title', 'schedule:id,start_date,booking_deadline'])
             ->whereIn('status', BookingStatus::paidValues())
             ->whereNull('group_booking_request_id')

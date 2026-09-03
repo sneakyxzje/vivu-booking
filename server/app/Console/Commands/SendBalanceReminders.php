@@ -61,19 +61,54 @@ class SendBalanceReminders extends Command
             }
 
             $conBaoNhieuNgay = now()->diffInDays($han, false);
+            /*
+             * Chỉ người ĐÃ ĐẶT CỌC mới thuộc diện được cứu bằng lá thư muộn.
+             *
+             * Cùng phép lọc mà lệnh hủy dùng, và cùng lý do: đơn mà sổ ghi 0 đồng nhiều khả năng là
+             * đơn đã trả tiền thật nhưng ai đó xác nhận tay mà quên ghi sổ. Gửi cho họ một lá đòi
+             * tiền là đòi lần hai. Lệnh hủy vốn đã không đụng tới nhóm này, nên lá thư cũng chẳng
+             * cứu họ khỏi điều gì — nó chỉ có thể gây hiểu nhầm.
+             */
+            $chuaTungNhac = $booking->balance_reminder_sent_at === null
+                && $booking->balance_final_notice_at === null
+                && $booking->payments()->whereIn('kind', BookingPayment::THU)->exists();
 
             /*
-             * Đã quá hạn thì không nhắc nữa — lệnh hủy lo phần còn lại.
+             * Đã quá hạn thì thôi nhắc — TRỪ người chưa từng nhận lá nào.
              *
-             * Gửi một lời nhắc "hãy trả trước ngày hôm qua" chỉ làm khách bối rối, và nếu đơn sắp bị
-             * hủy thì thư đúng phải là thư báo hủy, không phải thư giục.
+             * Với người đã bỏ qua hai lá thư, một lời nhắc "hãy trả trước ngày hôm qua" chỉ làm họ
+             * bối rối, và thư đúng lúc ấy là thư báo hủy.
+             *
+             * Nhưng có một nhóm rơi vào đây mà chưa hề được nhắc lần nào: đơn được chuyển sang
+             * chuyến gần hơn. Hạn trả nốt tính theo chuyến đích nên nó nằm ở quá khứ ngay lúc
+             * chuyển, và điều kiện cũ vắt qua đầu họ — không thư nhắc, rồi hôm sau lệnh hủy quét
+             * trúng. Người bị dời ngày đi mất luôn chuyến vì một cái hạn không ai kịp làm gì.
+             *
+             * Nên với họ, lá này là lá đầu tiên và cũng là lá cuối. Lệnh hủy chờ hết khoảng ân hạn
+             * kể từ lá thư mới đụng tới đơn, nên gửi ở đây không phải hình thức: nó mở ra đúng
+             * khoảng thời gian mà người trong luồng thường vẫn được hưởng.
              */
-            if ($conBaoNhieuNgay < 0) {
+            if ($conBaoNhieuNgay < 0 && !$chuaTungNhac) {
                 continue;
             }
 
             $laCanhBaoCuoi = $conBaoNhieuNgay <= $soNgayCuoi;
             $cot = $laCanhBaoCuoi ? 'balance_final_notice_at' : 'balance_reminder_sent_at';
+
+            /*
+             * Đơn đoàn không nhận lá cảnh báo cuối.
+             *
+             * Lá ấy nói thẳng "quá hạn thì đơn bị hủy và mất cọc", mà lệnh hủy lại cố ý bỏ qua đơn
+             * đoàn — nên với họ đó là một lời dọa không bao giờ được thực hiện. Nói với khách đoàn
+             * một điều mình không làm là thứ tệ hơn cả im lặng: kế toán bên họ đọc xong thư ấy sẽ
+             * gọi cho điều hành, và điều hành phải đính chính chính sách của công ty mình.
+             *
+             * Lá nhắc nhẹ thì vẫn gửi — nó chỉ nêu số còn thiếu và cách chuyển khoản, đúng thứ có
+             * ích, và không hứa hẹn gì.
+             */
+            if ($laCanhBaoCuoi && $booking->isGroup()) {
+                continue;
+            }
 
             // Chưa tới lượt, hoặc đã gửi lá này rồi.
             if ($conBaoNhieuNgay > $soNgayNhac || $booking->{$cot} !== null) {

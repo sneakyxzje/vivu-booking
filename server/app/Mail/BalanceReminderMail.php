@@ -37,10 +37,30 @@ class BalanceReminderMail extends Mailable implements ShouldQueue
         $this->booking->loadMissing(['tour', 'schedule']);
     }
 
+    /**
+     * Hạn trả nốt đã nằm ở quá khứ ngay lúc lá thư này được gửi.
+     *
+     * Xảy ra với đơn vừa được chuyển sang chuyến gần hơn: hạn tính theo chuyến đích nên nó đã qua
+     * trước cả khi đơn hạ cánh xuống đó. Với những người ấy, đây là lá thư đầu tiên chứ không phải
+     * lá cuối trong một chuỗi, nên câu chữ phải khác — xem `SendBalanceReminders`.
+     */
+    private function daQuaHan(): bool
+    {
+        $han = $this->booking->balanceDueAt();
+
+        return $han !== null && $han->isPast();
+    }
+
     public function envelope(): Envelope
     {
         $han = $this->booking->balanceDueAt()?->format('d/m') ?? '';
         $tenTour = $this->booking->tour?->title ?? 'Vivu Booking';
+
+        if ($this->daQuaHan()) {
+            return new Envelope(
+                subject: sprintf('Đơn của Quý khách đã tới hạn thanh toán - %s', $tenTour),
+            );
+        }
 
         return new Envelope(
             subject: $this->laCanhBaoCuoi
@@ -59,6 +79,15 @@ class BalanceReminderMail extends Mailable implements ShouldQueue
             with: [
                 'booking' => $this->booking,
                 'laCanhBaoCuoi' => $this->laCanhBaoCuoi,
+                'daQuaHan' => $this->daQuaHan(),
+                'soNgayAnHan' => (int) config('booking.balance_final_notice_days', 2),
+                /*
+                 * Quyền đổi chuyến hoặc hoàn đủ mà không chịu phí chỉ có khi CÔNG TY là bên dời
+                 * ngày. Khách tự xin đổi sang chuyến sớm hơn thì họ vẫn phải trả nốt như thường,
+                 * và hứa với họ một quyền không có là thứ tổng đài sẽ phải đính chính.
+                 */
+                'congTyDoiNgay' => app(\App\Services\CancellationPolicyService::class)
+                    ->congTyDaDoiNgay($this->booking),
                 'daThu' => $payments->netPaid($this->booking),
                 'conThieu' => $conThieu,
                 'hanTraNot' => $this->booking->balanceDueAt(),

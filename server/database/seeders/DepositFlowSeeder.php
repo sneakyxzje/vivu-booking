@@ -30,7 +30,8 @@ use Illuminate\Support\Str;
  *
  *   1. Cửa sổ nhắc — chưa tới lượt / tới lượt nhắc / tới lượt cảnh báo cuối.
  *   2. Hạn trả nốt — còn trong hạn / đã quá hạn.
- *   3. Điều kiện bị hủy — đã cọc / đã trả đủ / chưa trả đồng nào / là đơn đoàn.
+ *   3. Điều kiện bị hủy — đã cọc / đã trả đủ / chưa trả đồng nào / là đơn đoàn / đã quá hạn nhưng
+ *      CHƯA từng nhận thư nào.
  *   4. Thời điểm đặt — còn xa ngày đi (được cọc) / sát ngày đi (phải trả đủ).
  *
  * Mốc thời gian tính lùi từ lúc chạy seeder theo đúng cấu hình trong `config/booking.php`, nên
@@ -148,7 +149,7 @@ class DepositFlowSeeder extends Seeder
     }
 
     /**
-     * Mười đơn ở mười tình huống.
+     * Mười một đơn ở mười một tình huống.
      *
      * Các mốc suy ra từ cấu hình chứ không viết cứng: đổi `balance_due_days` mà seeder vẫn dựng
      * theo số cũ thì bảng hướng dẫn in ra sẽ nói sai về chính dữ liệu nó vừa tạo.
@@ -200,9 +201,25 @@ class DepositFlowSeeder extends Seeder
         $this->tinhHuong(
             ngayKhoiHanh: $hanTraNot - 2,
             tyLeDaThu: $tyLeCoc,
-            moTa: 'Đã cọc, đã quá hạn trả nốt',
+            moTa: 'Đã cọc, đã nhận đủ 2 thư, đã quá hạn trả nốt',
             nhom: 'Hủy quá hạn',
             kyVong: 'Lệnh hủy: BỊ HỦY, hoàn 0 đồng (mất cọc), chỗ trả về kho.',
+            daNhacCuoiTruoc: $canhBaoCuoi + 2,
+        );
+
+        /*
+         * Đơn quá hạn mà CHƯA từng nhận thư nào — cảnh của đơn vừa được chuyển sang chuyến gần hơn.
+         *
+         * Đây là ranh giới mới nhất, và là ranh giới đắt nhất nếu sai: trước khi có luật "chưa nhận
+         * cảnh báo cuối thì không hủy", đơn như thế bị hủy ngay sáng hôm sau ngày chuyển, không một
+         * lời báo trước, vì một cái hạn đã nằm ở quá khứ trước cả khi nó hạ cánh xuống chuyến ấy.
+         */
+        $this->tinhHuong(
+            ngayKhoiHanh: $hanTraNot - 2,
+            tyLeDaThu: $tyLeCoc,
+            moTa: 'Đã cọc, quá hạn, CHƯA nhận thư nào (vừa bị chuyển chuyến)',
+            nhom: 'Hủy quá hạn',
+            kyVong: 'Lệnh hủy: KHÔNG hủy. Lệnh nhắc: gửi thư "đã tới hạn", cho ' . $canhBaoCuoi . ' ngày.',
         );
 
         $this->tinhHuong(
@@ -281,6 +298,7 @@ class DepositFlowSeeder extends Seeder
         bool $laDoan = false,
         bool $chuyenBiHuy = false,
         string $trangThai = 'confirmed',
+        ?int $daNhacCuoiTruoc = null,
     ): void {
         $chuyen = $this->taoChuyen($ngayKhoiHanh);
         $tongTien = 2 * (float) $this->tour->adult_price;
@@ -355,6 +373,23 @@ class DepositFlowSeeder extends Seeder
             ]);
 
             $don->forceFill(['group_booking_request_id' => $yeuCau->id])->save();
+        }
+
+        /*
+         * Dấu vết hai lá thư nhắc, khi tình huống cần đơn ĐÃ được cảnh báo.
+         *
+         * Lệnh hủy chỉ đụng tới đơn đã nhận cảnh báo cuối và đã qua khoảng ân hạn kể từ lá đó. Nên
+         * một đơn "quá hạn" dựng trần không còn đủ để diễn tả cảnh bị hủy — phải dựng cả lịch sử
+         * nhắc, đúng như một đơn thật đi tới bước ấy sẽ có.
+         *
+         * Chính chỗ này là thứ seeder cũ thiếu, và cái thiếu ấy giấu mất một lỗ hổng thật: khi mã
+         * chưa đòi hỏi lá thư nào, dữ liệu không có lá thư nào vẫn bị hủy ngon lành.
+         */
+        if ($daNhacCuoiTruoc !== null) {
+            $don->forceFill([
+                'balance_reminder_sent_at' => now()->subDays($daNhacCuoiTruoc + 5),
+                'balance_final_notice_at' => now()->subDays($daNhacCuoiTruoc),
+            ])->save();
         }
 
         $chuyen->forceFill(['booked_people' => 2])->save();

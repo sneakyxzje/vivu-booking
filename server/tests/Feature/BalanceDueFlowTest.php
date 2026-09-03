@@ -68,6 +68,24 @@ class BalanceDueFlowTest extends TestCase
         ]);
     }
 
+    /**
+     * Đơn đã đi qua đủ hai lá thư nhắc, tức đủ điều kiện để lệnh hủy đụng tới.
+     *
+     * Lệnh hủy chỉ xử lý đơn đã nhận cảnh báo cuối và đã qua khoảng ân hạn kể từ lá đó, nên phần lớn
+     * bài dưới đây phải dựng cả lịch sử nhắc — đúng thứ mà một đơn thật đi tới bước bị hủy sẽ có.
+     */
+    private function daNhacDayDu(Booking $don): Booking
+    {
+        $anHan = (int) config('booking.balance_final_notice_days', 2);
+
+        $don->forceFill([
+            'balance_reminder_sent_at' => now()->subDays($anHan + 7),
+            'balance_final_notice_at' => now()->subDays($anHan + 1),
+        ])->save();
+
+        return $don;
+    }
+
     /** Đơn đã cọc, còn nợ phần đuôi. */
     private function donDaCoc(TourSchedule $chuyen, float $daThu = self::COC): Booking
     {
@@ -183,7 +201,7 @@ class BalanceDueFlowTest extends TestCase
     public function test_qua_han_thi_huy_don_va_khach_mat_coc(): void
     {
         $chuyen = $this->chuyen(9); // hạn trả nốt là 10 ngày trước đi, nên đã qua
-        $don = $this->donDaCoc($chuyen);
+        $don = $this->daNhacDayDu($this->donDaCoc($chuyen));
 
         $this->artisan('bookings:cancel-unpaid-balances')->assertSuccessful();
 
@@ -200,7 +218,7 @@ class BalanceDueFlowTest extends TestCase
     public function test_qua_han_thi_cho_ve_kho(): void
     {
         $chuyen = $this->chuyen(9);
-        $don = $this->donDaCoc($chuyen);
+        $don = $this->daNhacDayDu($this->donDaCoc($chuyen));
 
         $this->artisan('bookings:cancel-unpaid-balances')->assertSuccessful();
 
@@ -220,7 +238,7 @@ class BalanceDueFlowTest extends TestCase
             'status' => 'active',
         ]);
 
-        $this->donDaCoc($this->chuyen(9));
+        $this->daNhacDayDu($this->donDaCoc($this->chuyen(9)));
 
         $this->artisan('bookings:cancel-unpaid-balances')->assertSuccessful();
 
@@ -237,7 +255,7 @@ class BalanceDueFlowTest extends TestCase
      */
     public function test_vua_tra_not_thi_khong_bi_huy(): void
     {
-        $don = $this->donDaCoc($this->chuyen(9));
+        $don = $this->daNhacDayDu($this->donDaCoc($this->chuyen(9)));
 
         // Khách trả nốt trước khi lệnh chạy.
         $this->so()->record($don, 'balance', self::TONG - self::COC, 'gateway', 'GD-CUU-DON');
@@ -259,7 +277,7 @@ class BalanceDueFlowTest extends TestCase
      */
     public function test_don_chua_tra_dong_nao_khong_bi_huy_tu_dong(): void
     {
-        $don = $this->donDaCoc($this->chuyen(9), daThu: 0);
+        $don = $this->daNhacDayDu($this->donDaCoc($this->chuyen(9), daThu: 0));
 
         $this->assertSame(0, $don->payments()->count(), 'Đơn này chưa có bút toán nào.');
 
@@ -268,10 +286,10 @@ class BalanceDueFlowTest extends TestCase
         $this->assertSame('confirmed', $don->fresh()->status);
     }
 
-    /** Còn trong hạn thì không đụng tới. */
+    /** Còn trong hạn thì không đụng tới — dựng sẵn cả dấu vết nhắc để chỉ còn ngày tháng là biến. */
     public function test_con_trong_han_thi_khong_huy(): void
     {
-        $don = $this->donDaCoc($this->chuyen(15));
+        $don = $this->daNhacDayDu($this->donDaCoc($this->chuyen(15)));
 
         $this->artisan('bookings:cancel-unpaid-balances')->assertSuccessful();
 
@@ -287,7 +305,7 @@ class BalanceDueFlowTest extends TestCase
     public function test_don_doan_khong_bi_huy_tu_dong(): void
     {
         $chuyen = $this->chuyen(9);
-        $don = $this->donDaCoc($chuyen);
+        $don = $this->daNhacDayDu($this->donDaCoc($chuyen));
 
         $yeuCau = \App\Models\GroupBookingRequest::create([
             'public_token' => (string) Str::uuid(),
@@ -310,10 +328,103 @@ class BalanceDueFlowTest extends TestCase
     /** `--dry-run` chỉ liệt kê, không đụng vào đơn nào. */
     public function test_dry_run_khong_huy_gi(): void
     {
-        $don = $this->donDaCoc($this->chuyen(9));
+        $don = $this->daNhacDayDu($this->donDaCoc($this->chuyen(9)));
 
         $this->artisan('bookings:cancel-unpaid-balances --dry-run')->assertSuccessful();
 
         $this->assertSame('confirmed', $don->fresh()->status);
+    }
+
+    // --- Không hủy ai chưa từng được cảnh báo ------------------------------------------------
+
+    /**
+     * Quá hạn nhưng CHƯA nhận cảnh báo cuối thì không bị hủy.
+     *
+     * Đây là cảnh của đơn vừa được chuyển sang chuyến gần hơn: hạn trả nốt tính theo chuyến đích nên
+     * nó đã nằm ở quá khứ ngay lúc đơn hạ cánh xuống đó. Lệnh nhắc bỏ qua vì "quá hạn rồi nhắc gì
+     * nữa", còn lệnh hủy thì quét trúng — người bị công ty dời ngày mất luôn chuyến, không một lời
+     * báo trước. Điều kiện này là thứ duy nhất chặn được chuỗi ấy.
+     */
+    public function test_chua_nhan_canh_bao_cuoi_thi_khong_bi_huy(): void
+    {
+        $don = $this->donDaCoc($this->chuyen(9));
+
+        $this->assertNull($don->balance_final_notice_at, 'Đơn này chưa nhận lá nào.');
+
+        $this->artisan('bookings:cancel-unpaid-balances')->assertSuccessful();
+
+        $this->assertSame('confirmed', $don->fresh()->status);
+        Mail::assertNotQueued(BookingCancelledMail::class);
+    }
+
+    /** Vừa nhận cảnh báo cuối hôm nay thì chưa hủy — phải cho hết khoảng ân hạn đã. */
+    public function test_vua_nhan_canh_bao_cuoi_thi_chua_bi_huy(): void
+    {
+        $don = $this->donDaCoc($this->chuyen(9));
+        $don->forceFill(['balance_final_notice_at' => now()])->save();
+
+        $this->artisan('bookings:cancel-unpaid-balances')->assertSuccessful();
+
+        $this->assertSame('confirmed', $don->fresh()->status);
+    }
+
+    /**
+     * Đơn quá hạn mà chưa từng được nhắc thì nhận một lá thư muộn, thay vì bị bỏ rơi.
+     *
+     * Không có lá này thì luật ở trên biến đơn ấy thành đơn không ai đụng tới mãi mãi: lệnh nhắc bỏ
+     * qua vì quá hạn, lệnh hủy bỏ qua vì chưa được nhắc. Hai điều kiện phải đi cùng nhau.
+     */
+    public function test_qua_han_ma_chua_tung_nhac_thi_van_nhan_thu(): void
+    {
+        $don = $this->donDaCoc($this->chuyen(9));
+
+        $this->artisan('bookings:send-balance-reminders')->assertSuccessful();
+
+        Mail::assertQueued(
+            BalanceReminderMail::class,
+            fn (BalanceReminderMail $thu) => $thu->booking->id === $don->id,
+        );
+        $this->assertNotNull($don->fresh()->balance_final_notice_at);
+    }
+
+    /** Đã bỏ qua hai lá thư rồi thì không nhắc nữa — lúc ấy thư đúng là thư báo hủy. */
+    public function test_qua_han_va_da_tung_nhac_thi_thoi_nhac(): void
+    {
+        $this->daNhacDayDu($this->donDaCoc($this->chuyen(9)));
+
+        $this->artisan('bookings:send-balance-reminders')->assertSuccessful();
+
+        Mail::assertNotQueued(BalanceReminderMail::class);
+    }
+
+    /**
+     * Đơn đoàn không nhận lá cảnh báo cuối.
+     *
+     * Lá ấy nói thẳng "quá hạn thì hủy đơn và mất cọc", mà lệnh hủy lại cố ý chừa đơn đoàn ra. Gửi
+     * nó cho khách đoàn là dọa một điều công ty không bao giờ làm, và người phải đính chính là điều
+     * hành. Lá nhắc nhẹ thì vẫn gửi được: nó chỉ nêu số còn thiếu.
+     */
+    public function test_don_doan_khong_nhan_la_canh_bao_cuoi(): void
+    {
+        $chuyen = $this->chuyen(11); // đã vào cửa sổ cảnh báo cuối
+        $don = $this->donDaCoc($chuyen);
+
+        $yeuCau = \App\Models\GroupBookingRequest::create([
+            'public_token' => (string) Str::uuid(),
+            'tour_id' => $chuyen->tour_id,
+            'tour_schedule_id' => $chuyen->id,
+            'contact_name' => 'Cong ty ABC',
+            'contact_email' => 'abc@example.com',
+            'contact_phone' => '0901234567',
+            'estimated_guests' => 2,
+            'status' => \App\Enums\GroupRequestStatus::Confirmed,
+        ]);
+
+        $don->forceFill(['group_booking_request_id' => $yeuCau->id])->save();
+
+        $this->artisan('bookings:send-balance-reminders')->assertSuccessful();
+
+        Mail::assertNotQueued(BalanceReminderMail::class);
+        $this->assertNull($don->fresh()->balance_final_notice_at);
     }
 }

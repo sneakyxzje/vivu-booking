@@ -27,7 +27,14 @@
                         <td style="padding:26px 28px;">
                             <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
                                 Kính chào <strong>{{ $booking->customer_name }}</strong>,
-                                @if ($laCanhBaoCuoi)
+                                @if ($daQuaHan)
+                                    {{-- Hạn đã ở quá khứ ngay lúc gửi. Lý do thường gặp là đơn vừa được
+                                         chuyển sang chuyến gần hơn, nhưng không phải lúc nào cũng vậy — nên
+                                         câu này không đoán nguyên nhân, chỉ nói đúng tình trạng. Cũng không
+                                         gọi đây là "lần nhắc cuối": với người nhận thì đây là lá đầu tiên,
+                                         và gọi thế là đổ cho họ một sự chậm trễ họ không gây ra. --}}
+                                    khoản còn lại của đơn tour đã tới hạn thanh toán.
+                                @elseif ($laCanhBaoCuoi)
                                     đây là lần nhắc cuối về khoản còn lại của đơn tour sắp tới.
                                 @else
                                     Quý khách đã đặt cọc giữ chỗ thành công. Còn một khoản cần thanh toán
@@ -74,7 +81,26 @@
 
                             {{-- Hậu quả nói thẳng, và chỉ nói ở lá cuối. Đặt nó ở cả hai lá thì lá đầu
                                  thành lời đe dọa với người mới vừa đặt cọc xong. --}}
-                            @if ($laCanhBaoCuoi)
+                            @if ($daQuaHan)
+                                <p style="margin:14px 0 0;font-size:14px;color:#7f1d1d;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 16px;line-height:1.6;">
+                                    Quý khách vui lòng thanh toán trong <strong>{{ $soNgayAnHan }} ngày</strong>
+                                    kể từ thư này. Quá thời hạn đó mà chúng tôi chưa nhận được, đơn sẽ được hủy
+                                    và khoản đã thanh toán được xử lý theo bảng phí hủy.
+                                </p>
+                                @if ($congTyDoiNgay)
+                                    <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:#4b5563;">
+                                        Ngày khởi hành của đơn này do chúng tôi sắp xếp lại. Nếu ngày mới không
+                                        phù hợp, Quý khách gọi tổng đài <strong>1900 1234</strong> để
+                                        <strong>chọn chuyến khác hoặc hoàn lại toàn bộ số đã thanh toán</strong>,
+                                        không chịu phí hủy.
+                                    </p>
+                                @else
+                                    <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:#4b5563;">
+                                        Nếu có khó khăn về thanh toán, Quý khách gọi tổng đài
+                                        <strong>1900 1234</strong> để chúng tôi cùng tìm cách xử lý.
+                                    </p>
+                                @endif
+                            @elseif ($laCanhBaoCuoi)
                                 <p style="margin:14px 0 0;font-size:14px;color:#7f1d1d;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 16px;line-height:1.6;">
                                     <strong>Nếu quá hạn trên mà chúng tôi chưa nhận được thanh toán</strong>, đơn của
                                     Quý khách sẽ được hủy để nhường chỗ cho khách khác, và

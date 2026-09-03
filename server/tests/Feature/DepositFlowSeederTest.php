@@ -43,11 +43,11 @@ class DepositFlowSeederTest extends TestCase
         return Booking::query()->where('note', 'like', '[coc]%')->orderBy('id')->get();
     }
 
-    public function test_dung_du_muoi_tinh_huong(): void
+    public function test_dung_du_muoi_mot_tinh_huong(): void
     {
         $this->seed(DepositFlowSeeder::class);
 
-        $this->assertCount(10, $this->donCuaSeeder());
+        $this->assertCount(11, $this->donCuaSeeder());
     }
 
     /** Hai chuyến để trống, để tự đặt tour và so cọc với trả đủ. */
@@ -149,6 +149,11 @@ class DepositFlowSeederTest extends TestCase
             $tim('ĐOÀN')->fresh()->status,
             'Đơn đoàn không bị hủy tự động.',
         );
+        $this->assertSame(
+            'confirmed',
+            $tim('CHƯA nhận thư nào')->fresh()->status,
+            'Chưa từng được cảnh báo thì không bị hủy, dù đã quá hạn.',
+        );
 
         // --- Ranh giới 4: đặt sát ngày ------------------------------------------------------
 
@@ -182,20 +187,42 @@ class DepositFlowSeederTest extends TestCase
         $this->assertCount(1, $daHuy);
     }
 
-    /** Đúng hai đơn nhận thư — một nhắc nhẹ, một cảnh báo cuối. */
-    public function test_dung_hai_don_nhan_thu_nhac(): void
+    /**
+     * Đúng ba lá thư bay đi — nhắc nhẹ, cảnh báo cuối, và lá muộn cho đơn vừa bị chuyển chuyến.
+     *
+     * Đếm thư THỰC GỬI chứ không đếm cột đánh dấu: seeder cố ý dựng sẵn dấu vết nhắc cho đơn sắp bị
+     * hủy, nên đếm cột thì lẫn giữa "lệnh vừa gửi" và "vốn đã có sẵn".
+     */
+    public function test_dung_ba_la_thu_nhac_duoc_gui(): void
     {
         $this->seed(DepositFlowSeeder::class);
 
         $this->artisan('bookings:send-balance-reminders')->assertSuccessful();
 
-        $daNhac = $this->donCuaSeeder()->filter(function (Booking $b) {
-            $moi = $b->fresh();
+        $this->assertCount(3, Mail::queued(\App\Mail\BalanceReminderMail::class));
+    }
 
-            return $moi->balance_reminder_sent_at !== null || $moi->balance_final_notice_at !== null;
-        });
+    /**
+     * Đơn quá hạn mà chưa từng nhận thư thì được cứu: nhận thư, và KHÔNG bị hủy trong cùng ngày.
+     *
+     * Đây là bài canh chính cái lỗ hổng vừa vá. Trước đó đơn như thế — điển hình là đơn vừa được
+     * chuyển sang chuyến gần hơn — bị hủy ngay lần chạy đầu tiên mà không một lời báo trước.
+     */
+    public function test_don_qua_han_chua_tung_nhac_thi_duoc_nhac_chu_khong_bi_huy(): void
+    {
+        $this->seed(DepositFlowSeeder::class);
 
-        $this->assertCount(2, $daNhac);
+        $don = $this->donCuaSeeder()->first(fn (Booking $b) => str_contains($b->note, 'CHƯA nhận thư nào'));
+
+        $this->assertNotNull($don);
+
+        $this->artisan('bookings:send-balance-reminders')->assertSuccessful();
+        $this->artisan('bookings:cancel-unpaid-balances')->assertSuccessful();
+
+        $daSua = $don->fresh();
+
+        $this->assertNotNull($daSua->balance_final_notice_at, 'Phải nhận được lá thư muộn.');
+        $this->assertSame('confirmed', $daSua->status, 'Nhận thư xong không được hủy ngay trong ngày.');
     }
 
     /** Chạy lại seeder không nhân đôi dữ liệu — người thử seed nhiều lần trong một buổi. */
@@ -204,7 +231,7 @@ class DepositFlowSeederTest extends TestCase
         $this->seed(DepositFlowSeeder::class);
         $this->seed(DepositFlowSeeder::class);
 
-        $this->assertCount(10, $this->donCuaSeeder());
+        $this->assertCount(11, $this->donCuaSeeder());
     }
 
     /** Số chỗ của chuyến phải khớp ngay sau khi seed, nếu không mọi phép thử sau đều lệch. */
