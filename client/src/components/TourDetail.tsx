@@ -303,7 +303,11 @@ export default function TourDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* Left Details Component */}
-          <TourLeftDetails tour={tour} selectedSchedule={selectedSchedule} />
+          <TourLeftDetails
+            tour={tour}
+            selectedSchedule={selectedSchedule}
+            onScheduleChange={setSelectedSchedule}
+          />
 
           {/* Right Sidebar Component */}
           <TourRightSidebar

@@ -10,11 +10,20 @@ import {
   LandmarkIcon,
 } from "@/components/Icons";
 import { TourReviewsSection } from "@/components/TourReviewsSection";
+import { TourDepartures } from "@/components/TourDepartures";
 
 interface TourLeftDetailsProps {
   tour: Tour;
   /** Chuyến khách đang chọn ở thanh bên. Null khi tour chưa có chuyến nào còn bán. */
   selectedSchedule: TourSchedule | null;
+  /**
+   * Đổi chuyến đang chọn.
+   *
+   * Bảng lịch khởi hành nằm ở cột nội dung này, còn hộp đặt tour nằm ở thanh bên — hai chỗ phải
+   * chọn cùng một chuyến, nếu không khách bấm ngày ở bảng rồi bấm Đặt ở hộp lại đi mất một ngày
+   * khác. Nên trạng thái ở trang cha, cả hai cùng đọc và cùng ghi.
+   */
+  onScheduleChange: (schedule: TourSchedule) => void;
 }
 
 const getServiceIcon = (name: string) => {
@@ -104,9 +113,25 @@ const getServiceIcon = (name: string) => {
 export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
   tour,
   selectedSchedule,
+  onScheduleChange,
 }) => {
   const [expandedDay, setExpandedDay] = useState<number | null>(1);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  /** Ngày đang mở trong hộp thoại chi tiết. Null là đang đóng. */
+  const [ngayDangMo, setNgayDangMo] = useState<TourItinerary | null>(null);
+
+  /* Esc đóng hộp thoại. Gắn khi mở và gỡ khi đóng, để trang không giữ một trình nghe phím thừa. */
+  useEffect(() => {
+    if (!ngayDangMo) return;
+
+    const dongKhiEsc = (su: KeyboardEvent) => {
+      if (su.key === "Escape") setNgayDangMo(null);
+    };
+
+    window.addEventListener("keydown", dongKhiEsc);
+
+    return () => window.removeEventListener("keydown", dongKhiEsc);
+  }, [ngayDangMo]);
 
   /*
    * Chính sách hủy đọc từ máy chủ, không viết cứng trong giao diện.
@@ -355,6 +380,19 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
       */}
 
       {/* Lịch trình (Accordion) */}
+      {/*
+        Lịch khởi hành đứng TRƯỚC lịch trình từng ngày.
+
+        Người đọc trang này đang trả lời hai câu theo thứ tự: "đi ngày nào được" rồi mới tới "ngày
+        ấy đi những đâu". Đặt ngược lại thì phải cuộn qua ba ngày hành trình mới thấy chỗ chọn
+        ngày, mà chọn ngày mới là việc dẫn tới nút Đặt tour.
+      */}
+      <TourDepartures
+        tour={tour}
+        selectedSchedule={selectedSchedule}
+        onScheduleChange={onScheduleChange}
+      />
+
       <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta">
@@ -482,9 +520,22 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
                             )}
                           </div>
                         )}
-                        <div className="text-gray-600 leading-relaxed whitespace-pre-line">
+                        <div className="text-gray-600 leading-relaxed whitespace-pre-line line-clamp-[12]">
                           {item.content}
                         </div>
+
+                        {/*
+                          Khối mở ra ở trên bị chặn chiều cao ở 720px, nên ngày nào viết dài là bị
+                          cắt cụt mà không có đường xem tiếp — chữ mất hẳn chứ không phải cuộn được.
+                          Nút này mở đúng nội dung ấy trong một hộp thoại không giới hạn chiều cao.
+                        */}
+                        <button
+                          type="button"
+                          onClick={() => setNgayDangMo(item)}
+                          className="rounded-full border border-primary-200 bg-white px-4 py-2 text-xs font-semibold text-primary-600 transition-colors hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                        >
+                          Xem chi tiết ngày {item.day_number}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -678,10 +729,74 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
       </div>
 
       {/* Đánh giá và bình luận tour công khai */}
-      <TourReviewsSection 
+      <TourReviewsSection
       tourId={tour.id}
       tourTitle={tour.title}
     />
+
+      {/*
+        Hộp thoại chi tiết một ngày.
+
+        Đóng được bằng ba đường vì người ta quen ba đường khác nhau: bấm dấu X, bấm ra ngoài nền
+        mờ, và bấm Esc. Thiếu đường thứ ba là chỗ hay quên nhất, và nó là đường duy nhất của người
+        dùng bàn phím.
+
+        Nội dung ở đây KHÔNG bị chặn chiều cao, khác khối mở ra trong danh sách. Đó chính là lý do
+        hộp thoại này tồn tại: ngày nào viết dài thì trong danh sách bị cắt cụt, còn ở đây đọc hết.
+      */}
+      {ngayDangMo && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-900/50 p-4 py-10"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Lịch trình ngày ${ngayDangMo.day_number}`}
+          onClick={() => setNgayDangMo(null)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl bg-white shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
+              <h3 className="font-plus-jakarta text-xl font-bold text-gray-900">Lịch trình</h3>
+              <button
+                type="button"
+                onClick={() => setNgayDangMo(null)}
+                aria-label="Đóng"
+                className="rounded-full border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              <div className="rounded-xl bg-primary-50 px-5 py-4">
+                <p className="font-plus-jakarta text-lg font-bold text-primary-700">
+                  Ngày {ngayDangMo.day_number}
+                </p>
+                <p className="mt-1 text-base font-semibold text-gray-900">{ngayDangMo.title}</p>
+                {(ngayDangMo.start_point || ngayDangMo.end_point) && (
+                  <p className="mt-1.5 text-sm text-gray-600">
+                    {[ngayDangMo.start_point, ngayDangMo.end_point].filter(Boolean).join(" → ")}
+                  </p>
+                )}
+              </div>
+
+              {ngayDangMo.rest_stops && (
+                <p className="mt-4 text-sm text-gray-600">
+                  <span className="font-semibold text-gray-800">Nghỉ chân:</span>{" "}
+                  {ngayDangMo.rest_stops}
+                </p>
+              )}
+
+              <div className="mt-4 whitespace-pre-line leading-relaxed text-gray-700">
+                {ngayDangMo.content}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

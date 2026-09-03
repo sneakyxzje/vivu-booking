@@ -91,6 +91,11 @@ export interface TourSchedule {
   id: number;
   tour_id: number;
   start_date: string;
+  /**
+   * Ngày kết thúc chuyến. Cột có thật trên `tour_schedules` và máy chủ vẫn trả về, chỉ là kiểu ở
+   * đây khai thiếu — nên trước giờ giao diện phải tự suy ngày về từ số ngày của tour.
+   */
+  end_date?: string;
   max_people: number;
   booked_people: number;
   // Vòng đời chuyến khởi hành, khớp App\Enums\ScheduleStatus.
