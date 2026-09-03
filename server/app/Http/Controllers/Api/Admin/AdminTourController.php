@@ -1043,6 +1043,32 @@ class AdminTourController extends Controller
             return true;
         }
 
+        /*
+         * Hai mốc điều khiển vòng đời cũng nằm trong khóa.
+         *
+         * Trước đây phép này chỉ soi `min_people` và `booking_deadline`, trong khi `$payload` bên
+         * dưới ghi cả `start_date` lẫn `end_date` không điều kiện. Nên biểu mẫu tour dời được ngày
+         * khởi hành của một chuyến ĐANG CHẠY mà không gì chặn — thông báo khóa nói "không sửa được
+         * thông tin chuyến" nhưng phạm vi thi hành hẹp hơn hẳn lời nói.
+         *
+         * Hai mốc này không phải trường mô tả: `start_date` là mốc mọi phép tính phí hủy đếm
+         * ngược tới, còn `end_date` quyết định lúc nào chuyến đóng và đơn được chốt. Sửa chúng sau
+         * khi đoàn đã lên đường là viết lại quá khứ.
+         *
+         * `arrival_at` và `return_departure_at` cố ý ĐỨNG NGOÀI khóa: chúng chỉ là giờ dự kiến cho
+         * khách đọc, không dòng nào ra quyết định dựa vào chúng, và đính chính giờ tới nơi giữa
+         * chuyến khi xe kẹt đường là việc nên làm chứ không nên chặn.
+         */
+        if ($this->doiMoc($schedule->start_date, $item['start_date'] ?? null)) {
+            return true;
+        }
+
+        // Chỉ so khi biểu mẫu thực sự gửi lên: thiếu trường thì mốc kết thúc được suy lại từ số
+        // ngày của tour, và so một giá trị suy ra với giá trị đã lưu sẽ báo đổi trong khi không ai đổi.
+        if (array_key_exists('end_date', $item) && $this->doiMoc($schedule->end_date, $item['end_date'])) {
+            return true;
+        }
+
         if (! array_key_exists('booking_deadline', $item)) {
             return false;
         }
@@ -1055,6 +1081,24 @@ class AdminTourController extends Controller
         }
 
         return ! $hanMoi->equalTo($hanCu);
+    }
+
+    /**
+     * Một mốc đã lưu có khác thứ biểu mẫu gửi lên không.
+     *
+     * So bằng `equalTo` chứ không so chuỗi: biểu mẫu gửi "2026-09-09T06:00" còn cột lưu
+     * "2026-09-09 06:00:00" — cùng một thời điểm, khác cách viết, và so chuỗi sẽ báo đổi mỗi lần
+     * lưu dù không ai chạm vào ô ấy.
+     */
+    private function doiMoc(?Carbon $cu, mixed $moi): bool
+    {
+        $mocMoi = ($moi === null || $moi === '') ? null : Carbon::parse($moi);
+
+        if ($cu === null || $mocMoi === null) {
+            return ($cu === null) !== ($mocMoi === null);
+        }
+
+        return ! $cu->equalTo($mocMoi);
     }
 
     private function validateScheduleRules(array $schedules): ?string
