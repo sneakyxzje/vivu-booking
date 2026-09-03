@@ -531,6 +531,36 @@ class BookingPaymentService
         return $thua;
     }
 
+    /**
+     * Số tiền của LẦN TRẢ SẮP TỚI — khác với số còn thiếu.
+     *
+     * Bán theo cọc nghĩa là một đơn có hai lần trả, và hai lần ấy khác số nhau:
+     *
+     *   - Chưa trả đồng nào → lần này là TIỀN CỌC, không phải cả giá tour.
+     *   - Đã cọc rồi → lần này là toàn bộ phần còn thiếu.
+     *
+     * Thiếu phép phân biệt này thì trang tra cứu dựng liên kết thanh toán bằng số còn thiếu, và với
+     * đơn vừa đặt xong thì số đó đúng bằng giá tour — khách bấm vào và bị đòi trả đủ, trong khi thư
+     * xác nhận và trang đặt tour vừa nói với họ là chỉ cần cọc.
+     *
+     * Kẹp bằng số còn thiếu để không bao giờ đòi quá: đơn có giá trị tụt xuống sau khi chuyển sang
+     * chuyến rẻ hơn vẫn ra con số đúng.
+     */
+    public function nextPaymentAmount(Booking $booking): float
+    {
+        $conThieu = $this->balanceDue($booking);
+
+        if ($conThieu <= 0) {
+            return 0.0;
+        }
+
+        if ($this->netPaid($booking) > 0) {
+            return $conThieu;
+        }
+
+        return min($conThieu, $booking->depositAmount());
+    }
+
     /** Còn thiếu bao nhiêu so với tổng giá trị đơn. */
     public function balanceDue(Booking $booking): float
     {

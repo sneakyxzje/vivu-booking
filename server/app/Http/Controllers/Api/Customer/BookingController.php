@@ -306,7 +306,7 @@ class BookingController extends Controller
          * Phần còn lại thu trước ngày khởi hành, xem `Booking::balanceDueAt()`. Đặt
          * `booking.deposit_percent` bằng 100 thì câu này thu đủ như lối cũ, không cần sửa gì thêm.
          */
-        $soTienCoc = $booking->depositAmount();
+        $soTienCoc = $this->paymentService->nextPaymentAmount($booking);
         $paymentUrl = $this->vnpayService->createPayment($booking, $soTienCoc);
 
         // Đơn trùng thì không gửi thư lần hai. Nhận hai thư xác nhận cho một lần đặt làm khách
@@ -410,16 +410,20 @@ class BookingController extends Controller
          */
         $bookings->each(function (Booking $booking) {
             $conThieu = $this->paymentService->balanceDue($booking);
+            // Lần trả sắp tới là tiền cọc với đơn chưa trả gì, là phần còn lại với đơn đã cọc.
+            // Xem `BookingPaymentService::nextPaymentAmount()`.
+            $traLanNay = $this->paymentService->nextPaymentAmount($booking);
 
             $booking->setAttribute('net_paid', $this->paymentService->netPaid($booking));
             $booking->setAttribute('balance_due', $conThieu);
+            $booking->setAttribute('payment_amount', $traLanNay);
 
-            if ($conThieu > 0
+            if ($traLanNay > 0
                 && !$booking->isGroup()
                 && in_array($booking->status, ['pending', 'confirmed'], true)) {
                 $booking->setAttribute(
                     'payment_url',
-                    $this->vnpayService->createPayment($booking, $conThieu),
+                    $this->vnpayService->createPayment($booking, $traLanNay),
                 );
             }
         });
@@ -454,14 +458,14 @@ class BookingController extends Controller
         $this->holdService->releaseIfOverdue($booking);
 
         /*
-         * Liên kết thanh toán thu phần CÒN THIẾU, đọc từ sổ giao dịch.
+         * Số CÒN THIẾU của cả đơn, và số của LẦN TRẢ SẮP TỚI — hai con số khác nhau.
          *
-         * Đơn lẻ thu đủ một lần nên gần như luôn bằng tổng đơn. Không viết thẳng `total_amount`
-         * vì có một trường hợp thật khác: khách chuyển khoản thiếu, điều hành ghi vào sổ đúng số
-         * đã nhận rồi xác nhận đơn. Lúc ấy đơn `confirmed` mà vẫn còn nợ, và khách cần đường trả
-         * nốt đúng phần thiếu chứ không phải trả lại từ đầu.
+         * Đơn vừa đặt xong còn thiếu cả giá tour, nhưng lần trả sắp tới chỉ là tiền cọc. Dựng liên
+         * kết thanh toán bằng số còn thiếu là đòi khách trả đủ ngay, trái với thứ trang đặt tour và
+         * thư xác nhận vừa nói với họ.
          */
         $conThieu = $this->paymentService->balanceDue($booking);
+        $traLanNay = $this->paymentService->nextPaymentAmount($booking);
 
         /*
          * Đơn ĐOÀN không nhận liên kết cổng thanh toán.
@@ -471,14 +475,17 @@ class BookingController extends Controller
          * khoản và điều hành ghi vào sổ. Dựng liên kết ở đây là mời họ đi một đường mà cả hai bên
          * đã thống nhất không dùng.
          */
-        if ($conThieu > 0
+        if ($traLanNay > 0
             && !$booking->isGroup()
             && in_array($booking->status, ['pending', 'confirmed'], true)) {
-            $booking->setAttribute('payment_url', $this->vnpayService->createPayment($booking, $conThieu));
+            $booking->setAttribute('payment_url', $this->vnpayService->createPayment($booking, $traLanNay));
         }
 
         $booking->setAttribute('net_paid', $this->paymentService->netPaid($booking));
         $booking->setAttribute('balance_due', $conThieu);
+        // Số của liên kết thanh toán ở trên, để giao diện in đúng con số cổng sẽ đòi thay vì tự
+        // suy ra từ số còn thiếu.
+        $booking->setAttribute('payment_amount', $traLanNay);
         // Phần đã thực hoàn, để trang tra cứu biết công ty còn nợ khách bao nhiêu và có nên hỏi
         // tài khoản nhận tiền hay không.
         $booking->setAttribute('refunded', $this->paymentService->refunded($booking));

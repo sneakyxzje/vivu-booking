@@ -35,16 +35,23 @@ class DepositFlowProbeTest extends TestCase
     private Tour $tour;
     private TourSchedule $chuyen;
 
-    /** Cọc 30% của đơn 4 triệu. */
-    private const COC = 1_200_000;
-    private const CON_LAI = 2_800_000;
+    /**
+     * Đơn 4 triệu, cọc theo `booking.deposit_percent` mặc định là 50%.
+     *
+     * Viết thành hằng số để bài đọc được bằng mắt, nhưng `setUp()` ghim luôn cấu hình về 50 để hai
+     * bên không lệch nhau: đổi mặc định mà quên sửa ở đây thì cả tệp đỏ với những con số khó hiểu.
+     */
     private const TONG = 4_000_000;
+    private const COC = 2_000_000;
+    private const CON_LAI = 2_000_000;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         config([
+            // Ghim tỷ lệ cọc để các hằng số ở trên luôn đúng, kể cả khi mặc định của dự án đổi.
+            'booking.deposit_percent' => 50,
             'services.vnpay.hash_secret' => 'secret-cho-test',
             'services.vnpay.tmn_code' => 'TEST',
             'services.vnpay.return_url' => 'http://localhost:8000/api/vnpay/return',
@@ -161,6 +168,47 @@ class DepositFlowProbeTest extends TestCase
 
         $this->assertSame(2, (int) $this->chuyen->fresh()->booked_people);
         $this->artisan('bookings:check-seat-consistency')->assertSuccessful();
+    }
+
+    /**
+     * Trang tra cứu phải đòi TIỀN CỌC, không đòi cả giá tour.
+     *
+     * Đây là lỗi lộ ra ngay lần đặt thật đầu tiên. Trang tra cứu dựng lại liên kết thanh toán bằng
+     * số CÒN THIẾU, mà với đơn vừa đặt thì số đó đúng bằng giá tour — nên `store()` tạo liên kết
+     * cọc xong, trang tra cứu lập tức ghi đè bằng liên kết đòi trả đủ.
+     *
+     * Khách đọc trang đặt tour thấy "đặt cọc 2 triệu", bấm sang thấy đòi 4 triệu.
+     */
+    public function test_chang1_trang_tra_cuu_chi_doi_tien_coc(): void
+    {
+        Mail::fake();
+        $don = $this->datTour();
+
+        $res = $this->getJson('/api/bookings/' . $don->public_token)->assertOk();
+
+        $this->assertEquals(
+            self::COC,
+            $res->json('data.payment_amount'),
+            'Đơn chưa trả gì thì lần trả sắp tới là tiền cọc.',
+        );
+        $this->assertEquals(
+            self::TONG,
+            $res->json('data.balance_due'),
+            'Số còn thiếu của cả đơn vẫn là toàn bộ giá tour — hai con số khác nhau.',
+        );
+    }
+
+    /** Đã cọc rồi thì lần sau đòi đúng phần còn lại, không đòi cọc lần nữa. */
+    public function test_chang1_da_coc_roi_thi_doi_phan_con_lai(): void
+    {
+        Mail::fake();
+        $don = $this->datTour();
+        $this->get('/api/vnpay/return?' . http_build_query($this->vnpayBaoVe($don, self::COC)));
+
+        $res = $this->getJson('/api/bookings/' . $don->public_token)->assertOk();
+
+        $this->assertEquals(self::CON_LAI, $res->json('data.payment_amount'));
+        $this->assertEquals(self::CON_LAI, $res->json('data.balance_due'));
     }
 
     // --- Chặng 2: khách tự trả nốt trước ngày đi ---------------------------------------------

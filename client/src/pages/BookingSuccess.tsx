@@ -25,6 +25,13 @@ type Booking = {
   /** Tổng đã thu thực, tính từ sổ giao dịch. Vắng mặt ở các đơn tạo trước khi có sổ. */
   net_paid?: number;
   balance_due?: number;
+  /**
+   * Số tiền của liên kết thanh toán — khác `balance_due` ở lần trả đầu.
+   *
+   * Đơn vừa đặt còn thiếu cả giá tour nhưng chỉ phải cọc một phần, nên nút phải in con số này chứ
+   * không phải số còn thiếu. In sai thì khách bấm vào và thấy cổng đòi một số khác.
+   */
+  payment_amount?: number;
   /** Hạn trả nốt phần còn lại, và việc đã quá hạn hay chưa. */
   balance_due_at?: string | null;
   balance_overdue?: boolean;
@@ -294,6 +301,14 @@ export default function BookingSuccess() {
   const remainingAmount = Number(
     booking.balance_due ?? (pending ? booking.total_amount : 0),
   );
+  /*
+   * Số của lần trả sắp tới, do máy chủ tính.
+   *
+   * Khác `remainingAmount` ở đúng lần đầu: đơn vừa đặt còn thiếu cả giá tour nhưng chỉ phải cọc một
+   * phần. Lùi về số còn thiếu khi máy chủ chưa trả trường này, để đơn cũ vẫn hiện đúng.
+   */
+  const payNowAmount = Number(booking.payment_amount ?? remainingAmount);
+  const isDeposit = pending && payNowAmount > 0 && payNowAmount < remainingAmount;
   /*
    * Công ty còn nợ khách bao nhiêu.
    *
@@ -572,7 +587,9 @@ export default function BookingSuccess() {
                       </h4>
                       <p className="text-xs text-emerald-700 leading-relaxed mt-0.5">
                         {pending
-                          ? "Để hoàn tất đặt tour và giữ chỗ chính thức, vui lòng thanh toán qua cổng VNPay."
+                          ? isDeposit
+                            ? `Đặt cọc ${formatCurrency(payNowAmount)} để giữ chỗ. Phần còn lại ${formatCurrency(remainingAmount - payNowAmount)} thanh toán trước ngày khởi hành.`
+                            : "Để hoàn tất đặt tour và giữ chỗ chính thức, vui lòng thanh toán qua cổng VNPay."
                           : `Chỗ của bạn đã được giữ. Đơn còn thiếu ${formatCurrency(remainingAmount)}.`}
                       </p>
 
@@ -619,8 +636,10 @@ export default function BookingSuccess() {
                     className="block w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 text-center rounded-xl shadow-md hover:shadow-lg transition-all duration-300 text-sm cursor-pointer"
                   >
                     {pending
-                      ? `Thanh toán ${formatCurrency(remainingAmount)} ngay`
-                      : `Thanh toán nốt ${formatCurrency(remainingAmount)}`}
+                      ? isDeposit
+                        ? `Đặt cọc ${formatCurrency(payNowAmount)} ngay`
+                        : `Thanh toán ${formatCurrency(payNowAmount)} ngay`
+                      : `Thanh toán nốt ${formatCurrency(payNowAmount)}`}
                   </a>
                 </div>
               )}
