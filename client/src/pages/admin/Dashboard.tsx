@@ -18,11 +18,8 @@ import {
   Compass,
   Calendar
 } from "lucide-react";
-import adminService, {
-  type AdminDashboardData,
-  type DashboardRange,
-} from "@/services/adminService";
-import { DateRangeFilter } from "@/components/admin/DateRangeFilter";
+import adminService, { type AdminDashboardData } from "@/services/adminService";
+import { DateRangePicker, type DateRange } from "@/components/DateRangePicker";
 import { formatDate, formatDateTime, formatPrice } from "@/utils/format";
 
 const DESTINATION_COLORS = ["#6366f1", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
@@ -31,7 +28,11 @@ export default function Dashboard() {
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [range, setRange] = useState<DashboardRange>({ from: null, to: null });
+  /*
+   * Khoảng ngày dùng đúng `DateRange` của `DateRangePicker`: hai chuỗi, rỗng nghĩa là không giới
+   * hạn đầu ấy. `adminService.getDashboard` chỉ gửi lên tham số nào thật sự có giá trị.
+   */
+  const [range, setRange] = useState<DateRange>({ from: "", to: "" });
 
   /*
    * Nạp lại mỗi khi khoảng ngày đổi, nhưng KHÔNG xóa dữ liệu cũ trong lúc chờ.
@@ -46,7 +47,7 @@ export default function Dashboard() {
    * thêm một nhịp vẽ thừa. Còn "vừa bấm thì đang tải" đúng là hệ quả trực tiếp của cú bấm, nên nó
    * thuộc về hàm xử lý bấm.
    */
-  const doiKhoang = (moi: DashboardRange) => {
+  const doiKhoang = (moi: DateRange) => {
     setLoading(true);
     setError("");
     setRange(moi);
@@ -175,13 +176,30 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* BỘ LỌC KHOẢNG NGÀY */}
-      <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-xs">
-        <DateRangeFilter
+      {/*
+        BỘ LỌC KHOẢNG NGÀY — dùng `DateRangePicker` chung, không tự dựng hai ô ngày.
+
+        Chú thích của chính component ấy đã ghi: bốn màn hình từng mỗi nơi tự dựng một kiểu, mỗi
+        kiểu một cách chặn ngày và không nơi nào có mốc dựng sẵn. Thêm một bản thứ năm ở đây là
+        làm lại đúng cái nó sinh ra để dẹp.
+
+        `presets="past"` vì bảng điều khiển nhìn về dữ liệu đã xảy ra; `maxDate` chặn ngày tương
+        lai, vốn luôn cho ra một kỳ rỗng.
+      */}
+      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-xs">
+        <DateRangePicker
+          label="Khoảng thời gian"
           value={range}
           onChange={doiKhoang}
-          disabled={loading}
+          presets="past"
+          maxDate={new Date()}
+          placeholder="Toàn thời gian"
+          className="w-full sm:w-72"
         />
+        <p className="text-xs text-gray-400 pb-2">
+          Áp cho doanh thu, số đơn, khách mới, điểm đến và biểu đồ. Các số hiện
+          trạng như tỷ lệ lấp đầy không đổi theo bộ lọc.
+        </p>
       </div>
 
       {error && (
