@@ -408,16 +408,37 @@ class BalanceDueFlowTest extends TestCase
     public function test_con_no_ma_chuyen_qua_sat_thi_bao_dieu_hanh(): void
     {
         $anHan = (int) config('booking.balance_final_notice_days', 2);
+        $hanChot = (int) config('booking.booking_deadline_days', 3);
 
-        $sat = $this->donDaCoc($this->chuyen($anHan));
-        $conKip = $this->donDaCoc($this->chuyen($anHan + 5));
-        $daTraDu = $this->donDaCoc($this->chuyen($anHan), daThu: self::TONG);
+        // Mốc phải vượt là HẠN CHỐT, tức ngày đi trừ $hanChot — không phải ngày đi.
+        $sat = $this->donDaCoc($this->chuyen($hanChot + $anHan));
+        $conKip = $this->donDaCoc($this->chuyen($hanChot + $anHan + 5));
+        $daTraDu = $this->donDaCoc($this->chuyen($hanChot + $anHan), daThu: self::TONG);
 
         $so = $this->so();
 
-        $this->assertTrue($so->tuDongThuNotKhongKip($sat), 'Sát ngày mà còn nợ thì tự động không kịp.');
+        $this->assertTrue($so->tuDongThuNotKhongKip($sat), 'Sát hạn chốt mà còn nợ thì tự động không kịp.');
         $this->assertFalse($so->tuDongThuNotKhongKip($conKip), 'Còn thời gian thì để tác vụ nền lo.');
         $this->assertFalse($so->tuDongThuNotKhongKip($daTraDu), 'Trả đủ rồi thì không có gì để thu.');
+    }
+
+    /**
+     * Khoảng mà bản cũ bỏ lọt: hủy kịp trước ngày ĐI nhưng không kịp trước HẠN CHỐT.
+     *
+     * Chuyến đi sau 5 ngày, hạn chốt sau 2 ngày. Dây chuyền cần 3 ngày nên lượt hủy sớm nhất rơi
+     * vào ngày thứ 3 — đã qua hạn chốt. Lúc ấy chỗ không về kho nữa mà thành ghế chết: công ty trả
+     * tiền cho một chỗ không có khách, và vẫn hủy đơn của khách ngay trước ngày đi.
+     *
+     * Đo tới ngày khởi hành thì khoảng này im lặng, vì 3 ngày vẫn nhỏ hơn 5.
+     */
+    public function test_kip_truoc_ngay_di_nhung_khong_kip_truoc_han_chot_van_phai_bao(): void
+    {
+        $don = $this->donDaCoc($this->chuyen(5));
+
+        $this->assertTrue(
+            $this->so()->tuDongThuNotKhongKip($don),
+            'Hủy sau hạn chốt thì chỗ không bán lại được — phải để người xử lý.',
+        );
     }
 
     /**

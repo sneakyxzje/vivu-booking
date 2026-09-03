@@ -579,15 +579,27 @@ class BookingPaymentService
     }
 
     /**
-     * Đơn này còn nợ tiền, mà quy trình thu nốt tự động KHÔNG còn kịp chạy trước giờ khởi hành.
+     * Đơn này còn nợ tiền, mà quy trình thu nốt tự động KHÔNG còn kịp chạy hết trước hạn chốt.
      *
      * Việc thu nốt bình thường do hai tác vụ nền lo, và chúng cần thời gian thật:
      *
      *   1. Lệnh nhắc chạy mỗi ngày một lần, nên thư sớm nhất cũng phải sang hôm sau mới đi.
      *   2. Lệnh hủy chỉ đụng tới đơn sau khi đã qua `balance_final_notice_days` ngày kể từ lá thư ấy.
      *
-     * Cộng lại là `ân hạn + 1` ngày. Chuyến khởi hành sớm hơn ngần ấy thì cả dây chuyền vô nghĩa:
-     * thư gửi đi cũng không kịp tới lượt hủy, mà có kịp thì hủy lúc đó cũng không bán lại được chỗ.
+     * Cộng lại là `ân hạn + 1` ngày trước khi một lượt hủy có thể xảy ra.
+     *
+     * ## Vì sao đo tới HẠN CHỐT DANH SÁCH chứ không phải ngày khởi hành
+     *
+     * Cả dây chuyền này chỉ có ích khi lượt hủy còn kịp **trả chỗ về kho để bán lại**. Mà chỗ chỉ về
+     * kho khi hủy trước hạn chốt: sau mốc đó phòng, ghế và suất ăn đã chốt theo danh sách gửi nhà
+     * cung cấp, nên `BookingHoldService::shouldReleaseSeats()` giữ nguyên số chỗ và đơn thành ghế
+     * chết — công ty đã trả tiền cho một chỗ không có khách ngồi.
+     *
+     * Đo tới ngày khởi hành thì bỏ lọt đúng khoảng nguy hiểm ấy, và bỏ lọt theo một cách khó chịu:
+     * hạn chốt mang đúng giờ khởi hành của chuyến, còn lệnh hủy chạy 09:30 mỗi sáng. Nên tour đi
+     * buổi tối thì chỗ kịp về kho, tour đi 5 giờ sáng thì thành ghế chết — cùng một tình huống
+     * nghiệp vụ, hai kết cục, và thứ quyết định là giờ xe lăn bánh. Không luật nào nên phụ thuộc
+     * vào một sự trùng hợp như thế.
      *
      * Chỉ xảy ra khi đơn bị ĐỔI NGÀY sau lúc đặt — ghép chuyến, chuyển chuyến. Đơn đặt thẳng vào
      * chuyến sát ngày đã bị thu đủ tiền ngay từ đầu, xem `nextPaymentAmount()`.
@@ -602,15 +614,19 @@ class BookingPaymentService
             return false;
         }
 
-        $khoiHanh = $booking->schedule?->start_date ?? $booking->departure_date;
+        $schedule = $booking->schedule;
 
-        if (!$khoiHanh) {
+        $mocCuoi = $schedule
+            ? ($schedule->booking_deadline ?? $schedule->defaultBookingDeadline())
+            : $booking->departure_date;
+
+        if (!$mocCuoi) {
             return false;
         }
 
         $canToiThieu = (int) config('booking.balance_final_notice_days', 2) + 1;
 
-        return now()->addDays($canToiThieu)->gte(\Illuminate\Support\Carbon::parse($khoiHanh));
+        return now()->addDays($canToiThieu)->gte(\Illuminate\Support\Carbon::parse($mocCuoi));
     }
 
     /** Còn thiếu bao nhiêu so với tổng giá trị đơn. */
