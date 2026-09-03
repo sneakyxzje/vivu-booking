@@ -1,6 +1,5 @@
 import bookingService from "@/services/bookingService";
 import policyService from "@/services/policyService";
-import type { PolicyTier } from "@/services/policyService";
 import tourService from "@/services/tourService";
 import type { Tour, TourSchedule } from "@/types";
 import { formatDateTime } from "@/utils/format";
@@ -46,8 +45,6 @@ type BookingFormProps = {
   onClearDiscount: () => void;
   onChange: (field: keyof BookingFormState, value: string | number | boolean) => void;
   onSubmit: (event: FormEvent) => void;
-  /** Bảng phí hủy đang có hiệu lực, đọc từ máy chủ. Rỗng khi chưa tải xong. */
-  bacHoan: PolicyTier[];
   /** Hạn chốt mặc định theo cấu hình máy chủ, áp cho chuyến không đặt hạn riêng. */
   hanChotNgay: number;
   /**
@@ -108,7 +105,6 @@ const BookingForm = ({
   onClearDiscount,
   onChange,
   onSubmit,
-  bacHoan,
   hanChotNgay,
   depositPercent,
   depositAmount,
@@ -496,34 +492,19 @@ const BookingForm = ({
       ) : null}
 
       {/*
-        Ô đồng ý điều khoản — bắt buộc, và bảng phí hiện ngay cạnh nó.
+        Ô đồng ý điều khoản — bắt buộc, và chỉ có ô đồng ý.
 
-        Đơn đã chép sẵn chính sách hủy vào chính nó lúc tạo, nên hệ thống luôn biết điều khoản nào
-        áp cho đơn nào. Thứ trước đây còn thiếu là bằng chứng khách được cho xem nó TRƯỚC khi trả
-        tiền — và đó đúng là chỗ mọi khiếu nại hoàn tiền bắt đầu: "không ai bảo tôi mất 30%".
+        Bảng phí hủy từng nằm ngay đây, với lập luận rằng con số đọc được tại chỗ thì khó nói là
+        chưa từng nhìn thấy. Nhưng nó chép lại một phần của trang chính sách vào giữa biểu mẫu đặt
+        tour, và bản sao ấy phải tự đi tìm dữ liệu, tự dựng lại cách trình bày, tự đúng theo. Sửa
+        bảng phí ở một nơi mà quên nơi kia là hai văn bản nói hai điều khác nhau về cùng một khoản
+        tiền — và tờ nào cũng đứng tên công ty.
 
-        Bảng phí đặt ngay tại đây chứ không chỉ để một liên kết: một đường dẫn mở tab mới là thứ
-        gần như không ai bấm, còn con số đọc được tại chỗ thì khó nói là chưa từng nhìn thấy.
+        Bằng chứng khách được cho xem điều khoản trước khi trả tiền vẫn còn nguyên: hệ thống ghi
+        `terms_accepted_at` lúc họ tích ô này, và đơn chép sẵn bảng phí đang hiệu lực vào chính nó
+        lúc tạo. Ô tích cộng liên kết là đủ cho việc ấy; bảng phí thuộc về trang chính sách.
       */}
-      <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4 space-y-3">
-        {bacHoan.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-              Nếu bạn hủy đơn này
-            </p>
-            <ul className="text-xs text-gray-600 space-y-0.5">
-              {bacHoan.map((bac) => (
-                <li key={bac.window} className="flex justify-between gap-3">
-                  <span>{bac.window}</span>
-                  <span className="font-semibold text-gray-800 whitespace-nowrap">
-                    hoàn {bac.refund_percent}%
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
+      <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
         <label className="flex items-start gap-2.5 cursor-pointer">
           <input
             type="checkbox"
@@ -541,7 +522,7 @@ const BookingForm = ({
             >
               chính sách hủy và hoàn tiền
             </a>{" "}
-            của Vivu Booking. Tôi hiểu rằng mức hoàn phụ thuộc thời điểm hủy như bảng trên.
+            của Vivu Booking. Tôi hiểu rằng mức hoàn tiền phụ thuộc vào thời điểm hủy.
           </span>
         </label>
       </div>
@@ -680,14 +661,6 @@ export const BookingTour = () => {
   const [appliedDiscountCode, setAppliedDiscountCode] = useState<string | null>(null);
   const [discountApplying, setDiscountApplying] = useState(false);
   /*
-   * Bảng phí hủy thật, để hiện ngay cạnh ô đồng ý điều khoản.
-   *
-   * Đọc từ máy chủ chứ không chép thành chữ: bảng này nằm trong cơ sở dữ liệu và điều hành sửa
-   * được, nên một bản sao trong giao diện chỉ đúng tới lần sửa đầu tiên — và từ đó trang đặt tour
-   * hứa một đằng còn lúc hủy đơn trừ tiền một nẻo.
-   */
-  const [bacHoan, setBacHoan] = useState<PolicyTier[]>([]);
-  /*
    * Số ngày trước khởi hành mà chuyến ngừng nhận đặt, lấy từ cấu hình máy chủ.
    *
    * Chuyến không đặt hạn chốt riêng vẫn có hạn — máy chủ suy ra bằng ngày khởi hành trừ số ngày
@@ -713,7 +686,6 @@ export const BookingTour = () => {
       .then((data) => {
         if (huy || !data) return;
 
-        setBacHoan(data.cancellation.rules ?? []);
         setHanChotNgay(data.booking.deadline_days || HAN_CHOT_MAC_DINH_NGAY);
         setDepositPercent(data.payment?.deposit_percent ?? 100);
         setBalanceDueDays(data.payment?.balance_due_days ?? 0);
@@ -904,7 +876,6 @@ export const BookingTour = () => {
               onClearDiscount={clearDiscountCode}
               onChange={updateForm}
               onSubmit={handleSubmit}
-              bacHoan={bacHoan}
               hanChotNgay={hanChotNgay}
               depositPercent={depositPercent}
               // Làm tròn về đồng nguyên đúng như máy chủ làm, để con số hiện ở đây khớp với con số
