@@ -49,6 +49,7 @@ use App\Http\Controllers\Api\Guide\AssignmentController as GuideAssignmentContro
 use App\Http\Controllers\Api\Guide\IncidentController as GuideIncidentController;
 use App\Http\Controllers\Api\Admin\AdminScheduleCancellationController;
 use App\Http\Controllers\Api\Admin\AdminScheduleDeadlineController;
+use App\Http\Controllers\Api\Admin\AdminSandboxController;
 use App\Http\Controllers\Api\Admin\AdminScheduleMergeController;
 use App\Http\Controllers\Api\Customer\PolicyController as CustomerPolicyController;
 use App\Http\Controllers\Api\Admin\AdminContactLogController;
@@ -436,6 +437,23 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
 
         // E04 - Dòng thời gian thay đổi của một đơn.
         Route::get('/bookings/{id}/history', [AdminBookingController::class, 'history']);
+
+        /*
+         * Sân thử nghiệm nghiệp vụ.
+         *
+         * Mọi luật tiền bạc của hệ thống treo vào một mốc tính từ ngày khởi hành, nên muốn xem hệ
+         * thống xử lý một tình huống ra sao thì phải chờ tới đúng ngày — với hạn trả nốt là chờ
+         * hàng tuần. Nhóm này kéo đồng hồ tới nơi rồi chạy đúng lệnh nền thật.
+         *
+         * `fast-forward` chỉ chạy được trong tour có cờ sandbox; `send-mail` dùng cho mọi đơn, kể
+         * cả tour thật — gửi lại thư cho khách gọi lên nói chưa nhận được là việc hằng ngày.
+         */
+        Route::get('/sandbox/options', [AdminSandboxController::class, 'options']);
+        Route::get('/sandbox/tours', [AdminSandboxController::class, 'tours']);
+        Route::get('/sandbox/schedules/{id}/snapshot', [AdminSandboxController::class, 'snapshot']);
+        Route::post('/sandbox/schedules/{id}/fast-forward', [AdminSandboxController::class, 'fastForward']);
+        Route::post('/sandbox/run-command', [AdminSandboxController::class, 'runCommand']);
+        Route::post('/bookings/{id}/send-mail', [AdminSandboxController::class, 'sendMail']);
 
         // Nhật ký hệ thống: gộp nhật ký đơn và nhật ký chuyến thành một dòng thời gian.
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
