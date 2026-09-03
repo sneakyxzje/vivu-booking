@@ -62,6 +62,24 @@ Schedule::command('bookings:send-departure-reminders')
     ->withoutOverlapping();
 
 /*
+ * Nhắc trả nốt phần còn lại, và hủy đơn quá hạn.
+ *
+ * Thứ tự ở đây là thứ tự nghiệp vụ, không phải tùy tiện: nhắc chạy TRƯỚC hủy trong cùng buổi sáng,
+ * để lá cảnh báo cuối luôn tới trước lệnh hủy ít nhất một vòng. Đảo lại thì có ngày một khách bị hủy
+ * đơn vào đúng buổi sáng đáng lẽ họ nhận được lời nhắc cuối.
+ *
+ * Cả hai chạy 9 giờ sáng, sau thư nhắc khởi hành một tiếng: thư tiền và thư lịch trình không nên
+ * rơi vào hộp thư cùng một phút, người đọc sẽ lẫn hai việc.
+ */
+Schedule::command('bookings:send-balance-reminders')
+    ->dailyAt('09:00')
+    ->withoutOverlapping();
+
+Schedule::command('bookings:cancel-unpaid-balances')
+    ->dailyAt('09:30')
+    ->withoutOverlapping();
+
+/*
  * Đẩy hàng đợi.
  *
  * Thư gửi đi đều là `ShouldQueue`, nên với `QUEUE_CONNECTION=database` chúng nằm trong bảng `jobs`

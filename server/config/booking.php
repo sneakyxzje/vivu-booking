@@ -45,6 +45,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Nhắc trả nốt
+    |--------------------------------------------------------------------------
+    |
+    | Số ngày TRƯỚC HẠN TRẢ NỐT của hai lần nhắc. Quá hạn là khách mất tiền
+    | thật, nên không được để chuyện đó xảy ra với người chưa từng được nhắc.
+    |
+    | Hai lần chứ không một: lần đầu là lời nhắc bình thường lúc còn thong thả,
+    | lần sau là cảnh báo cuối khi chỉ còn vài ngày. Một lần duy nhất thì ai lỡ
+    | bỏ qua đúng lá thư ấy là mất cọc mà không kịp biết.
+    |
+    */
+
+    'balance_reminder_days' => (int) env('BOOKING_BALANCE_REMINDER_DAYS', 7),
+
+    'balance_final_notice_days' => (int) env('BOOKING_BALANCE_FINAL_NOTICE_DAYS', 2),
+
+    /*
+    |--------------------------------------------------------------------------
     | Hạn chốt danh sách khách
     |--------------------------------------------------------------------------
     |

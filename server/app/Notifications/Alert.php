@@ -51,6 +51,14 @@ class Alert extends Notification
      */
     public const CHUYEN_THIEU_KHACH = 'schedule_understaffed';
 
+    /**
+     * Chuyến vừa trống chỗ do khách không thanh toán đúng hạn.
+     *
+     * Chỗ đã tự trả về kho, nhưng bán tiếp hay chịu đi thiếu là quyết định của con người — tùy mùa,
+     * tùy tour, tùy còn mấy ngày tới lúc đi. Thông báo này để người quyết biết lúc còn kịp.
+     */
+    public const CHUYEN_TRONG_CHO = 'schedule_seats_freed';
+
     /* --- Việc cả hai vai đều cần biết ---------------------------------------------------- */
 
     /**
