@@ -233,10 +233,10 @@ class BusinessScenarioSeeder extends Seeder
             // so_hdv: số hướng dẫn viên muốn phân công. Không có luật nào ràng buộc con số này
             // với số khách - đặt khác nhau ở đây chỉ để lúc thử tay nhìn thấy đủ ba trạng thái:
             // chuyến nhiều người dẫn, chuyến một người, và chuyến chưa phân công ai.
-            ['ma' => 'S1', 'gio' => 480, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 3, 'mo_ta' => 'Hoàn 90%, còn xa hạn chốt'],
-            ['ma' => 'S2', 'gio' => 240, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 70%'],
-            ['ma' => 'S3', 'gio' => 120, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 50%, còn 48 giờ nữa mới tới hạn chốt'],
-            ['ma' => 'S4', 'gio' => 60, 'status' => ScheduleStatus::Closed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 30%, ĐÃ QUA hạn chốt nên hủy sinh ghế chết'],
+            ['ma' => 'S1', 'gio' => 480, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 3, 'mo_ta' => 'Hoàn 75%, còn xa hạn chốt'],
+            ['ma' => 'S2', 'gio' => 240, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 50% — đây cũng là khoảng hạn trả nốt'],
+            ['ma' => 'S3', 'gio' => 120, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 10%, còn 48 giờ nữa mới tới hạn chốt'],
+            ['ma' => 'S4', 'gio' => 60, 'status' => ScheduleStatus::Closed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 10%, ĐÃ QUA hạn chốt nên hủy sinh ghế chết'],
             ['ma' => 'S5', 'gio' => 26, 'status' => ScheduleStatus::Confirmed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 0%, đã chốt danh sách'],
             /*
              * Khởi hành SÁNG NAY, không phải hôm qua.
@@ -360,10 +360,10 @@ class BusinessScenarioSeeder extends Seeder
     private function dungCacDon(): void
     {
         // Nhóm B: mỗi chuyến một đơn đã thanh toán, để bấm hủy và xem báo giá hoàn.
-        $this->don['hoan90'] = $this->taoDon('S1', 'confirmed', 2, 0, 'Hủy thử: phải thấy hoàn 90%, chỗ trả về kho', 'B, C');
-        $this->don['hoan70'] = $this->taoDon('S2', 'confirmed', 2, 0, 'Hủy thử: phải thấy hoàn 70%', 'B');
-        $this->don['hoan50'] = $this->taoDon('S3', 'confirmed', 2, 1, 'Hủy thử: phải thấy hoàn 50%, chỗ vẫn trả về kho', 'B, C');
-        $this->don['hoan30'] = $this->taoDon('S4', 'confirmed', 2, 0, 'Hủy thử: hoàn 30% nhưng chỗ KHÔNG trả về, sinh ghế chết', 'B, C');
+        $this->don['hoan90'] = $this->taoDon('S1', 'confirmed', 2, 0, 'Hủy thử: phải thấy hoàn 75%, chỗ trả về kho', 'B, C');
+        $this->don['hoan70'] = $this->taoDon('S2', 'confirmed', 2, 0, 'Hủy thử: phải thấy hoàn 50%', 'B');
+        $this->don['hoan50'] = $this->taoDon('S3', 'confirmed', 2, 1, 'Hủy thử: phải thấy hoàn 10%, chỗ vẫn trả về kho', 'B, C');
+        $this->don['hoan30'] = $this->taoDon('S4', 'confirmed', 2, 0, 'Hủy thử: hoàn 10% nhưng chỗ KHÔNG trả về, sinh ghế chết', 'B, C');
         $this->don['hoan0'] = $this->taoDon('S5', 'confirmed', 2, 0, 'Hủy thử: hoàn 0%, chỗ không trả về', 'B, C');
 
         // Nhóm C: ghế chết dựng sẵn, để thấy số chỗ của S4 không nhả ra dù đơn đã hủy.

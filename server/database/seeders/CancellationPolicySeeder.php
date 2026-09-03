@@ -22,7 +22,9 @@ class CancellationPolicySeeder extends Seeder
             [
                 'description' => 'Áp dụng cho tour nội địa. Phí hủy tăng dần khi càng sát ngày '
                     . 'khởi hành, vì chi phí đã cam kết với nhà cung cấp càng khó hủy: khách sạn '
-                    . 'chốt phòng khoảng 7 ngày trước, nhà xe 3 ngày, suất ăn 1 đến 2 ngày.',
+                    . 'chốt phòng khoảng 7 ngày trước, nhà xe 3 ngày, suất ăn 1 đến 2 ngày. '
+                    . 'Khách đặt cọc 50% khi đăng ký và thanh toán nốt trước ngày khởi hành 10 '
+                    . 'ngày; quá hạn đó mà chưa thanh toán thì đơn được hủy và khách mất tiền cọc.',
                 // Lùi một ngày để bản seed chắc chắn đã có hiệu lực, kể cả khi seeder chạy xong là
                 // có người đặt đơn ngay trong cùng giây đó.
                 'effective_from' => GioVietNam::bayGio()->subDay(),
@@ -30,9 +32,11 @@ class CancellationPolicySeeder extends Seeder
         );
 
         $ghiChu = [
-            15 => 'Hủy sớm, chi phí gần như chưa phát sinh.',
-            8 => 'Khách sạn chưa chốt phòng.',
-            4 => 'Đã qua mốc chốt phòng của phần lớn khách sạn.',
+            20 => 'Hủy sớm, chưa cam kết gì với nhà cung cấp nên hoàn đủ.',
+            15 => 'Giữ lại một nửa tiền cọc.',
+            12 => 'Giữ trọn tiền cọc.',
+            8 => 'Qua mốc chốt phòng của phần lớn khách sạn. Đây cũng là khoảng hạn thanh toán '
+                . 'phần còn lại: quá hạn mà chưa trả nốt thì đơn hủy và khách mất cọc.',
             2 => 'Đã chốt xe và đang chốt suất ăn.',
             0 => 'Toàn bộ dịch vụ đã cam kết, không hủy được với nhà cung cấp.',
         ];

@@ -52,16 +52,19 @@ class CancellationPolicyTest extends TestCase
     public function test_dung_muc_hoan_o_tung_bac(): void
     {
         $bac = [
-            [24 * 20, 90], // 20 ngày, từ 15 ngày trở lên
-            [24 * 15, 90], // đúng mốc 15 ngày
-            [24 * 14, 70], // 14 ngày
-            [24 * 8, 70],  // đúng mốc 8 ngày
-            [24 * 7, 50],  // 7 ngày
-            [24 * 4, 50],  // đúng mốc 4 ngày
-            [24 * 3, 30],  // 3 ngày
-            [24 * 2, 30],  // đúng mốc 2 ngày
-            [47, 0],       // dưới 48 giờ
-            [1, 0],        // sát giờ khởi hành
+            [24 * 30, 100], // hủy rất sớm, chưa cam kết gì với nhà cung cấp
+            [24 * 20, 100], // đúng mốc 20 ngày
+            [24 * 19, 75],  // 19 ngày, giữ lại nửa tiền cọc
+            [24 * 15, 75],  // đúng mốc 15 ngày
+            [24 * 14, 50],  // 14 ngày, giữ trọn tiền cọc
+            [24 * 12, 50],  // đúng mốc 12 ngày
+            [24 * 11, 50],  // 11 ngày, mất nửa giá tour — cùng con số, khác lý do
+            [24 * 10, 50],  // đúng hạn trả nốt: mất đúng phần đã cọc
+            [24 * 8, 50],   // đúng mốc 8 ngày
+            [24 * 7, 10],   // 7 ngày
+            [24 * 2, 10],   // đúng mốc 2 ngày
+            [47, 0],        // dưới 48 giờ
+            [1, 0],         // sát giờ khởi hành
         ];
 
         foreach ($bac as [$gioNua, $mucHoan]) {
@@ -96,10 +99,15 @@ class CancellationPolicyTest extends TestCase
             $this->schedule(24 * 10),
         );
 
-        // Còn 10 ngày rơi vào bậc 8 đến 14 ngày, hoàn 70 phần trăm.
-        $this->assertSame(70, $ketQua['refund_percent']);
-        $this->assertSame(3_000_000.0, $ketQua['cancellation_fee']);
-        $this->assertSame(7_000_000.0, $ketQua['refund_amount']);
+        /*
+         * Còn 10 ngày rơi vào bậc 8 đến 12 ngày, hoàn 50 phần trăm.
+         *
+         * Đây cũng chính là hạn trả nốt mặc định, và con số 50 không phải ngẫu nhiên: nó bằng đúng
+         * tỷ lệ cọc, nên khách bỏ ngang ở mốc này mất tròn phần đã đặt cọc.
+         */
+        $this->assertSame(50, $ketQua['refund_percent']);
+        $this->assertSame(5_000_000.0, $ketQua['cancellation_fee']);
+        $this->assertSame(5_000_000.0, $ketQua['refund_amount']);
     }
 
     /**
@@ -110,11 +118,11 @@ class CancellationPolicyTest extends TestCase
     {
         $ketQua = $this->service->quote(
             $this->booking(10_000_000),
-            $this->schedule(24 * 3), // 3 ngày, hoàn 30 phần trăm
+            $this->schedule(24 * 3), // 3 ngày, hoàn 10 phần trăm
         );
 
-        $this->assertSame(7_000_000.0, $ketQua['cancellation_fee']);
-        $this->assertSame(3_000_000.0, $ketQua['refund_amount']);
+        $this->assertSame(9_000_000.0, $ketQua['cancellation_fee']);
+        $this->assertSame(1_000_000.0, $ketQua['refund_amount']);
     }
 
     /**
@@ -138,7 +146,7 @@ class CancellationPolicyTest extends TestCase
             $this->schedule(24 * 30),
         );
 
-        $this->assertSame(90, $ketQua['refund_percent']);
+        $this->assertSame(100, $ketQua['refund_percent']);
         $this->assertSame(0.0, $ketQua['paid_amount']);
         $this->assertSame(0.0, $ketQua['refund_amount']);
     }
@@ -249,10 +257,11 @@ class CancellationPolicyTest extends TestCase
     {
         $ketQua = $this->service->quote(
             $this->booking(3_333_333),
-            $this->schedule(24 * 10), // hoàn 70 phần trăm
+            $this->schedule(24 * 10), // hoàn 50 phần trăm
         );
 
-        $this->assertSame(1_000_000.0, $ketQua['cancellation_fee']);
-        $this->assertSame(2_333_333.0, $ketQua['refund_amount']);
+        // 50% của 3.333.333 là 1.666.666,5 — làm tròn lên đồng nguyên ở cả hai vế.
+        $this->assertSame(1_666_667.0, $ketQua['cancellation_fee']);
+        $this->assertSame(1_666_666.0, $ketQua['refund_amount']);
     }
 }

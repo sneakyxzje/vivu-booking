@@ -96,7 +96,7 @@ class BookingChangeRequestTest extends TestCase
         $this->getJson("/api/my-bookings/{$don->id}/cancel-preview")
             ->assertOk()
             // Còn 20 ngày nên rơi vào bậc cao nhất.
-            ->assertJsonPath('data.refund_percent', 90)
+            ->assertJsonPath('data.refund_percent', 75)
             ->assertJsonPath('data.seats_will_be_released', true);
     }
 
@@ -122,7 +122,7 @@ class BookingChangeRequestTest extends TestCase
         $yeuCau = BookingChangeRequest::query()->first();
 
         $this->assertSame(ChangeRequestStatus::Pending, $yeuCau->status);
-        $this->assertSame(90, (int) $yeuCau->estimated_refund_percent);
+        $this->assertSame(75, (int) $yeuCau->estimated_refund_percent);
     }
 
     /** Đơn chưa thanh toán không đi đường này, khách tự hủy được ngay. */
@@ -221,7 +221,7 @@ class BookingChangeRequestTest extends TestCase
 
         $this->assertSame('cancelled', $don->status);
         $this->assertSame('by_customer', $don->cancel_type);
-        $this->assertEquals(9_000_000, (float) $don->refund_amount);
+        $this->assertEquals(7_500_000, (float) $don->refund_amount);
         $this->assertTrue((bool) $don->seats_released);
         $this->assertSame(0, (int) $this->schedule->fresh()->booked_people);
 
@@ -261,7 +261,7 @@ class BookingChangeRequestTest extends TestCase
         $don = $this->taoDon();
         $yeuCau = $this->guiYeuCau($don);
 
-        $this->assertSame(90, (int) $yeuCau->estimated_refund_percent);
+        $this->assertSame(75, (int) $yeuCau->estimated_refund_percent);
 
         // Yêu cầu nằm chờ tới sát ngày đi, lúc này tính lại chỉ còn bậc thấp nhất.
         $this->schedule->update([
@@ -274,7 +274,7 @@ class BookingChangeRequestTest extends TestCase
         $this->putJson("/api/admin/change-requests/{$yeuCau->id}/approve")->assertOk();
 
         $this->assertEquals(
-            9_000_000,
+            7_500_000,
             (float) $don->fresh()->refund_amount,
             'Khách vẫn nhận mức đã chốt lúc gửi, không phải mức tính lại lúc duyệt.',
         );

@@ -210,10 +210,22 @@ class ScheduleMergeTest extends TestCase
             'approved_at' => now(),
         ]);
 
+        /*
+         * Kéo ngày khởi hành về gần để bảng phí thật sự nói lên điều gì.
+         *
+         * Bậc cao nhất của bảng là hoàn đủ 100%, nên nếu chuyến còn xa thì khách tự xin đổi và
+         * khách bị công ty đổi ngày ra cùng một con số — bài đối chứng không chứng minh được gì.
+         * Ở mốc 10 ngày, bậc thường là 50%, khác hẳn mức 100% mà ngoại lệ kia cho.
+         */
+        $this->dich->update([
+            'start_date' => now()->addDays(10),
+            'end_date' => now()->addDays(11),
+        ]);
+
         $bang = app(\App\Services\CancellationPolicyService::class)->quote($don->fresh());
 
         $this->assertFalse($bang['moved_by_company']);
-        $this->assertLessThan(100, $bang['refund_percent']);
+        $this->assertSame(50, $bang['refund_percent']);
     }
 
     /** Bài quan trọng nhất: số chỗ phải dồn đúng và chuyến nguồn về 0. */

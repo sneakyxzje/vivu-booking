@@ -181,7 +181,7 @@ class BookingAuditLogTest extends TestCase
 
         $this->assertSame(BookingAuditAction::CancelRequestApproved, $logs[1]->action);
         $this->assertSame($this->dieuHanh->id, (int) $logs[1]->actor_id);
-        $this->assertEquals(9_000_000, (float) $logs[1]->new_values['refund_amount']);
+        $this->assertEquals(7_500_000, (float) $logs[1]->new_values['refund_amount']);
     }
 
     public function test_tu_choi_yeu_cau_cung_duoc_ghi_kem_ly_do(): void

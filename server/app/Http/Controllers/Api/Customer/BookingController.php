@@ -300,9 +300,14 @@ class BookingController extends Controller
             return $booking->load(['tour', 'schedule']);
         });
 
-        // Đơn lẻ thu đủ một lần. Trả từng phần là chuyện của đơn đoàn, và ở đó tiền về qua sổ
-        // giao dịch do điều hành ghi chứ không qua cổng.
-        $paymentUrl = $this->vnpayService->createPayment($booking, (float) $booking->total_amount);
+        /*
+         * Lần trả tiền đầu tiên là TIỀN CỌC, không phải cả giá tour.
+         *
+         * Phần còn lại thu trước ngày khởi hành, xem `Booking::balanceDueAt()`. Đặt
+         * `booking.deposit_percent` bằng 100 thì câu này thu đủ như lối cũ, không cần sửa gì thêm.
+         */
+        $soTienCoc = $booking->depositAmount();
+        $paymentUrl = $this->vnpayService->createPayment($booking, $soTienCoc);
 
         // Đơn trùng thì không gửi thư lần hai. Nhận hai thư xác nhận cho một lần đặt làm khách
         // tưởng mình vừa đặt hai chuyến và gọi lên hỏi, đúng thứ mà luật chống trùng sinh ra để
@@ -311,11 +316,35 @@ class BookingController extends Controller
             $this->sendBookingCreatedMailAfterResponse($booking, $paymentUrl);
         }
 
-        $thongBao = $laDonTrung
-            ? 'Đơn đặt tour của bạn đã được ghi nhận trước đó. Vui lòng thanh toán trong '
-                . $this->holdService->holdMinutes() . ' phút để giữ chỗ.'
-            : 'Đặt tour thành công. Vui lòng thanh toán trong '
-                . $this->holdService->holdMinutes() . ' phút để giữ chỗ.';
+        /*
+         * Câu thông báo nói đúng số phải trả BÂY GIỜ, không nói giá tour.
+         *
+         * Khách vừa nhìn thấy giá 4 triệu ở trang trước mà cổng thanh toán hiện 2 triệu thì họ dừng
+         * lại tự hỏi có nhầm không — nên phải gọi tên khoản này là tiền cọc ngay tại đây.
+         */
+        $conNo = round((float) $booking->total_amount) - $soTienCoc;
+        $hanTraNot = $booking->balanceDueAt();
+
+        $moDau = $laDonTrung
+            ? 'Đơn đặt tour của bạn đã được ghi nhận trước đó.'
+            : 'Đặt tour thành công.';
+
+        $thongBao = $conNo > 0
+            ? sprintf(
+                '%s Vui lòng đặt cọc %s đ trong %d phút để giữ chỗ.%s',
+                $moDau,
+                number_format($soTienCoc, 0, ',', '.'),
+                $this->holdService->holdMinutes(),
+                $hanTraNot
+                    ? ' Phần còn lại ' . number_format($conNo, 0, ',', '.')
+                        . ' đ thanh toán trước ngày ' . $hanTraNot->format('d/m/Y') . '.'
+                    : '',
+            )
+            : sprintf(
+                '%s Vui lòng thanh toán trong %d phút để giữ chỗ.',
+                $moDau,
+                $this->holdService->holdMinutes(),
+            );
 
         if ($thongBaoMaGiam) {
             $thongBao = $thongBaoMaGiam . ' ' . $thongBao;
@@ -327,6 +356,11 @@ class BookingController extends Controller
             'data' => [
                 'booking' => $booking,
                 'payment_url' => $paymentUrl,
+                // Ba con số của lần đặt này, tách riêng để giao diện bày ra cho rõ thay vì bắt
+                // người đọc tự trừ.
+                'deposit_amount' => $soTienCoc,
+                'balance_amount' => $conNo,
+                'balance_due_at' => $hanTraNot?->toDateTimeString(),
                 // Tách riêng để giao diện làm nổi được, thay vì trộn vào câu thông báo chung.
                 'discount_notice' => $thongBaoMaGiam,
             ],
@@ -448,6 +482,17 @@ class BookingController extends Controller
         // Phần đã thực hoàn, để trang tra cứu biết công ty còn nợ khách bao nhiêu và có nên hỏi
         // tài khoản nhận tiền hay không.
         $booking->setAttribute('refunded', $this->paymentService->refunded($booking));
+
+        /*
+         * Hạn trả nốt, và việc đã quá hạn hay chưa.
+         *
+         * Khách còn nợ tiền phải nhìn thấy hạn ngay trên trang đơn của mình — đây là mốc mà quá đi
+         * thì đơn bị hủy và họ mất cọc, nên giấu nó ở email là chưa đủ.
+         */
+        $hanTraNot = $conThieu > 0 ? $booking->balanceDueAt() : null;
+
+        $booking->setAttribute('balance_due_at', $hanTraNot?->toDateTimeString());
+        $booking->setAttribute('balance_overdue', $hanTraNot !== null && now()->gte($hanTraNot));
 
         /*
          * Che số giấy tờ của cả đoàn, trừ khi người xem nhập đúng địa chỉ thư đã đặt.

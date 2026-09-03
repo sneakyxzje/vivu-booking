@@ -81,14 +81,18 @@ class BusinessScenarioSeederTest extends TestCase
     }
 
     /**
-     * Bài quan trọng nhất của bộ này. Năm mốc phí hủy phải ra đúng năm con số, nếu không thì
-     * người thử tay đối chiếu với bảng trong tài liệu sẽ thấy lệch mà không hiểu vì sao.
+     * Bài quan trọng nhất của bộ này. Năm chuyến đầu phải rơi đúng vào các bậc phí đang cài, nếu
+     * không thì người thử tay đối chiếu với bảng trong tài liệu sẽ thấy lệch mà không hiểu vì sao.
+     *
+     * S3 và S4 cùng ra 10% từ khi bảng phí chuyển sang bậc của thị trường: khoảng 2 đến 8 ngày gộp
+     * làm một. Hai chuyến ấy vẫn cần cả hai vì chúng khác nhau ở chỗ khác — S3 còn trước hạn chốt
+     * nên hủy thì chỗ về kho, S4 đã qua hạn chốt nên hủy sinh ghế chết.
      */
-    public function test_nam_chuyen_dau_roi_dung_nam_bac_phi_huy(): void
+    public function test_nam_chuyen_dau_roi_dung_bac_phi_huy(): void
     {
         $service = app(CancellationPolicyService::class);
 
-        $mongDoi = [1 => 90, 2 => 70, 3 => 50, 4 => 30, 5 => 0];
+        $mongDoi = [1 => 75, 2 => 50, 3 => 10, 4 => 10, 5 => 0];
 
         foreach ($mongDoi as $thuTu => $phanTram) {
             $schedule = $this->chuyen($thuTu);

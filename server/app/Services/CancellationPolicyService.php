@@ -27,16 +27,33 @@ class CancellationPolicyService
     /**
      * Bảng phí hủy mặc định, dùng khi đơn chưa gắn chính sách riêng.
      *
-     * Đây là thông lệ thị trường lữ hành nội địa, không phải trích từ một văn bản cụ thể.
-     * Xem ghi chú về mức độ tin cậy ở docs/nghiep-vu/00-pham-vi-va-gioi-han.md mục 5.
+     * Dựng theo bảng phí tour nội địa của Vietravel, quy đổi sang đơn vị mà hệ thống này dùng.
+     * Bảng gốc của họ đổi đơn vị giữa chừng — giai đoạn sớm tính theo phần trăm TIỀN CỌC, giai đoạn
+     * muộn theo phần trăm GIÁ TOUR — còn ở đây chỉ có một đơn vị là phần trăm giá tour được hoàn,
+     * nên phải quy về (giả định cọc 50%):
+     *
+     *   trên 20 ngày   không mất gì            → hoàn 100%
+     *   15 đến 19 ngày mất 50% cọc  = 25% giá  → hoàn  75%
+     *   12 đến 14 ngày mất 100% cọc = 50% giá  → hoàn  50%
+     *   8 đến 11 ngày  mất 50% giá             → hoàn  50%
+     *   2 đến 7 ngày   mất 90% giá             → hoàn  10%
+     *   dưới 2 ngày    mất 100% giá            → hoàn   0%
+     *
+     * Hai bậc giữa ra cùng một con số vì cọc đúng bằng 50%. Vẫn giữ tách đôi, không gộp: chúng nói
+     * hai điều khác nhau — một bên là "mất trọn cọc", một bên là "mất nửa giá tour" — và nếu về sau
+     * đổi tỷ lệ cọc thì chỗ tách sẵn này là nơi con số rẽ ra, không phải một bậc phải chẻ lại.
+     *
+     * Mốc 10 ngày của `booking.balance_due_days` nằm trong bậc 8 đến 11: khách bỏ ngang ở hạn trả
+     * nốt mất đúng phần đã cọc, không hơn không kém. Đó là chủ ý, xem chú thích ở config/booking.php.
      *
      * @var array<int, array{min_days_before: int, max_days_before: int|null, refund_percent: int}>
      */
     public const DEFAULT_RULES = [
-        ['min_days_before' => 15, 'max_days_before' => null, 'refund_percent' => 90],
-        ['min_days_before' => 8, 'max_days_before' => 15, 'refund_percent' => 70],
-        ['min_days_before' => 4, 'max_days_before' => 8, 'refund_percent' => 50],
-        ['min_days_before' => 2, 'max_days_before' => 4, 'refund_percent' => 30],
+        ['min_days_before' => 20, 'max_days_before' => null, 'refund_percent' => 100],
+        ['min_days_before' => 15, 'max_days_before' => 20, 'refund_percent' => 75],
+        ['min_days_before' => 12, 'max_days_before' => 15, 'refund_percent' => 50],
+        ['min_days_before' => 8, 'max_days_before' => 12, 'refund_percent' => 50],
+        ['min_days_before' => 2, 'max_days_before' => 8, 'refund_percent' => 10],
         ['min_days_before' => 0, 'max_days_before' => 2, 'refund_percent' => 0],
     ];
 

@@ -150,7 +150,7 @@ class HeldSeatsTest extends TestCase
     {
         [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
 
-        // Đẩy ngày khởi hành ra xa để rơi vào bậc hoàn cao nhất.
+        // Đẩy ngày khởi hành ra xa để rơi vào bậc 15 đến 20 ngày.
         $schedule->update([
             'start_date' => now()->addDays(20),
             'end_date' => now()->addDays(22),
@@ -160,9 +160,9 @@ class HeldSeatsTest extends TestCase
 
         $this->getJson("/api/admin/bookings/{$booking->id}/cancel-preview")
             ->assertOk()
-            ->assertJsonPath('data.refund_percent', 90)
-            ->assertJsonPath('data.cancellation_fee', 400000)
-            ->assertJsonPath('data.refund_amount', 3600000);
+            ->assertJsonPath('data.refund_percent', 75)
+            ->assertJsonPath('data.cancellation_fee', 1000000)
+            ->assertJsonPath('data.refund_amount', 3000000);
     }
 
     public function test_huy_truoc_han_chot_thi_cho_ve_kho_ngay(): void

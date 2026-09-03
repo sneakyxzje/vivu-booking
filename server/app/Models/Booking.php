@@ -85,6 +85,39 @@ class Booking extends Model
     }
 
     /**
+     * Hạn khách phải trả nốt phần còn lại.
+     *
+     * Neo vào NGÀY KHỞI HÀNH chứ không vào hạn chốt danh sách, và đó là chủ ý. "Thanh toán đủ trước
+     * ngày đi 10 ngày" là câu khách đọc một lần là hiểu; "trước hạn chốt danh sách" thì phải giải
+     * thích hạn chốt là gì — một khái niệm nội bộ giữa công ty và nhà cung cấp, không phải việc của
+     * khách. Đây cũng là cách các hãng lữ hành nội địa vẫn ghi trong điều kiện tour.
+     *
+     * Không lưu thành cột riêng vì nó suy ra được và luôn đi theo ngày khởi hành: đơn được chuyển
+     * sang chuyến khác thì hạn tự dịch theo, không cần ai nhớ cập nhật.
+     *
+     * Trả null khi đơn không gắn chuyến nào — lúc ấy không có mốc nào để đếm ngược.
+     */
+    public function balanceDueAt(): ?\Illuminate\Support\Carbon
+    {
+        $khoiHanh = $this->schedule?->start_date ?? $this->departure_date;
+
+        if (!$khoiHanh) {
+            return null;
+        }
+
+        return \Illuminate\Support\Carbon::parse($khoiHanh)
+            ->subDays((int) config('booking.balance_due_days', 10));
+    }
+
+    /** Số tiền cọc phải trả khi đặt, theo tỷ lệ cấu hình. */
+    public function depositAmount(): float
+    {
+        $tyLe = max(1, min(100, (int) config('booking.deposit_percent', 50)));
+
+        return round((float) $this->total_amount * $tyLe / 100);
+    }
+
+    /**
      * Số ghế đơn này chiếm của chuyến.
      *
      * Khác `guests`, là số NGƯỜI đi: em bé dưới hai tuổi ngồi cùng bố mẹ nên không chiếm ghế riêng.
