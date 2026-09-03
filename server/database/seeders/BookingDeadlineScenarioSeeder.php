@@ -6,7 +6,6 @@ use App\Enums\ScheduleStatus;
 use App\Enums\TourType;
 use App\Models\Booking;
 use App\Models\BookingPassenger;
-use App\Models\CancellationPolicy;
 use App\Models\GroupBookingRequest;
 use App\Models\Review;
 use App\Models\ScheduleAuditLog;
@@ -132,7 +131,6 @@ class BookingDeadlineScenarioSeeder extends Seeder
     {
         $this->tour = Tour::factory()->create([
             'admin_id' => $this->admin->id,
-            'cancellation_policy_id' => CancellationPolicy::dangApDung()?->id,
             'title' => 'Tour Thử Hạn Chốt Danh Sách 3N2Đ',
             'slug' => self::TOUR_SLUG,
             'description' => 'Tour dựng riêng để thử luồng dời hạn chốt danh sách khách. '

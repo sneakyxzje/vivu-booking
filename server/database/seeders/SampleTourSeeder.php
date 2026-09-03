@@ -73,15 +73,15 @@ class SampleTourSeeder extends Seeder
             'Vé máy bay',
         ])->map(fn (string $ten) => Service::query()->firstOrCreate(['name' => $ten], []));
 
-        $chinhSachHuy = \App\Models\CancellationPolicy::dangApDung();
         $danhMuc = $this->danhMucTour();
 
-        DB::transaction(function () use ($admin, $guides, $categories, $services, $danhMuc, $chinhSachHuy) {
+        // Tour KHÔNG gắn chính sách hủy riêng: cả hệ thống dùng chung một bảng phí, và đơn chép
+        // bảng đang có hiệu lực vào chính nó lúc đặt. Xem chú thích ở `Tour`.
+        DB::transaction(function () use ($admin, $guides, $categories, $services, $danhMuc) {
             foreach ($danhMuc as $data) {
                 $tour = Tour::withTrashed()->updateOrCreate(
                     ['slug' => $data['slug']],
                     [
-                        'cancellation_policy_id' => $chinhSachHuy?->id,
                         'admin_id' => $admin->id,
                         'title' => $data['title'],
                         'description' => $data['description'],

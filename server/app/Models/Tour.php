@@ -25,7 +25,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'is_featured',
     'status',
     'type',
-    'cancellation_policy_id',
 ])]
 /**
  * Tour — xóa mềm.
@@ -84,9 +83,18 @@ class Tour extends Model
         return $this->hasMany(Review::class)->approved();
     }
 
-    public function cancellationPolicy()
-    {
-        return $this->belongsTo(CancellationPolicy::class);
-    }
+    /*
+     * ĐÃ GỠ: `cancellationPolicy()`.
+     *
+     * Cả hệ thống dùng **một bảng phí hủy duy nhất**, sửa ở màn Chính sách hủy. Tour không chọn
+     * riêng — `AdminTourController` đã bỏ `cancellation_policy_id` khỏi cả `store()` lẫn `update()`
+     * từ lâu, nhưng quan hệ này cùng ô `fillable` của nó vẫn ở lại, và mấy seeder vẫn ghi vào cột.
+     * Tức là mã nguồn tự nói ngược nhau: một chỗ bảo tour không có chính sách riêng, một chỗ vẫn
+     * dựng sẵn đường để nó có.
+     *
+     * Đường duy nhất từ bảng phí tới một đơn là `CancellationPolicy::dangApDung()` tại lúc đặt, rồi
+     * đơn giữ lấy bản đó (`bookings.cancellation_policy_id`). Cột `tours.cancellation_policy_id`
+     * giữ nguyên trong cơ sở dữ liệu cho dữ liệu cũ, nhưng không còn đường nào đọc hay ghi.
+     */
 }
 

@@ -228,8 +228,14 @@ class TourController extends Controller
             'itineraries',
             'schedules',
             'schedules.guides:id,name',
-            // Khách phải đọc được điều khoản hủy trước khi đặt, không phải sau khi muốn hủy.
-            'cancellationPolicy.rules',
+            /*
+             * KHÔNG nạp chính sách hủy qua tour.
+             *
+             * Khách vẫn phải đọc được điều khoản trước khi đặt — nhưng đường đọc là `GET /policies`,
+             * và trang chi tiết tour đã gọi nó rồi. Dòng nạp cũ ở đây không bao giờ tới được khách:
+             * `TourResource` không xuất trường nào của chính sách. Nó chỉ làm người đọc mã tin rằng
+             * mỗi tour mang một bảng phí riêng, trong khi cả hệ thống dùng chung đúng một bảng.
+             */
         ])
             ->withAvg('approvedReviews as rating', 'rating')
             ->withCount('approvedReviews as reviews_count')

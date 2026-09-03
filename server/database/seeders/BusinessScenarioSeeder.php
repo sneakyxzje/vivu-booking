@@ -151,7 +151,6 @@ class BusinessScenarioSeeder extends Seeder
     {
         $this->tour = Tour::query()->create([
             'admin_id' => $this->admin->id,
-            'cancellation_policy_id' => $this->policy?->id,
             'title' => 'Tour Thử Nghiệm Nghiệp Vụ 3N2Đ',
             'slug' => self::TOUR_SLUG,
             'description' => 'Tour dựng riêng để thử tay toàn bộ tình huống của nhóm A, B, C, D, H. '
