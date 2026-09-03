@@ -36,26 +36,37 @@ Migration dữ liệu cũ: đặt `end_date` cho các chuyến hiện có bằng
 
 ### 1.2 Chính sách hủy
 
-`cancellation_policies`: `id`, `name`, `description`, `is_default` boolean, timestamps.
+`cancellation_policies`: `id`, `name`, `description`, `effective_from` datetime, timestamps.
 
-`cancellation_policy_rules`: `id`, `cancellation_policy_id`, `min_hours_before` int,
-`max_hours_before` int nullable, `refund_percent` unsignedTinyInteger, `note`, timestamps.
-Chỉ mục `(cancellation_policy_id, min_hours_before)`.
+`cancellation_policy_rules`: `id`, `cancellation_policy_id`, `min_days_before`
+unsignedSmallInteger, `max_days_before` unsignedSmallInteger nullable, `refund_percent`
+unsignedTinyInteger, `note`, timestamps. Chỉ mục `(cancellation_policy_id, min_days_before)`.
 
-`tours`: thêm `cancellation_policy_id` foreignId nullable.
+**Một bảng phí duy nhất áp cho mọi tour.** Cột `tours.cancellation_policy_id` còn trong cơ sở dữ
+liệu cho dữ liệu cũ nhưng không đường nào đọc hay ghi — tour không chọn chính sách riêng.
 
-`bookings`: thêm `cancellation_policy_id` foreignId nullable. Sao chép từ tour tại thời điểm
-tạo đơn để chính sách không hồi tố.
+`bookings`: thêm `cancellation_policy_id` foreignId nullable. Sao chép **bản đang có hiệu lực**
+(`CancellationPolicy::dangApDung()`) tại thời điểm tạo đơn, để sửa bảng phí về sau không hồi tố
+lên đơn đã bán.
 
-Bản ghi mặc định do seeder tạo, đúng bảng phí ở tài liệu 03:
+Mốc phí tính bằng **ngày, giữ cả phần lẻ** — hủy trước 47 giờ là 1,96 ngày nên rơi vào bậc dưới
+2 ngày, không làm tròn lên thành 2. Bản ghi mặc định do seeder tạo, đúng bảng phí ở tài liệu 03:
 
-| min_hours_before | max_hours_before | refund_percent |
+| min_days_before | max_days_before | refund_percent |
 | --- | --- | --- |
-| 360 | null | 90 |
-| 192 | 360 | 70 |
-| 96 | 192 | 50 |
-| 48 | 96 | 30 |
-| 0 | 48 | 0 |
+| 15 | null | 90 |
+| 8 | 15 | 70 |
+| 4 | 8 | 50 |
+| 2 | 4 | 30 |
+| 0 | 2 | 0 |
+
+Bảng trên chỉ áp khi **khách** hủy. **Công ty hủy chuyến thì hoàn 100%**, không trừ khoản nào và
+không phụ thuộc thời điểm — xem `ScheduleCancellationService` và `cancel_type = by_company`.
+
+Mỗi lần sửa bảng phí sinh **một bản ghi mới** kèm `effective_from` do người sửa đặt, không ghi đè
+bản cũ: đơn đã đặt trỏ vào bản ghi bằng khóa ngoại, sửa đè lên nó là đổi điều khoản của hợp đồng
+đã ký. `dangApDung()` so `effective_from` với hiện tại mỗi lần được hỏi, nên bản hẹn cho tương lai
+nằm im tới đúng giờ của nó mà không cần cờ hay tác vụ nền.
 
 ### 1.3 Hủy đơn và xử lý chỗ
 

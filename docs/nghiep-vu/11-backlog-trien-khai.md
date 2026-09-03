@@ -76,9 +76,9 @@ Tài liệu tham chiếu: 03 mục 2, 07 mục 1.2.
 | B01 | Migration `cancellation_policies` và `cancellation_policy_rules`, thêm khóa ngoại vào `tours` và `bookings` | `database/migrations` | | 0.5 |
 | B02 | Seeder chính sách mặc định năm mốc theo tài liệu 03 | `database/seeders` | B01 | 0.25 |
 | B03 | `CancellationPolicyService`: tìm quy tắc theo số giờ còn lại, tính phí hủy và số tiền hoàn, chặn không cho ra số âm | `app/Services` | B01 | 1 |
-| B04 | Sao chép `cancellation_policy_id` từ tour vào đơn khi tạo đơn | `Api/Customer/BookingController.php` | B01 | 0.25 |
-| B05 | API quản trị quản lý chính sách hủy, dạng danh sách kèm hộp thoại như danh mục | `Api/Admin`, `routes/api.php` | B01 | 1 |
-| B06 | Giao diện quản trị quản lý chính sách và gán cho tour | `client/src/pages/admin` | B05 | 1 |
+| B04 | Sao chép `cancellation_policy_id` của bảng phí **đang có hiệu lực** vào đơn khi tạo đơn | `Api/Customer/BookingController.php` | B01 | 0.25 |
+| B05 | API quản trị chính sách hủy: đọc và ghi **một bảng phí duy nhất**, không tạo không xóa | `Api/Admin`, `routes/api.php` | B01 | 1 |
+| B06 | Giao diện quản trị chính sách hủy, áp chung cho mọi tour | `client/src/pages/admin` | B05 | 1 |
 | B07 | Giao diện khách: hiển thị điều khoản hủy trên trang tour và trang xác nhận đặt | `client/src/pages` | B03 | 0.5 |
 | B08 | Kiểm thử: đúng mức hoàn tại từng mốc, quá giờ khởi hành hoàn 0, sửa chính sách không hồi tố đơn cũ | `tests/Feature` | B01-B04 | 0.75 |
 

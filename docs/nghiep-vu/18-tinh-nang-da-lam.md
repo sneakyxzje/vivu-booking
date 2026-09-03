@@ -125,9 +125,11 @@ Ba vai trò: **khách hàng**, **hướng dẫn viên**, **điều hành kiêm q
 
 ### Tiền
 
-- Chính sách hủy **bậc thang lưu thành dữ liệu**, admin sửa được. **Mỗi tour chọn một chính sách
-  riêng** — tour bay vé máy bay không thể cùng điều khoản hoàn với tour đi xe — tour không chọn
-  thì dùng chính sách mặc định. Đơn **sao chép chính sách lúc đặt** nên sửa về sau không hồi tố.
+- Chính sách hủy **bậc thang lưu thành dữ liệu**, admin sửa được. **Một bảng phí duy nhất áp cho
+  mọi tour** — công ty bán một dòng sản phẩm nên không có lý do nghiệp vụ để hai tour hoàn tiền
+  theo hai bảng khác nhau, và nhiều bảng thì mọi màn hình chạm tới tiền đều phải trả lời thêm câu
+  "cái nào áp cho đơn nào". Đơn **sao chép chính sách lúc đặt** nên sửa về sau không hồi tố lên đơn
+  đã bán. **Công ty hủy chuyến thì hoàn 100%**, không áp bảng phí — bảng đó chỉ dùng khi khách đổi ý.
 - **Sổ giao dịch nhiều đợt cho đơn đoàn**: cọc, thanh toán nốt, hoàn — chỉ thêm dòng, không ghi
   đè. Số đã thu là tổng của sổ.
 - **Chi phí phát sinh dọc đường**: duyệt phương án của hướng dẫn viên, phân bổ cho từng đơn, quyết
