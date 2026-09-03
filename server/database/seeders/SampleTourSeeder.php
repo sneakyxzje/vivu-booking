@@ -73,7 +73,21 @@ class SampleTourSeeder extends Seeder
             'Vé máy bay',
         ])->map(fn (string $ten) => Service::query()->firstOrCreate(['name' => $ten], []));
 
-        $danhMuc = $this->danhMucTour();
+        /*
+         * Chỉ dựng ba tour đầu danh mục.
+         *
+         * Catalogue mười lăm tour sinh ra để trang khách trông có hàng, nhưng nó làm mọi buổi thử
+         * tay nặng thêm: người thử phải lội qua một danh sách dài để tìm đúng tour mình đang xem,
+         * và không tour nào trong đó dùng để chứng minh nghiệp vụ cả.
+         *
+         * Ba tour là đủ để trang chủ, bộ lọc và trang chi tiết có dữ liệu thật. Phần nghiệp vụ
+         * chuyển hẳn sang `SandboxTourSeeder`, nơi mọi tình huống được dựng có chủ đích và bấm nút
+         * là tua tới được.
+         *
+         * Định nghĩa của mười hai tour còn lại giữ nguyên trong `danhMucTour()`: muốn danh mục dày
+         * trở lại thì đổi đúng con số này, không phải gõ lại dữ liệu.
+         */
+        $danhMuc = array_slice($this->danhMucTour(), 0, 3);
 
         // Tour KHÔNG gắn chính sách hủy riêng: cả hệ thống dùng chung một bảng phí, và đơn chép
         // bảng đang có hiệu lực vào chính nó lúc đặt. Xem chú thích ở `Tour`.

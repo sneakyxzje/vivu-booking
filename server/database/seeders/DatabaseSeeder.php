@@ -37,17 +37,28 @@ class DatabaseSeeder extends Seeder
             DemoBookingSeeder::class,
             // Ba yêu cầu đoàn ở ba chặng của đường ống: chờ báo giá / đã báo giá / đã chốt kèm cọc.
             GroupBookingSeeder::class,
-            // Chạy cuối: dựng tour thử nghiệm phủ mọi tình huống A, B, C, D, H để thử tay.
-            // Seed lại riêng bằng: php artisan db:seed --class=BusinessScenarioSeeder
-            BusinessScenarioSeeder::class,
             /*
-             * Sáu đơn ở sáu chặng của luồng đặt cọc, để thử hai lệnh nhắc và hủy.
+             * Ba tour SÂN THỬ NGHIỆM, chạy cuối.
              *
-             * Mốc thời gian của nhóm này tính lùi từ lúc seed, nên nó trôi khỏi mốc sau vài ngày.
-             * Seed lại riêng trước mỗi buổi thử bằng:
-             *   php artisan db:seed --class=DepositFlowSeeder
+             * Gom mọi tình huống nghiệp vụ về đây thay vì rải khắp catalogue: tiền vào tiền ra,
+             * ghép và chuyển chuyến, vòng đời chuyến. Chúng mang cờ `is_sandbox` nên mở được quyền
+             * tua ngày khởi hành — không có quyền ấy thì muốn xem lệnh hủy chạy phải chờ mười ngày.
+             *
+             * Mốc thời gian tính lùi từ lúc seed nên trôi dần. Seed lại trước mỗi buổi thử:
+             *   php artisan db:seed --class=SandboxTourSeeder
              */
-            DepositFlowSeeder::class,
+            SandboxTourSeeder::class,
         ]);
+
+        /*
+         * `BusinessScenarioSeeder` và `DepositFlowSeeder` KHÔNG còn chạy mặc định.
+         *
+         * Nội dung của chúng đã chuyển vào ba tour sân thử ở trên, nơi mọi mốc bấm nút là tua tới
+         * được thay vì phải chờ đúng ngày. Giữ lại hai file vì các bài kiểm gọi thẳng chúng, và vì
+         * chúng vẫn dựng được dữ liệu riêng khi cần:
+         *
+         *   php artisan db:seed --class=DepositFlowSeeder
+         *   php artisan db:seed --class=BusinessScenarioSeeder
+         */
     }
 }
