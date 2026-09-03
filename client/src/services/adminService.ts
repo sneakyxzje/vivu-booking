@@ -1893,6 +1893,16 @@ const adminService = {
     };
   },
 
+  getSandboxScenarios: async (): Promise<SandboxScenarioInfo[]> => {
+    const response = await api.get("/admin/sandbox/scenarios");
+    return (response.data.data ?? []) as SandboxScenarioInfo[];
+  },
+
+  runSandboxScenario: async (id: string): Promise<SandboxRunResult> => {
+    const response = await api.post("/admin/sandbox/scenarios/run", { id });
+    return response.data.data as SandboxRunResult;
+  },
+
   sandboxMerge: async (
     scheduleId: number,
     targetScheduleId: number,
@@ -1926,6 +1936,67 @@ const adminService = {
     return response.data.message as string;
   },
 };
+
+/** Một kịch bản nghiệp vụ trong danh mục sân thử. */
+export interface SandboxScenarioInfo {
+  id: string;
+  nhom: string;
+  ten: string;
+  chung_minh: string;
+}
+
+/**
+ * Một bước của biên bản.
+ *
+ * `dat` là thứ biến biên bản thành bằng chứng: không có nó, người xem phải tự đối chiếu `ky_vong`
+ * với `ket_qua` rồi tự kết luận — đúng việc mà bảng nút cũ bắt họ làm.
+ */
+export interface SandboxScenarioStep {
+  thu_tu: number;
+  lam_gi: string;
+  ky_vong: string;
+  ket_qua: string;
+  dat: boolean;
+}
+
+export interface SandboxLedgerRow {
+  loai: string;
+  nhan: string;
+  /** "+" là tiền vào, "-" là tiền ra. Chiều do máy chủ tính, giao diện không tự suy từ `loai`. */
+  chieu: string;
+  so_tien: number;
+  phuong_thuc: string | null;
+  ghi_chu: string | null;
+  luc: string | null;
+}
+
+export interface SandboxAuditRow {
+  hanh_dong: string;
+  tu: string | null;
+  sang: string | null;
+  ly_do: string | null;
+  luc: string | null;
+}
+
+export interface SandboxScenarioBooking {
+  id: number;
+  ma: string;
+  trang_thai: string;
+  tong_don: number;
+  da_thu: number;
+  con_thieu: number;
+  nghia_vu_hoan: number;
+  han_tra_not: string | null;
+  cho_da_tra: boolean;
+  so_giao_dich: SandboxLedgerRow[];
+  nhat_ky: SandboxAuditRow[];
+}
+
+export interface SandboxRunResult extends SandboxScenarioInfo {
+  dat: boolean;
+  buoc: SandboxScenarioStep[];
+  don: SandboxScenarioBooking[];
+}
 
 /** Nhãn của các nút, do máy chủ cấp — giao diện không gõ lại chuỗi nào. */
 export interface SandboxOptions {
