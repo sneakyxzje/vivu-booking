@@ -1,478 +1,404 @@
 import adminService from "@/services/adminService";
 import type {
-  SandboxBookingRow,
-  SandboxOptions,
-  SandboxTour,
+  SandboxRunResult,
+  SandboxScenarioBooking,
+  SandboxScenarioInfo,
 } from "@/services/adminService";
 import { formatPrice } from "@/utils/format";
 import type { AxiosError } from "axios";
 import { useEffect, useMemo, useState } from "react";
 
 /**
- * Sân thử nghiệm nghiệp vụ.
+ * Sân thử nghiệm nghiệp vụ — chạy theo KỊCH BẢN.
  *
- * ## Màn này giải quyết chuyện gì
+ * ## Vì sao không còn là bảng nút
  *
- * Gần như mọi luật tiền bạc treo vào một mốc tính lùi từ ngày khởi hành, nên muốn xem hệ thống xử
- * lý một tình huống ra sao thì phải chờ tới đúng ngày — với hạn trả nốt là chờ hàng tuần. Không ai
- * chứng minh được một quy trình mười ngày trong một buổi ngồi trước máy.
+ * Bản đầu là một loạt nút rời: tua tới mốc này, chạy lệnh kia, rồi tự đọc bảng mà kết luận. Đúng về
+ * kỹ thuật và gần như vô dụng khi cần **chứng minh** điều gì — người xem phải thuộc sẵn luồng mới
+ * biết bấm gì trước bấm gì sau, và nhìn cột nào để biết đúng hay sai.
  *
- * Nút ở đây **không vẽ ra kết quả mong muốn**. Chúng kéo ngày khởi hành tới đúng khoảng cách mà một
- * mốc cần, rồi gọi chính lệnh nền chạy hằng đêm. Thứ hiện ra sau đó là hành vi thật trên dữ liệu
- * thật.
+ * Ở đây mỗi tình huống là một kịch bản có tên. Bấm một lần, máy chủ dựng dữ liệu riêng của nó, chạy
+ * các bước theo đúng thứ tự đời thật, rồi trả về biên bản đã tự chấm từng bước.
  *
- * ## Bảng đơn là phần quan trọng nhất
+ * ## Ba thứ luôn hiện cạnh nhau
  *
- * Không có nó thì mỗi lần bấm chỉ đổi lại một dòng thông báo, và người xem phải tin lời. Bảng giữ
- * nguyên tại chỗ giữa các lần bấm để so được trước và sau: dòng nào đổi trạng thái, số nào nhúc
- * nhích, cột thư nào vừa được đóng dấu.
+ * Biên bản nói **chuyện gì xảy ra**, sổ giao dịch nói **tiền đi đâu**, nhật ký nói **hệ thống ghi
+ * lại thế nào**. Thiếu một trong ba thì người xem phải tin lời thay vì đối chiếu — và câu hay bị
+ * vặn nhất về mô hình đặt cọc không phải "đơn có bị hủy không" mà là "vậy tiền của khách đi đâu".
  */
 const SandboxLab = () => {
-  const [tours, setTours] = useState<SandboxTour[]>([]);
-  const [options, setOptions] = useState<SandboxOptions | null>(null);
-  const [scheduleId, setScheduleId] = useState<number | null>(null);
-  const [rows, setRows] = useState<SandboxBookingRow[]>([]);
-  const [scheduleInfo, setScheduleInfo] = useState<string>("");
-  const [busy, setBusy] = useState("");
-  const [log, setLog] = useState<{ kind: "ok" | "err"; text: string }[]>([]);
-  const [mailType, setMailType] = useState("balance_reminder");
+  const [danhMuc, setDanhMuc] = useState<SandboxScenarioInfo[]>([]);
+  const [dangChon, setDangChon] = useState<string | null>(null);
+  const [bienBan, setBienBan] = useState<SandboxRunResult | null>(null);
+  const [dangChay, setDangChay] = useState(false);
+  const [loi, setLoi] = useState("");
 
-  const [dichId, setDichId] = useState<number | null>(null);
-  const [donId, setDonId] = useState<number | null>(null);
-
-  const chonChuyen = useMemo(
-    () =>
-      tours.flatMap((t) =>
-        t.schedules.map((s) => ({ tour: t.title, tourId: t.id, ...s })),
-      ),
-    [tours],
-  );
-
-  /*
-   * Chuyến đích chỉ lấy trong CÙNG TOUR.
-   *
-   * Ghép chuyến bắt buộc cùng tour — ghép hai tour khác nhau là đổi hẳn sản phẩm khách đã mua. Lọc
-   * sẵn ở đây để danh sách không mời người bấm chọn một thứ máy chủ chắc chắn từ chối.
-   */
-  const cungTour = useMemo(() => {
-    const hienTai = chonChuyen.find((s) => s.id === scheduleId);
-    if (!hienTai) return [];
-    return chonChuyen.filter((s) => s.tourId === hienTai.tourId && s.id !== hienTai.id);
-  }, [chonChuyen, scheduleId]);
-
-  const ghiLog = (kind: "ok" | "err", text: string) =>
-    setLog((cu) => [{ kind, text }, ...cu].slice(0, 12));
-
-  const loi = (e: unknown) =>
-    (e as AxiosError<{ message?: string }>)?.response?.data?.message
-    ?? "Thao tác không thành công.";
-
-  const taiBang = async (id: number) => {
-    try {
-      const data = await adminService.getSandboxSnapshot(id);
-      setRows(data.bookings);
-      setScheduleInfo(
-        `Khởi hành ${data.schedule.start_date ?? "—"} · hạn chốt ${data.schedule.booking_deadline ?? "—"} · ${data.schedule.status}`,
-      );
-    } catch (e) {
-      ghiLog("err", loi(e));
-    }
-  };
-
-  /*
-   * Tải bảng ngay trong cùng chuỗi bất đồng bộ, không tách ra một effect nghe ngóng `scheduleId`.
-   *
-   * Effect nghe biến trạng thái rồi lại gọi setState là kiểu đổ thác: mỗi lần chọn chuyến sinh hai
-   * lượt vẽ lại, và React cảnh báo đúng chuyện đó. Chọn chuyến là một hành động của người dùng —
-   * việc tải bảng thuộc về chính hành động ấy.
-   */
-  const chonVaTai = (id: number | null) => {
-    setScheduleId(id);
-    if (id) void taiBang(id);
-  };
+  const theoNhom = useMemo(() => {
+    const map = new Map<string, SandboxScenarioInfo[]>();
+    danhMuc.forEach((kb) => {
+      map.set(kb.nhom, [...(map.get(kb.nhom) ?? []), kb]);
+    });
+    return [...map.entries()];
+  }, [danhMuc]);
 
   useEffect(() => {
-    Promise.all([adminService.getSandboxTours(), adminService.getSandboxOptions()])
-      .then(([ds, opt]) => {
-        setTours(ds);
-        setOptions(opt);
-        const dau = ds[0]?.schedules[0]?.id ?? null;
-        if (dau) chonVaTai(dau);
-      })
-      .catch(() => ghiLog("err", "Không tải được dữ liệu sân thử."));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    adminService
+      .getSandboxScenarios()
+      .then(setDanhMuc)
+      .catch(() => setLoi("Không tải được danh mục kịch bản."));
   }, []);
 
-  const tua = async (moc: string, nhan: string) => {
-    if (!scheduleId) return;
-    setBusy(moc);
+  const chay = async (id: string) => {
+    setDangChon(id);
+    setDangChay(true);
+    setLoi("");
+    setBienBan(null);
+
     try {
-      const kq = await adminService.sandboxFastForward(scheduleId, moc);
-      setRows(kq.bookings);
-      ghiLog("ok", kq.message);
-      await taiBang(scheduleId);
+      setBienBan(await adminService.runSandboxScenario(id));
     } catch (e) {
-      ghiLog("err", `${nhan}: ${loi(e)}`);
+      setLoi(
+        (e as AxiosError<{ message?: string }>)?.response?.data?.message
+          ?? "Kịch bản chạy lỗi.",
+      );
     } finally {
-      setBusy("");
+      setDangChay(false);
     }
   };
-
-  const chayLenh = async (lenh: string, nhan: string) => {
-    setBusy(lenh);
-    try {
-      const kq = await adminService.sandboxRunCommand(lenh, scheduleId ?? undefined);
-      if (kq.bookings) setRows(kq.bookings);
-      ghiLog("ok", `${kq.message}\n${kq.output}`);
-    } catch (e) {
-      ghiLog("err", `${nhan}: ${loi(e)}`);
-    } finally {
-      setBusy("");
-    }
-  };
-
-  const ghep = async () => {
-    if (!scheduleId || !dichId) return;
-    setBusy("merge");
-    try {
-      const kq = await adminService.sandboxMerge(scheduleId, dichId);
-      setRows(kq.bookings);
-      ghiLog("ok", kq.message);
-      // Chuyến nguồn vừa bị đóng và khách dồn sang đích — chuyển bảng theo để đọc tiếp cho đúng chỗ.
-      chonVaTai(dichId);
-    } catch (e) {
-      ghiLog("err", loi(e));
-    } finally {
-      setBusy("");
-    }
-  };
-
-  const chuyen = async (aiYeuCau: "customer" | "company") => {
-    if (!donId || !dichId) return;
-    setBusy(`transfer-${aiYeuCau}`);
-    try {
-      const kq = await adminService.sandboxTransfer(donId, dichId, aiYeuCau);
-      setRows(kq.bookings);
-      ghiLog("ok", kq.message);
-      chonVaTai(dichId);
-    } catch (e) {
-      ghiLog("err", loi(e));
-    } finally {
-      setBusy("");
-    }
-  };
-
-  const guiThu = async (bookingId: number) => {
-    setBusy(`mail-${bookingId}`);
-    try {
-      ghiLog("ok", await adminService.sendBookingMail(bookingId, mailType));
-    } catch (e) {
-      ghiLog("err", loi(e));
-    } finally {
-      setBusy("");
-    }
-  };
-
-  const nut =
-    "px-3 py-2 text-xs font-semibold rounded-xl border transition-colors disabled:opacity-40";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <header className="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-5">
         <h1 className="text-lg font-bold text-amber-900">Sân thử nghiệm nghiệp vụ</h1>
-        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-amber-800">
-          Các nút dưới đây kéo ngày khởi hành của chuyến tới đúng mốc cần xem, rồi chạy{" "}
-          <b>chính lệnh nền chạy hằng đêm</b> — không phải bản giả lập. Chỉ dùng được trên tour
-          đánh dấu sân thử; trên tour thật, dời ngày khởi hành của chuyến đã có khách là dời hạn
-          thanh toán của từng người và hệ thống chặn.
+        <p className="mt-1 max-w-4xl text-sm leading-relaxed text-amber-800">
+          Mỗi kịch bản tự dựng dữ liệu của nó, chạy các bước theo đúng thứ tự đời thật, rồi tự chấm
+          từng bước. <b>Không có bước nào được giả lập</b> — mọi thao tác gọi đúng dịch vụ và đúng
+          lệnh nền mà đường thật đi qua. Thứ duy nhất bị can thiệp là ngày khởi hành của chuyến, và
+          đó là cách kéo đồng hồ tới nơi thay vì chờ mười ngày.
         </p>
       </header>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-5">
-        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500">
-          Chuyến đang thao tác
-        </label>
-        <select
-          value={scheduleId ?? ""}
-          onChange={(e) => chonVaTai(Number(e.target.value) || null)}
-          className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+      <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
+        {/* ── Cột trái: danh mục kịch bản ─────────────────────────────────────── */}
+        <aside className="space-y-4">
+          {theoNhom.map(([nhom, ds]) => (
+            <div key={nhom} className="rounded-2xl border border-gray-200 bg-white p-3">
+              <p className="px-1.5 pb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                {nhom}
+              </p>
+              <div className="space-y-1">
+                {ds.map((kb) => {
+                  const chon = dangChon === kb.id;
+                  return (
+                    <button
+                      key={kb.id}
+                      type="button"
+                      disabled={dangChay}
+                      onClick={() => void chay(kb.id)}
+                      className={`w-full rounded-xl px-3 py-2.5 text-left transition-colors disabled:opacity-50 ${
+                        chon
+                          ? "bg-primary-50 ring-1 ring-primary-200"
+                          : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <span
+                        className={`block text-xs font-bold ${chon ? "text-primary-800" : "text-gray-800"}`}
+                      >
+                        {kb.ten}
+                      </span>
+                      <span className="mt-0.5 block text-[11px] leading-relaxed text-gray-500">
+                        {kb.chung_minh}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </aside>
+
+        {/* ── Cột phải: biên bản ──────────────────────────────────────────────── */}
+        <section className="space-y-4">
+          {loi && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+              {loi}
+            </div>
+          )}
+
+          {dangChay && (
+            <div className="rounded-2xl border border-gray-200 bg-white px-6 py-12 text-center text-sm text-gray-500">
+              Đang dựng dữ liệu và chạy các bước…
+            </div>
+          )}
+
+          {!dangChay && !bienBan && !loi && (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-16 text-center">
+              <p className="text-sm font-semibold text-gray-700">
+                Chọn một kịch bản ở cột bên trái
+              </p>
+              <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-gray-500">
+                Mỗi lần chạy đều dựng lại dữ liệu từ đầu, nên bấm đi bấm lại bao nhiêu lần cũng ra
+                cùng kết quả và không ăn vào kịch bản khác.
+              </p>
+            </div>
+          )}
+
+          {!dangChay && bienBan && <BienBan bb={bienBan} />}
+        </section>
+      </div>
+    </div>
+  );
+};
+
+// ── Biên bản một lần chạy ─────────────────────────────────────────────────────
+
+const BienBan = ({ bb }: { bb: SandboxRunResult }) => (
+  <>
+    <div
+      className={`rounded-2xl border px-5 py-4 ${
+        bb.dat ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">{bb.nhom}</p>
+          <h2 className="mt-0.5 text-base font-bold text-gray-900">{bb.ten}</h2>
+          <p className="mt-1 text-xs leading-relaxed text-gray-600">{bb.chung_minh}</p>
+        </div>
+        <span
+          className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+            bb.dat ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
+          }`}
         >
-          {chonChuyen.length === 0 && <option value="">Chưa có tour sân thử nào</option>}
-          {chonChuyen.map((s) => (
-            <option key={s.id} value={s.id}>
-              #{s.id} · {s.tour} · {s.start_date} · {s.booked_people}/{s.max_people} chỗ
+          {bb.dat ? "ĐẠT" : "CÓ BƯỚC HỎNG"}
+        </span>
+      </div>
+    </div>
+
+    <ol className="space-y-2">
+      {bb.buoc.map((b) => (
+        <li
+          key={b.thu_tu}
+          className={`rounded-2xl border bg-white p-4 ${
+            b.dat ? "border-gray-200" : "border-rose-300 ring-1 ring-rose-100"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <span
+              className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                b.dat ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+              }`}
+            >
+              {b.dat ? "✓" : "✗"}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-gray-900">
+                Bước {b.thu_tu} · {b.lam_gi}
+              </p>
+              <dl className="mt-2 grid gap-1.5 text-xs sm:grid-cols-[80px_1fr]">
+                <dt className="font-semibold text-gray-500">Kỳ vọng</dt>
+                <dd className="leading-relaxed text-gray-700">{b.ky_vong}</dd>
+                <dt className="font-semibold text-gray-500">Kết quả</dt>
+                <dd
+                  className={`leading-relaxed font-semibold ${
+                    b.dat ? "text-emerald-800" : "text-rose-700"
+                  }`}
+                >
+                  {b.ket_qua}
+                </dd>
+              </dl>
+            </div>
+          </div>
+        </li>
+      ))}
+    </ol>
+
+    {bb.don.map((don) => (
+      <ThongTinDon key={don.ma} don={don} />
+    ))}
+  </>
+);
+
+// ── Sổ giao dịch và nhật ký của một đơn ───────────────────────────────────────
+
+const LOAI_THU: Array<[string, string]> = [
+  ["created", "Xác nhận đã nhận đơn"],
+  ["confirmed", "Chỗ đã được giữ"],
+  ["paid", "Đã nhận thanh toán"],
+  ["balance_reminder", "Nhắc trả nốt — lá nhẹ"],
+  ["balance_final", "Nhắc trả nốt — cảnh báo cuối"],
+  ["departure", "Nhắc trước ngày đi"],
+  ["cancelled", "Báo đơn đã hủy"],
+];
+
+const ThongTinDon = ({ don }: { don: SandboxScenarioBooking }) => {
+  const [loaiThu, setLoaiThu] = useState("balance_reminder");
+  const [dangGui, setDangGui] = useState(false);
+  const [ketQuaThu, setKetQuaThu] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const guiThu = async () => {
+    setDangGui(true);
+    setKetQuaThu(null);
+
+    try {
+      setKetQuaThu({ ok: true, text: await adminService.sendBookingMail(don.id, loaiThu) });
+    } catch (e) {
+      setKetQuaThu({
+        ok: false,
+        text:
+          (e as AxiosError<{ message?: string }>)?.response?.data?.message
+          ?? "Không gửi được thư.",
+      });
+    } finally {
+      setDangGui(false);
+    }
+  };
+
+  return (
+  <div className="rounded-2xl border border-gray-200 bg-white p-5">
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="rounded-lg bg-gray-900 px-2.5 py-1 text-xs font-bold text-white">
+        {don.ma}
+      </span>
+      <span
+        className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+          don.trang_thai === "cancelled"
+            ? "bg-rose-50 text-rose-700"
+            : don.trang_thai === "pending"
+              ? "bg-amber-50 text-amber-700"
+              : "bg-emerald-50 text-emerald-700"
+        }`}
+      >
+        {don.trang_thai}
+      </span>
+      {don.han_tra_not && (
+        <span className="text-xs text-gray-500">Hạn trả nốt {don.han_tra_not}</span>
+      )}
+      <span className="text-xs text-gray-500">
+        Chỗ {don.cho_da_tra ? "đã về kho" : "đang giữ"}
+      </span>
+    </div>
+
+    <div className="mt-4 grid gap-3 sm:grid-cols-4">
+      {[
+        ["Giá trị đơn", don.tong_don, "text-gray-900"],
+        ["Đã thu", don.da_thu, "text-emerald-700"],
+        ["Còn thiếu", don.con_thieu, "text-amber-700"],
+        ["Phải hoàn khách", don.nghia_vu_hoan, "text-rose-700"],
+      ].map(([nhan, so, mau]) => (
+        <div key={nhan as string} className="rounded-xl bg-gray-50 px-3.5 py-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">{nhan}</p>
+          <p className={`mt-0.5 text-sm font-bold tabular-nums ${mau}`}>
+            {formatPrice(Number(so))}
+          </p>
+        </div>
+      ))}
+    </div>
+
+    {/*
+      Sổ giao dịch với dấu cộng trừ rõ ràng.
+
+      Đây là bảng trả lời nhanh nhất cho câu "vậy tiền của khách đi đâu" — câu hay bị vặn nhất về
+      mô hình đặt cọc, và là câu mà mọi đoạn giải thích bằng chữ đều thua một cột số.
+    */}
+    <div className="mt-4">
+      <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Sổ giao dịch</p>
+      {don.so_giao_dich.length === 0 ? (
+        <p className="mt-2 rounded-lg bg-gray-50 px-3.5 py-2.5 text-xs text-gray-500">
+          Chưa có bút toán nào.
+        </p>
+      ) : (
+        <div className="mt-2 divide-y divide-gray-100 rounded-xl border border-gray-100">
+          {don.so_giao_dich.map((d, i) => (
+            <div key={i} className="flex items-center gap-3 px-3.5 py-2.5 text-xs">
+              <span
+                className={`flex h-6 w-6 items-center justify-center rounded-full text-sm font-bold ${
+                  d.chieu === "+"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-rose-50 text-rose-700"
+                }`}
+              >
+                {d.chieu}
+              </span>
+              <span className="font-semibold text-gray-800">{d.nhan}</span>
+              <span
+                className={`ml-auto font-bold tabular-nums ${
+                  d.chieu === "+" ? "text-emerald-700" : "text-rose-700"
+                }`}
+              >
+                {d.chieu}
+                {formatPrice(d.so_tien)}
+              </span>
+              {d.luc && <span className="w-28 text-right text-gray-400">{d.luc}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {don.nhat_ky.length > 0 && (
+      <div className="mt-4">
+        <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Nhật ký đơn</p>
+        <div className="mt-2 space-y-1.5">
+          {don.nhat_ky.map((n, i) => (
+            <div key={i} className="rounded-lg bg-gray-50 px-3.5 py-2 text-xs">
+              <span className="font-semibold text-gray-800">{n.hanh_dong}</span>
+              {n.tu && n.sang && (
+                <span className="ml-2 text-gray-500">
+                  {n.tu} → <b className="text-gray-700">{n.sang}</b>
+                </span>
+              )}
+              {n.luc && <span className="ml-2 text-gray-400">{n.luc}</span>}
+              {n.ly_do && <p className="mt-0.5 leading-relaxed text-gray-500">{n.ly_do}</p>}
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/*
+      Gửi lại một lá thư của chính đơn này.
+
+      Đặt ở đây chứ không phải một màn riêng: lá thư nói về đơn này, và cả những lời từ chối cũng
+      vậy — thư nhắc trả nốt bị chối trên đơn không còn nợ, thư báo hủy bị chối trên đơn còn hiệu
+      lực. Một lá thư sai hoàn cảnh tệ hơn không có thư, vì nó đến từ công ty và khách tin nó.
+    */}
+    <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50/70 p-3.5">
+      <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Gửi lại thư</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <select
+          value={loaiThu}
+          onChange={(e) => setLoaiThu(e.target.value)}
+          className="min-w-[240px] flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs"
+        >
+          {LOAI_THU.map(([gt, nhan]) => (
+            <option key={gt} value={gt}>
+              {nhan}
             </option>
           ))}
         </select>
-        {scheduleInfo && <p className="mt-2 text-xs text-gray-500">{scheduleInfo}</p>}
-        {chonChuyen.length === 0 && (
-          <p className="mt-2 text-xs text-rose-600">
-            Chạy <code>php artisan db:seed --class=SandboxTourSeeder</code> để dựng dữ liệu.
-          </p>
-        )}
+        <button
+          type="button"
+          disabled={dangGui}
+          onClick={() => void guiThu()}
+          className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-2 text-xs font-bold text-primary-700 transition-colors hover:bg-primary-100 disabled:opacity-50"
+        >
+          {dangGui ? "Đang gửi…" : "Gửi ngay"}
+        </button>
       </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="rounded-2xl border border-gray-200 bg-white p-5">
-          <h2 className="text-sm font-bold text-gray-900">1 · Tua thời gian</h2>
-          <p className="mt-1 text-xs text-gray-500">
-            Dời ngày khởi hành sao cho hôm nay rơi đúng vào mốc. Chỉ đổi ngày, không đụng tới tiền.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {Object.entries(options?.milestones ?? {}).map(([key, nhan]) => (
-              <button
-                key={key}
-                type="button"
-                disabled={!scheduleId || busy !== ""}
-                onClick={() => void tua(key, nhan)}
-                className={`${nut} border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100`}
-              >
-                {busy === key ? "Đang tua..." : nhan}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-gray-200 bg-white p-5">
-          <h2 className="text-sm font-bold text-gray-900">2 · Chạy lệnh nền</h2>
-          <p className="mt-1 text-xs text-gray-500">
-            Đúng lệnh máy chủ hẹn giờ chạy mỗi sáng. Đầu ra in nguyên văn ở nhật ký bên dưới.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {Object.entries(options?.commands ?? {}).map(([key, nhan]) => (
-              <button
-                key={key}
-                type="button"
-                disabled={busy !== ""}
-                onClick={() => void chayLenh(key, nhan)}
-                className={`${nut} border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100`}
-              >
-                {busy === key ? "Đang chạy..." : nhan}
-              </button>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <section className="rounded-2xl border border-gray-200 bg-white p-5">
-        <h2 className="text-sm font-bold text-gray-900">3 · Ghép và chuyển chuyến</h2>
-        <p className="mt-1 text-xs text-gray-500">
-          Hai đường duy nhất đổi được ngày khởi hành của một đơn đã tồn tại — và vì hạn trả nốt suy
-          ra từ ngày khởi hành, đổi ngày là đổi hạn của từng người trên chuyến.
+      {ketQuaThu && (
+        <p
+          className={`mt-2 rounded-lg px-3 py-2 text-xs leading-relaxed ${
+            ketQuaThu.ok
+              ? "bg-emerald-50 text-emerald-800"
+              : "bg-rose-50 text-rose-700"
+          }`}
+        >
+          {ketQuaThu.text}
         </p>
-
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <div className="rounded-xl border border-gray-200 p-3.5">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500">
-              Chuyến đích (cùng tour)
-            </label>
-            <select
-              value={dichId ?? ""}
-              onChange={(e) => setDichId(Number(e.target.value) || null)}
-              className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-xs"
-            >
-              <option value="">— chọn chuyến —</option>
-              {cungTour.map((s) => (
-                <option key={s.id} value={s.id}>
-                  #{s.id} · {s.start_date} · {s.booked_people}/{s.max_people} chỗ
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={!dichId || busy !== ""}
-              onClick={() => void ghep()}
-              className={`${nut} mt-2.5 w-full border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100`}
-            >
-              {busy === "merge" ? "Đang ghép..." : "Ghép cả chuyến này vào chuyến đích"}
-            </button>
-            <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
-              Luôn là công ty khởi xướng, không hỏi khách — nên khách được hoàn đủ nếu sau đó hủy.
-              Đơn chưa cọc sẽ bị hủy và mời đặt lại.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-gray-200 p-3.5">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-500">
-              Chuyển một đơn sang chuyến đích
-            </label>
-            <select
-              value={donId ?? ""}
-              onChange={(e) => setDonId(Number(e.target.value) || null)}
-              className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-xs"
-            >
-              <option value="">— chọn đơn —</option>
-              {rows.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.ma} · {r.trang_thai} · còn thiếu {formatPrice(r.con_thieu)}
-                </option>
-              ))}
-            </select>
-            <div className="mt-2.5 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={!donId || !dichId || busy !== ""}
-                onClick={() => void chuyen("company")}
-                className={`${nut} border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100`}
-              >
-                {busy === "transfer-company" ? "..." : "Công ty dời ngày"}
-              </button>
-              <button
-                type="button"
-                disabled={!donId || !dichId || busy !== ""}
-                onClick={() => void chuyen("customer")}
-                className={`${nut} border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100`}
-              >
-                {busy === "transfer-customer" ? "..." : "Khách xin đổi"}
-              </button>
-            </div>
-            <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
-              Cùng một thao tác, hai kết cục. <b>Công ty dời</b>: miễn phí đổi lịch, hủy sau đó hoàn
-              đủ. <b>Khách xin</b>: từ lần hai có phí, và bảng phí hủy áp bình thường. Bấm cả hai
-              rồi so bảng.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-gray-200 bg-white p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-bold text-gray-900">4 · Đơn của chuyến</h2>
-            <p className="mt-1 text-xs text-gray-500">
-              So bảng này trước và sau mỗi lần bấm — đó là bằng chứng, không phải lời hứa.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={mailType}
-              onChange={(e) => setMailType(e.target.value)}
-              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs"
-            >
-              {Object.entries(options?.mails ?? {}).map(([key, nhan]) => (
-                <option key={key} value={key}>
-                  {nhan}
-                </option>
-              ))}
-            </select>
-            <span className="text-xs text-gray-400">← chọn rồi bấm "Gửi" ở từng dòng</span>
-          </div>
-        </div>
-
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[980px] text-xs">
-            <thead>
-              <tr className="border-b border-gray-200 text-left text-gray-500">
-                <th className="py-2 pr-3">Đơn</th>
-                <th className="py-2 pr-3">Trạng thái</th>
-                <th className="py-2 pr-3 text-right">Giá đơn</th>
-                <th className="py-2 pr-3 text-right">Đã thu</th>
-                <th className="py-2 pr-3 text-right">Còn thiếu</th>
-                <th className="py-2 pr-3 text-right">Trả lần này</th>
-                <th className="py-2 pr-3 text-right">Phải hoàn</th>
-                <th className="py-2 pr-3">Hạn trả nốt</th>
-                <th className="py-2 pr-3">Thư đã gửi</th>
-                <th className="py-2 pr-3">Chỗ</th>
-                <th className="py-2" />
-              </tr>
-            </thead>
-            <tbody className="tabular-nums">
-              {rows.map((r) => (
-                <tr key={r.id} className="border-b border-gray-100">
-                  <td className="py-2 pr-3 font-semibold text-gray-900">
-                    {r.ma}
-                    {r.la_doan && (
-                      <span className="ml-1.5 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700">
-                        ĐOÀN
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2 pr-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                        r.trang_thai === "cancelled"
-                          ? "bg-rose-50 text-rose-700"
-                          : r.trang_thai === "pending"
-                            ? "bg-amber-50 text-amber-700"
-                            : "bg-emerald-50 text-emerald-700"
-                      }`}
-                    >
-                      {r.trang_thai}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-3 text-right">{formatPrice(r.tong_don)}</td>
-                  <td className="py-2 pr-3 text-right text-emerald-700">{formatPrice(r.da_thu)}</td>
-                  <td className="py-2 pr-3 text-right font-semibold">
-                    {r.con_thieu > 0 ? formatPrice(r.con_thieu) : "—"}
-                  </td>
-                  <td className="py-2 pr-3 text-right">
-                    {r.phai_tra_lan_nay > 0 ? formatPrice(r.phai_tra_lan_nay) : "—"}
-                  </td>
-                  <td className="py-2 pr-3 text-right text-rose-700">
-                    {r.nghia_vu_hoan > 0 ? formatPrice(r.nghia_vu_hoan) : "—"}
-                  </td>
-                  <td className="py-2 pr-3">{r.han_tra_not ?? "—"}</td>
-                  <td className="py-2 pr-3">
-                    {r.da_nhac || r.da_canh_bao_cuoi ? (
-                      <span>
-                        {r.da_nhac && <span className="text-teal-700">nhẹ {r.da_nhac}</span>}
-                        {r.da_nhac && r.da_canh_bao_cuoi && " · "}
-                        {r.da_canh_bao_cuoi && (
-                          <span className="font-semibold text-rose-700">
-                            cuối {r.da_canh_bao_cuoi}
-                          </span>
-                        )}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="py-2 pr-3">{r.cho_da_tra ? "đã trả" : "đang giữ"}</td>
-                  <td className="py-2 text-right">
-                    <button
-                      type="button"
-                      disabled={busy !== ""}
-                      onClick={() => void guiThu(r.id)}
-                      className="rounded-lg border border-gray-200 px-2.5 py-1 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-                    >
-                      {busy === `mail-${r.id}` ? "..." : "Gửi thư"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={11} className="py-6 text-center text-gray-400">
-                    Chưa có đơn nào trên chuyến này.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="rounded-2xl border border-gray-200 bg-white p-5">
-        <h2 className="text-sm font-bold text-gray-900">Nhật ký thao tác</h2>
-        <div className="mt-3 space-y-2">
-          {log.length === 0 && (
-            <p className="text-xs text-gray-400">Chưa bấm gì. Kết quả từng thao tác sẽ hiện ở đây.</p>
-          )}
-          {log.map((d, i) => (
-            <pre
-              key={i}
-              className={`whitespace-pre-wrap rounded-xl border px-3.5 py-2.5 text-xs leading-relaxed ${
-                d.kind === "ok"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-                  : "border-rose-200 bg-rose-50 text-rose-800"
-              }`}
-            >
-              {d.text}
-            </pre>
-          ))}
-        </div>
-      </section>
+      )}
     </div>
+  </div>
   );
 };
 

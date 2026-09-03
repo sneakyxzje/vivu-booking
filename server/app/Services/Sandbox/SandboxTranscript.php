@@ -71,6 +71,8 @@ class SandboxTranscript
     private function tomTatDon(Booking $don): array
     {
         return [
+            // Id thật, để nút gửi thư trên thẻ đơn gọi được điểm cuối gửi lại thư.
+            'id' => $don->id,
             'ma' => 'BK-' . $don->id,
             'trang_thai' => $don->status,
             'tong_don' => round((float) $don->total_amount),
