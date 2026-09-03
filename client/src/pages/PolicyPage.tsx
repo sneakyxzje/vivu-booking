@@ -24,6 +24,13 @@ import { useDocumentMeta } from "@/hooks/useDocumentMeta";
  * chạy: phí tính trên giá trị đơn, tiền hoàn kẹp dưới ở 0, hãng hủy thì hoàn đủ, không chuyển
  * chuyến được sau hạn chốt, và sửa bảng phí không hồi tố lên đơn đã bán.
  *
+ * Khoản 3.3 từng hứa **công ty chịu phần chênh lệch** khi khách được dời sang chuyến đắt hơn sau
+ * khi hãng hủy chuyến. Mã không làm thế: `BookingTransferService::transfer()` tính lại tổng tiền
+ * theo chuyến đích ở mọi lối vào, kể cả lối `ScheduleCancellationService` đi qua với cờ hãng khởi
+ * xướng — cờ ấy chỉ miễn **phí đổi lịch**, không miễn chênh lệch giá. Câu hứa ấy còn tự mâu thuẫn
+ * với mục 4 ngay bên dưới, chỗ nói chênh lệch được thu thêm hoặc hoàn lại. Nay khoản 3.3 nói đúng
+ * thứ đang chạy. Muốn giữ lời hứa cũ thì phải sửa `transfer()` trước, rồi mới sửa lại câu này.
+ *
  * ## Về bố cục: đây là văn bản, không phải bảng điều khiển
  *
  * Một trang điều khoản đọc từ trên xuống. Cắt nó thành các thẻ có viền là chia một mạch văn thành
@@ -124,7 +131,7 @@ export default function PolicyPage() {
 
         <p className="text-body-md text-body mt-3">
           Mức hoàn tiền, quy định đổi chuyến, điều khoản sử dụng và cách chúng tôi giữ dữ liệu của
-          bạn — gộp trong một trang. Bảng phí ở mục 1 đọc thẳng từ hệ thống, là mức thực sự áp khi
+          bạn — gộp trong một trang. Bảng phí ở mục 2 đọc thẳng từ hệ thống, là mức thực sự áp khi
           bạn hủy, không phải một bản chép tay có thể lệch.
         </p>
 
@@ -211,12 +218,18 @@ export default function PolicyPage() {
 
             {/* --- 2. Bảng phí hủy --- */}
             <h2 className="text-display-sm text-ink mt-14">
-              2. Mức hoàn khi khách hàng hủy đơn
+              2. Hủy đơn hàng theo yêu cầu của khách hàng
             </h2>
 
             <p className="text-body-md text-body mt-3">
-              {data.cancellation.description
-                ?? "Phí hủy tăng dần khi càng sát ngày khởi hành, vì chi phí đã cam kết với nhà cung cấp càng khó hủy."}
+              <strong className="font-semibold text-ink">2.1.</strong> Mục này áp dụng đối với
+              trường hợp khách hàng chủ động yêu cầu hủy đơn hàng. Trường hợp công ty hủy chuyến
+              khởi hành được điều chỉnh tại mục 3 và không áp dụng biểu phí quy định tại mục này.
+            </p>
+
+            <p className="text-body-md text-body mt-3">
+              <strong className="font-semibold text-ink">2.2.</strong> Mức hoàn được xác định căn
+              cứ vào số ngày còn lại tính đến giờ khởi hành ghi trên đơn hàng, theo giờ Việt Nam:
             </p>
 
             <div className="mt-5 overflow-x-auto">
@@ -250,39 +263,105 @@ export default function PolicyPage() {
               </table>
             </div>
 
+            {data.cancellation.description ? (
+              <p className="text-body-sm text-muted mt-3">{data.cancellation.description}</p>
+            ) : null}
+
             <p className="text-body-md text-body mt-5">
-              Mức hoàn tính theo số ngày còn lại tới giờ khởi hành. Phí hủy tính trên tổng giá trị
-              đơn; số tiền hoàn được trừ trên số khách hàng đã thực trả và không bao giờ nhỏ hơn 0
-              — khách hàng không phải nộp thêm khi hủy. Trước khi xác nhận hủy, hệ thống hiện sẵn
-              số tiền nhận lại để khách hàng đối chiếu.
+              <strong className="font-semibold text-ink">2.3.</strong> Số ngày quy định tại khoản
+              2.2 được tính đến phần lẻ và không làm tròn lên. Yêu cầu hủy gửi trước giờ khởi hành
+              47 giờ tương ứng 1,96 ngày và được xếp vào bậc dưới 2 ngày.
+            </p>
+
+            <p className="text-body-md text-body mt-3">
+              <strong className="font-semibold text-ink">2.4.</strong> Phí hủy được tính trên tổng
+              giá trị đơn hàng. Số tiền hoàn bằng số tiền khách hàng đã thực thanh toán trừ đi phí
+              hủy và trong mọi trường hợp{" "}
+              <strong className="font-semibold text-ink">không nhỏ hơn 0</strong>. Khách hàng không
+              phải thanh toán thêm bất kỳ khoản nào khi hủy, kể cả khi phí hủy lớn hơn số tiền đã
+              thanh toán.
+            </p>
+
+            <p className="text-body-md text-body mt-3">
+              <strong className="font-semibold text-ink">2.5.</strong> Đơn hàng chưa thanh toán
+              được khách hàng hủy trực tiếp trên hệ thống và không làm phát sinh nghĩa vụ tài chính
+              của khách hàng.
+            </p>
+
+            <p className="text-body-md text-body mt-3">
+              <strong className="font-semibold text-ink">2.6.</strong> Đơn hàng đã thanh toán một
+              phần hoặc toàn bộ chỉ được hủy sau khi khách hàng gửi yêu cầu hủy và được công ty
+              chấp thuận. Đơn hàng giữ nguyên hiệu lực cho đến thời điểm được chấp thuận. Kết quả
+              xử lý, bao gồm cả trường hợp từ chối và lý do từ chối, được thông báo tới địa chỉ thư
+              điện tử khách hàng đã đăng ký.
+            </p>
+
+            <p className="text-body-md text-body mt-3">
+              <strong className="font-semibold text-ink">2.7.</strong> Trước khi xác nhận hủy, hệ
+              thống hiển thị mức hoàn và số tiền dự kiến nhận lại tương ứng với thời điểm gửi yêu
+              cầu để khách hàng đối chiếu.
+            </p>
+
+            <p className="text-body-md text-body mt-3">
+              <strong className="font-semibold text-ink">2.8.</strong> Khách hàng không có mặt tại
+              điểm đón vào giờ khởi hành và không thông báo trước được xác định là không sử dụng
+              dịch vụ. Đơn hàng trong trường hợp này không được hoàn tiền.
+            </p>
+
+            <p className="text-body-md text-body mt-3">
+              <strong className="font-semibold text-ink">2.9.</strong> Đơn hàng không còn được hủy
+              kể từ thời điểm chuyến khởi hành bắt đầu. Chuyến đang thực hiện hoặc đã kết thúc
+              không thuộc phạm vi điều chỉnh của mục này.
+            </p>
+
+            <p className="text-body-md text-body mt-3">
+              <strong className="font-semibold text-ink">2.10.</strong> Việc hủy đơn hàng có hiệu
+              lực kể từ thời điểm được ghi nhận trên hệ thống và không được khôi phục. Khách hàng
+              có nhu cầu tham gia trở lại thực hiện đặt đơn hàng mới theo chỗ còn trống tại thời
+              điểm đặt.
             </p>
 
             {/* --- 3. Công ty hủy chuyến --- */}
             <h2 className="text-display-sm text-ink mt-14">
-              3. Trường hợp công ty hủy chuyến
+              3. Công ty hủy chuyến khởi hành
             </h2>
 
             <p className="text-body-md text-body mt-3">
-              Công ty có thể hủy một chuyến khởi hành khi số khách không đạt mức tối thiểu tới hạn
-              chốt danh sách, khi xảy ra sự kiện bất khả kháng, hoặc khi nhà cung cấp dịch vụ không
-              thực hiện được nghĩa vụ. Trong mọi trường hợp công ty là bên hủy:
+              <strong className="font-semibold text-ink">3.1.</strong> Công ty có quyền hủy một
+              chuyến khởi hành trong các trường hợp sau: số lượng khách đăng ký không đạt số khách
+              tối thiểu tính đến hạn chốt danh sách; xảy ra sự kiện bất khả kháng theo định nghĩa
+              tại mục 1; hoặc nhà cung cấp dịch vụ không thực hiện được nghĩa vụ và công ty không
+              thu xếp được phương án thay thế phù hợp.
             </p>
 
-            <ul className="text-body-md text-body mt-3 list-disc space-y-2 pl-5 marker:text-muted-soft">
-              <li>
-                Khách hàng được <strong className="font-semibold text-ink">hoàn 100%</strong> số
-                tiền đã thanh toán, không trừ bất kỳ khoản phí nào, không phụ thuộc vào thời điểm
-                hủy. Bảng phí ở mục 2 không áp dụng.
-              </li>
-              <li>
-                Khách hàng được quyền chọn giữa nhận lại tiền hoặc chuyển sang một chuyến khởi hành
-                khác. Nếu chọn chuyển và chuyến mới có giá cao hơn, công ty chịu phần chênh lệch.
-              </li>
-              <li>
-                Công ty thông báo bằng email tới địa chỉ khách hàng đã đăng ký ngay khi có quyết
-                định hủy, nêu rõ lý do và phương án xử lý.
-              </li>
-            </ul>
+            <p className="text-body-md text-body mt-3">
+              <strong className="font-semibold text-ink">3.2.</strong> Trong mọi trường hợp công ty
+              là bên hủy, khách hàng được{" "}
+              <strong className="font-semibold text-ink">hoàn 100%</strong> số tiền đã thanh toán,
+              không khấu trừ bất kỳ khoản phí nào và không phụ thuộc vào thời điểm hủy. Biểu phí
+              quy định tại mục 2 không áp dụng.
+            </p>
+
+            <p className="text-body-md text-body mt-3">
+              <strong className="font-semibold text-ink">3.3.</strong> Khách hàng được lựa chọn
+              giữa việc nhận lại toàn bộ số tiền đã thanh toán hoặc chuyển sang một chuyến khởi
+              hành khác. Việc chuyển chuyến trong trường hợp này không thu phí đổi lịch và không bị
+              giới hạn bởi hạn chốt danh sách của chuyến đã hủy. Trường hợp chuyến khởi hành mới có
+              giá khác với chuyến ban đầu, phần chênh lệch được thu thêm hoặc hoàn lại tương ứng
+              theo quy định tại mục 4.
+            </p>
+
+            <p className="text-body-md text-body mt-3">
+              <strong className="font-semibold text-ink">3.4.</strong> Đơn hàng chưa thanh toán
+              thuộc chuyến khởi hành bị hủy được công ty hủy và hoàn trả toàn bộ số chỗ. Khách hàng
+              được mời đặt lại một chuyến khởi hành khác.
+            </p>
+
+            <p className="text-body-md text-body mt-3">
+              <strong className="font-semibold text-ink">3.5.</strong> Công ty thông báo bằng thư
+              điện tử tới địa chỉ khách hàng đã đăng ký ngay khi có quyết định hủy, nêu rõ lý do và
+              phương án xử lý đối với đơn hàng.
+            </p>
 
             {/* --- 4. Chuyển chuyến --- */}
             <h2 className="text-display-sm text-ink mt-14">4. Chuyển sang chuyến khác</h2>
