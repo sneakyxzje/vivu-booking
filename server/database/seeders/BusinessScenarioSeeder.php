@@ -277,12 +277,25 @@ class BusinessScenarioSeeder extends Seeder
 
         foreach ($chuyen as $item) {
             $start = now()->addHours($item['gio'])->startOfHour();
-            $end = $start->copy()->addDays(2)->endOfDay();
+
+            /*
+             * Mốc kết thúc là 18:00 ngày thứ ba, không phải `endOfDay()`.
+             *
+             * 23:59:59 là mốc kỹ thuật, không phải giờ nhà xe trả khách — và nó hiện lên trang chi
+             * tiết thành "về lúc 23:59". Kèm hai mốc giữa để bảng giờ hai chiều có đủ bốn ô.
+             *
+             * Giờ khởi hành của các chuyến ở đây trải khắp ngày (mốc tính lùi từ lúc chạy seeder),
+             * nên hai mốc giữa cộng theo `$start` thay vì gán giờ cố định: gán cứng thì chuyến
+             * khởi hành 20h sẽ có giờ tới nơi nằm trước cả giờ xe chạy.
+             */
+            $end = $start->copy()->addDays(2)->setTime(18, 0);
 
             $payload = [
                 'tour_id' => $this->tour->id,
                 'start_date' => $start,
                 'end_date' => $end,
+                'arrival_at' => $start->copy()->addHours(6),
+                'return_departure_at' => $end->copy()->subHours(5),
                 'booking_deadline' => $start->copy()->subDays(
                     (int) config('booking.booking_deadline_days', 3)
                 ),

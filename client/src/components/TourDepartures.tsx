@@ -30,8 +30,9 @@ import { getAvailableSlots, getScheduleUnavailableReason } from "@/utils/schedul
  * Ngày về thì không nhập: máy chủ suy từ số ngày của tour, chỉ nhận riêng phần giờ. Nhờ vậy không
  * có cách nào đặt một ngày về mâu thuẫn với chính chương trình tour.
  *
- * Chuyến tạo trước khi có ô Giờ về mang `end_date` suy ra từ `start_date`, tức phần giờ của nó là
- * bản sao của giờ đi. Những chuyến ấy không hiện giờ về — xem chỗ tính `gioVe` bên dưới.
+ * Hai mốc giữa — tới điểm đến và rời điểm đến — là giờ áng chừng, để trống được, và ô nào trống
+ * thì bỏ hẳn dòng ấy chứ không đoán hộ. Chuyến tạo trước khi có hai ô này không có gì để hiện, và
+ * chỉ hiện lại sau khi điều hành mở tour ra điền.
  *
  * ## Những gì cố ý KHÔNG hiện
  *
@@ -266,19 +267,17 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
           const gioDi = gioCua(schedule.start_date);
           const gioChot = gioCua(schedule.booking_deadline);
           /*
-           * Giờ về chỉ hiện khi KHÁC giờ đi.
+           * Bốn mốc đọc thẳng, không mốc nào phải qua phép đoán.
            *
-           * Chuyến tạo trước khi có ô "Giờ về" mang `end_date` suy ra từ `start_date`, nên phần
-           * giờ của nó là bản sao của giờ đi chứ không phải giờ đoàn về. Bằng nhau thì không phân
-           * biệt được "về đúng giờ đi" với "chưa ai nhập", nên im lặng — thà thiếu một dòng còn
-           * hơn nói với khách rằng xe về đúng giờ nó chạy.
+           * Bản đầu của khối này giấu giờ về khi nó trùng giờ đi, vì lúc ấy `end_date` chưa có ô
+           * nhập riêng — phần giờ của nó là bản sao của giờ đi, và bằng nhau thì không phân biệt
+           * được "về đúng giờ đi" với "chưa ai nhập".
+           *
+           * Tiền đề ấy hết đúng từ khi biểu mẫu có ô "Kết thúc": giờ về nay là thứ điều hành gõ
+           * vào. Giữ phép đoán thì nó quay ra **giấu mất một giá trị thật** — chuyến xe đêm chạy
+           * 22h và về 22h ba ngày sau là chuyện có thật, và đó đúng là chuyến cần nói giờ nhất.
            */
-          const gioVeThat = gioCua(schedule.end_date);
-          const gioVe = gioVeThat && gioVeThat !== gioDi ? gioVeThat : null;
-          /*
-           * Hai mốc giữa không cần mẹo so sánh nào: chúng chỉ tồn tại khi có người điền, nên có
-           * giá trị nghĩa là có người đã áng chừng thật.
-           */
+          const gioVe = gioCua(schedule.end_date);
           const gioToiNoi = gioCua(schedule.arrival_at);
           const gioRoiDiem = gioCua(schedule.return_departure_at);
           const conLai = getAvailableSlots(schedule);

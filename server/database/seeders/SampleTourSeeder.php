@@ -230,9 +230,24 @@ class SampleTourSeeder extends Seeder
             $batDau = now()->addDays($mau['cach'])->setTimeFromTimeString($mau['gio'] ?? '06:00');
             $trangThai = $mau['trang_thai'] ?? ScheduleStatus::Open;
 
+            /*
+             * Bốn mốc của chuyến, đủ để trang chi tiết hiện được bảng giờ hai chiều.
+             *
+             * Trước đây `end_date` lấy `endOfDay()`, tức 23:59:59 — một con số không ai thỏa thuận
+             * với nhà xe, và hiện lên trang khách thành "về lúc 23:59". Nay ngày cuối kết thúc lúc
+             * 18:00, rời điểm đến lúc 13:00, và tới nơi sau sáu tiếng đường.
+             *
+             * Đây là số liệu dựng cảnh, không phải luật: mỗi tuyến một quãng đường khác nhau, nên
+             * ngoài đời điều hành gõ tay từng chuyến. Ở seeder thì cần một bộ số nhất quán để nhìn
+             * ra ngay bảng giờ có chạy hay không.
+             */
+            $ketThuc = $batDau->copy()->addDays($soNgay - 1)->setTime(18, 0);
+
             $payload = [
                 'start_date' => $batDau,
-                'end_date' => $batDau->copy()->addDays($soNgay - 1)->endOfDay(),
+                'end_date' => $ketThuc,
+                'arrival_at' => $batDau->copy()->addHours(6),
+                'return_departure_at' => $ketThuc->copy()->setTime(13, 0),
                 'booking_deadline' => $batDau->copy()->subDays(
                     (int) config('booking.booking_deadline_days', 3)
                 ),

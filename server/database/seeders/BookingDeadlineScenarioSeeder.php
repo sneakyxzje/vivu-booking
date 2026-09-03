@@ -172,7 +172,10 @@ class BookingDeadlineScenarioSeeder extends Seeder
         $chuyen = TourSchedule::factory()->create([
             'tour_id' => $this->tour->id,
             'start_date' => $batDau,
-            'end_date' => $batDau->copy()->addDays(2),
+            // Bốn mốc như các seeder khác, để bảng giờ hai chiều trên trang chi tiết có đủ số.
+            'end_date' => $batDau->copy()->addDays(2)->setTime(18, 0),
+            'arrival_at' => $batDau->copy()->addHours(6),
+            'return_departure_at' => $batDau->copy()->addDays(2)->setTime(13, 0),
             /*
              * Hỏi chính hệ thống mốc mặc định là bao nhiêu, không viết tay "trừ ba ngày".
              *
