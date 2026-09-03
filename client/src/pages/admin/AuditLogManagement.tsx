@@ -170,9 +170,7 @@ export default function AuditLogManagement() {
           Nhật ký hệ thống
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Mọi can thiệp vào đơn hàng và vào chuyến khởi hành: ai làm, lúc nào,
-          giá trị trước và sau, vì sao. Dữ liệu chỉ ghi thêm, không sửa và không
-          xóa.
+          Ghi lại mọi thao tác diễn ra trong hệ thống
         </p>
       </div>
 
