@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Calendar, Check, Users } from "lucide-react";
+import { Calendar, Check, Clock, Users } from "lucide-react";
 import guideService from "@/services/guideService";
 import type { GuideAssignment } from "@/services/guideService";
 import { formatDateTime, getEndDate } from "@/utils/format";
@@ -89,8 +89,33 @@ export default function GuideAssignments() {
       <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
         <span className="flex items-center gap-1">
           <Calendar className="h-3 w-3" />
-          {formatDateTime(item.start_date)} — {getEndDate(item.start_date, item.number_of_days)}
+          {/*
+            Ngày về đọc từ `end_date` của chuyến, chỉ suy từ số ngày tour khi cột ấy rỗng.
+
+            Suy trọn gói là sai kể từ khi điều hành đặt được mốc kết thúc: chuyến xe đêm khởi hành
+            22h và trả khách 5h sáng thì kết thúc vào ngày thứ tư của một tour ba ngày, còn phép
+            suy vẫn nói ngày thứ ba. Người dẫn đoàn là người cuối cùng nên đọc sai ngày về.
+          */}
+          {formatDateTime(item.start_date)} —{" "}
+          {item.end_date
+            ? formatDateTime(item.end_date)
+            : getEndDate(item.start_date, item.number_of_days)}
         </span>
+
+        {/* Giờ áng chừng do điều hành điền. Chỉ hiện khi có — không đoán hộ. */}
+        {item.arrival_at && (
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            Tới nơi: {formatDateTime(item.arrival_at)}
+          </span>
+        )}
+
+        {item.return_departure_at && (
+          <span className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            Rời điểm đến: {formatDateTime(item.return_departure_at)}
+          </span>
+        )}
 
         {item.co_guides.length > 0 && (
           <span className="flex items-center gap-1">

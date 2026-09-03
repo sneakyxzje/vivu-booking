@@ -232,6 +232,14 @@ export interface GuideAssignment {
   tour_title: string | null;
   start_date: string;
   end_date: string | null;
+  /**
+   * Giờ tới điểm đến và giờ rời điểm đến, do điều hành áng chừng. Rỗng ở chuyến chưa ai điền.
+   *
+   * Khách đọc được hai mốc này trên trang tour trước khi đặt, nên người dẫn đoàn phải thấy — nếu
+   * không thì khách hỏi "mấy giờ tới nơi" và người đứng cạnh họ là người duy nhất không biết.
+   */
+  arrival_at: string | null;
+  return_departure_at: string | null;
   number_of_days: number;
   status: string;
   status_label: string;
