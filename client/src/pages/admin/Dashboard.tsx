@@ -18,8 +18,12 @@ import {
   Compass,
   Calendar
 } from "lucide-react";
-import adminService, { type AdminDashboardData } from "@/services/adminService";
-import { formatDateTime, formatPrice } from "@/utils/format";
+import adminService, {
+  type AdminDashboardData,
+  type DashboardRange,
+} from "@/services/adminService";
+import { DateRangeFilter } from "@/components/admin/DateRangeFilter";
+import { formatDate, formatDateTime, formatPrice } from "@/utils/format";
 
 const DESTINATION_COLORS = ["#6366f1", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
@@ -27,16 +31,48 @@ export default function Dashboard() {
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [range, setRange] = useState<DashboardRange>({ from: null, to: null });
+
+  /*
+   * Nạp lại mỗi khi khoảng ngày đổi, nhưng KHÔNG xóa dữ liệu cũ trong lúc chờ.
+   *
+   * Thay bằng màn "đang tải" mỗi lần bấm một nút khoảng thời gian thì cả trang nháy trắng rồi dựng
+   * lại, và người dùng mất chỗ đang nhìn. Giữ số cũ, làm mờ đi, và thay khi số mới về.
+   */
+  /*
+   * Đổi khoảng ngày: bật cờ đang tải NGAY tại chỗ bấm, không phải trong effect.
+   *
+   * Effect chỉ nên đồng bộ với thứ bên ngoài React; đặt state đồng bộ ngay trong thân nó là dựng
+   * thêm một nhịp vẽ thừa. Còn "vừa bấm thì đang tải" đúng là hệ quả trực tiếp của cú bấm, nên nó
+   * thuộc về hàm xử lý bấm.
+   */
+  const doiKhoang = (moi: DashboardRange) => {
+    setLoading(true);
+    setError("");
+    setRange(moi);
+  };
 
   useEffect(() => {
-    adminService
-      .getDashboard()
-      .then((result) => setData(result))
-      .catch(() => setError("Không thể tải dữ liệu tổng quan."))
-      .finally(() => setLoading(false));
-  }, []);
+    let huy = false;
 
-  if (loading) {
+    adminService
+      .getDashboard(range)
+      .then((result) => {
+        if (!huy) setData(result);
+      })
+      .catch(() => {
+        if (!huy) setError("Không thể tải dữ liệu tổng quan.");
+      })
+      .finally(() => {
+        if (!huy) setLoading(false);
+      });
+
+    return () => {
+      huy = true;
+    };
+  }, [range]);
+
+  if (loading && !data) {
     return (
       <div className="flex items-center justify-center h-64 text-gray-500">
         Đang tải dữ liệu tổng quan...
@@ -44,7 +80,13 @@ export default function Dashboard() {
     );
   }
 
-  if (error || !data) {
+  /*
+   * Chỉ bỏ cả trang khi CHƯA có gì để hiện.
+   *
+   * Một lần đổi khoảng ngày mà hỏng thì số cũ vẫn còn giá trị: người dùng đọc tiếp được và bấm lại
+   * khoảng khác. Thay cả trang bằng dòng chữ đỏ là phạt họ vì một lần mạng chập.
+   */
+  if (!data) {
     return (
       <div className="flex items-center justify-center h-64 text-red-500 text-sm">
         {error || "Không thể tải dữ liệu tổng quan."}
@@ -54,17 +96,39 @@ export default function Dashboard() {
 
   const bookingSummary = data.booking_summary;
   const monthlyData = data.monthly_performance;
+  const dangLoc = data.range.filtered;
+
+  /*
+   * Một câu mô tả kỳ đang xem, dùng lại ở nhiều thẻ.
+   *
+   * Thiếu nó thì các thẻ chỉ ghi những con số trần, và người xem không biết chúng thuộc về toàn
+   * thời gian hay về bảy ngày vừa bấm — hai cách đọc cho cùng một con số.
+   */
+  const nhanKy = dangLoc
+    ? `${data.range.from ? formatDate(data.range.from) : "đầu kỳ"} — ${
+        data.range.to ? formatDate(data.range.to) : "hôm nay"
+      }`
+    : "Toàn thời gian";
   const destData = data.destinations.map((item, index) => ({
     ...item,
     color: DESTINATION_COLORS[index % DESTINATION_COLORS.length],
   }));
   const bookingsData = data.recent_bookings;
 
+  /*
+   * Ba thẻ đầu đi theo bộ lọc, thẻ cuối thì không — và nhãn phải nói ra điều đó.
+   *
+   * Tỉ lệ lấp đầy là một con số HIỆN TRẠNG: nó so số chỗ đang bị chiếm với sức chứa của mọi chuyến
+   * đang mở. Lọc nó theo một khoảng ngày là câu hỏi không có nghĩa. Để nó nằm cạnh ba thẻ có lọc
+   * mà không ghi chú gì thì người xem tưởng cả bốn cùng thuộc về kỳ đang chọn.
+   */
   const metrics = [
     {
-      title: "Tổng doanh thu",
+      title: "Doanh thu",
       value: formatPrice(bookingSummary.total_revenue),
-      trend: `Tháng này: ${formatPrice(bookingSummary.revenue_this_month)}`,
+      trend: dangLoc
+        ? `Tiền đã về trong kỳ · ${nhanKy}`
+        : `Tháng này: ${formatPrice(bookingSummary.revenue_this_month)}`,
       icon: DollarSign,
       color: "bg-indigo-50 text-indigo-600 border-indigo-100"
     },
@@ -78,14 +142,14 @@ export default function Dashboard() {
     {
       title: "Khách hàng mới",
       value: `${bookingSummary.new_customers_this_month} thành viên`,
-      trend: "Đăng ký mới trong tháng này",
+      trend: dangLoc ? `Đăng ký mới · ${nhanKy}` : "Đăng ký mới trong tháng này",
       icon: Users,
       color: "bg-emerald-50 text-emerald-600 border-emerald-100"
     },
     {
       title: "Tỷ lệ lấp đầy",
       value: `${bookingSummary.occupancy_rate}%`,
-      trend: "Số chỗ đã đặt trên tổng số chỗ mở bán",
+      trend: "Hiện trạng, không theo bộ lọc",
       icon: Compass,
       color: "bg-amber-50 text-amber-600 border-amber-100"
     }
@@ -105,9 +169,26 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-2 bg-white px-3 py-1.5 border border-gray-200 rounded-md shadow-xs self-start sm:self-center">
           <Calendar className="w-4 h-4 text-gray-400" />
-          <span className="text-xs font-semibold text-gray-600 font-mono">Năm {new Date().getFullYear()}</span>
+          <span className="text-xs font-semibold text-gray-600 font-mono">
+            {nhanKy}
+          </span>
         </div>
       </div>
+
+      {/* BỘ LỌC KHOẢNG NGÀY */}
+      <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-xs">
+        <DateRangeFilter
+          value={range}
+          onChange={doiKhoang}
+          disabled={loading}
+        />
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
+          {error} Số liệu dưới đây là của lần tải gần nhất.
+        </div>
+      )}
 
       {/* KPI METRICS GRID */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -137,8 +218,18 @@ export default function Dashboard() {
         <div className="lg:col-span-2 bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex flex-col">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-base font-bold text-gray-900 tracking-tight">Doanh thu & Booking theo tháng</h3>
-              <p className="text-xs text-gray-400 mt-0.5">Biểu đồ biểu diễn doanh thu (triệu đồng) và lượng khách đặt</p>
+              <h3 className="text-base font-bold text-gray-900 tracking-tight">
+                Doanh thu &amp; Booking theo{" "}
+                {data.range.granularity === "day" ? "ngày" : "tháng"}
+              </h3>
+              {/*
+                Nói rõ hai cột đo hai thứ khác nhau. Doanh thu gom theo NGÀY TIỀN VỀ, số đơn gom
+                theo NGÀY ĐẶT — trộn chúng vào một mốc thì một trong hai con số sai.
+              */}
+              <p className="text-xs text-gray-400 mt-0.5">
+                Doanh thu (triệu đồng) tính theo ngày tiền về · số đơn tính theo
+                ngày đặt
+              </p>
             </div>
             <div className="flex gap-4 text-xs font-bold text-gray-500">
               <span className="flex items-center gap-1.5">

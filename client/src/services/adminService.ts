@@ -69,7 +69,25 @@ export type BookingListResponse = PaginatedResponse<Booking> & {
   summary: BookingListSummary;
 };
 
+/** Khoảng ngày gửi lên bảng điều khiển. Bỏ trống cả hai là xem toàn thời gian. */
+export interface DashboardRange {
+  from?: string | null;
+  to?: string | null;
+}
+
 export interface AdminDashboardData {
+  /**
+   * Khoảng máy chủ thực sự áp dụng, kèm đơn vị nó chọn cho biểu đồ.
+   *
+   * Không tự suy ở phía giao diện được: máy chủ mới là nơi quyết gom theo ngày hay theo tháng, và
+   * nơi nới hai đầu ra trọn ngày.
+   */
+  range: {
+    from: string | null;
+    to: string | null;
+    granularity: "day" | "month";
+    filtered: boolean;
+  };
   summary: Record<string, number>;
   booking_summary: {
     total_bookings: number;
@@ -78,6 +96,7 @@ export interface AdminDashboardData {
     cancelled_bookings: number;
     total_revenue: number;
     revenue_this_month: number;
+    contracted_value: number;
     new_customers_this_month: number;
     occupancy_rate: number;
   };
@@ -909,8 +928,21 @@ export interface CancelPreview {
 
 const adminService = {
   // --- DASHBOARD ---
-  getDashboard: async (): Promise<AdminDashboardData | null> => {
-    const response = await api.get("/admin/dashboard");
+  /**
+   * Số liệu tổng quan, tùy chọn giới hạn trong một khoảng ngày.
+   *
+   * Bỏ trống cả hai đầu thì máy chủ giữ nguyên hành vi cũ: tổng toàn thời gian, biểu đồ mười hai
+   * tháng của năm nay. Chỉ gửi tham số thật sự có giá trị, để một chuỗi rỗng không bị hiểu thành
+   * một ngày.
+   */
+  getDashboard: async (
+    range?: DashboardRange,
+  ): Promise<AdminDashboardData | null> => {
+    const params: Record<string, string> = {};
+    if (range?.from) params.from = range.from;
+    if (range?.to) params.to = range.to;
+
+    const response = await api.get("/admin/dashboard", { params });
     return extractObject<AdminDashboardData>(response);
   },
 

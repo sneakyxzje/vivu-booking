@@ -20,8 +20,69 @@ use Illuminate\Http\Request;
 
 class AdminController extends Controller
 {
+    /**
+     * Khoảng ngày dài hơn số này thì biểu đồ gom theo THÁNG thay vì theo NGÀY.
+     *
+     * Hai tháng là chỗ một biểu đồ cột theo ngày còn đọc được. Quá đó thì các cột mảnh tới mức
+     * không so được với nhau, và người xem thật ra đang hỏi một câu khác: xu hướng theo tháng.
+     */
+    private const NGUONG_GOM_THEO_THANG = 62;
+
+    /**
+     * Dữ liệu bảng điều khiển.
+     *
+     * ## Hai loại con số, và vì sao khoảng ngày chỉ chạm vào một loại
+     *
+     * Trang này trộn hai thứ khác hẳn nhau:
+     *
+     *   - **Hiện trạng**: bao nhiêu tour đang bán, bao nhiêu chuyến sắp khởi hành, tỉ lệ lấp đầy,
+     *     tổng số khách hàng. Chúng trả lời "lúc này hệ thống đang thế nào".
+     *   - **Trong kỳ**: bao nhiêu đơn được đặt, thu về bao nhiêu, điểm đến nào bán chạy. Chúng
+     *     trả lời "khoảng thời gian ấy làm ăn ra sao".
+     *
+     * Bộ lọc ngày chỉ áp cho loại thứ hai. Lọc "số tour đang hoạt động" theo một khoảng ngày là
+     * một câu hỏi không có nghĩa, và trả về một con số nhỏ hơn sẽ khiến người xem tưởng tour vừa
+     * biến mất. Giao diện đánh dấu rõ nhóm nào đi theo bộ lọc.
+     *
+     * ## Không truyền khoảng thì giữ nguyên hành vi cũ
+     *
+     * Thiếu `from`/`to` thì tổng vẫn là toàn thời gian và biểu đồ vẫn là mười hai tháng của năm
+     * nay, đúng như trước khi có bộ lọc. Nhờ vậy thêm tính năng này không đổi thứ mà mọi màn hình
+     * và bài kiểm thử đang trông đợi.
+     */
     public function dashboardData(Request $request, BookingPaymentService $payments): JsonResponse
     {
+        $loc = $request->validate([
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ], [
+            'to.after_or_equal' => 'Ngày kết thúc phải bằng hoặc sau ngày bắt đầu.',
+        ]);
+
+        /*
+         * Nới hai đầu ra trọn ngày.
+         *
+         * Ô chọn ngày gửi lên "2026-09-30", tức 00:00 của hôm đó. Dùng thẳng làm mốc trên thì mọi
+         * giao dịch trong chính ngày 30 đều rơi ra ngoài, và người dùng thấy một ngày bị mất mà
+         * không hiểu vì sao.
+         */
+        $tu = isset($loc['from']) ? Carbon::parse($loc['from'])->startOfDay() : null;
+        $den = isset($loc['to']) ? Carbon::parse($loc['to'])->endOfDay() : null;
+        $coLoc = $tu !== null || $den !== null;
+
+        /** Giới hạn một truy vấn vào khoảng đang lọc, theo cột thời gian của chính nó. */
+        $trongKy = static function ($query, string $cot) use ($tu, $den) {
+            if ($tu) {
+                $query->where($cot, '>=', $tu);
+            }
+
+            if ($den) {
+                $query->where($cot, '<=', $den);
+            }
+
+            return $query;
+        };
+
         $summary = [
             'full_tours' => Tour::where('status', 'full')->count(),
             'active_tours' => Tour::where('status', 'active')->count(),
@@ -85,8 +146,10 @@ class AdminController extends Controller
          *
          * Các phép đếm và cộng ở đây đều là SQL chuẩn, chạy như nhau trên cả hai hệ.
          */
-        $demTheoTrangThai = Booking::query()
-            ->selectRaw('status, count(*) as so_luong')
+        $demTheoTrangThai = $trongKy(
+            Booking::query()->selectRaw('status, count(*) as so_luong'),
+            'created_at',
+        )
             ->groupBy('status')
             ->pluck('so_luong', 'status');
 
@@ -112,7 +175,7 @@ class AdminController extends Controller
              * nhận mà khách còn nợ vẫn cộng đủ, nên con số trên bảng điều khiển luôn cao hơn số dư
              * tài khoản thật và không đối chiếu được với sổ sách.
              */
-            'total_revenue' => $payments->sumCollectedBetween(null, null, $trangThaiDoanhThu),
+            'total_revenue' => $payments->sumCollectedBetween($tu, $den, $trangThaiDoanhThu),
             /*
              * Gom theo NGÀY TIỀN VỀ, không theo ngày đơn được tạo.
              *
@@ -128,12 +191,21 @@ class AdminController extends Controller
             ),
             // Tổng giá trị đơn đã bán, tách riêng: nó trả lời câu "bán được bao nhiêu", khác hẳn
             // câu "thu về bao nhiêu" ở trên.
-            'contracted_value' => (float) Booking::query()
-                ->whereIn('status', $trangThaiDoanhThu)
-                ->sum('total_amount'),
-            'new_customers_this_month' => User::where('role', 'customer')
-                ->where('created_at', '>=', now()->startOfMonth())
-                ->count(),
+            'contracted_value' => (float) $trongKy(
+                Booking::query()->whereIn('status', $trangThaiDoanhThu),
+                'created_at',
+            )->sum('total_amount'),
+            /*
+             * Đang lọc thì đếm khách mới TRONG KHOẢNG; không lọc thì giữ nguyên "trong tháng này".
+             *
+             * Tên trường giữ nguyên để không phải sửa mọi chỗ đang đọc nó; nhãn trên giao diện đổi
+             * theo việc có bộ lọc hay không.
+             */
+            'new_customers_this_month' => $coLoc
+                ? $trongKy(User::where('role', 'customer'), 'created_at')->count()
+                : User::where('role', 'customer')
+                    ->where('created_at', '>=', now()->startOfMonth())
+                    ->count(),
             'occupancy_rate' => $totalCapacity > 0
                 ? round($summary['total_booked_slots'] / $totalCapacity * 100, 1)
                 : 0.0,
@@ -142,47 +214,80 @@ class AdminController extends Controller
         $currentYear = now()->year;
 
         /*
-         * Số đơn đặt theo từng tháng trong năm — đếm bằng SQL, không lọc bằng PHP.
+         * Khung thời gian của biểu đồ.
          *
-         * Trích tháng theo cách chạy được trên cả SQLite lẫn MySQL: gom theo bảy ký tự đầu của
-         * `created_at` ("2026-09"). `MONTH()` không có ở SQLite, còn `strftime()` không có ở MySQL.
+         * Không lọc thì vẫn là mười hai tháng của năm nay, y như trước. Có lọc thì chạy đúng khoảng
+         * người dùng chọn, và **đổi đơn vị theo độ dài khoảng ấy**: khoảng ngắn vẽ theo ngày để
+         * thấy được từng hôm, khoảng dài gom theo tháng vì cột theo ngày sẽ mảnh tới mức vô dụng.
+         *
+         * Thiếu một đầu thì lấy đầu còn lại làm mốc: chọn mỗi "từ ngày" nghĩa là từ đó tới hôm nay.
          */
-        $donTheoThang = Booking::query()
+        $mocDau = $coLoc
+            ? ($tu ?? Booking::query()->min('created_at') ?? now()->startOfYear())
+            : Carbon::create($currentYear, 1, 1)->startOfDay();
+        $mocDau = Carbon::parse($mocDau)->startOfDay();
+
+        $mocCuoi = $coLoc
+            ? ($den ?? now())
+            : Carbon::create($currentYear, 12, 31)->endOfDay();
+        $mocCuoi = Carbon::parse($mocCuoi)->endOfDay();
+
+        $theoNgay = $coLoc && $mocDau->diffInDays($mocCuoi) <= self::NGUONG_GOM_THEO_THANG;
+        $donVi = $theoNgay ? 'day' : 'month';
+        $nhieuNam = $mocDau->year !== $mocCuoi->year;
+
+        /*
+         * Số đơn đặt theo từng mốc — đếm bằng SQL, không lọc bằng PHP.
+         *
+         * Cắt mốc theo cách chạy được trên cả SQLite lẫn MySQL: mười ký tự đầu của `created_at` là
+         * ngày, bảy ký tự đầu là tháng. `MONTH()` không có ở SQLite, `strftime()` không có ở MySQL.
+         */
+        $soKyTu = $theoNgay ? 10 : 7;
+
+        $donTheoMoc = Booking::query()
             ->where('status', BookingStatus::Confirmed->value)
-            ->whereYear('created_at', $currentYear)
-            ->selectRaw('substr(created_at, 1, 7) as thang, count(*) as so_luong')
-            ->groupBy('thang')
-            ->pluck('so_luong', 'thang');
+            ->where('created_at', '>=', $mocDau)
+            ->where('created_at', '<=', $mocCuoi)
+            ->selectRaw("substr(created_at, 1, {$soKyTu}) as moc, count(*) as so_luong")
+            ->groupBy('moc')
+            ->pluck('so_luong', 'moc');
 
-        $monthlyPerformance = collect(range(1, 12))->map(function (int $month) use ($donTheoThang, $payments, $currentYear, $trangThaiDoanhThu) {
-            $dauThang = Carbon::create($currentYear, $month, 1)->startOfMonth();
-            $khoa = $dauThang->format('Y-m');
+        /*
+         * Cột doanh thu gom theo mốc TIỀN VỀ; cột số đơn gom theo mốc ĐẶT.
+         *
+         * Hai trục cố ý khác nhau vì chúng trả lời hai câu khác nhau: "kỳ này thu được bao nhiêu"
+         * và "kỳ này bán được mấy đơn". Trộn chúng vào một mốc thời gian thì một trong hai con số
+         * sai, và biểu đồ không nói được câu nào cho ra câu nào.
+         */
+        $tienTheoMoc = $payments->sumCollectedGrouped($mocDau, $mocCuoi, $donVi, $trangThaiDoanhThu);
 
-            return [
-                'name' => 'T' . $month,
-                /*
-                 * Cột doanh thu gom theo tháng TIỀN VỀ; cột số đơn gom theo tháng ĐẶT.
-                 *
-                 * Hai trục cố ý khác nhau vì chúng trả lời hai câu khác nhau: "tháng này thu được
-                 * bao nhiêu" và "tháng này bán được mấy đơn". Trộn chúng vào một mốc thời gian thì
-                 * một trong hai con số sai, và biểu đồ không nói được câu nào cho ra câu nào.
-                 */
-                'revenue' => round(
-                    $payments->sumCollectedBetween(
-                        $dauThang,
-                        $dauThang->copy()->endOfMonth(),
-                        $trangThaiDoanhThu,
-                    ) / 1_000_000,
-                    1,
-                ),
-                'bookings' => (int) ($donTheoThang[$khoa] ?? 0),
-            ];
-        })->values();
+        $monthlyPerformance = collect();
+
+        for (
+            $moc = $mocDau->copy();
+            $moc->lessThanOrEqualTo($mocCuoi);
+            $theoNgay ? $moc->addDay() : $moc->addMonthNoOverflow()
+        ) {
+            $khoa = $moc->format($theoNgay ? 'Y-m-d' : 'Y-m');
+
+            $monthlyPerformance->push([
+                'name' => $theoNgay
+                    ? $moc->format('d/m')
+                    : ('T' . $moc->month . ($nhieuNam ? '/' . $moc->format('y') : '')),
+                'revenue' => round(((float) ($tienTheoMoc[$khoa] ?? 0)) / 1_000_000, 1),
+                'bookings' => (int) ($donTheoMoc[$khoa] ?? 0),
+            ]);
+        }
+
+        $monthlyPerformance = $monthlyPerformance->values();
 
         // Điểm khởi hành được đặt nhiều nhất — gộp ở cơ sở dữ liệu, chỉ mang về sáu dòng.
-        $destinations = Booking::query()
-            ->join('tours', 'tours.id', '=', 'bookings.tour_id')
-            ->where('bookings.status', BookingStatus::Confirmed->value)
+        $destinations = $trongKy(
+            Booking::query()
+                ->join('tours', 'tours.id', '=', 'bookings.tour_id')
+                ->where('bookings.status', BookingStatus::Confirmed->value),
+            'bookings.created_at',
+        )
             ->selectRaw('coalesce(tours.start_location, ?) as name, sum(bookings.guests) as value', ['Khác'])
             ->groupBy('name')
             ->orderByDesc('value')
@@ -191,8 +296,10 @@ class AdminController extends Controller
             ->map(fn ($dong) => ['name' => $dong->name, 'value' => (int) $dong->value])
             ->values();
 
-        $recentBookings = Booking::query()
-            ->with('tour:id,title')
+        $recentBookings = $trongKy(
+            Booking::query()->with('tour:id,title'),
+            'created_at',
+        )
             ->latest('created_at')
             ->limit(6)
             ->get(['id', 'tour_id', 'customer_name', 'total_amount', 'status', 'created_at'])
@@ -207,6 +314,18 @@ class AdminController extends Controller
             ->values();
 
         return $this->success([
+            /*
+             * Trả lại chính khoảng đang áp dụng, để giao diện gắn nhãn cho đúng.
+             *
+             * Không tự nghĩ ra nhãn ở phía client được: máy chủ mới là nơi quyết định biểu đồ gom
+             * theo ngày hay theo tháng, và nơi nới hai đầu ra trọn ngày.
+             */
+            'range' => [
+                'from' => $tu?->format('Y-m-d'),
+                'to' => $den?->format('Y-m-d'),
+                'granularity' => $donVi,
+                'filtered' => $coLoc,
+            ],
             'summary' => $summary,
             'booking_summary' => $bookingSummary,
             'monthly_performance' => $monthlyPerformance,

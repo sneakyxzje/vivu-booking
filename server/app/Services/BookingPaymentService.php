@@ -9,6 +9,7 @@ use App\Models\Booking;
 use App\Models\BookingPayment;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -383,6 +384,103 @@ class BookingPaymentService
         )->sum('total_amount');
 
         return round($thu - $hoan + $donCu);
+    }
+
+    /**
+     * Tiền thực thu, gộp sẵn theo từng ngày hoặc từng tháng.
+     *
+     * ## Vì sao không gọi `sumCollectedBetween()` cho từng mốc
+     *
+     * Biểu đồ mười hai tháng thì mười hai lần gọi cũng chịu được. Nhưng khi bảng điều khiển nhận
+     * được một khoảng ngày và vẽ theo NGÀY, một khoảng hai tháng thành sáu mươi hai lần gọi, mỗi
+     * lần ba câu truy vấn — gần hai trăm câu cho một lần mở trang. Hàm này gộp ở cơ sở dữ liệu và
+     * mang về đúng số dòng có dữ liệu.
+     *
+     * ## Cắt mốc bằng `substr`, không dùng hàm ngày tháng
+     *
+     * `MONTH()` không có ở SQLite, `strftime()` không có ở MySQL. Cột lưu chuỗi "Y-m-d H:i:s" nên
+     * mười ký tự đầu là ngày và bảy ký tự đầu là tháng — cách duy nhất chạy giống nhau ở cả hai hệ,
+     * và cũng là cách `dashboardData()` đang dùng để gom số đơn theo tháng.
+     *
+     * Giữ nguyên ba nguồn của `sumCollectedBetween()`: các khoản THU, trừ đi các khoản HOÀN, cộng
+     * nhóm đơn cũ chỉ còn mốc `paid_at` mà không có dòng nào trong sổ.
+     *
+     * @param  array<int, string>|null  $trangThaiDon
+     * @return \Illuminate\Support\Collection<string, float>  Khóa là "Y-m-d" hoặc "Y-m".
+     */
+    public function sumCollectedGrouped(
+        ?Carbon $tu,
+        ?Carbon $den,
+        string $donVi = 'month',
+        ?array $trangThaiDon = null,
+    ): Collection {
+        $soKyTu = $donVi === 'day' ? 10 : 7;
+
+        $trongKhoang = static function ($query, string $cot) use ($tu, $den) {
+            if ($tu) {
+                $query->where($cot, '>=', $tu);
+            }
+
+            if ($den) {
+                $query->where($cot, '<=', $den);
+            }
+
+            return $query;
+        };
+
+        $gop = static fn ($query, string $cot, string $cotTien) => $query
+            ->selectRaw("substr({$cot}, 1, {$soKyTu}) as moc, sum({$cotTien}) as tong")
+            ->groupBy('moc')
+            ->pluck('tong', 'moc');
+
+        $locTheoDon = static fn ($query) => $trangThaiDon === null
+            ? $query
+            : $query->whereHas('booking', fn ($b) => $b->whereIn('status', $trangThaiDon));
+
+        $thu = $gop(
+            $trongKhoang(
+                $locTheoDon(BookingPayment::query()->whereIn('kind', BookingPayment::THU)),
+                'paid_at',
+            ),
+            'paid_at',
+            'amount',
+        );
+
+        $hoan = $gop(
+            $trongKhoang(
+                $locTheoDon(BookingPayment::query()->where('kind', BookingPayment::HOAN)),
+                'paid_at',
+            ),
+            'paid_at',
+            'amount',
+        );
+
+        $donCu = $gop(
+            $trongKhoang(
+                Booking::query()
+                    ->when($trangThaiDon !== null, fn ($q) => $q->whereIn('status', $trangThaiDon))
+                    ->whereNotNull('paid_at')
+                    ->whereDoesntHave('payments', fn ($p) => $p->whereIn(
+                        'kind',
+                        [...BookingPayment::THU, BookingPayment::HOAN],
+                    )),
+                'paid_at',
+            ),
+            'paid_at',
+            'total_amount',
+        );
+
+        return collect($thu->keys())
+            ->merge($hoan->keys())
+            ->merge($donCu->keys())
+            ->unique()
+            ->mapWithKeys(fn (string $moc) => [
+                $moc => round(
+                    (float) ($thu[$moc] ?? 0)
+                        - (float) ($hoan[$moc] ?? 0)
+                        + (float) ($donCu[$moc] ?? 0),
+                ),
+            ]);
     }
 
     /** Tổng các khoản THU của giá tour, chưa trừ khoản hoàn nào. */
