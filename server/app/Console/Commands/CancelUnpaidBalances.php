@@ -275,6 +275,22 @@ class CancelUnpaidBalances extends Command
             ->whereIn('status', BookingStatus::paidValues())
             ->whereNull('group_booking_request_id')
             ->whereRaw($daThu . ' < bookings.total_amount', BookingPayment::THU)
+            /*
+             * Chỉ hủy đơn ĐÃ TỪNG TRẢ một khoản nào đó.
+             *
+             * Luật này nói về người đã đặt cọc rồi không trả nốt. Đơn mà sổ ghi 0 đồng không thuộc
+             * nhóm ấy — nó là một đơn đã xác nhận mà chưa từng có tiền nào được ghi nhận, và có hai
+             * khả năng, cả hai đều không được để một tác vụ nền quyết:
+             *
+             *   - Khách đã trả tiền thật nhưng ai đó xác nhận tay mà quên ghi sổ. Hủy nó là hủy đơn
+             *     của người đã trả tiền, và ghi nghĩa vụ hoàn bằng 0 vì sổ tưởng chưa thu gì.
+             *   - Dữ liệu nhập từ hệ thống cũ, hoặc seeder, chưa có bút toán nào.
+             *
+             * Khả năng thứ nhất là loại lỗi hệ thống này vừa sửa xong ở đường xác nhận tay, nên dữ
+             * liệu cũ chắc chắn còn những đơn như thế. Để điều hành xử lý từng đơn; chúng vẫn hiện
+             * đầy đủ ở màn công nợ phải thu.
+             */
+            ->whereHas('payments', fn ($p) => $p->whereIn('kind', BookingPayment::THU))
             ->where(fn ($q) => $q
                 ->whereHas('payments', fn ($p) => $p->whereIn(
                     'kind',

@@ -247,6 +247,27 @@ class BalanceDueFlowTest extends TestCase
         $this->assertSame('confirmed', $don->fresh()->status);
     }
 
+    /**
+     * Đơn chưa từng trả đồng nào KHÔNG bị lệnh này hủy.
+     *
+     * Luật nói về người đã đặt cọc rồi không trả nốt. Một đơn `confirmed` mà sổ ghi 0 đồng không
+     * thuộc nhóm ấy: nhiều khả năng khách đã trả tiền thật nhưng ai đó xác nhận tay mà quên ghi sổ
+     * — đúng loại lỗi hệ thống vừa sửa ở đường xác nhận, nên dữ liệu cũ còn đầy những đơn như thế.
+     *
+     * Hủy chúng là hủy đơn của người đã trả tiền, và ghi nghĩa vụ hoàn bằng 0 vì sổ tưởng chưa thu
+     * gì. Để điều hành xử lý tay; chúng vẫn hiện ở màn công nợ phải thu.
+     */
+    public function test_don_chua_tra_dong_nao_khong_bi_huy_tu_dong(): void
+    {
+        $don = $this->donDaCoc($this->chuyen(9), daThu: 0);
+
+        $this->assertSame(0, $don->payments()->count(), 'Đơn này chưa có bút toán nào.');
+
+        $this->artisan('bookings:cancel-unpaid-balances')->assertSuccessful();
+
+        $this->assertSame('confirmed', $don->fresh()->status);
+    }
+
     /** Còn trong hạn thì không đụng tới. */
     public function test_con_trong_han_thi_khong_huy(): void
     {
