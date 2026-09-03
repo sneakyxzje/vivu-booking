@@ -194,6 +194,48 @@ class AdminTourController extends Controller
 
         return $this->success(new TourResource($tour), 'Lấy chi tiết tour thành công');
     }
+    /**
+     * Mốc kết thúc chuyến.
+     *
+     * **Điều hành đặt cả ngày lẫn giờ.** Trước đây máy chủ suy trọn gói từ `start_date + (số ngày
+     * - 1)`, và hệ quả là phần giờ luôn là bản sao của giờ đi — một con số không mang thông tin
+     * nào, tới mức giao diện khách phải giấu nó đi để khỏi nói rằng xe về đúng giờ nó chạy.
+     *
+     * Số ngày của tour không đủ để suy: cùng một tour ba ngày, chuyến này về chiều ngày thứ ba,
+     * chuyến kia đi xe đêm và trả khách lúc 5 giờ sáng. Đó là thỏa thuận với từng nhà xe, không
+     * phải thuộc tính của chương trình tour.
+     *
+     * Không gửi mốc kết thúc thì giữ nguyên nếp suy cũ, để các đường gọi cũ và dữ liệu đã có không
+     * bị viết lại âm thầm.
+     */
+    private function ngayVe(Carbon $batDau, int $soNgay, ?string $ketThuc): Carbon
+    {
+        return $ketThuc ? Carbon::parse($ketThuc) : $batDau->copy()->addDays(max(0, $soNgay - 1));
+    }
+
+    /**
+     * Mốc kết thúc phải sau mốc khởi hành.
+     *
+     * Luật duy nhất còn lại giữa hai mốc, và cố ý chỉ có thế. Không ép khớp với số ngày của tour:
+     * một tour ba ngày vẫn có chuyến về sáng sớm hôm thứ ba, và ép khớp sẽ chặn đúng trường hợp
+     * thật. Còn kết thúc trước hoặc đúng lúc khởi hành thì không phải một lựa chọn nghiệp vụ, đó
+     * là gõ nhầm — và nếu để lọt thì mọi phép tính độ dài chuyến sau đó đều ra số âm.
+     */
+    private function assertKetThucSauKhoiHanh(Carbon $batDau, Carbon $ketThuc): void
+    {
+        if ($ketThuc->greaterThan($batDau)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'schedules' => sprintf(
+                'Chuyến khởi hành %s có mốc kết thúc %s không sau mốc khởi hành. Kiểm tra lại ngày giờ về.',
+                $batDau->format('d/m/Y H:i'),
+                $ketThuc->format('d/m/Y H:i'),
+            ),
+        ]);
+    }
+
     public function availableGuides(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -287,6 +329,8 @@ class AdminTourController extends Controller
             'itineraries.*.checkpoints.*.is_required_photo' => ['nullable', 'boolean'],
             'schedules' => ['nullable', 'array'],
             'schedules.*.start_date' => ['required_with:schedules', 'date', 'after_or_equal:today'],
+            // Mốc kết thúc do điều hành đặt. Bỏ trống thì suy từ số ngày của tour — xem ngayVe().
+            'schedules.*.end_date' => ['nullable', 'date'],
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
             'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
             'schedules.*.booking_deadline' => ['nullable', 'date'],
@@ -377,9 +421,8 @@ class AdminTourController extends Controller
 
             foreach ($schedules as $item) {
                 $startDate = Carbon::parse($item['start_date']);
-
-                // end_date tự tính: start + (number_of_days - 1) ngày
-                $endDate = $startDate->copy()->addDays(max(0, $numberOfDay - 1));
+                $endDate = $this->ngayVe($startDate, $numberOfDay, $item['end_date'] ?? null);
+                $this->assertKetThucSauKhoiHanh($startDate, $endDate);
 
                 // booking_deadline: không truyền thì lấy mốc mặc định của hệ thống.
                 $bookingDeadline = isset($item['booking_deadline'])
@@ -481,6 +524,8 @@ class AdminTourController extends Controller
             'schedules' => ['nullable', 'array'],
             'schedules.*.id' => ['nullable', 'exists:tour_schedules,id'],
             'schedules.*.start_date' => ['required_with:schedules', 'date'],
+            // Mốc kết thúc do điều hành đặt. Bỏ trống thì suy từ số ngày của tour — xem ngayVe().
+            'schedules.*.end_date' => ['nullable', 'date'],
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
             'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
             'schedules.*.booking_deadline' => ['nullable', 'date'],
@@ -588,7 +633,8 @@ class AdminTourController extends Controller
                 }
 
                 $startDate = Carbon::parse($item['start_date']);
-                $endDate   = $startDate->copy()->addDays(max(0, $numberOfDay - 1));
+                $endDate   = $this->ngayVe($startDate, $numberOfDay, $item['end_date'] ?? null);
+                $this->assertKetThucSauKhoiHanh($startDate, $endDate);
 
                 /*
                  * Hạn chốt chỉ đụng tới khi biểu mẫu thực sự gửi trường ấy lên.

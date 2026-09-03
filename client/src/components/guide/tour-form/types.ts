@@ -43,6 +43,14 @@ export interface ScheduleFormItem {
    */
   uid: string;
   start_date: string;
+  /**
+   * Mốc kết thúc chuyến: ngày **và** giờ, do điều hành đặt.
+   *
+   * Không suy từ ngày đi cộng số ngày của tour nữa. Cùng một tour ba ngày, chuyến này về chiều
+   * ngày thứ ba còn chuyến kia đi xe đêm và trả khách sáng sớm — số ngày trong mô tả tour không
+   * nói được điều đó. Ô mở sẵn một gợi ý theo số ngày, rồi người nhập sửa.
+   */
+  end_date: string;
   max_people: string;
   min_people: string;
   booking_deadline: string;

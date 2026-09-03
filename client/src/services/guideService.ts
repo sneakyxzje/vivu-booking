@@ -150,6 +150,7 @@ export const buildTourPayload = (form: unknown) => {
       | {
           id?: number;
           start_date: string;
+          end_date?: string;
           max_people: string;
           min_people?: string;
           booking_deadline?: string;
@@ -164,6 +165,10 @@ export const buildTourPayload = (form: unknown) => {
       data.append(`schedules[${index}][id]`, String(item.id));
     }
     data.append(`schedules[${index}][start_date]`, item.start_date);
+    // Bỏ trống thì máy chủ giữ nếp cũ — suy ngày về từ số ngày của tour — thay vì ghi một mốc rỗng.
+    if (item.end_date) {
+      data.append(`schedules[${index}][end_date]`, item.end_date);
+    }
     data.append(`schedules[${index}][max_people]`, String(item.max_people));
     data.append(`schedules[${index}][min_people]`, String(item.min_people ?? 1));
     if (item.booking_deadline) {

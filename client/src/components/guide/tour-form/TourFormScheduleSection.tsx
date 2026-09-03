@@ -13,10 +13,12 @@ import type { Guide } from "@/types";
 import type { ScheduleFormItem } from "./types";
 import {
   GIO_MAC_DINH,
+  GIO_VE_MAC_DINH,
   SO_KHACH_TOI_DA_MAC_DINH,
   SO_KHACH_TOI_THIEU_MAC_DINH,
   daDoiHanChot,
   hanChotMacDinh,
+  ketThucMacDinh,
   taoChuyen,
 } from "./formHelpers";
 import { LY_DO_DOI_HAN_TOI_THIEU, statusLabel } from "@/utils/schedule";
@@ -126,6 +128,7 @@ export const TourFormScheduleSection: React.FC<Props> = ({
 
   // Mặc định áp cho mọi chuyến mở từ lịch. Đặt một lần rồi bấm mười ngày, thay vì sửa mười lần.
   const [gioMacDinh, setGioMacDinh] = useState(GIO_MAC_DINH);
+  const [gioVeMacDinh, setGioVeMacDinh] = useState(GIO_VE_MAC_DINH);
   const [toiThieuMacDinh, setToiThieuMacDinh] = useState(SO_KHACH_TOI_THIEU_MAC_DINH);
   const [toiDaMacDinh, setToiDaMacDinh] = useState(SO_KHACH_TOI_DA_MAC_DINH);
 
@@ -166,9 +169,26 @@ export const TourFormScheduleSection: React.FC<Props> = ({
     const conMacDinh =
       !item.booking_deadline || item.booking_deadline === hanChotMacDinh(item.start_date);
 
+    /*
+     * Mốc kết thúc cũng đi theo, nhưng chỉ khi nó còn đang là gợi ý.
+     *
+     * Cùng lý lẽ với hạn chốt: dời ngày đi mà để nguyên ngày về thì chuyến dài ra hoặc âm, và
+     * người dùng không nhận ra vì ô kia nằm cách đó một cột. Ai đã tự đặt ngày về riêng — xe đêm
+     * về sáng hôm sau chẳng hạn — thì không được ghi đè.
+     *
+     * Giữ nguyên GIỜ về họ đã chọn, chỉ dịch phần ngày: giờ trả khách là thỏa thuận với nhà xe,
+     * nó không đổi chỉ vì chuyến dời sang tuần sau.
+     */
+    const gioVeHienTai = item.end_date?.slice(11, 16) || GIO_VE_MAC_DINH;
+    const veConMacDinh =
+      !item.end_date || item.end_date === ketThucMacDinh(item.start_date, numberOfDays, gioVeHienTai);
+
     capNhat(item.uid, {
       start_date: giaTri,
       booking_deadline: conMacDinh ? hanChotMacDinh(giaTri) : item.booking_deadline,
+      end_date: veConMacDinh
+        ? ketThucMacDinh(giaTri, numberOfDays, gioVeHienTai)
+        : item.end_date,
     });
   };
 
@@ -187,6 +207,8 @@ export const TourFormScheduleSection: React.FC<Props> = ({
         taoChuyen(batDau, {
           toiThieu: toiThieuMacDinh,
           toiDa: toiDaMacDinh,
+          gioVe: gioVeMacDinh,
+          soNgay: numberOfDays,
         }),
       );
 
@@ -223,6 +245,8 @@ export const TourFormScheduleSection: React.FC<Props> = ({
     const moi = taoChuyen(`${ngay}T${gio}`, {
       toiThieu: toiThieuMacDinh,
       toiDa: toiDaMacDinh,
+      gioVe: gioVeMacDinh,
+      soNgay: numberOfDays,
     });
 
     onChange([...items, moi]);
@@ -270,6 +294,27 @@ export const TourFormScheduleSection: React.FC<Props> = ({
   const apDungHangLoat = (thayDoi: Partial<ScheduleFormItem>) => {
     const chon = new Set(dangChon);
     onChange(items.map((item) => (chon.has(item.uid) ? { ...item, ...thayDoi } : item)));
+  };
+
+  /**
+   * Đổi giờ về cho loạt chuyến đang chọn, giữ nguyên NGÀY về của từng chuyến.
+   *
+   * Không dùng `apDungHangLoat` được: mỗi chuyến về một ngày khác nhau, nên không có một mốc ngày
+   * giờ chung nào để áp cả loạt. Thứ áp được chỉ là giờ trong ngày — đúng thứ người ta muốn khi
+   * nhà xe đổi giờ trả khách cho cả tuyến.
+   */
+  const apGioVeHangLoat = (gio: string) => {
+    const chon = new Set(dangChon);
+
+    onChange(
+      items.map((item) => {
+        if (!chon.has(item.uid)) return item;
+
+        const ngayVe = item.end_date?.slice(0, 10) || item.start_date.slice(0, 10);
+
+        return { ...item, end_date: `${ngayVe}T${gio}` };
+      }),
+    );
   };
 
   /** Giờ đi tách riêng khỏi `apDungHangLoat`: đổi giờ thì hạn chốt tự sinh phải đi theo. */
@@ -447,13 +492,22 @@ export const TourFormScheduleSection: React.FC<Props> = ({
             <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
               Mặc định cho chuyến mới
             </p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <label className="block">
                 <span className="mb-1 block text-[10px] font-semibold text-gray-500">Giờ đi</span>
                 <input
                   type="time"
                   value={gioMacDinh}
                   onChange={(e) => setGioMacDinh(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-800 focus:border-primary-500 focus:outline-none"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-semibold text-gray-500">Giờ về</span>
+                <input
+                  type="time"
+                  value={gioVeMacDinh}
+                  onChange={(e) => setGioVeMacDinh(e.target.value)}
                   className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-800 focus:border-primary-500 focus:outline-none"
                 />
               </label>
@@ -537,6 +591,15 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                     type="time"
                     defaultValue={gioMacDinh}
                     onChange={(e) => e.target.value && apGioHangLoat(e.target.value)}
+                    className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-semibold text-gray-600">Giờ về</span>
+                  <input
+                    type="time"
+                    defaultValue={gioVeMacDinh}
+                    onChange={(e) => e.target.value && apGioVeHangLoat(e.target.value)}
                     className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs"
                   />
                 </label>
@@ -725,6 +788,27 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                               value={item.start_date}
                               onChange={(giaTri) => doiNgayKhoiHanh(item, giaTri)}
                               placeholder="Chọn ngày giờ"
+                              buttonClassName={`${fieldClass} flex items-center gap-2 !py-2 text-left text-xs`}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="mb-1 block text-[11px] font-bold text-gray-600">
+                              Kết thúc <span className="text-red-500">*</span>
+                            </label>
+                            {/*
+                              Cả ngày lẫn giờ, do điều hành đặt. Ô mở sẵn một gợi ý theo số ngày
+                              của tour, nhưng gợi ý ấy không ràng buộc gì: xe đêm trả khách sáng
+                              hôm sau là chuyện thường, và số ngày trong mô tả tour không nói được.
+                            */}
+                            <DateTimePicker
+                              withTime
+                              minDate={
+                                item.start_date ? doiSangNgay(item.start_date) ?? undefined : undefined
+                              }
+                              value={item.end_date}
+                              onChange={(giaTri) => capNhat(item.uid, { end_date: giaTri })}
+                              placeholder="Chọn ngày giờ về"
                               buttonClassName={`${fieldClass} flex items-center gap-2 !py-2 text-left text-xs`}
                             />
                           </div>

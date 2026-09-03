@@ -255,6 +255,14 @@ export const CreateTourForm: React.FC = () => {
               id: item.id,
               uid: khoaChuyenMoi(),
               start_date: toDateTimeLocalValue(item.start_date),
+              /*
+               * Mốc kết thúc đọc thẳng từ `end_date`, không dựng lại từ số ngày.
+               *
+               * Người sửa phải nhìn thấy đúng con số đang lưu rồi tự quyết có đổi hay không. Điền
+               * sẵn một gợi ý ở đây là ghi đè dữ liệu thật ngay lần bấm Lưu đầu tiên, kể cả khi
+               * người ta vào chỉ để sửa tiêu đề.
+               */
+              end_date: toDateTimeLocalValue(item.end_date),
               max_people: String(item.max_people ?? 10),
               min_people: String(item.min_people ?? 5),
               booking_deadline: toDateTimeLocalValue(item.booking_deadline),

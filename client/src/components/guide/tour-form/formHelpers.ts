@@ -11,6 +11,35 @@ import { dauNgay, doiSangNgay, khoaNgay, layGio } from "@/components/date/dateHe
 /** Giờ khởi hành gợi ý. Tour đường bộ ở Việt Nam gần như luôn xuất phát sáng sớm. */
 export const GIO_MAC_DINH = "08:00";
 
+/**
+ * Giờ về gợi ý.
+ *
+ * Chỉ là gợi ý, và điều hành sửa được từng chuyến — nhà xe mỗi tuyến trả khách một giờ khác nhau.
+ * Có mặc định vì bỏ trống thì máy chủ lấy giờ về bằng giờ đi, mà con số ấy không nói lên điều gì
+ * và giao diện khách phải giấu đi.
+ */
+export const GIO_VE_MAC_DINH = "18:00";
+
+/**
+ * Mốc kết thúc gợi ý cho một mốc khởi hành.
+ *
+ * Chỉ là **giá trị mở sẵn trong ô**, không phải luật: điều hành sửa được cả ngày lẫn giờ. Đây là
+ * điểm khác với hạn chốt — hạn chốt có mốc mặc định của hệ thống, còn ngày về thì tùy chuyến, và
+ * gợi ý theo số ngày của tour chỉ để người nhập đỡ phải gõ lại con số họ vừa khai ở trên.
+ */
+export const ketThucMacDinh = (
+  batDau: string,
+  soNgay: number,
+  gioVe: string = GIO_VE_MAC_DINH,
+): string => {
+  const ngay = doiSangNgay(batDau);
+  if (!ngay) return "";
+
+  ngay.setDate(ngay.getDate() + Math.max(0, soNgay - 1));
+
+  return `${khoaNgay(ngay)}T${gioVe}`;
+};
+
 /** Hạn chốt danh sách mặc định: trước ngày đi ba ngày, đủ để chốt phòng và suất ăn. */
 export const SO_NGAY_HAN_CHOT = 3;
 
@@ -41,10 +70,17 @@ export const hanChotMacDinh = (batDau: string): string => {
 
 export const taoChuyen = (
   batDau: string,
-  macDinh?: { toiThieu?: string; toiDa?: string; trangThai?: string },
+  macDinh?: {
+    toiThieu?: string;
+    toiDa?: string;
+    trangThai?: string;
+    gioVe?: string;
+    soNgay?: number;
+  },
 ): ScheduleFormItem => ({
   uid: khoaChuyenMoi(),
   start_date: batDau,
+  end_date: ketThucMacDinh(batDau, macDinh?.soNgay ?? 1, macDinh?.gioVe),
   min_people: macDinh?.toiThieu ?? SO_KHACH_TOI_THIEU_MAC_DINH,
   max_people: macDinh?.toiDa ?? SO_KHACH_TOI_DA_MAC_DINH,
   booking_deadline: hanChotMacDinh(batDau),

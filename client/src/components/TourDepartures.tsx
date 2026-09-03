@@ -21,16 +21,17 @@ import { getAvailableSlots, getScheduleUnavailableReason } from "@/utils/schedul
  * tháng 9 của tour Cao Bằng", và tổng đài tra ngược được về đúng chuyến. Ngày nào cần mã do người
  * đặt thì thêm cột thật rồi đọc từ đó, đừng sửa hàm này thành mã có ý nghĩa nghiệp vụ.
  *
- * ## Giờ đi có thật, giờ về thì không
+ * ## Giờ đi và giờ về
  *
  * `start_date` và `end_date` đều là cột `dateTime` — migration `2026_08_06` đã đổi `start_date`
- * từ `date` sang — và form quản trị có ô **Giờ đi** với mặc định 08:00, sửa được từng chuyến hoặc
- * hàng loạt. Nên giờ khởi hành là dữ liệu người ta nhập thật, và bảng này hiện nó.
+ * từ `date` sang. Form quản trị có ô **Giờ đi** và ô **Giờ về**, sửa được từng chuyến hoặc hàng
+ * loạt, nên cả hai đều là dữ liệu người ta nhập thật.
  *
- * `end_date` thì khác: `AdminTourController` tự tính nó bằng `start_date + (số ngày - 1)`, nên
- * phần giờ của nó **luôn bằng giờ đi** chứ không phải giờ đoàn về. In nó ra dưới nhãn "giờ về" là
- * nói với khách rằng xe về lúc 08:00 trong khi 08:00 là giờ xe chạy. Chưa có ô nhập giờ về ở đâu
- * cả, nên chiều về chỉ hiện ngày. Ngày nào thêm ô ấy thì hiện, không phải trước đó.
+ * Ngày về thì không nhập: máy chủ suy từ số ngày của tour, chỉ nhận riêng phần giờ. Nhờ vậy không
+ * có cách nào đặt một ngày về mâu thuẫn với chính chương trình tour.
+ *
+ * Chuyến tạo trước khi có ô Giờ về mang `end_date` suy ra từ `start_date`, tức phần giờ của nó là
+ * bản sao của giờ đi. Những chuyến ấy không hiện giờ về — xem chỗ tính `gioVe` bên dưới.
  *
  * ## Những gì cố ý KHÔNG hiện
  *
@@ -222,6 +223,16 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
           const ngayVe = ngayVeCua(tour, schedule);
           const gioDi = gioCua(schedule.start_date);
           const gioChot = gioCua(schedule.booking_deadline);
+          /*
+           * Giờ về chỉ hiện khi KHÁC giờ đi.
+           *
+           * Chuyến tạo trước khi có ô "Giờ về" mang `end_date` suy ra từ `start_date`, nên phần
+           * giờ của nó là bản sao của giờ đi chứ không phải giờ đoàn về. Bằng nhau thì không phân
+           * biệt được "về đúng giờ đi" với "chưa ai nhập", nên im lặng — thà thiếu một dòng còn
+           * hơn nói với khách rằng xe về đúng giờ nó chạy.
+           */
+          const gioVeThat = gioCua(schedule.end_date);
+          const gioVe = gioVeThat && gioVeThat !== gioDi ? gioVeThat : null;
           const conLai = getAvailableSlots(schedule);
 
           return (
@@ -319,6 +330,11 @@ export const TourDepartures = ({ tour, selectedSchedule, onScheduleChange }: Pro
                           </span>
                         )}
                       </div>
+                      {gioVe && (
+                        <p className="mt-1 text-sm font-semibold text-gray-900">
+                          Giờ về dự kiến: {gioVe}
+                        </p>
+                      )}
                       <div className="mt-2 flex items-baseline justify-between gap-3 border-t border-dashed border-gray-200 pt-2 text-sm text-gray-700">
                         <span>{tour.end_location ?? "—"}</span>
                         <span>{tour.start_location ?? "—"}</span>
