@@ -1856,7 +1856,115 @@ const adminService = {
     const response = await api.get("/admin/attendance-reports", { params });
     return extractObject<AttendanceReportData>(response);
   },
+
+  // --- SÂN THỬ NGHIỆM NGHIỆP VỤ ---
+  getSandboxOptions: async (): Promise<SandboxOptions> => {
+    const response = await api.get("/admin/sandbox/options");
+    return response.data.data as SandboxOptions;
+  },
+
+  getSandboxTours: async (): Promise<SandboxTour[]> => {
+    const response = await api.get("/admin/sandbox/tours");
+    return (response.data.data ?? []) as SandboxTour[];
+  },
+
+  getSandboxSnapshot: async (scheduleId: number): Promise<SandboxSnapshot> => {
+    const response = await api.get(`/admin/sandbox/schedules/${scheduleId}/snapshot`);
+    return response.data.data as SandboxSnapshot;
+  },
+
+  sandboxFastForward: async (
+    scheduleId: number,
+    milestone: string,
+  ): Promise<{ message: string; bookings: SandboxBookingRow[] }> => {
+    const response = await api.post(
+      `/admin/sandbox/schedules/${scheduleId}/fast-forward`,
+      { milestone },
+    );
+    return {
+      message: response.data.message as string,
+      bookings: (response.data.data?.bookings ?? []) as SandboxBookingRow[],
+    };
+  },
+
+  sandboxRunCommand: async (
+    command: string,
+    scheduleId?: number,
+  ): Promise<{ message: string; output: string; bookings: SandboxBookingRow[] | null }> => {
+    const response = await api.post("/admin/sandbox/run-command", {
+      command,
+      schedule_id: scheduleId,
+    });
+    return {
+      message: response.data.message as string,
+      output: (response.data.data?.command?.ket_qua ?? "") as string,
+      bookings: (response.data.data?.bookings ?? null) as SandboxBookingRow[] | null,
+    };
+  },
+
+  sendBookingMail: async (bookingId: number, type: string): Promise<string> => {
+    const response = await api.post(`/admin/bookings/${bookingId}/send-mail`, { type });
+    return response.data.message as string;
+  },
 };
+
+/** Nhãn của các nút, do máy chủ cấp — giao diện không gõ lại chuỗi nào. */
+export interface SandboxOptions {
+  milestones: Record<string, string>;
+  commands: Record<string, string>;
+  mails: Record<string, string>;
+}
+
+export interface SandboxScheduleRow {
+  id: number;
+  start_date: string | null;
+  booking_deadline: string | null;
+  status: string;
+  booked_people: number;
+  max_people: number;
+}
+
+export interface SandboxTour {
+  id: number;
+  title: string;
+  slug: string;
+  schedules: SandboxScheduleRow[];
+}
+
+/**
+ * Một dòng của bảng đối chứng.
+ *
+ * Đây là thứ biến nút bấm thành bằng chứng: không có bảng này thì người xem chỉ nhận được một câu
+ * "đã chạy xong" và phải tự tin rằng có chuyện gì đó vừa xảy ra.
+ */
+export interface SandboxBookingRow {
+  id: number;
+  ma: string;
+  khach: string;
+  trang_thai: string;
+  la_doan: boolean;
+  tong_don: number;
+  da_thu: number;
+  con_thieu: number;
+  phai_tra_lan_nay: number;
+  nghia_vu_hoan: number;
+  han_tra_not: string | null;
+  da_nhac: string | null;
+  da_canh_bao_cuoi: string | null;
+  cho_da_tra: boolean;
+}
+
+export interface SandboxSnapshot {
+  schedule: {
+    id: number;
+    tour_title: string | null;
+    is_sandbox: boolean;
+    start_date: string | null;
+    booking_deadline: string | null;
+    status: string;
+  };
+  bookings: SandboxBookingRow[];
+}
 
 export default adminService;
 

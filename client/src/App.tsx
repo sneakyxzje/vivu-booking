@@ -32,6 +32,7 @@ import ScheduleAttendance from "@/pages/admin/ScheduleAttendance";
 import AttendanceReport from "@/pages/admin/AttendanceReport";
 import ScheduleManagement from "@/pages/admin/ScheduleManagement";
 import AuditLogManagement from "@/pages/admin/AuditLogManagement";
+import SandboxLab from "@/pages/admin/SandboxLab";
 import ChangeRequestManagement from "@/pages/admin/ChangeRequestManagement";
 import CancellationPolicyManagement from "@/pages/admin/CancellationPolicyManagement";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
@@ -276,6 +277,10 @@ const router = createBrowserRouter([
           {
             path: "/admin/audit-logs",
             element: <AuditLogManagement />,
+          },
+          {
+            path: "/admin/sandbox",
+            element: <SandboxLab />,
           },
           {
             path: "/admin/incidents",
