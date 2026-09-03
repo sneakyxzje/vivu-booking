@@ -29,8 +29,10 @@ import { useDocumentMeta } from "@/hooks/useDocumentMeta";
  * là chép mô tả hệ thống của họ: trang sẽ hứa những luật mã ở đây không thi hành, và chỗ lệch ấy
  * chỉ lộ ra khi có người thật đòi quyền lợi. Vài chỗ dễ vấp nếu chép nguyên:
  *
- *   - Đặt cọc giữ chỗ. Tour ghép ở đây **không có** — trả đủ trong `payment_ttl_minutes` phút hoặc
- *     mất chỗ. Chỉ tour riêng mới chốt kèm cọc.
+ *   - Đặt cọc giữ chỗ. Nay có, và mục 4 nói theo đúng cách hệ thống làm: cọc `deposit_percent`%
+ *     trong `payment_ttl_minutes` phút, trả nốt trước khởi hành `balance_due_days` ngày, quá hạn
+ *     thì đơn tự hủy. Con số lấy từ cấu hình máy chủ chứ không gõ lại — sửa tỷ lệ cọc mà trang này
+ *     vẫn ghi số cũ là nói sai với khách về một điều khoản họ sẽ bị áp.
  *   - Giá trẻ em. Hệ thống chia **ba** hạng theo `adult_price` / `child_price` / `infant_price`,
  *     không phải bốn hạng với tỉ lệ 50% và 75% cố định.
  *   - Bảo hiểm. Công ty không bán gói bảo hiểm riêng và không cam kết mức đền bù nào; bảo hiểm chỉ
@@ -338,22 +340,49 @@ export default function PolicyPage() {
             <Doan>
               <Manh>4.2.</Manh> Đơn hàng được giữ chỗ trong{" "}
               <Manh>{data.booking.payment_ttl_minutes} phút</Manh> kể từ khi khởi
-              tạo. Quá thời hạn mà chưa thanh toán, hệ thống tự hủy đơn và trả
-              chỗ lại cho khách hàng khác. Việc chậm trễ thanh toán dẫn tới mất
-              chỗ không thuộc trách nhiệm của công ty.
+              tạo để khách hàng hoàn tất khoản đặt cọc. Quá thời hạn mà chưa
+              thanh toán, hệ thống tự hủy đơn và trả chỗ lại cho khách hàng khác.
+              Việc chậm trễ thanh toán dẫn tới mất chỗ không thuộc trách nhiệm
+              của công ty.
             </Doan>
 
             <Doan>
-              <Manh>4.3.</Manh> Chương trình bán theo chỗ được thanh toán{" "}
-              <Manh>một lần, đủ giá trị đơn hàng</Manh> trong thời hạn giữ chỗ
-              nêu trên. Công ty hiện không áp dụng hình thức đặt cọc cho nhóm
-              chương trình này. Riêng chương trình tổ chức riêng theo đoàn được
-              chốt qua báo giá và có thể thu tiền cọc theo thỏa thuận ghi trong
-              báo giá đó.
+              <Manh>4.3.</Manh> Chương trình bán theo chỗ được thanh toán làm{" "}
+              <Manh>hai đợt</Manh>. Đợt một là khoản đặt cọc bằng{" "}
+              <Manh>{data.payment.deposit_percent}% giá trị đơn hàng</Manh>, nộp
+              trong thời hạn giữ chỗ nêu tại mục 4.2 và là điều kiện để chỗ được
+              giữ chắc chắn. Đợt hai là phần còn lại, nộp chậm nhất{" "}
+              <Manh>{data.payment.balance_due_days} ngày trước ngày khởi hành</Manh>.
             </Doan>
 
             <Doan>
-              <Manh>4.4.</Manh> Thanh toán trực tuyến qua cổng VNPay. Ngoài ra
+              <Manh>4.4.</Manh> Công ty gửi thư nhắc thanh toán đợt hai{" "}
+              <Manh>hai lần</Manh> trước hạn nêu trên — lần đầu trước{" "}
+              {data.payment.reminder_days} ngày và lần cuối trước{" "}
+              {data.payment.final_notice_days} ngày — tới địa chỉ thư điện tử
+              khách hàng đã đăng ký, kèm liên kết thanh toán trực tuyến cho đúng
+              số tiền còn lại.
+            </Doan>
+
+            {/*
+              Hậu quả của việc quá hạn phải nằm ngay đây, không đẩy xuống mục phí hủy.
+
+              Khách đọc mục "thanh toán" là lúc họ quyết định có đặt hay không. Giấu điều khoản mất
+              cọc xuống mục 5 nghĩa là họ chỉ gặp nó sau khi đã trả tiền.
+            */}
+            <Doan>
+              <Manh>4.5.</Manh> Quá hạn thanh toán đợt hai mà công ty chưa nhận
+              được tiền, đơn hàng{" "}
+              <Manh>được hủy và chỗ trả lại cho khách hàng khác</Manh>. Khoản đã
+              thanh toán được xử lý theo biểu phí hủy tại mục 5, tính theo thời
+              điểm hủy; với mức cọc và thời hạn nêu trên, khoản đặt cọc thông
+              thường{" "}
+              <Manh>không được hoàn lại</Manh>. Khách hàng gặp khó khăn về thanh
+              toán vui lòng liên hệ công ty trước hạn để cùng tìm hướng xử lý.
+            </Doan>
+
+            <Doan>
+              <Manh>4.6.</Manh> Thanh toán trực tuyến qua cổng VNPay. Ngoài ra
               công ty ghi nhận các khoản thu bằng chuyển khoản hoặc tiền mặt do
               bộ phận điều hành nhập vào sổ giao dịch của đơn. Mọi khoản thu và
               hoàn của một đơn đều được ghi vào sổ ấy và khách hàng xem lại được

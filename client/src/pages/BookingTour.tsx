@@ -49,6 +49,15 @@ type BookingFormProps = {
   bacHoan: PolicyTier[];
   /** Hạn chốt mặc định theo cấu hình máy chủ, áp cho chuyến không đặt hạn riêng. */
   hanChotNgay: number;
+  /**
+   * Điều kiện thanh toán hai đợt, đọc từ máy chủ.
+   *
+   * `depositPercent` bằng 100 nghĩa là thu đủ ngay khi đặt — lúc ấy khối cọc không hiện, vì nói
+   * "đặt cọc 100%" là một câu vô nghĩa với người đọc.
+   */
+  depositPercent: number;
+  depositAmount: number;
+  balanceDueDays: number;
 };
 
 type BookingSidebarProps = {
@@ -100,6 +109,9 @@ const BookingForm = ({
   onSubmit,
   bacHoan,
   hanChotNgay,
+  depositPercent,
+  depositAmount,
+  balanceDueDays,
 }: BookingFormProps) => {
   const totalGuestCount = form.adultCount + form.childCount + form.infantCount;
   /*
@@ -406,9 +418,33 @@ const BookingForm = ({
           </div>
         )}
         <div className="flex items-center justify-between border-t border-primary-100 pt-2">
-          <span className="text-sm font-semibold text-primary-800">Tổng giá trị thanh toán</span>
+          <span className="text-sm font-semibold text-primary-800">Tổng giá trị đơn</span>
           <span className="text-xl font-bold text-primary-600">{formatCurrency(totalAmount)}</span>
         </div>
+
+        {/*
+          Số phải trả NGAY, tách khỏi giá trị đơn.
+
+          Khách bấm đặt rồi thấy cổng thanh toán hiện một con số khác giá tour thì họ dừng lại tự hỏi
+          có nhầm không. Nói trước ở đây, ngay cạnh tổng tiền, là chỗ duy nhất kịp.
+        */}
+        {depositPercent < 100 && totalAmount > 0 && (
+          <div className="space-y-1.5 rounded-lg border border-primary-200 bg-white px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-primary-800">
+                Đặt cọc hôm nay ({depositPercent}%)
+              </span>
+              <span className="text-lg font-bold text-primary-700">
+                {formatCurrency(depositAmount)}
+              </span>
+            </div>
+            <p className="text-xs leading-relaxed text-muted">
+              Phần còn lại <b>{formatCurrency(totalAmount - depositAmount)}</b> thanh toán chậm nhất{" "}
+              <b>{balanceDueDays} ngày trước ngày khởi hành</b>. Chúng tôi sẽ gửi thư nhắc trước hạn.
+              Quá hạn mà chưa thanh toán, đơn bị hủy và khoản đặt cọc không được hoàn lại.
+            </p>
+          </div>
+        )}
       </div>
 
       {scheduleUnavailableReason ? (
@@ -627,6 +663,14 @@ export const BookingTour = () => {
    * máy chủ sẽ từ chối ở bước cuối.
    */
   const [hanChotNgay, setHanChotNgay] = useState(HAN_CHOT_MAC_DINH_NGAY);
+  /*
+   * Điều kiện thanh toán hai đợt, cùng nguồn với bảng phí hủy.
+   *
+   * Mặc định trước khi tải xong là 100% — tức không hiện khối cọc. Đoán sai theo chiều ngược lại
+   * thì trang hứa "chỉ trả 50%" trong khi máy chủ lấy đủ tiền, và khách phát hiện ở cổng thanh toán.
+   */
+  const [depositPercent, setDepositPercent] = useState(100);
+  const [balanceDueDays, setBalanceDueDays] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -639,6 +683,8 @@ export const BookingTour = () => {
 
         setBacHoan(data.cancellation.rules ?? []);
         setHanChotNgay(data.booking.deadline_days || HAN_CHOT_MAC_DINH_NGAY);
+        setDepositPercent(data.payment?.deposit_percent ?? 100);
+        setBalanceDueDays(data.payment?.balance_due_days ?? 0);
       })
       .catch(() => undefined);
 
@@ -828,6 +874,11 @@ export const BookingTour = () => {
               onSubmit={handleSubmit}
               bacHoan={bacHoan}
               hanChotNgay={hanChotNgay}
+              depositPercent={depositPercent}
+              // Làm tròn về đồng nguyên đúng như máy chủ làm, để con số hiện ở đây khớp với con số
+              // cổng thanh toán yêu cầu.
+              depositAmount={Math.round((totalAmount * depositPercent) / 100)}
+              balanceDueDays={balanceDueDays}
             />
           </div>
 

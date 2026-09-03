@@ -44,6 +44,22 @@ class PolicyController extends Controller
                 'payment_ttl_minutes' => (int) config('booking.payment_ttl_minutes', 10),
                 'deadline_days' => (int) config('booking.booking_deadline_days', 3),
             ],
+            /*
+             * Điều kiện thanh toán — phần khách cần đọc TRƯỚC khi bấm đặt.
+             *
+             * Bán theo cọc nghĩa là có một cái hạn thứ hai sau lúc đặt, và quá hạn đó thì mất tiền.
+             * Trang chính sách mà không nói ra thì khách chỉ biết tới nó qua lá thư cảnh báo — tức
+             * là biết sau khi đã trả tiền, đúng lúc không lùi được nữa.
+             *
+             * Các con số đọc từ cấu hình, không viết cứng: sửa tỷ lệ cọc mà trang chính sách vẫn ghi
+             * số cũ là nói sai với khách về một điều khoản họ sẽ bị áp.
+             */
+            'payment' => [
+                'deposit_percent' => max(1, min(100, (int) config('booking.deposit_percent', 50))),
+                'balance_due_days' => (int) config('booking.balance_due_days', 10),
+                'reminder_days' => (int) config('booking.balance_reminder_days', 7),
+                'final_notice_days' => (int) config('booking.balance_final_notice_days', 2),
+            ],
         ], 'Lấy chính sách thành công');
     }
 

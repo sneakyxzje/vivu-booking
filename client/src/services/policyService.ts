@@ -32,6 +32,18 @@ export interface PolicyResponse {
     payment_ttl_minutes: number;
     deadline_days: number;
   };
+  /**
+   * Điều kiện thanh toán hai đợt.
+   *
+   * Đọc từ cấu hình máy chủ chứ không gõ lại ở giao diện: sửa tỷ lệ cọc mà trang chính sách vẫn ghi
+   * số cũ là nói sai với khách về một điều khoản họ sẽ bị áp.
+   */
+  payment: {
+    deposit_percent: number;
+    balance_due_days: number;
+    reminder_days: number;
+    final_notice_days: number;
+  };
 }
 
 export const policyService = {

@@ -25,6 +25,9 @@ type Booking = {
   /** Tổng đã thu thực, tính từ sổ giao dịch. Vắng mặt ở các đơn tạo trước khi có sổ. */
   net_paid?: number;
   balance_due?: number;
+  /** Hạn trả nốt phần còn lại, và việc đã quá hạn hay chưa. */
+  balance_due_at?: string | null;
+  balance_overdue?: boolean;
   /** Nghĩa vụ hoàn chốt lúc hủy, và phần trong đó đã thực trả. */
   refund_amount?: number | null;
   refunded?: number | null;
@@ -572,6 +575,27 @@ export default function BookingSuccess() {
                           ? "Để hoàn tất đặt tour và giữ chỗ chính thức, vui lòng thanh toán qua cổng VNPay."
                           : `Chỗ của bạn đã được giữ. Đơn còn thiếu ${formatCurrency(remainingAmount)}.`}
                       </p>
+
+                      {/*
+                        Hạn trả nốt hiện ngay cạnh số tiền, không giấu ở email.
+
+                        Quá hạn này là đơn bị hủy và mất cọc, nên khách phải nhìn thấy nó ở đúng chỗ
+                        họ nhìn khi tự hỏi "mình còn nợ bao nhiêu". Sát hạn thì đổi màu và nói thẳng
+                        hậu quả — một dòng xám nhạt không đủ cho một khoản tiền sắp mất.
+                      */}
+                      {!pending && booking.balance_due_at && (
+                        <p
+                          className={`mt-1.5 text-xs font-semibold ${
+                            booking.balance_overdue
+                              ? "text-rose-700"
+                              : "text-emerald-800"
+                          }`}
+                        >
+                          {booking.balance_overdue
+                            ? `Đã quá hạn thanh toán ${formatDateTime(booking.balance_due_at)}. Vui lòng thanh toán ngay hoặc liên hệ tổng đài để đơn không bị hủy.`
+                            : `Hạn thanh toán: ${formatDateTime(booking.balance_due_at)}. Quá hạn, đơn sẽ bị hủy và khoản đã đặt cọc không được hoàn lại.`}
+                        </p>
+                      )}
                     </div>
                   </div>
                   {pending && remainingSeconds !== null && (
