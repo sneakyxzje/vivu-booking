@@ -126,6 +126,75 @@ class AdminSandboxController extends Controller
         ]);
     }
 
+    /** Ghép chuyến nguồn vào chuyến đích, bằng chính dịch vụ ghép thật. */
+    public function merge(Request $request, int $scheduleId): JsonResponse
+    {
+        $data = $request->validate([
+            'target_schedule_id' => ['required', 'integer', 'different:' . $scheduleId],
+        ]);
+
+        $nguon = TourSchedule::query()->with('tour')->findOrFail($scheduleId);
+        $dich = TourSchedule::query()->with('tour')->findOrFail($data['target_schedule_id']);
+
+        $ketQua = $this->sandbox->ghepChuyen($nguon, $dich, $request->user());
+
+        return response()->json([
+            'success' => true,
+            'message' => sprintf(
+                'Đã ghép chuyến #%d vào #%d: %d đơn được chuyển, %d đơn chưa cọc bị hủy và mời đặt lại. '
+                    . 'Chuyến nguồn đã đóng.',
+                $nguon->id,
+                $dich->id,
+                $ketQua['transferred'],
+                $ketQua['cancelled'],
+            ),
+            'data' => [
+                'merge' => $ketQua,
+                // Bảng của chuyến ĐÍCH: khách vừa dồn về đây, và hạn trả nốt của họ vừa đổi theo.
+                'bookings' => $this->sandbox->anhChup($dich->fresh(['tour'])),
+            ],
+        ]);
+    }
+
+    /**
+     * Chuyển một đơn sang chuyến khác.
+     *
+     * `initiated_by` là thứ đáng bấm cả hai chiều: cùng thao tác, hai kết cục — công ty dời ngày thì
+     * miễn phí và hoàn đủ nếu hủy sau đó, khách tự xin đổi thì chịu phí và chịu bảng phí hủy.
+     */
+    public function transfer(Request $request, int $bookingId): JsonResponse
+    {
+        $data = $request->validate([
+            'target_schedule_id' => ['required', 'integer'],
+            'initiated_by' => ['required', 'string', 'in:customer,company'],
+        ]);
+
+        $booking = Booking::query()->with('tour')->findOrFail($bookingId);
+        $dich = TourSchedule::query()->with('tour')->findOrFail($data['target_schedule_id']);
+
+        $banGhi = $this->sandbox->chuyenChuyen(
+            $booking,
+            $dich,
+            $data['initiated_by'],
+            $request->user(),
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => sprintf(
+                'Đã chuyển đơn #%d sang chuyến #%d (%s). Chênh giá %s đ, phí đổi lịch %s đ.',
+                $booking->id,
+                $dich->id,
+                $data['initiated_by'] === 'company' ? 'công ty dời ngày' : 'khách xin đổi',
+                number_format((float) $banGhi->price_difference, 0, ',', '.'),
+                number_format((float) $banGhi->fee, 0, ',', '.'),
+            ),
+            'data' => [
+                'bookings' => $this->sandbox->anhChup($dich->fresh(['tour'])),
+            ],
+        ]);
+    }
+
     /** Gửi lại một lá thư của đơn, ngay lập tức. */
     public function sendMail(Request $request, int $bookingId): JsonResponse
     {

@@ -453,6 +453,8 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         Route::get('/sandbox/schedules/{id}/snapshot', [AdminSandboxController::class, 'snapshot']);
         Route::post('/sandbox/schedules/{id}/fast-forward', [AdminSandboxController::class, 'fastForward']);
         Route::post('/sandbox/run-command', [AdminSandboxController::class, 'runCommand']);
+        Route::post('/sandbox/schedules/{id}/merge', [AdminSandboxController::class, 'merge']);
+        Route::post('/sandbox/bookings/{id}/transfer', [AdminSandboxController::class, 'transfer']);
         Route::post('/bookings/{id}/send-mail', [AdminSandboxController::class, 'sendMail']);
 
         // Nhật ký hệ thống: gộp nhật ký đơn và nhật ký chuyến thành một dòng thời gian.

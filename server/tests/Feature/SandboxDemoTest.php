@@ -222,6 +222,70 @@ class SandboxDemoTest extends TestCase
         );
     }
 
+    // --- Ghép và chuyển chuyến ----------------------------------------------------------------
+
+    /** Ghép chuyến dồn khách sang chuyến đích và đóng chuyến nguồn — bằng dịch vụ ghép thật. */
+    public function test_ghep_chuyen_tu_san_thu(): void
+    {
+        $tour = $this->tour(laSanThu: true);
+        $nguon = $this->chuyen($tour, 60);
+        $dich = $this->chuyen($tour, 59);
+
+        $don = $this->donDaCoc($nguon);
+
+        $ketQua = $this->sandbox()->ghepChuyen($nguon, $dich, null);
+
+        $this->assertSame(1, $ketQua['transferred']);
+        $this->assertSame($dich->id, (int) $don->fresh()->tour_schedule_id);
+    }
+
+    /** Và ghép cũng bị chặn ngoài sân thử. */
+    public function test_khong_ghep_duoc_tren_tour_that(): void
+    {
+        $tour = $this->tour(laSanThu: false);
+        $nguon = $this->chuyen($tour, 60);
+        $dich = $this->chuyen($tour, 59);
+
+        $this->expectException(BusinessRuleException::class);
+
+        $this->sandbox()->ghepChuyen($nguon, $dich, null);
+    }
+
+    /**
+     * Chuyển chuyến: cùng thao tác, hai kết cục theo việc AI quyết định đổi ngày.
+     *
+     * Công ty dời thì được miễn phí hủy về sau; khách tự xin đổi thì chịu bảng phí như thường. Đây
+     * là điều đáng xem nhất ở nút chuyển chuyến.
+     */
+    public function test_chuyen_chuyen_ghi_dung_ai_yeu_cau(): void
+    {
+        $tour = $this->tour(laSanThu: true);
+        $nguon = $this->chuyen($tour, 60);
+        $dich = $this->chuyen($tour, 50);
+
+        $don = $this->donDaCoc($nguon);
+
+        \App\Models\CustomerContactLog::create([
+            'booking_id' => $don->id,
+            'channel' => \App\Enums\ContactChannel::Phone,
+            'purpose' => \App\Enums\ContactPurpose::Transfer,
+            'outcome' => \App\Enums\ContactOutcome::Agreed,
+            'note' => 'Khách đồng ý đổi ngày.',
+            'contacted_at' => now()->subDay(),
+        ]);
+
+        $banGhi = $this->sandbox()->chuyenChuyen($don, $dich, 'company', null);
+
+        $this->assertSame('company', $banGhi->initiated_by);
+        $this->assertSame($dich->id, (int) $don->fresh()->tour_schedule_id);
+        $this->assertEquals(0.0, (float) $banGhi->fee, 'Công ty dời ngày thì không thu phí đổi lịch.');
+
+        // Và từ đây, hủy đơn được miễn bảng phí — đúng vế thứ hai của luật.
+        $this->assertTrue(
+            app(\App\Services\CancellationPolicyService::class)->congTyDaDoiNgay($don->fresh()),
+        );
+    }
+
     // --- Gửi lại thư ------------------------------------------------------------------------
 
     /** Thư nhắc trả nốt không gửi cho đơn đã trả đủ. */
