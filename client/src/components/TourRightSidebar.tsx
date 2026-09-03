@@ -1,11 +1,8 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import type { Tour, TourSchedule } from "@/types";
-import { formatDateTime } from "@/utils/format";
 import {
-  getAvailableSlots,
   getScheduleUnavailableReason,
-  isDeadlineOverdue,
   isScheduleBookable,
 } from "@/utils/schedule";
 import {
@@ -42,10 +39,6 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  const availableSlots = getAvailableSlots(selectedSchedule);
-  const bookedPercent = selectedSchedule
-    ? (selectedSchedule.booked_people / selectedSchedule.max_people) * 100
-    : 0;
   const selectedUnavailableReason = getUnavailableReason(selectedSchedule, tour);
 
   const handleBooking = () => {
@@ -73,71 +66,18 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
         </div>
 
         {/*
-          Không còn ô chọn ngày ở đây.
+          Thanh bên không nhắc lại chuyện chuyến nữa.
 
-          Bảng "Lịch trình khởi hành" ở cột nội dung đã là chỗ chọn ngày, và nó hiện sẵn giá, số
-          chỗ, hạn chốt cùng lý do không đặt được của từng chuyến. Giữ thêm một ô xổ xuống ở thanh
-          bên là hai chỗ làm cùng một việc trên cùng một trang, mà cái ở đây lại nghèo thông tin
-          hơn hẳn — người dùng chọn ở đâu cũng được nhưng nhìn thấy hai thứ khác nhau.
+          Ngày khởi hành, số chỗ còn, hạn chốt và lý do không đặt được đều đã nằm trong thẻ chuyến
+          đang chọn ở bảng "Lịch trình khởi hành" — nơi người dùng vừa bấm để chọn. In lại chúng
+          cách đó một cột là bắt người ta đọc hai lần cùng một thứ, và mỗi lần thêm một chỗ có thể
+          lệch khi dữ liệu đổi.
 
-          Thanh bên giữ phần **báo lại chuyến đang chọn**: còn mấy chỗ, hạn chốt, và nút đặt.
+          Còn lại đúng ba thứ ở đây: giá từ, nút đặt, và mấy dòng cam kết.
+
+          Nút vẫn tự nói được tình trạng: không có chuyến nào chọn được thì `getUnavailableReason`
+          trả "Tạm hết lịch", và nhãn nút thành đúng câu ấy kèm trạng thái vô hiệu.
         */}
-        <div className="border-t border-gray-100 pt-4">
-          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-            Ngày khởi hành đang chọn
-          </label>
-
-          {tour.schedules?.length ? (
-            <div className="space-y-3">
-              <p className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold text-gray-800">
-                {selectedSchedule
-                  ? formatDateTime(selectedSchedule.start_date)
-                  : "Chọn một ngày ở bảng Lịch trình khởi hành"}
-              </p>
-
-              {selectedSchedule && (
-                <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 text-xs">
-                  <div className="flex justify-between font-semibold mb-2">
-                    <span className="text-gray-500">Tình trạng chỗ</span>
-                    <span className={`font-bold ${selectedUnavailableReason ? "text-red-600" : "text-primary-700"}`}>
-                      {selectedUnavailableReason ?? `Còn trống ${availableSlots} chỗ`}
-                    </span>
-                  </div>
-
-                  <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden mb-2">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        bookedPercent >= 80 ? "bg-red-500" : "bg-primary-600"
-                      }`}
-                      style={{ width: `${bookedPercent}%` }}
-                    ></div>
-                  </div>
-
-                  <div className="text-[10px] text-gray-400 font-mono">
-                    Đã đặt: {selectedSchedule.booked_people} / {selectedSchedule.max_people} khách tối đa.
-                  </div>
-
-                  <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-gray-500 font-medium">
-                    <span>Hạn chót đăng ký</span>
-                    <span className={`font-bold ${isDeadlineOverdue(selectedSchedule) ? "text-red-600" : "text-gray-900"}`}>
-                      {selectedSchedule.booking_deadline ? formatDateTime(selectedSchedule.booking_deadline) : "Không giới hạn"}
-                    </span>
-                  </div>
-                  {isDeadlineOverdue(selectedSchedule) && (
-                    <p className="mt-1 text-right text-[10px] font-bold uppercase text-red-650 animate-pulse">
-                      Đã quá hạn chốt nhận khách
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-3 bg-rose-50 border border-rose-100 text-rose-700 rounded-xl text-xs font-semibold">
-              Hiện chưa có lịch khởi hành mới cho tour này.
-            </div>
-          )}
-        </div>
-
         <button
           disabled={!selectedSchedule || Boolean(selectedUnavailableReason)}
           onClick={handleBooking}
