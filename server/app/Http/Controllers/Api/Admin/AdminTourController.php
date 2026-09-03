@@ -1154,6 +1154,19 @@ class AdminTourController extends Controller
             if ($deadline->gte($startDate)) {
                 return "Lịch khởi hành thứ {$position}: hạn chốt danh sách phải trước ngày khởi hành.";
             }
+
+            /*
+             * Và không được sớm hơn hạn trả nốt.
+             *
+             * Cùng luật với đường dời hạn chốt riêng — xem `ScheduleDeadlineService::lyDoDaoNguocHaiHan()`
+             * để biết vì sao thứ tự hai mốc không được đảo. Gọi lại đúng hàm ấy thay vì chép công
+             * thức về đây: hai bản của một luật là chỗ dự án này đã vấp nhiều lần.
+             */
+            $daoNguoc = ScheduleDeadlineService::lyDoDaoNguocHaiHan($startDate, $deadline);
+
+            if ($daoNguoc !== null) {
+                return "Lịch khởi hành thứ {$position}: " . $daoNguoc;
+            }
         }
 
         return null;

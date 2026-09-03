@@ -108,6 +108,7 @@ class ScheduleDeadlineService
                 $trongDanhSach['bookings'],
                 $gheChet->count(),
                 (int) $gheChet->sum('guests'),
+                self::lyDoDaoNguocHaiHan($schedule->start_date, $moi) !== null,
             ),
         ];
     }
@@ -337,7 +338,58 @@ class ScheduleDeadlineService
             );
         }
 
+        /*
+         * Thứ tự hai cái hạn KHÔNG chặn ở đây — chỉ cảnh báo.
+         *
+         * Đường này là đường đã cân nhắc: nó bắt ghi lý do ít nhất mười ký tự, cho xem trước tác
+         * động, rồi báo cho hướng dẫn viên phụ trách. Và nó phục vụ một việc có thật — nhà cung cấp
+         * đòi danh sách sớm thì điều hành phải khóa được ngay, kể cả khi ngày đi còn xa.
+         *
+         * Chặn cứng ở đây sẽ giết luôn nút "khóa danh sách ngay bây giờ". Nên rủi ro được nói ra ở
+         * phần cảnh báo của `impact()`, còn chặn cứng thì đặt ở biểu mẫu tour — nơi hạn chốt bị ghi
+         * hàng loạt mà không ai phải viết một dòng lý do nào.
+         */
         return null;
+    }
+
+    /**
+     * Hạn chốt danh sách không được đặt SỚM HƠN hạn trả nốt.
+     *
+     * Hai mốc này phải giữ đúng thứ tự: **tiền về trước, chốt danh sách sau**. Khoảng giữa chúng
+     * chính là cửa sổ bán lại — chỗ của người bỏ cọc ở hạn trả nốt được rao lại trong đúng những
+     * ngày ấy, để tới hạn chốt chuyến vẫn đủ người.
+     *
+     * Đảo thứ tự thì cửa sổ ấy biến mất, và hỏng theo ba đường cùng lúc:
+     *
+     *   1. Chỗ của người bỏ cọc không bán lại được nữa — chuyến đã đóng bán từ trước đó.
+     *   2. Mọi lượt hủy tự động đều sinh ghế chết, vì `BookingHoldService::shouldReleaseSeats()`
+     *      chỉ trả chỗ khi hủy TRƯỚC hạn chốt. Công ty trả tiền cho một suất không có khách.
+     *   3. Cảnh báo "quy trình thu nốt không kịp" bắn cho gần như mọi đơn, biến từ tín hiệu hiếm
+     *      thành tiếng ồn mà không ai còn đọc.
+     *
+     * Ràng buộc này lâu nay chỉ nằm trong chú thích ở `config/booking.php`. Với bộ mặc định 10 và
+     * 3 thì nó tự đúng, nên không ai gặp — cho tới lần đầu có người đặt hạn chốt xa hơn mười ngày.
+     */
+    public static function lyDoDaoNguocHaiHan(?Carbon $khoiHanh, ?Carbon $hanChotMoi): ?string
+    {
+        if ($hanChotMoi === null || $khoiHanh === null) {
+            return null;
+        }
+
+        $hanTraNot = $khoiHanh->copy()->subDays((int) config('booking.balance_due_days', 10));
+
+        if ($hanChotMoi->gte($hanTraNot)) {
+            return null;
+        }
+
+        return sprintf(
+            'Hạn chốt danh sách (%s) không được sớm hơn hạn thanh toán phần còn lại (%s). '
+            . 'Tiền của khách phải về trước khi danh sách gửi đi nhà cung cấp, và khoảng giữa hai '
+            . 'mốc là thời gian để bán lại chỗ của khách bỏ cọc. Đảo thứ tự thì mọi lượt hủy đều '
+            . 'để lại một chỗ không bán lại được.',
+            $hanChotMoi->format('d/m/Y H:i'),
+            $hanTraNot->format('d/m/Y H:i'),
+        );
     }
 
     private function huongDoi(?Carbon $cu, ?Carbon $moi): string
@@ -392,6 +444,7 @@ class ScheduleDeadlineService
         int $trongDanhSach,
         int $soDonGheChet,
         int $soGheChet,
+        bool $daoNguocHanTraNot = false,
     ): array {
         $canhBao = [];
 
@@ -416,6 +469,12 @@ class ScheduleDeadlineService
             }
 
             $canhBao[] = 'Từ mốc mới trở đi, khách hủy thì chỗ không quay lại kho.';
+        }
+
+        if ($daoNguocHanTraNot) {
+            $canhBao[] = 'Hạn chốt mới sớm hơn hạn thanh toán phần còn lại, nên không còn ngày nào '
+                . 'để bán lại chỗ của khách bỏ cọc: mọi lượt hủy vì quá hạn thanh toán sẽ để lại '
+                . 'một chỗ trống không bán được. Cân nhắc thu nốt tiền của các đơn còn nợ trước.';
         }
 
         if ($canMoBanTay) {

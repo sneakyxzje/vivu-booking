@@ -441,6 +441,44 @@ class BalanceDueFlowTest extends TestCase
         );
     }
 
+    // --- Thứ tự hai cái hạn ------------------------------------------------------------------
+
+    /**
+     * Hạn chốt danh sách không được đặt sớm hơn hạn trả nốt.
+     *
+     * Khoảng giữa hai mốc chính là cửa sổ bán lại. Đảo thứ tự thì chỗ của người bỏ cọc không bán
+     * lại được nữa, và mọi lượt hủy tự động đều để lại một ghế chết.
+     */
+    public function test_han_chot_khong_duoc_som_hon_han_tra_not(): void
+    {
+        $khoiHanh = now()->addDays(25);
+        $hanTraNot = (int) config('booking.balance_due_days', 10);
+
+        $this->assertNotNull(
+            \App\Services\ScheduleDeadlineService::lyDoDaoNguocHaiHan(
+                $khoiHanh,
+                $khoiHanh->copy()->subDays($hanTraNot + 10),
+            ),
+            'Hạn chốt 20 ngày trước khi đi thì sớm hơn hạn trả nốt — phải bị chặn.',
+        );
+
+        $this->assertNull(
+            \App\Services\ScheduleDeadlineService::lyDoDaoNguocHaiHan(
+                $khoiHanh,
+                $khoiHanh->copy()->subDays(3),
+            ),
+            'Hạn chốt mặc định nằm sau hạn trả nốt — hợp lệ.',
+        );
+
+        $this->assertNull(
+            \App\Services\ScheduleDeadlineService::lyDoDaoNguocHaiHan(
+                $khoiHanh,
+                $khoiHanh->copy()->subDays($hanTraNot),
+            ),
+            'Trùng đúng hạn trả nốt vẫn chấp nhận: cửa sổ bán lại bằng 0 chứ không âm.',
+        );
+    }
+
     // --- Lá thư gửi trước khi đổi chuyến thì coi như chưa gửi ---------------------------------
 
     /** Dựng một lần đổi chuyến đã duyệt vào thời điểm chỉ định. */
