@@ -383,12 +383,18 @@ class BookingIntegrityFixesTest extends TestCase
     // ─────────────────────────────────────────────────────────────────────────────────────
 
     /**
-     * Khách vãng lai đã đi xong, lập tài khoản bằng đúng địa chỉ đã đặt, thì đánh giá được.
+     * Lập tài khoản trùng địa chỉ thư của một đơn vãng lai thì KHÔNG thừa hưởng quyền đánh giá.
      *
-     * Đặt tour không đòi tài khoản, nên đơn vãng lai luôn có `customer_id` rỗng. Phép lọc cũ chỉ
-     * hỏi cột ấy, tức hệ thống tự chặn phần lớn nguồn đánh giá của chính mình.
+     * Nghe thì đây là một nới rộng hợp lý — người đi thật, lập tài khoản đúng thư đã đặt. Nhưng
+     * đăng ký ở hệ thống này không xác minh quyền sở hữu địa chỉ thư: `register` cấp thẻ đăng nhập
+     * ngay. Nên "cùng địa chỉ thư" mới chỉ là một lời khai tự nhận, và bất kỳ ai biết một địa chỉ
+     * đã từng đặt tour đều mượn được lịch sử chuyến đi của người khác.
+     *
+     * Đánh giá đứng công khai cạnh tên tour và kéo điểm trung bình, nên bằng chứng "người này đã
+     * đi" phải chắc chắn. Bài này khóa lại quyết định ấy — xem chú thích ở `ReviewController` để
+     * biết hai cách mở đúng nếu về sau muốn nhận đánh giá của khách vãng lai.
      */
-    public function test_khach_vang_lai_da_di_xong_thi_danh_gia_duoc(): void
+    public function test_lap_tai_khoan_trung_email_khong_muon_duoc_quyen_danh_gia(): void
     {
         $chuyen = $this->taoChuyen(now()->subDays(10), ['status' => ScheduleStatus::Completed->value]);
 
@@ -401,9 +407,8 @@ class BookingIntegrityFixesTest extends TestCase
         ]);
 
         $taiKhoanMoi = User::create([
-            'name' => 'Khach Vang Lai',
-            // Cố ý khác hoa thường so với lúc đặt: người ta gõ địa chỉ thư theo đủ kiểu.
-            'email' => 'VangLai@example.com',
+            'name' => 'Nguoi La',
+            'email' => 'vanglai@example.com',
             'password' => Hash::make('password123'),
             'role' => 'customer',
             'status' => 'active',
@@ -415,7 +420,7 @@ class BookingIntegrityFixesTest extends TestCase
             'tour_id' => $this->tour->id,
             'rating' => 5,
             'comment' => 'Chuyen di rat tuyet voi, huong dan vien nhiet tinh.',
-        ])->assertStatus(201);
+        ])->assertStatus(403);
     }
 
     /** Người chưa từng đi tour này thì vẫn không đánh giá được. */

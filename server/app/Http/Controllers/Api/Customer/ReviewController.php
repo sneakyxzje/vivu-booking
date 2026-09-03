@@ -124,27 +124,34 @@ class ReviewController extends Controller
          * `no_show` không nhận: khách không có mặt thì không có gì để kể về chuyến đi.
          */
         /*
-         * Nhận diện theo tài khoản HOẶC theo địa chỉ thư đã dùng khi đặt.
+         * Nhận diện theo TÀI KHOẢN, cố ý không nhận diện theo địa chỉ thư.
          *
-         * Đặt tour không đòi tài khoản — đó là quyết định xuyên suốt của hệ thống, và khách vãng
-         * lai vẫn khai được danh sách hành khách, vẫn tra cứu được đơn, vẫn nhận lại được tiền
-         * hoàn. Nhưng riêng ở đây, phép lọc chỉ hỏi `customer_id`, mà đơn vãng lai thì cột ấy luôn
-         * rỗng. Hệ quả: người đã đi thật, đã trả tiền thật, vĩnh viễn không đánh giá được — kể cả
-         * sau khi lập tài khoản bằng đúng địa chỉ thư đã đặt.
+         * Có một cách nới rộng nghe rất hợp lý: khách vãng lai đi xong, lập tài khoản bằng đúng
+         * địa chỉ thư đã đặt, rồi được đánh giá. Nó giải quyết một mất mát thật — đơn vãng lai
+         * không có `customer_id` nên nhóm ấy vĩnh viễn không đánh giá được, mà họ chiếm phần lớn
+         * lượt đặt.
          *
-         * Đó cũng là mất mát về nghiệp vụ, không chỉ về công bằng: nhóm khách vãng lai chiếm phần
-         * lớn lượt đặt, nên hệ thống đang tự chặn phần lớn nguồn đánh giá của chính mình.
+         * Nhưng nó chỉ an toàn khi hệ thống **xác minh quyền sở hữu địa chỉ thư**, và ở đây thì
+         * không: `AuthController::register` cấp thẻ đăng nhập ngay, không gửi thư xác minh, `User`
+         * không dùng `MustVerifyEmail`. Nghĩa là bất kỳ ai biết một địa chỉ đã từng đặt tour đều
+         * đăng ký được bằng chính địa chỉ đó và thừa hưởng lịch sử chuyến đi của người khác.
          *
-         * So bằng `lower()` để chạy giống nhau trên SQLite và MySQL: một bên phân biệt hoa thường
-         * ở phép `=`, bên kia thì không, và người ta gõ địa chỉ thư theo đủ kiểu.
+         * Đánh giá là thứ đứng công khai cạnh tên tour và kéo điểm trung bình, nên bằng chứng
+         * "người này đã đi" phải chắc chắn, không được là một lời khai tự nhận. Khóa ngoại
+         * `customer_id` là bằng chứng chắc chắn; địa chỉ thư chưa xác minh thì không.
+         *
+         * Muốn mở cho khách vãng lai thì phải làm đúng một trong hai việc, và cả hai đều là việc
+         * riêng chứ không phải nới một dòng ở đây:
+         *
+         *   1. Thêm xác minh địa chỉ thư lúc đăng ký, rồi mới so theo thư.
+         *   2. Cho tài khoản **nhận** các đơn vãng lai cùng địa chỉ tại thời điểm đăng nhập — khi
+         *      ấy `customer_id` được điền và phép kiểm này tự đúng, đồng thời khách cũng thấy đơn
+         *      cũ trong mục "Đơn của tôi", điều họ vẫn phải tra bằng mã tra cứu.
          */
         $daDi = Booking::query()
             ->where('tour_id', $data['tour_id'])
+            ->where('customer_id', $user->id)
             ->where('status', BookingStatus::Completed->value)
-            ->where(function ($q) use ($user) {
-                $q->where('customer_id', $user->id)
-                    ->orWhereRaw('lower(customer_email) = ?', [mb_strtolower(trim($user->email))]);
-            })
             ->exists();
 
         if (!$daDi) {
