@@ -79,6 +79,12 @@ Schedule::command('bookings:cancel-unpaid-balances')
     ->dailyAt('09:30')
     ->withoutOverlapping();
 
+// Kho tri thức của chatbot. Mỗi giờ là đủ vì nội dung tour đổi theo ngày, và lệnh chạy
+// tăng dần nên lần không có gì mới gần như không tốn gì. Cần ngay thì `php artisan ai:index`.
+Schedule::command('ai:index')
+    ->hourly()
+    ->withoutOverlapping();
+
 /*
  * Đẩy hàng đợi.
  *
