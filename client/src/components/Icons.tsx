@@ -315,6 +315,53 @@ export const SupportIcon = ({ className = "w-8 h-8" }: IconProps) => (
   </svg>
 );
 
+export const ChatBubbleIcon = ({ className = "w-6 h-6" }: IconProps) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M8.25 9.75h7.5m-7.5 3h4.5M21 12c0 4.142-4.03 7.5-9 7.5-.99 0-1.944-.133-2.837-.38L3 20.25l1.2-3.6C3.45 15.31 3 13.7 3 12c0-4.142 4.03-7.5 9-7.5s9 3.358 9 7.5z"
+    />
+  </svg>
+);
+
+export const PaperPlaneIcon = ({ className = "w-5 h-5" }: IconProps) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M6 12L3.269 3.125A59.769 59.769 0 0121.485 12 59.768 59.768 0 013.27 20.875L5.999 12zm0 0h7.5"
+    />
+  </svg>
+);
+
+export const XMarkIcon = ({ className = "w-5 h-5" }: IconProps) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+  >
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
 export const CreditCardIcon = ({ className = "w-8 h-8" }: IconProps) => (
   <svg
     className={className}
