@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 
 // Controllers
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\UserController;
@@ -164,6 +165,10 @@ Route::get('/reviews/{tour}', [ReviewController::class, 'index']);
  * gửi thư rác hàng loạt vào hộp thư của điều hành.
  */
 Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:email');
+
+// Trợ lý ảo tư vấn tour. Không đòi đăng nhập, nhưng có hạn mức riêng vì đây là tuyến duy
+// nhất mà mỗi lượt gọi tốn tiền thật trả cho bên thứ ba.
+Route::post('/chat', [ChatController::class, 'store'])->middleware('throttle:chat');
 
 Route::post('/newsletter', function (\Illuminate\Http\Request $request) {
     $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);

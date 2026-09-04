@@ -57,11 +57,18 @@ return [
     |        đủ chặt để việc dò không còn rẻ.
     */
 
+    /*
+    | chat   Ô hỏi trợ lý ảo. Khác mọi nhóm trên: hạn mức ở đây không chặn kẻ dò
+    |        tìm mà chặn hóa đơn — mỗi lượt hỏi là một lượt gọi OpenAI có tính tiền,
+    |        và tuyến này mở cho khách chưa đăng nhập.
+    */
+
     'api' => env('RATE_LIMIT_API', '60,1'),
     'login' => env('RATE_LIMIT_LOGIN', '10,1'),
     'register' => env('RATE_LIMIT_REGISTER', '5,1'),
     'email' => env('RATE_LIMIT_EMAIL', '5,10'),
     'reset' => env('RATE_LIMIT_RESET', '10,10'),
     'discount' => env('RATE_LIMIT_DISCOUNT', '20,1'),
+    'chat' => env('RATE_LIMIT_CHAT', '10,5'),
 
 ];
