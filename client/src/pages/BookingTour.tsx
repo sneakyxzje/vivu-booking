@@ -11,6 +11,7 @@ import {
   isBalanceDeadlinePassed,
   isScheduleBookable,
 } from "@/utils/schedule";
+import { validateEmail, validateHasAdultPassenger, validatePhone } from "@/utils/validation";
 import type { AxiosError } from "axios";
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -839,6 +840,23 @@ export const BookingTour = () => {
     event.preventDefault();
 
     if (!tour) return;
+
+    // Task 1: Validate Email & Phone
+    if (!validateEmail(form.customerEmail)) {
+      setMessage("Địa chỉ Email không hợp lệ. Ví dụ: nguyenvanan@gmail.com");
+      return;
+    }
+
+    if (!validatePhone(form.customerPhone)) {
+      setMessage("Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam 10 chữ số.");
+      return;
+    }
+
+    // Task 2: Validate 1 chuyến đi không được chỉ có mỗi em bé (phải có ít nhất 1 người lớn)
+    if (!validateHasAdultPassenger(form.adultCount)) {
+      setMessage("Chuyến đi phải có ít nhất 1 hành khách là Người lớn (từ 12 tuổi trở lên).");
+      return;
+    }
 
     setSubmitting(true);
     setMessage(null);
