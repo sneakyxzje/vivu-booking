@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Building2, Phone, Search, Users } from "lucide-react";
-import tourService from "@/services/tourService";
 import bookingService from "@/services/bookingService";
+import tourService from "@/services/tourService";
 import type { GroupBookingPublicView, Tour } from "@/types";
 import { formatDateTime, formatPrice } from "@/utils/format";
+import { validateEmail, validatePhone } from "@/utils/validation";
 
 /**
  * Đặt tour theo đoàn — phía khách.
@@ -65,6 +66,17 @@ export default function GroupBooking() {
 
   const gui = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!validateEmail(contactEmail.trim())) {
+      setFormError("Địa chỉ Email liên hệ không hợp lệ.");
+      return;
+    }
+
+    if (!validatePhone(contactPhone.trim())) {
+      setFormError("Số điện thoại liên hệ không hợp lệ (gồm 10 chữ số).");
+      return;
+    }
+
     setSending(true);
     setFormError("");
 
