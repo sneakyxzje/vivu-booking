@@ -61,8 +61,8 @@ class BookingController extends Controller
             'tour_id' => 'required|exists:tours,id',
             'tour_schedule_id' => 'required|exists:tour_schedules,id',
             'customer_name' => 'required|string|max:255',
-            'customer_email' => 'required|email|max:255',
-            'customer_phone' => 'nullable|string|max:20',
+            'customer_email' => ['required', new \App\Rules\ValidEmail(), 'max:255'],
+            'customer_phone' => ['nullable', new \App\Rules\ValidPhone(), 'max:20'],
             'adult_count' => 'required|integer|min:1',
             'child_count' => 'nullable|integer|min:0',
             /*
@@ -98,7 +98,7 @@ class BookingController extends Controller
             'passengers.*.identity_number' => 'nullable|string|max:50',
             'passengers.*.id_type' => 'nullable|in:cccd,cmnd,passport,birth_certificate',
             'passengers.*.nationality' => 'nullable|string|max:60',
-            'passengers.*.phone' => 'nullable|string|max:20',
+            'passengers.*.phone' => ['nullable', new \App\Rules\ValidPhone(), 'max:20'],
             'passengers.*.special_request' => 'nullable|string|max:500',
             'passengers.*.is_contact' => 'nullable|boolean',
             'passengers.*.note' => 'nullable|string|max:255',
@@ -957,8 +957,8 @@ class BookingController extends Controller
     {
         // 1. Validate dữ liệu đầu vào từ phía khách hàng
         $validated = $request->validate([
-            'email' => ['required', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:20'],
+            'email' => ['required', new \App\Rules\ValidEmail(), 'max:255'],
+            'phone' => ['nullable', new \App\Rules\ValidPhone(), 'max:20'],
         ]);
 
         $email = trim($validated['email']);

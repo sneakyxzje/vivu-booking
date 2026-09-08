@@ -377,7 +377,7 @@ class PassengerPolicyService
             "{$prefix}.*.identity_number" => ['nullable', 'string', 'max:50'],
             "{$prefix}.*.id_type" => ['nullable', 'in:cccd,cmnd,passport,birth_certificate'],
             "{$prefix}.*.nationality" => ['nullable', 'string', 'max:60'],
-            "{$prefix}.*.phone" => ['nullable', 'string', 'max:20'],
+            "{$prefix}.*.phone" => ['nullable', new \App\Rules\ValidPhone(), 'max:20'],
             "{$prefix}.*.special_request" => ['nullable', 'string', 'max:500'],
             "{$prefix}.*.is_contact" => ['nullable', 'boolean'],
             "{$prefix}.*.note" => ['nullable', 'string', 'max:255'],

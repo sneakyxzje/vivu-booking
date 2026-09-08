@@ -24,8 +24,8 @@ class ContactController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:20'],
+            'email' => ['required', new \App\Rules\ValidEmail(), 'max:255'],
+            'phone' => ['nullable', new \App\Rules\ValidPhone(), 'max:20'],
             'subject' => ['nullable', 'string', 'max:255'],
             'message' => ['required', 'string', 'min:10', 'max:2000'],
         ], [
