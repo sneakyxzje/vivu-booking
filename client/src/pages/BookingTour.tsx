@@ -347,6 +347,11 @@ const BookingForm = ({
                 dưới 2 tuổi ngồi cùng bố mẹ nên <b>không chiếm chỗ riêng</b> trên xe.
               </p>
             )}
+            {form.adultCount < 1 && (
+              <p className="rounded-lg bg-rose-50 px-3.5 py-2.5 text-xs leading-relaxed text-rose-700 font-medium border border-rose-100">
+                ⚠️ Chuyến đi phải có ít nhất 1 hành khách là <b>Người lớn</b> (từ 12 tuổi trở lên).
+              </p>
+            )}
           </div>
 
           <div className="rounded-lg bg-primary-50/70 border border-primary-100 px-4 py-3 space-y-2">
