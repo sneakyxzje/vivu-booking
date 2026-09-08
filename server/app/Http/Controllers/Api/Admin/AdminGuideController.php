@@ -28,9 +28,9 @@ class AdminGuideController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
+            'email' => ['required', 'string', new \App\Rules\ValidEmail(), 'max:255', 'unique:users'],
             'password' => ['required', 'string', 'min:6'],
-            'phone' => ['nullable', 'string', 'max:20'],
+            'phone' => ['nullable', new \App\Rules\ValidPhone(), 'max:20'],
             'address' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', 'in:active,inactive'],
         ]);

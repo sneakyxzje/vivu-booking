@@ -16,7 +16,7 @@ class AuthController extends Controller
     {
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
+            'email' => ['required', new \App\Rules\ValidEmail(), 'unique:users,email'],
             'password' => 'required|min:6',
         ]);
 
@@ -42,7 +42,7 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
+            'email' => ['required', new \App\Rules\ValidEmail()],
             'password' => 'required'
         ]);
 

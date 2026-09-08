@@ -128,8 +128,8 @@ class BookingContactService
     {
         return [
             'customer_name' => ['required', 'string', 'max:255'],
-            'customer_email' => ['required', 'email', 'max:255'],
-            'customer_phone' => ['nullable', 'string', 'max:20'],
+            'customer_email' => ['required', new \App\Rules\ValidEmail(), 'max:255'],
+            'customer_phone' => ['nullable', new \App\Rules\ValidPhone(), 'max:20'],
         ];
     }
 }
