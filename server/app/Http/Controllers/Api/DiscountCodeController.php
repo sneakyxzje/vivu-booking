@@ -31,7 +31,7 @@ class DiscountCodeController extends Controller
              * (`DiscountCode::conLuotCho`) trong khi màn xem trước thì không. Hệ quả: khách đã dùng
              * hết phần của mình vẫn thấy báo "áp dụng thành công", rồi đơn tạo ra theo giá gốc.
              */
-            'email' => ['nullable', 'email', 'max:255'],
+            'email' => ['nullable', new \App\Rules\ValidEmail(), 'max:255'],
         ]);
 
         $discountCode = DiscountCode::query()
