@@ -12,6 +12,8 @@ import {
   isScheduleBookable,
 } from "@/utils/schedule";
 import { validateEmail, validateHasAdultPassenger, validatePhone } from "@/utils/validation";
+import OtpVerificationModal from "@/components/booking/OtpVerificationModal";
+import otpService from "@/services/otpService";
 import type { AxiosError } from "axios";
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -718,6 +720,7 @@ export const BookingTour = () => {
    */
   const [depositPercent, setDepositPercent] = useState(100);
   const [balanceDueDays, setBalanceDueDays] = useState(0);
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -841,6 +844,42 @@ export const BookingTour = () => {
    * thôi không gửi. Danh sách khai sau qua liên kết theo mã tra cứu, hạn cuối là hạn chốt danh
    * sách của chuyến.
    */
+  const processBooking = async () => {
+    if (!tour) return;
+
+    setSubmitting(true);
+    setMessage(null);
+
+    try {
+      const response = await bookingService.create({
+        tour_id: tour.id,
+        tour_schedule_id: Number(form.tourScheduleId),
+        customer_name: form.customerName,
+        customer_email: form.customerEmail,
+        customer_phone: form.customerPhone,
+        adult_count: Number(form.adultCount),
+        child_count: Number(form.childCount),
+        infant_count: Number(form.infantCount),
+        note: form.note,
+        discount_code: appliedDiscountCode ?? undefined,
+        accept_terms: form.acceptTerms,
+      });
+
+      const booking = {
+        ...response.data.data.booking,
+        payment_url: response.data.data.payment_url,
+      };
+
+      navigate(`/booking-success/${booking.public_token ?? booking.id}`, {
+        state: booking,
+      });
+    } catch (error) {
+      setMessage(getErrorMessage(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
@@ -863,38 +902,18 @@ export const BookingTour = () => {
       return;
     }
 
-    setSubmitting(true);
     setMessage(null);
 
+    // Bắt đầu luồng gửi mã OTP xác thực trước khi tạo đơn & thanh toán
     try {
-      const response = await bookingService.create({
-        tour_id: tour.id,
-        tour_schedule_id: Number(form.tourScheduleId),
-        customer_name: form.customerName,
-        customer_email: form.customerEmail,
-        customer_phone: form.customerPhone,
-        adult_count: Number(form.adultCount),
-        child_count: Number(form.childCount),
-        infant_count: Number(form.infantCount),
-        note: form.note,
-        discount_code: appliedDiscountCode ?? undefined,
-        // Máy chủ đòi trường này và ghi lại mốc xác nhận lên đơn — ô tích chỉ nằm trong trình
-        // duyệt thì không phải bằng chứng, nó biến mất ngay khi đóng trang.
-        accept_terms: form.acceptTerms,
+      await otpService.sendOtp({
+        email: form.customerEmail.trim(),
+        customer_name: form.customerName.trim(),
+        tour_title: tour.title,
       });
-
-      const booking = {
-        ...response.data.data.booking,
-        payment_url: response.data.data.payment_url,
-      };
-
-      navigate(`/booking-success/${booking.public_token ?? booking.id}`, {
-        state: booking,
-      });
-    } catch (error) {
-      setMessage(getErrorMessage(error));
-    } finally {
-      setSubmitting(false);
+      setIsOtpModalOpen(true);
+    } catch {
+      setMessage("Không thể gửi mã OTP xác thực email. Vui lòng thử lại.");
     }
   };
 
@@ -949,6 +968,18 @@ export const BookingTour = () => {
           </div>
         </div>
       </div>
+
+      <OtpVerificationModal
+        isOpen={isOtpModalOpen}
+        email={form.customerEmail}
+        customerName={form.customerName}
+        tourTitle={tour?.title}
+        onClose={() => setIsOtpModalOpen(false)}
+        onVerified={() => {
+          setIsOtpModalOpen(false);
+          processBooking();
+        }}
+      />
     </div>
   );
 };
