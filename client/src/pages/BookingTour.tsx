@@ -11,6 +11,9 @@ import {
   isBalanceDeadlinePassed,
   isScheduleBookable,
 } from "@/utils/schedule";
+import { validateEmail, validateHasAdultPassenger, validatePhone } from "@/utils/validation";
+import OtpVerificationModal from "@/components/booking/OtpVerificationModal";
+import otpService from "@/services/otpService";
 import type { AxiosError } from "axios";
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -344,6 +347,11 @@ const BookingForm = ({
               <p className="rounded-lg bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-800">
                 Mỗi em bé cần một người lớn đi kèm, nên số em bé không vượt quá số người lớn. Em bé
                 dưới 2 tuổi ngồi cùng bố mẹ nên <b>không chiếm chỗ riêng</b> trên xe.
+              </p>
+            )}
+            {form.adultCount < 1 && (
+              <p className="rounded-lg bg-rose-50 px-3.5 py-2.5 text-xs leading-relaxed text-rose-700 font-medium border border-rose-100">
+                ⚠️ Chuyến đi phải có ít nhất 1 hành khách là <b>Người lớn</b> (từ 12 tuổi trở lên).
               </p>
             )}
           </div>
@@ -712,6 +720,7 @@ export const BookingTour = () => {
    */
   const [depositPercent, setDepositPercent] = useState(100);
   const [balanceDueDays, setBalanceDueDays] = useState(0);
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -835,9 +844,7 @@ export const BookingTour = () => {
    * thôi không gửi. Danh sách khai sau qua liên kết theo mã tra cứu, hạn cuối là hạn chốt danh
    * sách của chuyến.
    */
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-
+  const processBooking = async () => {
     if (!tour) return;
 
     setSubmitting(true);
@@ -855,8 +862,6 @@ export const BookingTour = () => {
         infant_count: Number(form.infantCount),
         note: form.note,
         discount_code: appliedDiscountCode ?? undefined,
-        // Máy chủ đòi trường này và ghi lại mốc xác nhận lên đơn — ô tích chỉ nằm trong trình
-        // duyệt thì không phải bằng chứng, nó biến mất ngay khi đóng trang.
         accept_terms: form.acceptTerms,
       });
 
@@ -872,6 +877,43 @@ export const BookingTour = () => {
       setMessage(getErrorMessage(error));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+
+    if (!tour) return;
+
+    // Task 1: Validate Email & Phone
+    if (!validateEmail(form.customerEmail)) {
+      setMessage("Địa chỉ Email không hợp lệ. Ví dụ: nguyenvanan@gmail.com");
+      return;
+    }
+
+    if (!validatePhone(form.customerPhone)) {
+      setMessage("Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam 10 chữ số.");
+      return;
+    }
+
+    // Task 2: Validate 1 chuyến đi không được chỉ có mỗi em bé (phải có ít nhất 1 người lớn)
+    if (!validateHasAdultPassenger(form.adultCount)) {
+      setMessage("Chuyến đi phải có ít nhất 1 hành khách là Người lớn (từ 12 tuổi trở lên).");
+      return;
+    }
+
+    setMessage(null);
+
+    // Bắt đầu luồng gửi mã OTP xác thực trước khi tạo đơn & thanh toán
+    try {
+      await otpService.sendOtp({
+        email: form.customerEmail.trim(),
+        customer_name: form.customerName.trim(),
+        tour_title: tour.title,
+      });
+      setIsOtpModalOpen(true);
+    } catch {
+      setMessage("Không thể gửi mã OTP xác thực email. Vui lòng thử lại.");
     }
   };
 
@@ -926,6 +968,18 @@ export const BookingTour = () => {
           </div>
         </div>
       </div>
+
+      <OtpVerificationModal
+        isOpen={isOtpModalOpen}
+        email={form.customerEmail}
+        customerName={form.customerName}
+        tourTitle={tour?.title}
+        onClose={() => setIsOtpModalOpen(false)}
+        onVerified={() => {
+          setIsOtpModalOpen(false);
+          processBooking();
+        }}
+      />
     </div>
   );
 };
