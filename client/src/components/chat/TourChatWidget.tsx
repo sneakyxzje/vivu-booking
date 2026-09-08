@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChatBubbleIcon, PaperPlaneIcon, XMarkIcon } from "@/components/Icons";
+import { PaperPlaneIcon, XMarkIcon } from "@/components/Icons";
 import { chatService, type ChatTourCard } from "@/services/chatService";
 
 /**
@@ -66,17 +66,24 @@ const TourSuggestion: React.FC<{ tour: ChatTourCard }> = ({ tour }) => (
     )}
 
     <div className="min-w-0 flex-1">
-      <div className="truncate text-body-sm font-semibold text-ink">{tour.title}</div>
+      <div className="truncate text-body-sm font-semibold text-ink">
+        {tour.title}
+      </div>
       <div className="text-caption-sm text-muted">
         {tour.number_of_days} ngày {tour.number_of_nights} đêm ·{" "}
-        <span className="font-semibold text-primary-600">{formatPrice(tour.adult_price)}</span>
+        <span className="font-semibold text-primary-600">
+          {formatPrice(tour.adult_price)}
+        </span>
       </div>
     </div>
   </Link>
 );
 
 const TypingDots: React.FC = () => (
-  <div className="flex items-center gap-1 px-1 py-2" aria-label="Trợ lý đang soạn câu trả lời">
+  <div
+    className="flex items-center gap-1 px-1 py-2"
+    aria-label="Trợ lý đang soạn câu trả lời"
+  >
     {[0, 150, 300].map((delay) => (
       <span
         key={delay}
@@ -85,6 +92,14 @@ const TypingDots: React.FC = () => (
       />
     ))}
   </div>
+);
+
+const BotAvatar: React.FC = () => (
+  <img
+    src="/static/bot.png"
+    alt="Vivu Bot"
+    className="h-14 w-14 shrink-0 rounded-full object-cover shadow-sm ring-2 ring-white"
+  />
 );
 
 export const TourChatWidget: React.FC = () => {
@@ -99,7 +114,10 @@ export const TourChatWidget: React.FC = () => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [turns, sending]);
 
   useEffect(() => {
@@ -138,7 +156,11 @@ export const TourChatWidget: React.FC = () => {
         ]);
       } catch (err) {
         // Câu hỏi vừa gửi vẫn nằm lại trong khung để khách đọc được và bấm gửi lại.
-        setError(err instanceof Error ? err.message : "Có lỗi xảy ra, bạn thử lại nhé.");
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Có lỗi xảy ra, bạn thử lại nhé.",
+        );
       } finally {
         setSending(false);
       }
@@ -152,9 +174,9 @@ export const TourChatWidget: React.FC = () => {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Mở trợ lý tư vấn tour"
-        className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg transition-colors hover:bg-primary-700"
+        className="fixed bottom-6 right-8 z-50"
       >
-        <ChatBubbleIcon className="h-6 w-6" />
+        <BotAvatar />
       </button>
     );
   }
@@ -163,12 +185,17 @@ export const TourChatWidget: React.FC = () => {
     <div
       role="dialog"
       aria-label="Trợ lý tư vấn tour"
-      className="animate-fade-in fixed bottom-5 right-5 z-50 flex h-[560px] max-h-[calc(100vh-2.5rem)] w-[380px] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-xl border border-hairline bg-canvas shadow-lg"
+      className="animate-fade-in fixed bottom-6 right-8 z-50 flex h-[560px] max-h-[calc(100vh-2.5rem)] w-[380px] max-w-[calc(100vw-2.5rem)] flex-col overflow-hidden rounded-xl border border-hairline bg-canvas shadow-lg"
     >
       <header className="flex items-center justify-between border-b border-hairline-soft bg-primary-600 px-4 py-3 text-white">
-        <div>
-          <div className="text-title-sm font-semibold">Trợ lý tư vấn tour</div>
-          <div className="text-caption-sm text-white/80">Hỏi về tour, giá, lịch khởi hành</div>
+        <div className="flex items-center gap-2">
+          <BotAvatar />
+          <div>
+            <div className="text-title-sm font-semibold">Vivu Bot</div>
+            <div className="text-caption-sm text-white/80">
+              Trợ lý tư vấn tour của Vivu Booking
+            </div>
+          </div>
         </div>
 
         <button
@@ -181,12 +208,15 @@ export const TourChatWidget: React.FC = () => {
         </button>
       </header>
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-surface-soft px-3 py-4">
+      <div
+        ref={scrollRef}
+        className="flex-1 space-y-3 overflow-y-auto bg-surface-soft px-3 py-4"
+      >
         {turns.length === 0 && (
           <div className="space-y-3">
             <p className="rounded-lg bg-canvas px-3 py-2 text-body-sm text-body shadow-xs">
-              Chào bạn, mình là trợ lý của Vivu Booking. Bạn muốn đi đâu, đi mấy ngày và ngân sách
-              khoảng bao nhiêu?
+              Chào bạn, mình là Vivu Bot. Bạn muốn đi đâu, đi mấy ngày và ngân
+              sách khoảng bao nhiêu?
             </p>
 
             <div className="space-y-2">
@@ -205,7 +235,10 @@ export const TourChatWidget: React.FC = () => {
         )}
 
         {turns.map((turn, index) => (
-          <div key={index} className={turn.role === "user" ? "flex justify-end" : "space-y-2"}>
+          <div
+            key={index}
+            className={turn.role === "user" ? "flex justify-end" : "space-y-2"}
+          >
             <div
               className={
                 turn.role === "user"
@@ -229,7 +262,9 @@ export const TourChatWidget: React.FC = () => {
         {sending && <TypingDots />}
 
         {error && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-body-sm text-red-700">{error}</p>
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-body-sm text-red-700">
+            {error}
+          </p>
         )}
       </div>
 
@@ -261,7 +296,7 @@ export const TourChatWidget: React.FC = () => {
       </form>
 
       <p className="border-t border-hairline-soft bg-canvas px-3 pb-2 text-caption-sm text-muted-soft">
-        Thông tin mang tính tham khảo. Giá và chỗ trống chốt theo màn hình đặt tour.
+        Thông tin chỉ mang tính chất tham khảo
       </p>
     </div>
   );
