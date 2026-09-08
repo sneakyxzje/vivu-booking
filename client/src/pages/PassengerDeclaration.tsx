@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { AlertTriangle, CalendarClock, Check, Users } from "lucide-react";
 import api from "@/services/api";
 import { formatDateTime } from "@/utils/format";
+import { validateEmail, validatePhone } from "@/utils/validation";
 import { DateTimePicker } from "@/components/DateTimePicker";
 
 /**
@@ -160,10 +161,18 @@ export default function PassengerDeclaration() {
   };
 
   const luu = async () => {
-    if (!email.trim()) {
+    if (!email.trim() || !validateEmail(email.trim())) {
       setError(
-        "Nhập địa chỉ email bạn đã dùng khi đặt tour để xác nhận đây là đơn của bạn.",
+        "Nhập địa chỉ email hợp lệ bạn đã dùng khi đặt tour để xác nhận đơn.",
       );
+      return;
+    }
+
+    const invalidPhoneRow = rows.find(
+      (row) => row.phone && row.phone.trim() && !validatePhone(row.phone.trim()),
+    );
+    if (invalidPhoneRow) {
+      setError(`Số điện thoại của ${invalidPhoneRow.name || "hành khách"} không hợp lệ (10 chữ số).`);
       return;
     }
 
