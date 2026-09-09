@@ -97,4 +97,25 @@ class BookingOtpTest extends TestCase
 
         $this->assertNull(Cache::get('booking_verified_' . $email));
     }
+
+    public function test_it_blocks_booking_without_otp()
+    {
+        $email = 'test@example.com';
+        
+        // Cố tình không tạo cache booking_verified_$email
+        
+        $response = $this->postJson('/api/bookings', [
+            'tour_id' => 1,
+            'tour_schedule_id' => 1,
+            'customer_name' => 'John Doe',
+            'customer_email' => $email,
+            'adult_count' => 1,
+        ]);
+
+        $response->assertStatus(403)
+            ->assertJson([
+                'success' => false,
+                'message' => 'Bạn chưa xác thực email. Vui lòng nhận và nhập mã OTP trước khi đặt tour.',
+            ]);
+    }
 }
