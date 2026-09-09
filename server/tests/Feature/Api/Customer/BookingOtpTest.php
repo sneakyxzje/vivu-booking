@@ -59,4 +59,42 @@ class BookingOtpTest extends TestCase
             return $mail->hasTo($email);
         });
     }
+
+    public function test_it_can_verify_otp()
+    {
+        $email = 'test@example.com';
+        $otp = '123456';
+        Cache::put('booking_otp_' . $email, $otp, now()->addMinutes(5));
+
+        $response = $this->postJson('/api/bookings/verify-otp', [
+            'email' => $email,
+            'otp' => $otp,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+            ]);
+
+        $this->assertTrue(Cache::get('booking_verified_' . $email));
+        $this->assertNull(Cache::get('booking_otp_' . $email));
+    }
+
+    public function test_it_blocks_verification_with_wrong_otp()
+    {
+        $email = 'test@example.com';
+        Cache::put('booking_otp_' . $email, '123456', now()->addMinutes(5));
+
+        $response = $this->postJson('/api/bookings/verify-otp', [
+            'email' => $email,
+            'otp' => '654321', // Wrong OTP
+        ]);
+
+        $response->assertStatus(400)
+            ->assertJson([
+                'success' => false,
+            ]);
+
+        $this->assertNull(Cache::get('booking_verified_' . $email));
+    }
 }
