@@ -40,4 +40,23 @@ class BookingOtpTest extends TestCase
                 'success' => false,
             ]);
     }
+
+    public function test_it_can_send_otp_email()
+    {
+        $email = 'test@example.com';
+        
+        $response = $this->postJson('/api/bookings/send-otp', [
+            'email' => $email,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+            ]);
+
+        $this->assertNotNull(Cache::get('booking_otp_' . $email));
+        Mail::assertSent(\App\Mail\BookingOtpMail::class, function ($mail) use ($email) {
+            return $mail->hasTo($email);
+        });
+    }
 }
