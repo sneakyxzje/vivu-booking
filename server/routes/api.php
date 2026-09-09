@@ -20,6 +20,7 @@ use App\Models\Service;
 
 // Customer
 use App\Http\Controllers\Api\Customer\BookingController as CustomerBookingController;
+use App\Http\Controllers\Api\Customer\OtpController;
 use App\Http\Controllers\Api\Customer\ChangeRequestController as CustomerChangeRequestController;
 use App\Http\Controllers\Api\Customer\PassengerController as CustomerPassengerController;
 use App\Http\Controllers\Api\Customer\GroupBookingController as CustomerGroupBookingController;
@@ -95,6 +96,8 @@ Route::get('/services', fn() => response()->json([
     // Chỉ trả về dịch vụ đang hoạt động (is_active = true) cho phía khách hàng xem
     'data' => Service::where('is_active', true)->orderBy('name')->get(),
 ]));
+Route::post('/bookings/send-otp', [OtpController::class, 'sendOtp']);
+Route::post('/bookings/verify-otp', [OtpController::class, 'verifyOtp']);
 Route::post('/bookings', [CustomerBookingController::class, 'store']);
 // 14 - Booking theo đoàn: gửi yêu cầu, tra cứu bằng mã, rút yêu cầu. Không cần tài khoản,
 // cùng cơ chế mã tra cứu ngẫu nhiên với đơn lẻ.
