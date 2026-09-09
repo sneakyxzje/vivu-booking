@@ -23,26 +23,33 @@ class OtpController extends Controller
             'email.required' => 'Vui lòng nhập email để nhận mã OTP.',
         ]);
 
-        $email = $validated['email'];
+        $email = strtolower(trim($validated['email']));
         $throttleKey = 'send-otp:' . $email;
+        $ipKey = 'send-otp-ip:' . $request->ip();
 
-        // Chống spam: Mỗi email chỉ được gửi tối đa 3 lần mỗi giờ
+        // 1. Chống spam IP: Tối đa 10 lần gửi OTP / giờ từ 1 IP
+        if (RateLimiter::tooManyAttempts($ipKey, 10)) {
+            $seconds = RateLimiter::availableIn($ipKey);
+            $minutes = ceil($seconds / 60);
+            return $this->error("IP của bạn đã yêu cầu quá nhiều mã OTP. Vui lòng thử lại sau {$minutes} phút.", 429);
+        }
+
+        // 2. Chống spam Email: Tối đa 3 lần gửi / giờ tới 1 Email
         if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
             $seconds = RateLimiter::availableIn($throttleKey);
             $minutes = ceil($seconds / 60);
-            return response()->json([
-                'success' => false,
-                'message' => "Bạn đã vượt quá giới hạn gửi mã. Vui lòng thử lại sau {$minutes} phút.",
-            ], 429);
+            return $this->error("Bạn đã vượt quá giới hạn gửi mã tới email này. Vui lòng thử lại sau {$minutes} phút.", 429);
         }
 
-        RateLimiter::hit($throttleKey, 3600); // Lưu key trong 1 giờ
+        RateLimiter::hit($ipKey, 3600);
+        RateLimiter::hit($throttleKey, 3600);
 
         // Tạo OTP ngẫu nhiên 6 số
         $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         
-        // Lưu vào cache 5 phút
+        // Lưu vào cache 5 phút và reset đếm sai cũ nếu có
         Cache::put('booking_otp_' . $email, $otp, now()->addMinutes(5));
+        Cache::forget('verify-otp-attempts:' . $email);
 
         // Gửi email
         Mail::to($email)->send(new BookingOtpMail($otp));
@@ -64,19 +71,37 @@ class OtpController extends Controller
             'otp.size' => 'Mã OTP phải gồm 6 chữ số.',
         ]);
 
-        $email = $validated['email'];
+        $email = strtolower(trim($validated['email']));
         $otp = $validated['otp'];
+
+        $attemptsKey = 'verify-otp-attempts:' . $email;
+        $attempts = (int) Cache::get($attemptsKey, 0);
+
+        // Chống Brute-Force: Quá 5 lần thử sai thì hủy luôn OTP
+        if ($attempts >= 5) {
+            Cache::forget('booking_otp_' . $email);
+            Cache::forget($attemptsKey);
+            return $this->error('Bạn đã nhập sai mã OTP quá 5 lần. Mã OTP đã bị hủy, vui lòng bấm gửi lại mã mới.', 400);
+        }
 
         $cachedOtp = Cache::get('booking_otp_' . $email);
 
         if (!$cachedOtp || $cachedOtp !== $otp) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Mã OTP không chính xác hoặc đã hết hạn.',
-            ], 400);
+            $attempts++;
+            Cache::put($attemptsKey, $attempts, now()->addMinutes(5));
+            
+            if ($attempts >= 5) {
+                Cache::forget('booking_otp_' . $email);
+                Cache::forget($attemptsKey);
+                return $this->error('Bạn đã nhập sai mã OTP 5 lần. Mã đã bị hủy để đảm bảo an toàn, vui lòng yêu cầu mã mới.', 400);
+            }
+
+            $remaining = 5 - $attempts;
+            return $this->error("Mã OTP không chính xác. Bạn còn {$remaining} lần thử.", 400);
         }
 
-        // OTP đúng -> Sinh cờ xác thực lưu trong 15 phút
+        // OTP đúng -> Xóa đếm thử sai & Sinh cờ xác thực lưu trong 15 phút
+        Cache::forget($attemptsKey);
         Cache::put('booking_verified_' . $email, true, now()->addMinutes(15));
         
         // Xóa mã OTP cũ

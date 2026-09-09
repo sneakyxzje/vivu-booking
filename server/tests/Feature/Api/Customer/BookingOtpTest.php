@@ -98,18 +98,46 @@ class BookingOtpTest extends TestCase
         $this->assertNull(Cache::get('booking_verified_' . $email));
     }
 
+    public function test_it_invalidates_otp_after_5_failed_attempts()
+    {
+        $email = 'test@example.com';
+        Cache::put('booking_otp_' . $email, '123456', now()->addMinutes(5));
+
+        // Nhập sai 5 lần
+        for ($i = 1; $i <= 5; $i++) {
+            $response = $this->postJson('/api/bookings/verify-otp', [
+                'email' => $email,
+                'otp' => '000000',
+            ]);
+            $response->assertStatus(400);
+        }
+
+        // Sau 5 lần nhập sai, OTP ban đầu trong Cache phải bị hủy hoàn toàn
+        $this->assertNull(Cache::get('booking_otp_' . $email));
+    }
+
     public function test_it_blocks_booking_without_otp()
     {
         $email = 'test@example.com';
         
+        $tour = \App\Models\Tour::factory()->create(['status' => 'published']);
+        $schedule = \App\Models\TourSchedule::factory()->create([
+            'tour_id' => $tour->id,
+            'start_date' => now()->addDays(10),
+            'max_people' => 20,
+            'booked_people' => 0,
+        ]);
+
         // Cố tình không tạo cache booking_verified_$email
         
         $response = $this->postJson('/api/bookings', [
-            'tour_id' => 1,
-            'tour_schedule_id' => 1,
+            'tour_id' => $tour->id,
+            'tour_schedule_id' => $schedule->id,
             'customer_name' => 'John Doe',
             'customer_email' => $email,
+            'customer_phone' => '0912345678',
             'adult_count' => 1,
+            'accept_terms' => true,
         ]);
 
         $response->assertStatus(403)
