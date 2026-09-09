@@ -109,6 +109,14 @@ class BookingController extends Controller
                 . 'nhiều hơn số người lớn.',
         ]);
 
+        $email = $data['customer_email'];
+        if (!\Illuminate\Support\Facades\Cache::get('booking_verified_' . $email)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn chưa xác thực email. Vui lòng nhận và nhập mã OTP trước khi đặt tour.',
+            ], 403);
+        }
+
         $user = auth('sanctum')->user();
 
         if ($user && $user->role !== 'customer') {
@@ -344,6 +352,11 @@ class BookingController extends Controller
         $moDau = $laDonTrung
             ? 'Đơn đặt tour của bạn đã được ghi nhận trước đó.'
             : 'Đặt tour thành công.';
+
+        // Thu hồi cờ xác thực OTP sau khi giao dịch tạo đơn thành công
+        if (!$laDonTrung) {
+            \Illuminate\Support\Facades\Cache::forget('booking_verified_' . $data['customer_email']);
+        }
 
         $thongBao = $conNo > 0
             ? sprintf(
