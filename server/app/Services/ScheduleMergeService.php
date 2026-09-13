@@ -115,8 +115,8 @@ class ScheduleMergeService
             $lyDo = $e->getMessage();
         }
 
-        $chuyenDi = $this->bookingsToTransfer($from);
-        $huyDi = $this->bookingsToCancel($from);
+        $chuyenDi = $this->bookingsToTransfer($from, $to);
+        $huyDi = $this->bookingsToCancel($from, $to);
 
         return [
             'can_merge' => $coThe,
@@ -161,8 +161,8 @@ class ScheduleMergeService
 
             $this->assertCanMerge($nguon, $dich);
 
-            $chuyenDi = $this->bookingsToTransfer($nguon);
-            $huyDi = $this->bookingsToCancel($nguon);
+            $chuyenDi = $this->bookingsToTransfer($nguon, $dich);
+            $huyDi = $this->bookingsToCancel($nguon, $dich);
 
             $tongKhachChuyen = (int) $chuyenDi->sum(fn (Booking $don) => $don->seatsTaken());
 
@@ -261,8 +261,10 @@ class ScheduleMergeService
         Carbon $ngayMoi,
         string $lyDo,
     ): void {
-        foreach ($this->donTheoId($idDaDoi) as $don) {
-            $this->gui($don, new ScheduleMergedMail($don, $ngayCu, $ngayMoi, $lyDo));
+        if (!$ngayCu->isSameDay($ngayMoi)) {
+            foreach ($this->donTheoId($idDaDoi) as $don) {
+                $this->gui($don, new ScheduleMergedMail($don, $ngayCu, $ngayMoi, $lyDo));
+            }
         }
 
         foreach ($this->donTheoId($idDaHuy) as $don) {
@@ -371,7 +373,7 @@ class ScheduleMergeService
         }
 
         // 3. Chuyến đích còn đủ chỗ cho toàn bộ khách của chuyến nguồn.
-        $canChuyen = (int) $this->bookingsToTransfer($from)->sum(fn (Booking $don) => $don->seatsTaken());
+        $canChuyen = (int) $this->bookingsToTransfer($from, $to)->sum(fn (Booking $don) => $don->seatsTaken());
         $conTrong = (int) $to->max_people - (int) $to->booked_people;
 
         if ($conTrong < $canChuyen) {
@@ -397,18 +399,39 @@ class ScheduleMergeService
         }
     }
 
-    /** Đơn đã thanh toán, sẽ được chuyển sang chuyến đích. */
-    private function bookingsToTransfer(TourSchedule $from)
+    /** 
+     * Đơn sẽ được chuyển sang chuyến đích.
+     * Nếu ghép cùng ngày (chỉ gộp đoàn, không đổi lịch), chuyển cả đơn chưa thanh toán.
+     */
+    private function bookingsToTransfer(TourSchedule $from, TourSchedule $to)
     {
+        $cungNgay = $from->start_date && $to->start_date 
+            && Carbon::parse($from->start_date)->isSameDay(Carbon::parse($to->start_date));
+
+        $trangThai = BookingStatus::paidValues();
+        if ($cungNgay) {
+            $trangThai[] = BookingStatus::Pending->value;
+        }
+
         return Booking::query()
             ->where('tour_schedule_id', $from->getKey())
-            ->whereIn('status', BookingStatus::paidValues())
+            ->whereIn('status', $trangThai)
             ->get();
     }
 
-    /** Đơn chưa thanh toán, sẽ bị hủy và mời đặt lại. */
-    private function bookingsToCancel(TourSchedule $from)
+    /** 
+     * Đơn chưa thanh toán, sẽ bị hủy và mời đặt lại.
+     * Nếu ghép cùng ngày thì không hủy đơn nào (đã gom hết vào mảng chuyển đi). 
+     */
+    private function bookingsToCancel(TourSchedule $from, TourSchedule $to)
     {
+        $cungNgay = $from->start_date && $to->start_date 
+            && Carbon::parse($from->start_date)->isSameDay(Carbon::parse($to->start_date));
+
+        if ($cungNgay) {
+            return collect();
+        }
+
         return Booking::query()
             ->where('tour_schedule_id', $from->getKey())
             ->where('status', BookingStatus::Pending->value)
