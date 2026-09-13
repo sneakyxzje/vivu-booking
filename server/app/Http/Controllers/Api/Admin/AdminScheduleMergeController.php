@@ -39,7 +39,10 @@ class AdminScheduleMergeController extends Controller
 
         $ungVien = TourSchedule::query()
             ->with('tour:id,title,type,status')
-            ->where('tour_id', $nguon->tour_id)
+            ->where(function ($query) use ($nguon) {
+                $query->where('tour_id', $nguon->tour_id)
+                      ->orWhereDate('start_date', Carbon::parse($nguon->start_date)->toDateString());
+            })
             ->whereKeyNot($nguon->getKey())
             ->whereIn('status', [
                 ScheduleStatus::Open->value,
