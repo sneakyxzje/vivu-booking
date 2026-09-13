@@ -58,6 +58,9 @@ class AdminScheduleMergeController extends Controller
                     'start_date' => $dich->start_date,
                     'booked_people' => (int) $dich->booked_people,
                     'max_people' => (int) $dich->max_people,
+                    'tour_id' => $dich->tour_id,
+                    'tour_title' => $dich->tour?->title,
+                    'tour_type' => $dich->tour?->type,
                 ] + $this->mergeService->preview($nguon, $dich);
             })
             ->filter(fn (array $row) => $row['can_merge'])

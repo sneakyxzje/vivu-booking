@@ -1953,6 +1953,11 @@ export default function ScheduleManagement() {
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="text-sm font-bold text-gray-900">
                         #{item.schedule_id} · {formatDateTime(item.start_date)}
+                        {item.tour_title && item.tour_title !== mergeData?.schedule.tour_title && (
+                          <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-800">
+                            Khác tour: {item.tour_title}
+                          </span>
+                        )}
                       </span>
                       <span className="text-[11px] text-gray-500">
                         {item.booked_people}/{item.max_people} chỗ
