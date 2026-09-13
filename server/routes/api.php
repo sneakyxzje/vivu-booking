@@ -127,6 +127,11 @@ Route::get('/bookings/{publicToken}/refund-quote', [CustomerBookingController::c
  * phải nhận lại được tiền. Chỉ mở khi đơn thật sự còn nợ khách, xem RefundAccountService.
  */
 Route::put('/bookings/{publicToken}/refund-account', [CustomerBookingController::class, 'updateRefundAccount']);
+
+// Khách hàng vãng lai xem và phản hồi Đề xuất thay đổi (Admin gửi)
+Route::get('/bookings/{publicToken}/proposals', [\App\Http\Controllers\Api\Customer\BookingProposalController::class, 'index']);
+Route::post('/bookings/{publicToken}/proposals/{proposalId}/respond', [\App\Http\Controllers\Api\Customer\BookingProposalController::class, 'respond']);
+
 /*
  * Kiểm mã giảm giá trước khi đặt.
  *
@@ -402,6 +407,10 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         Route::get('/schedules/{id}/cancel-preview', [AdminScheduleCancellationController::class, 'preview']);
         Route::post('/schedules/{id}/cancel', [AdminScheduleCancellationController::class, 'store']);
 
+        // Gửi đề xuất thay đổi hàng loạt cho toàn bộ đơn hàng trong chuyến đi (Automated Bulk Proposal)
+        Route::post('/schedules/{id}/bulk-proposals', [\App\Http\Controllers\Api\Admin\BulkBookingProposalController::class, 'store']);
+        Route::get('/schedules/{id}/proposals/stats', [\App\Http\Controllers\Api\Admin\BulkBookingProposalController::class, 'stats']);
+
         // Dời hạn chốt danh sách, kèm xem trước tác động trước khi lưu.
         Route::get('/schedules/{id}/deadline-impact', [AdminScheduleDeadlineController::class, 'preview']);
         Route::patch('/schedules/{id}/deadline', [AdminScheduleDeadlineController::class, 'update']);
@@ -420,6 +429,12 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         Route::get('/change-requests/{id}', [AdminChangeRequestController::class, 'show']);
         Route::put('/change-requests/{id}/approve', [AdminChangeRequestController::class, 'approve']);
         Route::put('/change-requests/{id}/reject', [AdminChangeRequestController::class, 'reject']);
+
+        // Gửi đề xuất thay đổi (Admin -> Khách hàng)
+        Route::get('/bookings/{id}/proposals', [\App\Http\Controllers\Api\Admin\BookingProposalController::class, 'index']);
+        Route::post('/bookings/{id}/proposals', [\App\Http\Controllers\Api\Admin\BookingProposalController::class, 'store']);
+        Route::delete('/bookings/{id}/proposals/{proposalId}', [\App\Http\Controllers\Api\Admin\BookingProposalController::class, 'destroy']);
+
 
         // G03, G05 - Danh sách hành khách. Điều hành sửa được cả sau hạn chốt.
         Route::get('/bookings/{id}/passengers', [AdminPassengerController::class, 'index']);
