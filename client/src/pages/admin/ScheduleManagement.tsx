@@ -40,6 +40,7 @@ import {
   getEndDate,
   toDateTimeLocalValue,
 } from "@/utils/format";
+import { BulkProposalDialog } from "@/components/admin/BulkProposalDialog";
 import {
   LY_DO_DOI_HAN_TOI_THIEU,
   statusLabel,
@@ -161,6 +162,10 @@ export default function ScheduleManagement() {
   const [manifestScheduleId, setManifestScheduleId] = useState<number | null>(
     null,
   );
+  
+  // State Gửi đề xuất hàng loạt
+  const [bulkProposalScheduleId, setBulkProposalScheduleId] = useState<number | null>(null);
+
   const [dangXuatDanhSach, setDangXuatDanhSach] = useState(false);
   const [manifest, setManifest] = useState<ScheduleManifestResponse | null>(
     null,
@@ -1280,6 +1285,14 @@ export default function ScheduleManagement() {
                                           },
                                         ]
                                       : []),
+
+                                    /* Bulk Proposal: Đề xuất thay đổi hàng loạt */
+                                    {
+                                      label: "Đề xuất thay đổi",
+                                      onClick: () =>
+                                        setBulkProposalScheduleId(schedule.id),
+                                      icon: <ClipboardCheck className="w-4 h-4" />,
+                                    },
 
                                     ...(status === "open" || status === "closed"
                                       ? [
@@ -2440,6 +2453,13 @@ export default function ScheduleManagement() {
           </div>
         </div>
       )}
+
+      {/* Hộp thoại Đề xuất thay đổi (Bulk Proposal) */}
+      <BulkProposalDialog
+        scheduleId={bulkProposalScheduleId ?? 0}
+        isOpen={bulkProposalScheduleId !== null}
+        onClose={() => setBulkProposalScheduleId(null)}
+      />
 
       <Toast
         message={toast.message}
