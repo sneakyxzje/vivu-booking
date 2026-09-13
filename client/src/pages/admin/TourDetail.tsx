@@ -329,6 +329,12 @@ export default function AdminTourDetail() {
                               Lý do hủy: {schedule.cancelled_reason}
                             </span>
                           )}
+                        {status === "cancelled" &&
+                          schedule.merged_into_schedule_id && (
+                            <span className="text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200 font-bold">
+                              Đã ghép vào #{schedule.merged_into_schedule_id}
+                            </span>
+                          )}
                       </div>
 
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

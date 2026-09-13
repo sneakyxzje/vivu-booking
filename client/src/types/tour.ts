@@ -119,6 +119,7 @@ export interface TourSchedule {
   paid_people?: number;
   booking_deadline?: string;
   cancelled_reason?: string | null;
+  merged_into_schedule_id?: number | null;
   /**
    * Các hướng dẫn viên phụ trách chuyến.
    *
