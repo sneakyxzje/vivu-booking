@@ -191,6 +191,12 @@ export default function BookingSuccess() {
   };
   const paymentStatus = searchParams.get("payment_status");
 
+  // Proposals
+  const [proposals, setProposals] = useState<any[]>([]);
+  const [respondingProposalId, setRespondingProposalId] = useState<number | null>(null);
+  const [proposalEmail, setProposalEmail] = useState("");
+  const [proposalError, setProposalError] = useState("");
+
   // Luôn tải bản mới nhất từ server (kể cả khi đã có dữ liệu từ trang đặt tour),
   // để trạng thái đơn phản ánh đúng khi bị admin hủy hoặc hết hạn giữ chỗ.
   useEffect(() => {
@@ -207,8 +213,44 @@ export default function BookingSuccess() {
       }
     };
 
+    const loadProposals = async () => {
+      try {
+        const response = await bookingService.getProposals(id);
+        setProposals(response.data?.data || []);
+      } catch {
+        // ignore
+      }
+    };
+
     loadBooking();
+    loadProposals();
   }, [id, state]);
+
+  const handleRespondProposal = async (proposalId: number, choiceId: string) => {
+    if (!proposalEmail.trim()) {
+      setProposalError("Vui lòng nhập Email để xác nhận.");
+      return;
+    }
+    
+    if (!id) return;
+    setRespondingProposalId(proposalId);
+    setProposalError("");
+
+    try {
+      await bookingService.respondToProposal(id, {
+        proposal_id: proposalId,
+        choice_id: choiceId,
+        customer_email: proposalEmail.trim(),
+      });
+      // Refresh
+      const response = await bookingService.getProposals(id);
+      setProposals(response.data?.data || []);
+    } catch (err: any) {
+      setProposalError(err.response?.data?.message || "Lỗi khi xác nhận. Vui lòng thử lại.");
+    } finally {
+      setRespondingProposalId(null);
+    }
+  };
 
   // Đếm ngược thời gian giữ chỗ; hết giờ thì tải lại đơn (server sẽ trả trạng thái đã hủy)
   useEffect(() => {
@@ -440,13 +482,57 @@ export default function BookingSuccess() {
 
         <div className="grid gap-8 lg:grid-cols-12 items-start">
           <div className="lg:col-span-8 space-y-8">
+            {/* ĐỀ XUẤT THAY ĐỔI TỪ HỆ THỐNG */}
+            {proposals.filter(p => p.status === "pending").map((proposal) => (
+              <div key={proposal.id} className="rounded-xl bg-amber-50 border border-amber-200 p-6 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+                <h2 className="text-lg font-bold text-amber-900 mb-2 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Thông báo thay đổi chuyến đi
+                </h2>
+                <p className="text-sm text-amber-800 mb-4 whitespace-pre-line leading-relaxed">
+                  {proposal.reason}
+                </p>
+                
+                <div className="bg-white p-4 rounded-lg border border-amber-100 shadow-sm">
+                  <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">
+                    Vui lòng chọn 1 trong các phương án sau trước hạn chót: {formatDateTime(proposal.response_deadline)}
+                  </p>
+                  
+                  {proposalError && respondingProposalId === proposal.id && (
+                    <div className="mb-3 p-2 bg-rose-50 text-rose-700 text-xs rounded border border-rose-100">
+                      {proposalError}
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-3">
+                    <input
+                      type="email"
+                      value={proposalEmail}
+                      onChange={(e) => setProposalEmail(e.target.value)}
+                      placeholder="Nhập email đặt tour của bạn để xác nhận..."
+                      className="w-full text-sm px-3 py-2 border rounded-md outline-none focus:border-amber-400"
+                    />
+                    
+                    <div className="flex flex-wrap gap-2">
+                      {proposal.options.map((opt: any) => (
+                        <button
+                          key={opt.id}
+                          onClick={() => handleRespondProposal(proposal.id, opt.id)}
+                          disabled={respondingProposalId === proposal.id}
+                          className="flex-1 min-w-[200px] bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-md text-sm transition-colors disabled:opacity-50"
+                        >
+                          {respondingProposalId === proposal.id ? "Đang xử lý..." : opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
             {/*
               Điều khoản hủy và số tiền hoàn nếu hủy bây giờ. Đơn đã hủy rồi thì không cần nữa.
-
-              Thẻ này đã được viết xong từ lâu (`RefundPolicyCard`) — đúng thứ tài liệu 03 mục 5.2
-              đòi là bắt buộc — nhưng không trang nào import nó, nên trên thực tế khách vãng lai
-              không có chỗ nào xem trước mức hoàn trước khi quyết định hủy. Chỗ trống ở đây chỉ còn
-              lại đúng dòng chú thích này.
             */}
             {!cancelled && (booking.public_token || id) && (
               <RefundPolicyCard publicToken={String(booking.public_token ?? id)} />
