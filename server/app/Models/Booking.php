@@ -298,6 +298,11 @@ class Booking extends Model
     {
         return $this->belongsTo(CancellationPolicy::class);
     }
+
+    public function proposals()
+    {
+        return $this->hasMany(BookingChangeProposal::class);
+    }
 }
 
 
