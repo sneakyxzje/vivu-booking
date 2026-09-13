@@ -112,7 +112,7 @@ class VNPayCallbackService
                 : null;
 
             if ($booking->status === 'pending') {
-                return $this->xuLyDonChoThanhToan($booking, $thanhCong, $soTien, $maGiaoDich);
+                return $this->xuLyDonChoThanhToan($booking, $thanhCong, $soTien, $maGiaoDich, $query['vnp_ResponseCode'] ?? null);
             }
 
             /*
@@ -181,6 +181,7 @@ class VNPayCallbackService
         bool $thanhCong,
         float $soTien,
         ?string $maGiaoDich,
+        ?string $rspCode = null,
     ): array {
         /*
          * Trả tiền THẤT BẠI thì đơn giữ nguyên `pending`, không hủy.
