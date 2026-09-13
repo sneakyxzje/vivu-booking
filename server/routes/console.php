@@ -16,6 +16,11 @@ Schedule::command('bookings:release-expired')
     ->everyMinute()
     ->withoutOverlapping();
 
+// Quét và xử lý tự động (fallback_action) các đề xuất thay đổi đã quá hạn
+Schedule::command('proposals:expire')
+    ->everyMinute()
+    ->withoutOverlapping();
+
 // A05: Đóng bán các chuyến đã quá hạn chốt hoặc đã đủ chỗ
 Schedule::command('schedules:close-expired')
     ->everyMinute()
