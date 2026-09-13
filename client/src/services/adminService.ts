@@ -1935,7 +1935,38 @@ const adminService = {
     const response = await api.post(`/admin/bookings/${bookingId}/send-mail`, { type });
     return response.data.message as string;
   },
+
+  // --- BULK PROPOSAL (Gửi đề xuất hàng loạt) ---
+  sendBulkProposals: async (
+    scheduleId: number,
+    payload: {
+      reason: string;
+      options: { id: string; label: string; system_action?: string }[];
+      response_deadline: string;
+      fallback_action?: string;
+    },
+  ) => {
+    const response = await api.post(`/admin/tour-schedules/${scheduleId}/bulk-proposals`, payload);
+    return response.data;
+  },
+
+  getProposalStats: async (scheduleId: number) => {
+    const response = await api.get(`/admin/tour-schedules/${scheduleId}/proposals/stats`);
+    return response.data;
+  },
 };
+
+export interface ProposalStatsResponse {
+  total: number;
+  pending: number;
+  accepted: number;
+  rejected: number;
+  expired: number;
+  choices: {
+    choice_id: string;
+    count: number;
+  }[];
+}
 
 /** Một kịch bản nghiệp vụ trong danh mục sân thử. */
 export interface SandboxScenarioInfo {
