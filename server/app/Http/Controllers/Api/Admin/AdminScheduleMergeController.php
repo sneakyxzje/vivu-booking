@@ -8,6 +8,7 @@ use App\Models\TourSchedule;
 use App\Services\ScheduleMergeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 /**
  * L03 - Điều hành ghép hai chuyến của cùng một tour.
