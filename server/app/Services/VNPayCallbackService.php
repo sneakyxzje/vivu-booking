@@ -195,8 +195,16 @@ class VNPayCallbackService
          * Thời hạn giữ chỗ sinh ra chính là để đựng khoảng này. Đơn ở lại `pending` tới `expires_at`
          * rồi `BookingHoldService` tự dọn nếu khách thật sự bỏ cuộc — không cần một đường hủy thứ
          * hai chạy sớm hơn hạn mà cả hệ thống đang cam kết với khách.
+         *
+         * NGOẠI LỆ: Nếu khách chủ động bấm "Hủy thanh toán/Quay lại" trên cổng VNPay (mã lỗi 24),
+         * ta có cơ sở chắc chắn là họ đã từ chối mua. Lúc này cần dọn dẹp và nhả chỗ ngay lập tức.
          */
         if (!$thanhCong) {
+            if ($rspCode === '24') {
+                $this->holdService->expireStaleHold($booking, 'Khách hàng từ chối thanh toán tại cổng VNPay');
+                $booking->refresh();
+            }
+
             return $this->ketQua(null, false, self::RSP_THANH_CONG, $booking->id);
         }
 
