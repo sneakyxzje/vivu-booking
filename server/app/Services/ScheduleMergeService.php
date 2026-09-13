@@ -311,8 +311,13 @@ class ScheduleMergeService
         }
 
         // 1. Cùng tour. Ghép hai tour khác nhau là đổi hẳn sản phẩm khách đã mua.
+        // NGoại lệ: Nếu 2 chuyến KHÁC tour nhưng khởi hành CÙNG NGÀY, hệ thống cho phép ghép.
+        // Điều hành sẽ tự chịu trách nhiệm tổ chức và giữ nguyên dịch vụ đã cam kết.
         if ((int) $from->tour_id !== (int) $to->tour_id) {
-            throw new BusinessRuleException('Chỉ ghép được hai chuyến của cùng một tour.');
+            $cungNgay = Carbon::parse($from->start_date)->isSameDay(Carbon::parse($to->start_date));
+            if (!$cungNgay) {
+                throw new BusinessRuleException('Chỉ ghép được hai chuyến của cùng một tour, hoặc hai chuyến khác tour nhưng phải khởi hành cùng ngày.');
+            }
         }
 
         $loai = TourType::tryFrom((string) ($from->tour?->type ?? TourType::Shared->value));
