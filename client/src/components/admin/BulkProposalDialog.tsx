@@ -14,13 +14,6 @@ interface BulkProposalDialogProps {
 
 const PIE_COLORS = ["#10b981", "#f43f5e", "#f59e0b", "#6b7280"]; // Green, Red, Amber, Gray
 
-const PRESET_CUSTOM_ACTIONS = [
-  { value: "refund_voucher_100", label: "Phát hành Voucher bồi thường 100% giá trị đơn" },
-  { value: "refund_voucher_110", label: "Phát hành Voucher bồi thường 110% (Tặng thêm 10%)" },
-  { value: "hold_deposit_6m", label: "Bảo lưu cọc 06 tháng & Giữ vị trí ưu tiên" },
-  { value: "priority_rebook_next", label: "Ưu tiên chuyển sang chuyến kế tiếp khởi hành" },
-  { value: "manual_custom", label: "Nhập mã chính sách hệ thống tùy chỉnh..." },
-];
 
 const CustomSelect = ({ value, onChange, options, placeholder = "Chọn...", className = "" }: any) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -122,7 +115,7 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
       if (res && res.candidates) {
         setCandidates(res.candidates);
         if (res.candidates.length > 0) {
-          setFallbackTransferId(String(res.candidates[0].schedule_id));
+          // Candidates loaded
         }
       }
     } catch (e) {
@@ -413,8 +406,6 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                   Thêm phương án
                 </button>
-              </div>
-
               </div>
             </div>
           ) : (
