@@ -15,7 +15,7 @@ class BookingChangeProposal extends Model
         'reason',
         'options',
         'response_deadline',
-        'fallback_action',
+
         'status',
         'customer_choice',
         'customer_note',
