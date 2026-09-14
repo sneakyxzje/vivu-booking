@@ -80,10 +80,6 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
   const [options, setOptions] = useState<{ id: string; label: string; system_action: string }[]>([
     { id: "refund", label: "Hủy và Hoàn tiền 100%", system_action: "refund" },
   ]);
-  const [fallbackType, setFallbackType] = useState<string>("refund");
-  const [fallbackTransferId, setFallbackTransferId] = useState<string>("");
-  const [fallbackCustomPolicy, setFallbackCustomPolicy] = useState<string>("refund_voucher_100");
-  const [fallbackCustomText, setFallbackCustomText] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
   // Candidates state
@@ -102,10 +98,6 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
       setReason("");
       setDeadline("");
       setOptions([{ id: "refund", label: "Hủy và Hoàn tiền 100%", system_action: "refund" }]);
-      setFallbackType("refund");
-      setFallbackTransferId("");
-      setFallbackCustomPolicy("refund_voucher_100");
-      setFallbackCustomText("");
       loadStats();
       loadCandidates();
     }
@@ -182,38 +174,12 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
       }
     }
 
-    let finalFallbackAction = "";
-    if (fallbackType === "none") {
-      finalFallbackAction = "";
-    } else if (fallbackType === "transfer") {
-      const targetId = fallbackTransferId || (candidates.length > 0 ? String(candidates[0].schedule_id) : "");
-      if (!targetId) {
-        setToast({ isOpen: true, type: "error", message: "Vui lòng chọn chuyến đích cho hành động mặc định" });
-        return;
-      }
-      finalFallbackAction = `transfer:${targetId}`;
-    } else if (fallbackType === "custom") {
-      if (fallbackCustomPolicy === "manual_custom") {
-        if (!fallbackCustomText.trim()) {
-          setToast({ isOpen: true, type: "error", message: "Vui lòng nhập mã chính sách tùy chỉnh" });
-          return;
-        }
-        finalFallbackAction = fallbackCustomText.trim();
-      } else {
-        finalFallbackAction = fallbackCustomPolicy;
-      }
-    } else {
-      const matchedOpt = options.find((o) => o.id === fallbackType);
-      finalFallbackAction = matchedOpt ? matchedOpt.system_action : fallbackType;
-    }
-
     setSaving(true);
     try {
       await adminService.sendBulkProposals(scheduleId, {
         reason,
         response_deadline: deadline,
         options,
-        fallback_action: finalFallbackAction,
       });
       setToast({ isOpen: true, type: "success", message: "Đã gửi đề xuất thành công!" });
       setTimeout(() => {
@@ -326,7 +292,7 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
           >
             <div className="flex items-center justify-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              Tạo đề xuất mới
+              Gửi thông báo & Yêu cầu phản hồi
             </div>
           </button>
           <button
@@ -449,71 +415,6 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
                 </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">
-                  Hành động mặc định khi hết hạn (Fallback Action)
-                </label>
-                <CustomSelect
-                  value={fallbackType}
-                  onChange={setFallbackType}
-                  options={[
-                    { value: "none", label: "Chờ xử lý thủ công (Không tự động can thiệp)" },
-                    { value: "refund", label: "Tự động hủy chuyến & Hoàn tiền 100%" },
-                    { value: "cancel_no_refund", label: "Tự động hủy chuyến (Không hoàn tiền)" },
-                    { value: "transfer", label: "Tự động chuyển sang chuyến khác..." },
-                    { value: "custom", label: "Tùy chỉnh mã hành động hệ thống..." },
-                    ...options.map((opt, idx) => ({
-                      value: opt.id,
-                      label: `Theo phương án ${idx + 1}: ${opt.label || "Chưa đặt tên"}`
-                    }))
-                  ]}
-                  className="w-full"
-                />
-
-                {fallbackType === "transfer" && (
-                  <div className="mt-2.5 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <label className="text-xs font-semibold text-gray-700 mb-1.5 block">
-                      Chọn chuyến sẽ tự động chuyển tới khi hết hạn <span className="text-red-500">*</span>
-                    </label>
-                    <CustomSelect
-                      value={fallbackTransferId}
-                      onChange={setFallbackTransferId}
-                      options={scheduleOptions}
-                      placeholder="Chọn chuyến khởi hành phù hợp..."
-                      className="w-full"
-                    />
-                  </div>
-                )}
-
-                {fallbackType === "custom" && (
-                  <div className="mt-2.5 bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-3">
-                    <div>
-                      <label className="text-xs font-semibold text-gray-700 mb-1.5 block">
-                        Chọn chính sách bồi thường hệ thống <span className="text-red-500">*</span>
-                      </label>
-                      <CustomSelect
-                        value={fallbackCustomPolicy}
-                        onChange={setFallbackCustomPolicy}
-                        options={PRESET_CUSTOM_ACTIONS}
-                        placeholder="Chọn chính sách..."
-                        className="w-full"
-                      />
-                    </div>
-                    {fallbackCustomPolicy === "manual_custom" && (
-                      <div>
-                        <label className="text-xs font-semibold text-gray-700 mb-1 block">
-                          Mã chính sách tùy chỉnh <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          placeholder="Nhập mã chính sách hệ thống (ví dụ: voucher_special_50)"
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all bg-white font-mono"
-                          value={fallbackCustomText}
-                          onChange={(e) => setFallbackCustomText(e.target.value)}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           ) : (
@@ -543,7 +444,7 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
               ) : (
                 <>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                  Gửi đề xuất hàng loạt
+                  Gửi thông báo hàng loạt
                 </>
               )}
             </button>
