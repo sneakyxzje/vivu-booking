@@ -23,7 +23,7 @@ class BulkBookingProposalController extends Controller
         $validated = $request->validate([
             'reason' => ['required', 'string', 'max:1000'],
             'response_deadline' => ['required', 'date', 'after:now'],
-            'fallback_action' => ['required', 'string'],
+
             'options' => ['required', 'array', 'min:1'],
             'options.*.id' => ['required', 'string'],
             'options.*.title' => ['required', 'string'],
@@ -72,7 +72,7 @@ class BulkBookingProposalController extends Controller
                     'reason' => $validated['reason'],
                     'options' => $validated['options'],
                     'response_deadline' => $validated['response_deadline'],
-                    'fallback_action' => $validated['fallback_action'],
+
                     'status' => ProposalStatus::Pending->value,
                 ]);
 

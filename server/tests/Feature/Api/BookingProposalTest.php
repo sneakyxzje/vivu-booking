@@ -45,12 +45,14 @@ class BookingProposalTest extends TestCase
                 [
                     'id' => 'opt_1',
                     'title' => 'Đổi sang ngày 20/10/2026',
-                    'description' => 'Khởi hành muộn hơn'
+                    'description' => 'Khởi hành muộn hơn',
+                    'system_action' => 'transfer:1'
                 ],
                 [
                     'id' => 'opt_2',
                     'title' => 'Hủy và hoàn tiền',
-                    'description' => 'Hoàn 100%'
+                    'description' => 'Hoàn 100%',
+                    'system_action' => 'refund'
                 ]
             ],
             'response_deadline' => now()->addDays(2)->format('Y-m-d H:i:s'),
