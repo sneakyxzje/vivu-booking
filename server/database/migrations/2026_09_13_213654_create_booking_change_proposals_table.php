@@ -16,11 +16,11 @@ return new class extends Migration
             $table->foreignId('booking_id')->constrained()->cascadeOnDelete();
             $table->foreignId('admin_id')->constrained('users');
             $table->text('reason');
-            $table->json('options'); // Mảng các phương án: id, title, description, system_action
+
             $table->dateTime('response_deadline');
 
             $table->string('status', 32)->default('pending');
-            $table->string('customer_choice')->nullable(); // Lưu option_id
+
             $table->text('customer_note')->nullable();
             $table->dateTime('responded_at')->nullable();
             $table->timestamps();

@@ -1941,9 +1941,7 @@ const adminService = {
     scheduleId: number,
     payload: {
       reason: string;
-      options: { id: string; label: string; system_action?: string }[];
       response_deadline: string;
-      fallback_action?: string;
     },
   ) => {
     const response = await api.post(`/admin/tour-schedules/${scheduleId}/bulk-proposals`, payload);

@@ -41,20 +41,7 @@ class BookingProposalTest extends TestCase
 
         $payload = [
             'reason' => 'Thay đổi lịch trình do bão',
-            'options' => [
-                [
-                    'id' => 'opt_1',
-                    'title' => 'Đổi sang ngày 20/10/2026',
-                    'description' => 'Khởi hành muộn hơn',
-                    'system_action' => 'transfer:1'
-                ],
-                [
-                    'id' => 'opt_2',
-                    'title' => 'Hủy và hoàn tiền',
-                    'description' => 'Hoàn 100%',
-                    'system_action' => 'refund'
-                ]
-            ],
+
             'response_deadline' => now()->addDays(2)->format('Y-m-d H:i:s'),
         ];
 
@@ -82,7 +69,7 @@ class BookingProposalTest extends TestCase
             'booking_id' => $this->booking->id,
             'admin_id' => $this->admin->id,
             'reason' => 'Đổi giờ bay',
-            'options' => [['id' => 'opt_1', 'title' => 'OK']],
+
             'response_deadline' => now()->addDays(1),
             'status' => ProposalStatus::Pending->value,
         ]);
@@ -109,17 +96,13 @@ class BookingProposalTest extends TestCase
             'booking_id' => $this->booking->id,
             'admin_id' => $this->admin->id,
             'reason' => 'Đổi giờ bay',
-            'options' => [
-                ['id' => 'opt_1', 'title' => 'Đổi sang ngày mai'],
-                ['id' => 'opt_2', 'title' => 'Hủy']
-            ],
+
             'response_deadline' => now()->addDays(1),
             'status' => ProposalStatus::Pending->value,
         ]);
 
         $payload = [
             'action' => 'accept',
-            'choice_id' => 'opt_1',
             'note' => 'Tôi đồng ý đổi ngày'
         ];
 
@@ -134,7 +117,6 @@ class BookingProposalTest extends TestCase
         $this->assertDatabaseHas('booking_change_proposals', [
             'id' => $proposal->id,
             'status' => ProposalStatus::Accepted->value,
-            'customer_choice' => 'opt_1',
             'customer_note' => 'Tôi đồng ý đổi ngày'
         ]);
     }
@@ -145,14 +127,13 @@ class BookingProposalTest extends TestCase
             'booking_id' => $this->booking->id,
             'admin_id' => $this->admin->id,
             'reason' => 'Đổi giờ bay',
-            'options' => [['id' => 'opt_1', 'title' => 'Đồng ý']],
+
             'response_deadline' => now()->subMinutes(10), // Đã qua 10 phút
             'status' => ProposalStatus::Pending->value,
         ]);
 
         $payload = [
             'action' => 'accept',
-            'choice_id' => 'opt_1',
         ];
 
         $response = $this->postJson(

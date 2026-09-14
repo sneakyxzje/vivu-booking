@@ -24,11 +24,7 @@ class BulkBookingProposalController extends Controller
             'reason' => ['required', 'string', 'max:1000'],
             'response_deadline' => ['required', 'date', 'after:now'],
 
-            'options' => ['required', 'array', 'min:1'],
-            'options.*.id' => ['required', 'string'],
-            'options.*.title' => ['required', 'string'],
-            'options.*.description' => ['nullable', 'string'],
-            'options.*.system_action' => ['required', 'string'], // e.g. 'refund' or 'transfer:10'
+
         ]);
 
         $schedule = TourSchedule::with('bookings')->find($scheduleId);
@@ -70,7 +66,7 @@ class BulkBookingProposalController extends Controller
                     'booking_id' => $booking->id,
                     'admin_id' => $adminId,
                     'reason' => $validated['reason'],
-                    'options' => $validated['options'],
+
                     'response_deadline' => $validated['response_deadline'],
 
                     'status' => ProposalStatus::Pending->value,

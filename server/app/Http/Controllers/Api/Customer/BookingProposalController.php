@@ -78,34 +78,17 @@ class BookingProposalController extends Controller
 
         $validated = $request->validate([
             'action' => ['required', 'in:accept,reject'],
-            'choice_id' => ['required_if:action,accept', 'nullable', 'string'],
             'note' => ['nullable', 'string', 'max:1000'],
         ]);
 
         if ($validated['action'] === 'accept') {
-            // Tìm option khách đã chọn
-            $selectedOption = collect($proposal->options)->firstWhere('id', $validated['choice_id']);
-            
-            if (!$selectedOption) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Phương án đã chọn không hợp lệ.',
-                ], 400);
-            }
-
             $proposal->update([
                 'status' => ProposalStatus::Accepted->value,
-                'customer_choice' => $validated['choice_id'],
                 'customer_note' => $validated['note'] ?? null,
                 'responded_at' => now(),
             ]);
 
-            // Thực thi hành động tự động
-            if (isset($selectedOption['system_action'])) {
-                $this->proposalService->executeSystemAction($proposal, $selectedOption['system_action']);
-            }
-
-            $msg = 'Đã ghi nhận lựa chọn và tự động cập nhật đơn hàng của bạn thành công.';
+            $msg = 'Đã ghi nhận phản hồi đồng ý của bạn.';
         } else {
             $proposal->update([
                 'status' => ProposalStatus::Rejected->value,

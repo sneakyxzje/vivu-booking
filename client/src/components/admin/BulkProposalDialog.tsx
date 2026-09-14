@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { ChevronDown } from "lucide-react";
-import adminService, { type ProposalStatsResponse, type MergeCandidate } from "@/services/adminService";
+import { useState, useEffect } from "react";
+import adminService, { type ProposalStatsResponse } from "@/services/adminService";
 import { Toast } from "@/components/admin/CustomAlert";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import DateTimePicker from "@/components/DateTimePicker";
-import { formatDateTime } from "@/utils/format";
+
 
 interface BulkProposalDialogProps {
   scheduleId: number;
@@ -14,70 +13,15 @@ interface BulkProposalDialogProps {
 
 const PIE_COLORS = ["#10b981", "#f43f5e", "#f59e0b", "#6b7280"]; // Green, Red, Amber, Gray
 
-
-const CustomSelect = ({ value, onChange, options, placeholder = "Chọn...", className = "" }: any) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
-
-  const selectedOption = options.find((o: any) => o.value === value);
-
-  return (
-    <div className={`relative ${className}`} ref={containerRef}>
-      <button 
-        type="button"
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-left bg-white flex justify-between items-center hover:border-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-colors"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <span className={selectedOption ? "text-gray-900 font-medium" : "text-gray-400"}>
-          {selectedOption ? selectedOption.label : placeholder}
-        </span>
-        <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-      {isOpen && (
-        <div className="absolute z-[100] w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 max-h-60 overflow-y-auto">
-          {options.map((opt: any) => (
-            <div 
-              key={opt.value}
-              className={`px-3 py-2 text-sm cursor-pointer transition-colors ${value === opt.value ? 'bg-primary-50 text-primary-700 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
-              onClick={() => {
-                onChange(opt.value);
-                setIsOpen(false);
-              }}
-            >
-              {opt.label}
-            </div>
-          ))}
-          {options.length === 0 && <div className="px-3 py-2 text-sm text-gray-400 text-center">Không có lựa chọn</div>}
-        </div>
-      )}
-    </div>
-  );
-};
-
 export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposalDialogProps) {
   const [activeTab, setActiveTab] = useState<"create" | "stats">("create");
   
   // Create State
   const [reason, setReason] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [options, setOptions] = useState<{ id: string; label: string; system_action: string }[]>([
-    { id: "refund", label: "Hủy và Hoàn tiền 100%", system_action: "refund" },
-  ]);
+
   const [saving, setSaving] = useState(false);
 
-  // Candidates state
-  const [candidates, setCandidates] = useState<MergeCandidate[]>([]);
-  const [loadingCandidates, setLoadingCandidates] = useState(false);
 
   // Stats State
   const [stats, setStats] = useState<ProposalStatsResponse | null>(null);
@@ -90,9 +34,8 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
       setActiveTab("create");
       setReason("");
       setDeadline("");
-      setOptions([{ id: "refund", label: "Hủy và Hoàn tiền 100%", system_action: "refund" }]);
+
       loadStats();
-      loadCandidates();
     }
   }, [isOpen, scheduleId]);
 
@@ -108,45 +51,14 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
     }
   };
 
-  const loadCandidates = async () => {
-    setLoadingCandidates(true);
-    try {
-      const res = await adminService.getMergeCandidates(scheduleId);
-      if (res && res.candidates) {
-        setCandidates(res.candidates);
-        if (res.candidates.length > 0) {
-          // Candidates loaded
-        }
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingCandidates(false);
-    }
-  };
 
-  const scheduleOptions = useMemo(() => {
-    if (loadingCandidates) {
-      return [{ value: "", label: "Đang tải danh sách chuyến khởi hành..." }];
-    }
-    if (candidates.length === 0) {
-      return [{ value: "", label: "Không tìm thấy chuyến khác phù hợp" }];
-    }
-    return candidates.map((c) => {
-      const dateStr = formatDateTime(c.start_date);
-      const remainingText = c.remaining_seats > 0 ? `Còn ${c.remaining_seats} chỗ` : "Hết chỗ";
-      const statusSuffix = c.can_merge ? "" : ` (${c.blocked_reason || "Không thể ghép"})`;
-      return {
-        value: String(c.schedule_id),
-        label: `Chuyến #${c.schedule_id} - Khởi hành: ${dateStr} (${remainingText}${statusSuffix})`,
-      };
-    });
-  }, [candidates, loadingCandidates]);
+
+
 
   if (!isOpen) return null;
 
   const handleCreate = async () => {
-    if (!reason || !deadline || options.length === 0) {
+    if (!reason || !deadline) {
       setToast({ isOpen: true, type: "error", message: "Vui lòng nhập đầy đủ thông tin" });
       return;
     }
@@ -157,22 +69,13 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
       return;
     }
 
-    for (const opt of options) {
-      if (opt.system_action.startsWith("transfer")) {
-        const targetId = opt.system_action.split(":")[1];
-        if (!targetId || targetId === "") {
-          setToast({ isOpen: true, type: "error", message: `Vui lòng chọn chuyến đích cho phương án "${opt.label || 'Chuyển chuyến'}"` });
-          return;
-        }
-      }
-    }
+
 
     setSaving(true);
     try {
       await adminService.sendBulkProposals(scheduleId, {
         reason,
         response_deadline: deadline,
-        options,
       });
       setToast({ isOpen: true, type: "success", message: "Đã gửi đề xuất thành công!" });
       setTimeout(() => {
@@ -187,22 +90,7 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
     }
   };
 
-  const addOption = () => {
-    const newId = `opt_${Date.now()}`;
-    setOptions([...options, { id: newId, label: "", system_action: "" }]);
-  };
 
-  const updateOption = (index: number, key: keyof typeof options[0], value: string) => {
-    const newOptions = [...options];
-    newOptions[index][key] = value;
-    setOptions(newOptions);
-  };
-
-  const removeOption = (index: number) => {
-    const newOptions = [...options];
-    newOptions.splice(index, 1);
-    setOptions(newOptions);
-  };
 
   const renderStats = () => {
     if (statsLoading) return <div className="p-4 text-center text-sm text-gray-500">Đang tải thống kê...</div>;
@@ -333,80 +221,7 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">
-                  Các phương án cho khách chọn <span className="text-rose-500">*</span>
-                </label>
-                <div className="space-y-3 mb-3">
-                  {options.map((opt, i) => {
-                    const isTransfer = opt.system_action.startsWith("transfer");
-                    const actionType = isTransfer ? "transfer" : opt.system_action;
-                    const transferId = isTransfer ? opt.system_action.split(":")[1] || "" : "";
 
-                    return (
-                      <div key={opt.id} className="flex gap-3 items-start bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
-                        <div className="flex-1 space-y-3">
-                          <div>
-                            <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Tiêu đề phương án</label>
-                            <input
-                              placeholder="Tiêu đề phương án (Khách sẽ thấy)"
-                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none transition-all bg-white"
-                              value={opt.label}
-                              onChange={(e) => updateOption(i, "label", e.target.value)}
-                            />
-                          </div>
-                          <div className="flex gap-3">
-                            <div className="flex-1">
-                              <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Hành động hệ thống</label>
-                                <CustomSelect
-                                  value={actionType}
-                                  onChange={(val: string) => {
-                                    if (val === "transfer") {
-                                      const defaultId = candidates.length > 0 ? String(candidates[0].schedule_id) : "";
-                                      updateOption(i, "system_action", `transfer:${defaultId}`);
-                                    } else {
-                                      updateOption(i, "system_action", val);
-                                    }
-                                  }}
-                                  options={[
-                                    { value: "refund", label: "Hoàn tiền 100%" },
-                                    { value: "cancel_no_refund", label: "Hủy không hoàn tiền" },
-                                    { value: "transfer", label: "Chuyển sang chuyến khác" },
-                                  ]}
-                                />
-                            </div>
-                            {isTransfer && (
-                              <div className="flex-1">
-                                <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Chuyến đích đến</label>
-                                <CustomSelect
-                                  value={transferId}
-                                  onChange={(val: string) => updateOption(i, "system_action", `transfer:${val}`)}
-                                  options={scheduleOptions}
-                                  placeholder="Chọn chuyến đích..."
-                                />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {options.length > 1 && (
-                          <button 
-                            type="button" 
-                            onClick={() => removeOption(i)} 
-                            className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors mt-6"
-                            title="Xóa phương án này"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                <button type="button" onClick={addOption} className="inline-flex items-center gap-1 text-sm font-bold text-primary-600 hover:text-primary-700 bg-primary-50 hover:bg-primary-100 px-4 py-2 rounded-lg transition-colors">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                  Thêm phương án
-                </button>
-              </div>
             </div>
           ) : (
             renderStats()

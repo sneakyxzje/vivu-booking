@@ -41,10 +41,7 @@ class BookingProposalController extends Controller
 
         $validated = $request->validate([
             'reason' => ['required', 'string', 'max:1000'],
-            'options' => ['required', 'array', 'min:1'],
-            'options.*.id' => ['required', 'string'],
-            'options.*.title' => ['required', 'string', 'max:255'],
-            'options.*.description' => ['nullable', 'string', 'max:1000'],
+
             'response_deadline' => ['required', 'date', 'after:now'],
         ]);
 
@@ -58,7 +55,7 @@ class BookingProposalController extends Controller
                 'booking_id' => $booking->id,
                 'admin_id' => auth()->id() ?? 1, // fallback for testing if no auth
                 'reason' => $validated['reason'],
-                'options' => $validated['options'],
+
                 'response_deadline' => $validated['response_deadline'],
                 'status' => ProposalStatus::Pending->value,
             ]);

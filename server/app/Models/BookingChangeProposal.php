@@ -13,11 +13,11 @@ class BookingChangeProposal extends Model
         'booking_id',
         'admin_id',
         'reason',
-        'options',
+
         'response_deadline',
 
         'status',
-        'customer_choice',
+
         'customer_note',
         'responded_at',
     ];
@@ -25,7 +25,7 @@ class BookingChangeProposal extends Model
     protected function casts(): array
     {
         return [
-            'options' => 'array',
+
             'response_deadline' => 'datetime',
             'responded_at' => 'datetime',
             'status' => ProposalStatus::class,
