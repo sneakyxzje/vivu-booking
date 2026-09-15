@@ -60,7 +60,7 @@ export function BulkProposalDialog({ scheduleId, scheduleStartDate, isOpen, onCl
   maxDeadlineObj.setDate(maxDeadlineObj.getDate() + 2);
 
   const handleCreate = async () => {
-    if (!reason || !deadline) {
+    if (!reason || !deadline || !proposedDate) {
       setToast({ isOpen: true, type: "error", message: "Vui lòng nhập đầy đủ thông tin bắt buộc" });
       return;
     }
@@ -125,17 +125,22 @@ export function BulkProposalDialog({ scheduleId, scheduleStartDate, isOpen, onCl
 
   const renderStats = () => {
     if (statsLoading) return <div className="p-4 text-center text-sm text-gray-500">Đang tải thống kê...</div>;
-    if (!stats || stats.total === 0) return <div className="p-4 text-center text-sm text-gray-500">Chưa có đề xuất nào cho chuyến này.</div>;
+    if (!stats) return null;
 
-    const data = [
-      { name: "Đồng ý", value: stats.accepted, color: "#10b981" },
-      { name: "Từ chối", value: stats.rejected, color: "#f43f5e" },
-      { name: "Chờ phản hồi", value: stats.pending, color: "#9ca3af" },
-      { name: "Hết hạn", value: stats.expired, color: "#f59e0b" },
-    ];
+    const isZero = stats.total === 0;
+
+    const data = isZero 
+      ? [{ name: "Chưa có đề xuất", value: 1, color: "#e5e7eb" }]
+      : [
+          { name: "Đồng ý", value: stats.accepted, color: "#10b981" },
+          { name: "Từ chối", value: stats.rejected, color: "#f43f5e" },
+          { name: "Chờ phản hồi", value: stats.pending, color: "#9ca3af" },
+          { name: "Hết hạn", value: stats.expired, color: "#f59e0b" },
+        ];
 
     const CustomTooltip = ({ active, payload }: any) => {
       if (active && payload && payload.length) {
+        if (isZero) return null;
         const item = payload[0].payload;
         const percent = ((item.value / stats.total) * 100).toFixed(1);
         return (
@@ -309,7 +314,7 @@ export function BulkProposalDialog({ scheduleId, scheduleStartDate, isOpen, onCl
 
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">
-                  Ngày đề xuất đổi sang (Tùy chọn)
+                  Ngày đề xuất đổi sang <span className="text-rose-500">*</span>
                 </label>
                 <DateTimePicker
                   value={proposedDate}
