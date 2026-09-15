@@ -486,9 +486,12 @@ export interface MergeCandidate {
   /** Số đơn đã thanh toán sẽ được chuyển sang. */
   transferring: number;
   transferring_guests: number;
+  /** Ghế thực tế cần chuyển, không tính em bé ngồi cùng người lớn. */
+  transferring_seats: number;
   /** Số đơn chưa thanh toán sẽ bị hủy và mời đặt lại. */
   cancelling: number;
   remaining_seats: number;
+  remaining_seats_after: number;
 }
 
 export interface MergeCandidatesResponse {
