@@ -1307,9 +1307,7 @@ export default function ScheduleManagement() {
                                       : []),
 
                                     /* L03 - Ghép chuyến: chỉ có nghĩa khi chưa khởi hành và ít khách. */
-                                    ...(status === "open" ||
-                                    status === "closed" ||
-                                    status === "confirmed"
+                                    ...(status === "open"
                                       ? [
                                           {
                                             label: "Ghép chuyến",
