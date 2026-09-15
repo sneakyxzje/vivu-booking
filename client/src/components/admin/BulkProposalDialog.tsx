@@ -7,21 +7,22 @@ import DateTimePicker from "@/components/DateTimePicker";
 
 interface BulkProposalDialogProps {
   scheduleId: number;
+  scheduleStartDate?: string;
   isOpen: boolean;
   onClose: () => void;
 }
 
 const PIE_COLORS = ["#10b981", "#f43f5e", "#f59e0b", "#6b7280"]; // Green, Red, Amber, Gray
 
-export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposalDialogProps) {
+export function BulkProposalDialog({ scheduleId, scheduleStartDate, isOpen, onClose }: BulkProposalDialogProps) {
   const [activeTab, setActiveTab] = useState<"create" | "stats">("create");
   
   // Create State
   const [reason, setReason] = useState("");
+  const [proposedDate, setProposedDate] = useState("");
   const [deadline, setDeadline] = useState("");
 
   const [saving, setSaving] = useState(false);
-
 
   // Stats State
   const [stats, setStats] = useState<ProposalStatsResponse | null>(null);
@@ -33,6 +34,7 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
     if (isOpen) {
       setActiveTab("create");
       setReason("");
+      setProposedDate("");
       setDeadline("");
 
       loadStats();
@@ -51,15 +53,15 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
     }
   };
 
-
-
-
-
   if (!isOpen) return null;
+
+  const startDateObj = scheduleStartDate ? new Date(scheduleStartDate) : new Date();
+  const maxDeadlineObj = new Date(startDateObj);
+  maxDeadlineObj.setDate(maxDeadlineObj.getDate() + 2);
 
   const handleCreate = async () => {
     if (!reason || !deadline) {
-      setToast({ isOpen: true, type: "error", message: "Vui lòng nhập đầy đủ thông tin" });
+      setToast({ isOpen: true, type: "error", message: "Vui lòng nhập đầy đủ thông tin bắt buộc" });
       return;
     }
 
@@ -69,12 +71,21 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
       return;
     }
 
+    if (selectedDate < startDateObj || selectedDate > maxDeadlineObj) {
+      setToast({ isOpen: true, type: "error", message: "Hạn chót phải nằm trong khoảng từ lúc khởi hành đến sau đó 2 ngày" });
+      return;
+    }
 
+    if (proposedDate && new Date(proposedDate) < startDateObj) {
+      setToast({ isOpen: true, type: "error", message: "Ngày đề xuất không được nằm trong quá khứ so với ngày khởi hành gốc" });
+      return;
+    }
 
     setSaving(true);
     try {
       await adminService.sendBulkProposals(scheduleId, {
         reason,
+        proposed_date: proposedDate || undefined,
         response_deadline: deadline,
       });
       setToast({ isOpen: true, type: "success", message: "Đã gửi đề xuất thành công!" });
@@ -92,16 +103,51 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
 
 
 
+  const handleCancelBooking = async (bookingId: number) => {
+    if (!confirm("Bạn có chắc chắn muốn hủy đơn hàng này không? Quá trình này sẽ giải phóng chỗ trên chuyến đi hiện tại.")) return;
+    
+    setSaving(true);
+    try {
+      await adminService.cancelBooking(bookingId, {
+        reason: "Khách hàng không đồng ý dời lịch hoặc quá hạn phản hồi Đề xuất thay đổi",
+        note: "Hủy từ Dashboard Đề xuất thay đổi",
+        refund_method: "manual"
+      });
+      setToast({ isOpen: true, type: "success", message: "Đã hủy đơn thành công!" });
+      loadStats(); // Tải lại danh sách
+    } catch (error: any) {
+      const msg = error.response?.data?.message || "Lỗi khi hủy đơn";
+      setToast({ isOpen: true, type: "error", message: msg });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const renderStats = () => {
     if (statsLoading) return <div className="p-4 text-center text-sm text-gray-500">Đang tải thống kê...</div>;
     if (!stats || stats.total === 0) return <div className="p-4 text-center text-sm text-gray-500">Chưa có đề xuất nào cho chuyến này.</div>;
 
     const data = [
-      { name: "Đồng ý", value: stats.accepted },
-      { name: "Từ chối", value: stats.rejected },
-      { name: "Chờ phản hồi", value: stats.pending },
-      { name: "Hết hạn", value: stats.expired },
-    ].filter(d => d.value > 0);
+      { name: "Đồng ý", value: stats.accepted, color: "#10b981" },
+      { name: "Từ chối", value: stats.rejected, color: "#f43f5e" },
+      { name: "Chờ phản hồi", value: stats.pending, color: "#9ca3af" },
+      { name: "Hết hạn", value: stats.expired, color: "#f59e0b" },
+    ];
+
+    const CustomTooltip = ({ active, payload }: any) => {
+      if (active && payload && payload.length) {
+        const item = payload[0].payload;
+        const percent = ((item.value / stats.total) * 100).toFixed(1);
+        return (
+          <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-sm text-sm">
+            <p className="font-bold mb-1" style={{ color: item.color }}>{item.name}</p>
+            <p className="text-gray-700">Số lượng: <strong>{item.value}/{stats.total}</strong> khách</p>
+            <p className="text-gray-500">Tỷ lệ: <strong>{percent}%</strong></p>
+          </div>
+        );
+      }
+      return null;
+    };
 
     return (
       <div className="space-y-4">
@@ -124,7 +170,7 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
           </div>
         </div>
         
-        <div className="h-64">
+        <div className="h-64 mb-8">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -136,14 +182,69 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
                 paddingAngle={5}
                 dataKey="value"
               >
-                {data.map((_entry, index) => (
-                  <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip content={<CustomTooltip />} />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
+        </div>
+
+        <div className="border-t border-gray-200 pt-6">
+          <h3 className="text-sm font-bold text-slate-800 mb-4">Danh sách chi tiết</h3>
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <table className="w-full text-left text-sm text-gray-600">
+              <thead className="bg-gray-50 text-xs uppercase text-gray-700 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 font-bold">Khách hàng</th>
+                  <th className="px-4 py-3 font-bold">Mã Đơn</th>
+                  <th className="px-4 py-3 font-bold">Trạng thái</th>
+                  <th className="px-4 py-3 font-bold text-right">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {stats.proposals?.map((p) => {
+                  const b = p.booking;
+                  const isPending = p.status === "pending" || p.status === "expired";
+                  const isRejected = p.status === "rejected";
+                  const canCancel = (isPending || isRejected) && b.status !== "cancelled";
+
+                  return (
+                    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-bold text-slate-800">{b.customer_name}</div>
+                        <div className="text-xs text-slate-500">{b.customer_phone}</div>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs">{b.public_token}</td>
+                      <td className="px-4 py-3">
+                        {p.status === "accepted" && <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">Đồng ý</span>}
+                        {p.status === "rejected" && <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-700">Từ chối</span>}
+                        {p.status === "pending" && <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-700">Chờ P.Hồi</span>}
+                        {p.status === "expired" && <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">Hết hạn</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {canCancel ? (
+                          <button
+                            onClick={() => handleCancelBooking(b.id)}
+                            disabled={saving}
+                            className="text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-1 rounded hover:bg-rose-100 disabled:opacity-50 transition-colors"
+                          >
+                            Hủy đơn
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-gray-400 italic">
+                            {b.status === "cancelled" ? "Đã hủy" : "Không áp dụng"}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
@@ -208,13 +309,29 @@ export function BulkProposalDialog({ scheduleId, isOpen, onClose }: BulkProposal
 
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">
+                  Ngày đề xuất đổi sang (Tùy chọn)
+                </label>
+                <DateTimePicker
+                  value={proposedDate}
+                  onChange={setProposedDate}
+                  withTime
+                  minDate={startDateObj}
+                  placeholder="Chọn thời gian gợi ý cho khách hàng..."
+                  className="w-full"
+                  buttonClassName="flex w-full items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 text-left text-sm text-gray-800 transition-all hover:bg-gray-50 focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">
                   Hạn chót phản hồi <span className="text-rose-500">*</span>
                 </label>
                 <DateTimePicker
                   value={deadline}
                   onChange={setDeadline}
                   withTime
-                  minDate={new Date()}
+                  minDate={startDateObj}
+                  maxDate={maxDeadlineObj}
                   placeholder="Chọn thời gian hết hạn..."
                   className="w-full"
                   buttonClassName="w-full flex items-center gap-2 rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-left text-sm text-gray-800 transition-all hover:bg-white focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-50"

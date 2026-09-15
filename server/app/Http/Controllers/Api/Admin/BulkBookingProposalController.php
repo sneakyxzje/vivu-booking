@@ -22,10 +22,8 @@ class BulkBookingProposalController extends Controller
     {
         $validated = $request->validate([
             'reason' => ['required', 'string', 'max:1000'],
-            'response_deadline' => ['required', 'date', 'after:now'],
-
-
-        ]);
+            'proposed_date' => ['nullable', 'date'],
+            'response_deadline' => ['required', 'date'],        ]);
 
         $schedule = TourSchedule::with('bookings')->find($scheduleId);
 
@@ -66,9 +64,8 @@ class BulkBookingProposalController extends Controller
                     'booking_id' => $booking->id,
                     'admin_id' => $adminId,
                     'reason' => $validated['reason'],
-
+                    'proposed_date' => $validated['proposed_date'] ?? null,
                     'response_deadline' => $validated['response_deadline'],
-
                     'status' => ProposalStatus::Pending->value,
                 ]);
 
@@ -106,12 +103,15 @@ class BulkBookingProposalController extends Controller
             ->get()
             ->unique('booking_id');
 
+        $latestProposals->load('booking');
+
         $stats = [
             'total' => $latestProposals->count(),
             'pending' => $latestProposals->where('status', ProposalStatus::Pending->value)->count(),
             'accepted' => $latestProposals->where('status', ProposalStatus::Accepted->value)->count(),
             'rejected' => $latestProposals->where('status', ProposalStatus::Rejected->value)->count(),
             'expired' => $latestProposals->where('status', ProposalStatus::Expired->value)->count(),
+            'proposals' => $latestProposals->values(),
         ];
 
         return response()->json([

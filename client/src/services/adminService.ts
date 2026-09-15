@@ -1941,6 +1941,7 @@ const adminService = {
     scheduleId: number,
     payload: {
       reason: string;
+      proposed_date?: string;
       response_deadline: string;
     },
   ) => {
@@ -1948,11 +1949,33 @@ const adminService = {
     return response.data;
   },
 
-  getProposalStats: async (scheduleId: number) => {
-    const response = await api.get(`/admin/tour-schedules/${scheduleId}/proposals/stats`);
+  cancelBooking: async (bookingId: number, payload: { reason: string; note: string; refund_method: string }) => {
+    const response = await api.put(`/admin/bookings/${bookingId}/cancel`, payload);
     return response.data;
   },
+
+  getProposalStats: async (scheduleId: number) => {
+    const response = await api.get(`/admin/tour-schedules/${scheduleId}/proposals/stats`);
+    return response.data.data as ProposalStatsResponse;
+  },
 };
+
+export interface ProposalItem {
+  id: number;
+  status: string;
+  reason: string;
+  proposed_date: string | null;
+  response_deadline: string;
+  responded_at: string | null;
+  booking: {
+    id: number;
+    public_token: string;
+    customer_name: string;
+    customer_email: string;
+    customer_phone: string;
+    status: string;
+  };
+}
 
 export interface ProposalStatsResponse {
   total: number;
@@ -1960,10 +1983,7 @@ export interface ProposalStatsResponse {
   accepted: number;
   rejected: number;
   expired: number;
-  choices: {
-    choice_id: string;
-    count: number;
-  }[];
+  proposals: ProposalItem[];
 }
 
 /** Một kịch bản nghiệp vụ trong danh mục sân thử. */

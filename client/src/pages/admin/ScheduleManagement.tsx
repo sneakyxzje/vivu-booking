@@ -164,7 +164,7 @@ export default function ScheduleManagement() {
   );
   
   // State Gửi đề xuất hàng loạt
-  const [bulkProposalScheduleId, setBulkProposalScheduleId] = useState<number | null>(null);
+  const [bulkProposalSchedule, setBulkProposalSchedule] = useState<TourSchedule | null>(null);
 
   const [dangXuatDanhSach, setDangXuatDanhSach] = useState(false);
   const [manifest, setManifest] = useState<ScheduleManifestResponse | null>(
@@ -1287,12 +1287,16 @@ export default function ScheduleManagement() {
                                       : []),
 
                                     /* Bulk Proposal: Đề xuất thay đổi hàng loạt */
-                                    {
-                                      label: "Đề xuất thay đổi",
-                                      onClick: () =>
-                                        setBulkProposalScheduleId(schedule.id),
-                                      icon: <ClipboardCheck className="w-4 h-4" />,
-                                    },
+                                    ...(status === "open"
+                                      ? [
+                                          {
+                                            label: "Đề xuất thay đổi",
+                                            onClick: () =>
+                                              setBulkProposalSchedule(schedule),
+                                            icon: <ClipboardCheck className="w-4 h-4" />,
+                                          },
+                                        ]
+                                      : []),
 
                                     ...(status === "open" || status === "closed"
                                       ? [
@@ -2456,9 +2460,10 @@ export default function ScheduleManagement() {
 
       {/* Hộp thoại Đề xuất thay đổi (Bulk Proposal) */}
       <BulkProposalDialog
-        scheduleId={bulkProposalScheduleId ?? 0}
-        isOpen={bulkProposalScheduleId !== null}
-        onClose={() => setBulkProposalScheduleId(null)}
+        scheduleId={bulkProposalSchedule?.id ?? 0}
+        scheduleStartDate={bulkProposalSchedule?.start_date ?? ""}
+        isOpen={bulkProposalSchedule !== null}
+        onClose={() => setBulkProposalSchedule(null)}
       />
 
       <Toast

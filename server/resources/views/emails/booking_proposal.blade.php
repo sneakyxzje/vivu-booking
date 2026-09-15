@@ -18,7 +18,11 @@
             {{ $proposal->reason }}
         </div>
         
-        <p>Để đảm bảo quyền lợi của quý khách, chúng tôi đưa ra các phương án hỗ trợ như sau. Vui lòng xem chi tiết và phản hồi lại email này hoặc liên hệ hotline trước thời hạn: <strong>{{ $proposal->response_deadline->format('d/m/Y H:i') }}</strong>.</p>
+        @if($proposal->proposed_date)
+        <p style="font-size: 1.1em;"><strong>Đề xuất phương án:</strong> Chúng tôi đề xuất dời lịch khởi hành của quý khách sang ngày: <strong style="color: #0369a1;">{{ \Carbon\Carbon::parse($proposal->proposed_date)->format('d/m/Y H:i') }}</strong>.</p>
+        @endif
+
+        <p>Để đảm bảo quyền lợi của quý khách, vui lòng xem chi tiết và phản hồi lại email này hoặc liên hệ hotline công ty để xác nhận đồng ý đổi ngày hoặc yêu cầu hủy chuyến. Hạn chót phản hồi: <strong>{{ $proposal->response_deadline->format('d/m/Y H:i') }}</strong>.</p>
         
         <p style="text-align: center; margin: 30px 0;">
             <a href="{{ env('CLIENT_URL', 'http://localhost:5173') }}/tra-cuu/{{ $booking->public_token }}?email={{ urlencode($booking->customer_email) }}" 
@@ -27,8 +31,8 @@
             </a>
         </p>
         
-        <p style="color: #dc2626; font-size: 0.9em;">
-            Lưu ý: Nếu quá thời hạn trên mà chúng tôi chưa nhận được phản hồi, công ty sẽ tiến hành tự xử lý thao tác (Hủy/Chuyển chuyến) theo quy định mặc định.
+        <p style="color: #dc2626; font-size: 0.9em; font-weight: bold;">
+            Lưu ý đặc biệt: Nếu quá thời hạn trên mà chúng tôi chưa nhận được phản hồi, công ty sẽ tiến hành HỦY ĐƠN HÀNG của quý khách khỏi chuyến đi này để đảm bảo chỗ trống cho các khách hàng khác, và sẽ xử lý hoàn tiền theo quy định.
         </p>
         
         <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
