@@ -72,14 +72,16 @@ export const DateTimePicker: React.FC<Props> = ({
 
   const [mo, setMo] = useState(false);
   const [nhap, setNhap] = useState(value);
-  const [thangDangXem, setThangDangXem] = useState(() => thangMoDau(value, laNgaySinh));
+  const [thangDangXem, setThangDangXem] = useState(() => thangMoDau(value, laNgaySinh, minDate));
 
   // Neo là chính cái nút: bảng lịch vẽ ở `body` nên phải bám theo tọa độ của nút trên màn hình.
   const nut = useRef<HTMLButtonElement>(null);
 
-  function thangMoDau(giaTri: string, ngaySinh: boolean) {
+  function thangMoDau(giaTri: string, ngaySinh: boolean, minD?: Date) {
     const d = doiSangNgay(giaTri);
     if (d) return new Date(d.getFullYear(), d.getMonth(), 1);
+
+    if (minD) return new Date(minD.getFullYear(), minD.getMonth(), 1);
 
     const goc = new Date();
     if (ngaySinh) goc.setFullYear(goc.getFullYear() - TUOI_MAC_DINH);
@@ -98,7 +100,7 @@ export const DateTimePicker: React.FC<Props> = ({
 
     if (!mo) {
       setNhap(value);
-      setThangDangXem(thangMoDau(value, laNgaySinh));
+      setThangDangXem(thangMoDau(value, laNgaySinh, minDate));
     }
 
     setMo((v) => !v);

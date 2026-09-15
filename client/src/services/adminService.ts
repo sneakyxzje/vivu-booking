@@ -1948,7 +1948,7 @@ const adminService = {
       response_deadline: string;
     },
   ) => {
-    const response = await api.post(`/admin/tour-schedules/${scheduleId}/bulk-proposals`, payload);
+    const response = await api.post(`/admin/schedules/${scheduleId}/bulk-proposals`, payload);
     return response.data;
   },
 
@@ -1958,7 +1958,7 @@ const adminService = {
   },
 
   getProposalStats: async (scheduleId: number) => {
-    const response = await api.get(`/admin/tour-schedules/${scheduleId}/proposals/stats`);
+    const response = await api.get(`/admin/schedules/${scheduleId}/proposals/stats`);
     return response.data.data as ProposalStatsResponse;
   },
 };
