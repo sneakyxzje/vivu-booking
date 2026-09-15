@@ -489,6 +489,68 @@ class ScheduleMergeTest extends TestCase
         $this->assertContains($this->dich->id, $ids);
     }
 
+    public function test_du_bao_ghe_khop_ket_qua_ghep_khi_co_em_be_va_don_chua_tra(): void
+    {
+        Mail::fake();
+        $giaDinh = $this->taoDon($this->nguon, khach: 2);
+        $giaDinh->update(['guests' => 3, 'seats' => 2, 'infant_count' => 1]);
+        $chuaTra = $this->taoDon($this->nguon, 'pending', 4);
+        $this->taoDon($this->dich, khach: 3);
+        Sanctum::actingAs($this->dieuHanh);
+
+        $response = $this->getJson("/api/admin/schedules/{$this->nguon->id}/merge-candidates")
+            ->assertOk();
+        $duBao = collect($response->json('data.candidates'))->firstWhere('schedule_id', $this->dich->id);
+
+        $this->assertNotNull($duBao);
+        $this->assertSame(3, $duBao['transferring_guests']);
+        $this->assertSame(2, $duBao['transferring_seats']);
+        $this->assertSame(1, $duBao['transferring']);
+        $this->assertSame(1, $duBao['cancelling']);
+        $this->assertSame(17, $duBao['remaining_seats']);
+        $this->assertSame(15, $duBao['remaining_seats_after']);
+        $this->assertSame($this->nguon->id, (int) $giaDinh->fresh()->tour_schedule_id);
+        $this->assertSame('pending', $chuaTra->fresh()->getRawOriginal('status'));
+        Mail::assertNothingQueued();
+
+        $this->service()->merge($this->nguon->fresh(), $this->dich->fresh(), 'Ghep hai chuyen vi chua du khach.', $this->dieuHanh);
+        $dichSauGhep = $this->dich->fresh();
+        $this->assertSame($duBao['remaining_seats_after'], (int) $dichSauGhep->max_people - (int) $dichSauGhep->booked_people);
+    }
+
+    #[\PHPUnit\Framework\Attributes\TestWith([false])]
+    #[\PHPUnit\Framework\Attributes\TestWith([true])]
+    public function test_ghep_cung_ngay_du_bao_dung_ghe_va_chuyen_ca_don_chua_tra(bool $khacTour): void
+    {
+        Mail::fake();
+        $tourDich = $khacTour ? Tour::factory()->create(['type' => TourType::Shared->value, 'status' => 'active']) : $this->tour;
+        $dich = $this->taoChuyen($this->nguon->start_date, $tourDich);
+        $giaDinh = $this->taoDon($this->nguon, khach: 2);
+        $giaDinh->update(['guests' => 3, 'seats' => 2, 'infant_count' => 1]);
+        $chuaTra = $this->taoDon($this->nguon, 'pending', 4);
+        $this->taoDon($dich, khach: 3);
+        Sanctum::actingAs($this->dieuHanh);
+
+        $response = $this->getJson("/api/admin/schedules/{$this->nguon->id}/merge-candidates")->assertOk();
+        $duBao = collect($response->json('data.candidates'))->firstWhere('schedule_id', $dich->id);
+        $this->assertNotNull($duBao);
+        $this->assertSame(2, $duBao['transferring']);
+        $this->assertSame(7, $duBao['transferring_guests']);
+        $this->assertSame(6, $duBao['transferring_seats']);
+        $this->assertSame(0, $duBao['cancelling']);
+        $this->assertSame(11, $duBao['remaining_seats_after']);
+
+        $ketQua = $this->service()->merge($this->nguon->fresh(), $dich->fresh(), 'Ghep hai chuyen cung ngay vi chua du khach.', $this->dieuHanh);
+        $this->assertSame(2, $ketQua['transferred']);
+        $this->assertSame(0, $ketQua['cancelled']);
+        $this->assertSame($dich->id, (int) $giaDinh->fresh()->tour_schedule_id);
+        $this->assertSame($dich->id, (int) $chuaTra->fresh()->tour_schedule_id);
+        $this->assertSame('pending', $chuaTra->fresh()->getRawOriginal('status'));
+        $this->assertSame($dich->id, (int) $this->nguon->fresh()->merged_into_schedule_id);
+        $this->assertSame($duBao['remaining_seats_after'], (int) $dich->fresh()->max_people - (int) $dich->fresh()->booked_people);
+        Mail::assertNothingQueued();
+    }
+
     public function test_api_ghep_chuyen_thanh_cong(): void
     {
         $this->taoDon($this->nguon);

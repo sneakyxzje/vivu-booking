@@ -1,3 +1,4 @@
+import { Flex as AntFlex, Typography as AntTypography, Button, Card, Col, Row, Statistic, Tabs } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowDownLeft, ArrowUpRight, BookOpen } from "lucide-react";
@@ -76,84 +77,20 @@ export default function FinanceHub() {
     setSearchParams(key === "ledger" ? {} : { tab: key }, { replace: true });
   };
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Sổ giao dịch</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Tiền vào, tiền ra, và hai chiều còn treo — cùng một nguồn số liệu.
-        </p>
-      </div>
-
-      {/*
-        Dải tình hình, hiện ở mọi tab.
-
-        Đây là thứ trả lời câu "hôm nay đứng ở đâu" mà không phải bấm gì: còn phải đòi bao nhiêu,
-        còn phải trả bao nhiêu, và mỗi bên bao nhiêu đơn.
-      */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => doiTab("receivables")}
-          className={`rounded-xl border p-5 text-left transition-colors ${
-            phaiThu.total > 0
-              ? "border-amber-200 bg-amber-50 hover:bg-amber-100/70"
-              : "border-gray-200 bg-white hover:bg-gray-50"
-          }`}
-        >
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
-            <ArrowDownLeft className="h-4 w-4" />
-            Khách còn nợ công ty
-          </p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-amber-900">
-            {formatPrice(phaiThu.total)}
-          </p>
-          <p className="mt-0.5 text-xs text-gray-500">{phaiThu.count} đơn chưa thu đủ</p>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => doiTab("refunds")}
-          className={`rounded-xl border p-5 text-left transition-colors ${
-            phaiTra.total > 0
-              ? "border-rose-200 bg-rose-50 hover:bg-rose-100/70"
-              : "border-gray-200 bg-white hover:bg-gray-50"
-          }`}
-        >
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-rose-700">
-            <ArrowUpRight className="h-4 w-4" />
-            Công ty còn nợ khách
-          </p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-rose-900">
-            {formatPrice(phaiTra.total)}
-          </p>
-          <p className="mt-0.5 text-xs text-gray-500">{phaiTra.count} đơn chờ hoàn</p>
-        </button>
-      </div>
-
-      <div className="flex flex-wrap gap-1.5 border-b border-gray-200">
-        {TABS.map(({ key, label, icon: Icon, hint }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => doiTab(key)}
-            title={hint}
-            aria-current={tab === key ? "page" : undefined}
-            className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
-              tab === key
-                ? "border-primary-600 text-primary-700"
-                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800"
-            }`}
-          >
-            <Icon className="h-4 w-4" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "ledger" && <TransactionRegister />}
-      {tab === "receivables" && <ReceivableManagement />}
-      {tab === "refunds" && <RefundManagement />}
-    </div>
-  );
+  return <AntFlex vertical gap="large">
+    <div><AntTypography.Title level={3}>Sổ giao dịch</AntTypography.Title><AntTypography.Text type="secondary">Tiền vào, tiền ra và các khoản còn phải thu, phải trả.</AntTypography.Text></div>
+    <Row gutter={[16, 16]}>
+      <Col xs={24} md={12}><Card><Statistic title="Khách còn nợ công ty" value={phaiThu.total} formatter={(value) => formatPrice(Number(value))} />
+        <AntFlex justify="space-between" align="center" wrap gap="small"><AntTypography.Text type="secondary">{phaiThu.count} đơn chưa thu đủ</AntTypography.Text><Button onClick={() => doiTab("receivables")}>Xem khoản phải thu</Button></AntFlex>
+      </Card></Col>
+      <Col xs={24} md={12}><Card><Statistic title="Công ty còn nợ khách" value={phaiTra.total} formatter={(value) => formatPrice(Number(value))} />
+        <AntFlex justify="space-between" align="center" wrap gap="small"><AntTypography.Text type="secondary">{phaiTra.count} đơn chờ hoàn</AntTypography.Text><Button onClick={() => doiTab("refunds")}>Xem khoản phải trả</Button></AntFlex>
+      </Card></Col>
+    </Row>
+    <Tabs activeKey={tab} onChange={(key) => doiTab(key as TabKey)} destroyOnHidden items={TABS.map(({ key, label, icon: Icon, hint }) => ({
+      key, label, icon: <Icon size={16} />, children: <AntFlex vertical gap="middle"><AntTypography.Text type="secondary">{hint}</AntTypography.Text>
+        {key === "ledger" ? <TransactionRegister /> : key === "receivables" ? <ReceivableManagement /> : <RefundManagement onChanged={napSoTreo} />}
+      </AntFlex>,
+    }))} />
+  </AntFlex>;
 }

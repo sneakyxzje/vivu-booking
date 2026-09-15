@@ -1,3 +1,12 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Flex as UIFlex,
+  Input as AntInput,
+  Modal as AntModal,
+  Select as AntSelect,
+  Typography as AntTypography,
+} from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, ArrowRight, Clock, Phone } from "lucide-react";
 import adminService from "@/services/adminService";
@@ -146,37 +155,22 @@ export default function HandoverManagement() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Bàn giao hướng dẫn viên</h1>
+    <UIFlex vertical gap="large" ><div>
+        <AntTypography.Title level={3} >Bàn giao hướng dẫn viên</AntTypography.Title>
         <p className="text-sm text-gray-500 mt-1">
           Hướng dẫn viên gửi yêu cầu khi không dẫn tiếp được; bạn cử người thay. Họ không tự chọn
           người thay, vì việc đó cần nhìn toàn bộ lịch công ty.
         </p>
-      </div>
-
-      {/* ĐANG CHỜ — phần phải xử lý */}
-      <div className="space-y-2">
-        <h2 className="text-sm font-bold text-gray-900">
+      </div>{/* ĐANG CHỜ — phần phải xử lý */}<UIFlex vertical gap={8} ><h2 className="text-sm font-bold text-gray-900">
           Đang chờ xử lý {requests.length > 0 && `(${requests.length})`}
-        </h2>
-
-        {loading && <p className="text-sm text-gray-500">Đang tải...</p>}
-
-        {!loading && requests.length === 0 && (
+        </h2>{loading && <p className="text-sm text-gray-500">Đang tải...</p>}{!loading && requests.length === 0 && (
           <p className="rounded-xl border border-gray-100 bg-white p-6 text-sm text-gray-500">
             Không có yêu cầu nào đang chờ.
           </p>
-        )}
-
-        {requests.map((yc) => (
-          <button
-            key={yc.id}
-            type="button"
-            onClick={() => openReview(yc)}
-            className="w-full rounded-xl border border-amber-300 bg-amber-50 p-4 text-left hover:bg-amber-100/60 transition-colors"
-          >
-            <div className="flex flex-wrap items-center gap-2 text-sm">
+        )}{requests.map((yc) => (
+          <UICard key={yc.id} size="small">
+            <UIFlex vertical gap="small">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
               <AlertTriangle className="h-4 w-4 text-amber-700" />
               <span className="font-bold text-gray-900">{yc.requester_name}</span>
               {yc.requester_phone && (
@@ -191,27 +185,16 @@ export default function HandoverManagement() {
               <span className="ml-auto text-xs text-gray-500">
                 {formatDateTime(yc.created_at)}
               </span>
-            </div>
-
-            <p className="mt-1.5 text-sm font-semibold text-amber-900">{yc.reason}</p>
-            <p className="mt-0.5 text-xs text-gray-700">{yc.group_state}</p>
-          </button>
-        ))}
-      </div>
-
-      {/* ĐÃ BÀN GIAO — phần theo dõi */}
-      <div className="space-y-2">
-        <h2 className="text-sm font-bold text-gray-900">Đã bàn giao</h2>
-
-        {!loading && (history?.handovers.length ?? 0) === 0 && (
+            </div><p className="mt-1.5 text-sm font-semibold text-amber-900">{yc.reason}</p><p className="mt-0.5 text-xs text-gray-700">{yc.group_state}</p>
+              <AntButton onClick={() => openReview(yc)}>Xem và xử lý yêu cầu</AntButton>
+            </UIFlex>
+          </UICard>
+        ))}</UIFlex>{/* ĐÃ BÀN GIAO — phần theo dõi */}<UIFlex vertical gap={8} ><h2 className="text-sm font-bold text-gray-900">Đã bàn giao</h2>{!loading && (history?.handovers.length ?? 0) === 0 && (
           <p className="rounded-xl border border-gray-100 bg-white p-6 text-sm text-gray-500">
             Chưa có lần bàn giao nào.
           </p>
-        )}
-
-        {history?.handovers.map((bg) => (
-          <div key={bg.id} className="rounded-xl border border-gray-200 bg-white p-4 space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2 text-sm">
+        )}{history?.handovers.map((bg) => (
+          <UICard key={bg.id} ><UIFlex vertical gap="middle"><div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="font-semibold text-gray-900">{bg.from_guide?.name}</span>
               <ArrowRight className="h-3.5 w-3.5 text-gray-400" />
               <span className="font-semibold text-gray-900">{bg.to_guide?.name}</span>
@@ -220,9 +203,7 @@ export default function HandoverManagement() {
                 <Clock className="h-3 w-3" />
                 {formatDateTime(bg.handed_over_at)}
               </span>
-            </div>
-
-            <p className="text-xs text-gray-500">
+            </div><p className="text-xs text-gray-500">
               {bg.tour_title} · chuyến #{bg.tour_schedule_id}
               {bg.created_by_name ? ` · ${bg.created_by_name} thực hiện` : ""}
               {bg.to_guide?.phone && (
@@ -230,27 +211,17 @@ export default function HandoverManagement() {
                   · {bg.to_guide.name}: {bg.to_guide.phone}
                 </span>
               )}
-            </p>
-
-            <p className="text-xs text-gray-700">
+            </p><p className="text-xs text-gray-700">
               <span className="font-semibold">Lý do:</span> {bg.reason}
-            </p>
-
-            <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700">
+            </p><p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700">
               {bg.handover_note}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* Duyệt một yêu cầu */}
-      {reviewing && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
-          <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
-            <div>
-              <h4 className="text-base font-bold text-gray-900">
+            </p></UIFlex></UICard>
+        ))}</UIFlex>{/* Duyệt một yêu cầu */}{reviewing && (
+        <AntModal open title={<>
                 Yêu cầu bàn giao — chuyến #{reviewing.tour_schedule_id}
-              </h4>
+              </>} width={720} onCancel={() => setReviewing(null)} closable={!(saving)} keyboard={!(saving)} mask={{ closable: false }} footer={null} styles={{ body: { maxHeight: "72vh", overflowY: "auto" } }}><UIFlex vertical gap="middle">
+            <div>
+
               <p className="text-xs text-gray-500 mt-0.5">
                 {reviewing.requester_name} gửi lúc {formatDateTime(reviewing.created_at)}
               </p>
@@ -294,41 +265,11 @@ export default function HandoverManagement() {
                 </p>
               ) : (
                 <>
-                  <select
-                    value={guideId}
-                    onChange={(e) => setGuideId(Number(e.target.value))}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
-                  >
-                    {/* Đang chạy thì tách nhóm, vì khoảng cách mới là thứ quyết định */}
-                    {dangChay ? (
-                      <>
-                        {dangNgoaiDuong.length > 0 && (
-                          <optgroup label="Đang dẫn đoàn khác — tới ngay được">
-                            {dangNgoaiDuong.map((g) => (
-                              <option key={g.id} value={g.id}>
-                                {g.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                        {dangRanh.length > 0 && (
-                          <optgroup label="Đang rảnh — phải di chuyển tới chỗ đoàn">
-                            {dangRanh.map((g) => (
-                              <option key={g.id} value={g.id}>
-                                {g.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </>
-                    ) : (
-                      nguoiThayChonDuoc.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))
-                    )}
-                  </select>
+                  <AntSelect showSearch={{ optionFilterProp: "label" }} value={String(guideId ?? "")} onChange={(id) => setGuideId(Number(id))} style={{ width: "100%" }}
+                    options={dangChay ? [
+                      { label: "Đang dẫn đoàn khác — tới ngay được", options: dangNgoaiDuong.map((g) => ({ value: String(g.id), label: g.name })) },
+                      { label: "Đang rảnh — phải di chuyển tới chỗ đoàn", options: dangRanh.map((g) => ({ value: String(g.id), label: g.name })) },
+                    ].filter((group) => group.options.length > 0) : [{ label: "Hướng dẫn viên có thể thay", options: nguoiThayChonDuoc.map((g) => ({ value: String(g.id), label: g.name })) }]} />
 
                   {/* Chọn người đang rảnh cho đoàn đang đi: nói rõ họ chưa có mặt */}
                   {dangChay && dangRanh.some((g) => g.id === guideId) && (
@@ -347,13 +288,7 @@ export default function HandoverManagement() {
 
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">Ghi chú trả lời</label>
-              <textarea
-                rows={2}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Không bắt buộc khi duyệt. Bắt buộc khi từ chối, và người xin sẽ đọc được."
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
-              />
+              <AntInput.TextArea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Không bắt buộc khi duyệt. Bắt buộc khi từ chối, và người xin sẽ đọc được." style={{ width: "100%" }} />
             </div>
 
             {error && (
@@ -362,42 +297,15 @@ export default function HandoverManagement() {
               </div>
             )}
 
-            <div className="flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setReviewing(null)}
-                disabled={saving}
-                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
-              >
-                Để sau
-              </button>
-              <button
-                type="button"
-                onClick={dongPhieu}
-                disabled={saving || note.trim().length < 10}
-                className="px-4 py-2 text-xs font-semibold rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 disabled:opacity-40"
-              >
-                Từ chối
-              </button>
-              <button
-                type="button"
-                onClick={banGiao}
-                disabled={saving || chuaBanGiaoDuoc || !guideId}
-                className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40"
-              >
-                {saving ? "Đang xử lý..." : "Bàn giao"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Toast
+            <UIFlex   wrap  justify="end" gap={8}><AntButton htmlType="button" onClick={() => setReviewing(null)} disabled={saving}>Để sau
+              </AntButton><AntButton htmlType="button" onClick={dongPhieu} disabled={saving || note.trim().length < 10} danger>Từ chối
+              </AntButton><AntButton htmlType="button" onClick={banGiao} disabled={saving || chuaBanGiaoDuoc || !guideId} type="primary">{saving ? "Đang xử lý..." : "Bàn giao"}</AntButton></UIFlex>
+          </UIFlex></AntModal>
+      )}<Toast
         message={toast.message}
         type={toast.type}
         isOpen={toast.isOpen}
         onClose={() => setToast((truoc) => ({ ...truoc, isOpen: false }))}
-      />
-    </div>
+      /></UIFlex>
   );
 }

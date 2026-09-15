@@ -1,3 +1,10 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Flex as UIFlex,
+  Select as AntSelect,
+  Typography as AntTypography,
+} from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
@@ -10,8 +17,8 @@ import {
 import adminService from "@/services/adminService";
 import type { AuditLogEntry, AuditLogResponse } from "@/services/adminService";
 import { formatDateTime, formatPrice } from "@/utils/format";
-import Pagination from "@/components/common/Pagination";
-import { DateRangePicker } from "@/components/DateRangePicker";
+import Pagination from "@/components/admin/AdminPagination";
+import { DateRangePicker } from "@/components/admin/AdminDateRangePicker";
 
 /**
  * Nhật ký hệ thống.
@@ -164,57 +171,28 @@ export default function AuditLogManagement() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-          Nhật ký hệ thống
-        </h1>
+    <UIFlex vertical gap="large" ><div>
+        <AntTypography.Title level={3} >Nhật ký hệ thống
+        </AntTypography.Title>
         <p className="text-sm text-gray-500 mt-1">
           Ghi lại mọi thao tác diễn ra trong hệ thống
         </p>
-      </div>
-
-      {/* BỘ LỌC */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
+      </div>{/* BỘ LỌC */}<UICard  ><UIFlex vertical gap="middle"><UIFlex   wrap align="end"  gap={12}><div>
             <label className="block text-xs font-bold text-gray-700 mb-1">
               Nguồn
             </label>
-            <select
-              value={scope}
-              onChange={(e) => setScope(e.target.value as typeof scope)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
-            >
-              <option value="all">Tất cả</option>
-              <option value="booking">Đơn hàng</option>
-              <option value="schedule">Chuyến khởi hành</option>
-            </select>
-          </div>
-
-          <div>
+            <AntSelect showSearch={{ optionFilterProp: "label" }} value={String((scope) ?? "")} onChange={(e) => setScope(e as typeof scope)} style={{ width: "100%" }} options={[{ value: String("all"), label: "Tất cả", disabled: false },{ value: String("booking"), label: "Đơn hàng", disabled: false },{ value: String("schedule"), label: "Chuyến khởi hành", disabled: false }].flat().filter((option) => !!option)} />
+          </div><div>
             <label className="block text-xs font-bold text-gray-700 mb-1">
               Thao tác
             </label>
-            <select
-              value={action}
-              onChange={(e) => setAction(e.target.value)}
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400 min-w-[200px]"
-            >
-              <option value="">Mọi thao tác</option>
-              {danhSachThaoTac.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/*
+            <AntSelect showSearch={{ optionFilterProp: "label" }} value={String((action) ?? "")} onChange={(e) => setAction(e)} style={{ width: "100%" }} options={[{ value: String(""), label: "Mọi thao tác", disabled: false },danhSachThaoTac.map((item) => (
+                { value: String(item.value), label: item.label, disabled: false }
+              ))].flat().filter((option) => !!option)} />
+          </div>{/*
             Có chọn giờ: khi đối soát một sự việc, câu hỏi thường là "chiều qua từ 14 giờ ai đã
             đụng vào đơn này", không phải "cả ngày hôm qua".
-          */}
-          <div className="min-w-[260px]">
+          */}<div className="min-w-[260px]">
             <DateRangePicker
               label="Khoảng thời gian"
               withTime
@@ -225,45 +203,17 @@ export default function AuditLogManagement() {
                 setTo(khoang.to);
               }}
             />
-          </div>
-
-          {/* Câu hỏi hay gặp nhất lúc đối soát, nên để thành một nút bấm chứ không bắt chọn
-              từng loại thao tác một. */}
-          <button
-            type="button"
-            onClick={() => setMoneyOnly((truoc) => !truoc)}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
-              moneyOnly
-                ? "border-amber-300 bg-amber-50 text-amber-800"
-                : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            <Coins className="h-3.5 w-3.5" />
-            Chỉ những lần chạm tiền
-          </button>
-
-          <button
-            type="button"
-            onClick={datLai}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Đặt lại
-          </button>
-        </div>
-
-        {moneyOnly && (
+          </div>{/* Câu hỏi hay gặp nhất lúc đối soát, nên để thành một nút bấm chứ không bắt chọn
+              từng loại thao tác một. */}<AntButton type={(moneyOnly) ? "primary" : "default"} htmlType="button" onClick={() => setMoneyOnly((truoc) => !truoc)}><Coins className="h-3.5 w-3.5" />Chỉ những lần chạm tiền
+          </AntButton><AntButton htmlType="button" onClick={datLai}><RotateCcw className="h-3.5 w-3.5" />Đặt lại
+          </AntButton></UIFlex>{moneyOnly && (
           <p className="text-[11px] text-amber-700 flex items-center gap-1.5">
             <Filter className="h-3 w-3" />
             Đang lọc hủy đơn, duyệt hoàn, mở lại đơn và chuyển chuyến. Nhật ký
             chuyến không hiện ở đây vì dời hạn chốt không làm đổi tiền của đơn
             nào.
           </p>
-        )}
-      </div>
-
-      {/* DÒNG THỜI GIAN */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-100">
+        )}</UIFlex></UICard>{/* DÒNG THỜI GIAN */}<div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-100">
         {loading && (
           <p className="p-6 text-sm text-gray-500">Đang tải nhật ký...</p>
         )}
@@ -283,8 +233,7 @@ export default function AuditLogManagement() {
                 key={entry.id}
                 className="p-4 hover:bg-gray-50/60 transition-colors"
               >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
+                <UIFlex   wrap align="center"  gap={8}><span
                     className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
                       entry.source === "schedule"
                         ? "bg-indigo-50 text-indigo-700"
@@ -297,23 +246,16 @@ export default function AuditLogManagement() {
                       <Server className="h-3 w-3" />
                     )}
                     {entry.subject_label}
-                  </span>
-
-                  <span className="text-sm font-bold text-gray-900">
+                  </span><span className="text-sm font-bold text-gray-900">
                     {entry.action_label}
-                  </span>
-
-                  {entry.touches_money && (
+                  </span>{entry.touches_money && (
                     <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
                       <Coins className="h-3 w-3" />
                       Tiền
                     </span>
-                  )}
-
-                  <span className="ml-auto text-xs text-gray-500">
+                  )}<span className="ml-auto text-xs text-gray-500">
                     {formatDateTime(entry.created_at)}
-                  </span>
-                </div>
+                  </span></UIFlex>
 
                 <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
                   <span className="inline-flex items-center gap-1">
@@ -358,9 +300,7 @@ export default function AuditLogManagement() {
               </div>
             );
           })}
-      </div>
-
-      {data && data.meta.total > 0 && (
+      </div>{data && data.meta.total > 0 && (
         <Pagination
           currentPage={data.meta.current_page}
           lastPage={data.meta.last_page}
@@ -370,7 +310,6 @@ export default function AuditLogManagement() {
           onPerPageChange={setPerPage}
           itemLabel="bản ghi"
         />
-      )}
-    </div>
+      )}</UIFlex>
   );
 }

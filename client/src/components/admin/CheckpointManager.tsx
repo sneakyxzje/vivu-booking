@@ -1,3 +1,4 @@
+import { Button as AntButton, Input as AntInput, Checkbox as AntCheckbox } from "antd";
 import React from "react";
 import { Camera, MapPin, Plus, Trash2 } from "lucide-react";
 import type { CheckpointItem } from "@/components/guide/tour-form/types";
@@ -26,7 +27,6 @@ interface Props {
 export const CheckpointManager: React.FC<Props> = ({
   checkpoints,
   onChange,
-  fieldClass = "block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-100",
 }) => {
   const them = () => onChange([...checkpoints, checkpointRong()]);
 
@@ -60,24 +60,13 @@ export const CheckpointManager: React.FC<Props> = ({
             cho cả chặng.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={them}
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-primary-50 px-2.5 py-1.5 text-[11px] font-semibold text-primary-700 transition-colors hover:bg-primary-100"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Thêm điểm dừng
-        </button>
+        <AntButton htmlType="button" onClick={them}><Plus className="h-3.5 w-3.5" />Thêm điểm dừng
+        </AntButton>
       </div>
 
       {checkpoints.length === 0 ? (
-        <button
-          type="button"
-          onClick={them}
-          className="w-full rounded-lg border border-dashed border-gray-300 bg-gray-50/60 px-4 py-3 text-[11px] text-gray-500 transition-colors hover:border-primary-300 hover:bg-primary-50/50 hover:text-primary-700"
-        >
-          Chưa có điểm dừng nào — bấm để thêm điểm đầu tiên.
-        </button>
+        <AntButton htmlType="button" onClick={them} style={{ width: "100%" }}>Chưa có điểm dừng nào — bấm để thêm điểm đầu tiên.
+        </AntButton>
       ) : (
         <div className="space-y-2">
           {checkpoints.map((cp, idx) => (
@@ -90,55 +79,21 @@ export const CheckpointManager: React.FC<Props> = ({
               </span>
 
               <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
-                <input
-                  value={cp.name}
-                  onChange={(e) => sua(idx, { name: e.target.value })}
-                  placeholder="Tên điểm dừng, VD: Cảng Tuần Châu"
-                  className={fieldClass}
-                />
-                <input
-                  value={cp.description}
-                  onChange={(e) => sua(idx, { description: e.target.value })}
-                  placeholder="Ghi chú cho hướng dẫn viên (không bắt buộc)"
-                  className={fieldClass}
-                />
+                <AntInput value={cp.name} onChange={(e) => sua(idx, { name: e.target.value })} placeholder="Tên điểm dừng, VD: Cảng Tuần Châu" style={{ width: "100%" }} />
+                <AntInput value={cp.description} onChange={(e) => sua(idx, { description: e.target.value })} placeholder="Ghi chú cho hướng dẫn viên (không bắt buộc)" style={{ width: "100%" }} />
                 <label className="inline-flex cursor-pointer select-none items-center gap-2 text-[11px] font-medium text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={cp.is_required_photo}
-                    onChange={(e) => sua(idx, { is_required_photo: e.target.checked })}
-                    className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                  />
+                  <AntCheckbox checked={cp.is_required_photo} onChange={(e) => sua(idx, { is_required_photo: e.target.checked })} />
                   <Camera className="h-3.5 w-3.5 text-gray-400" />
                   Bắt buộc chụp ảnh đoàn tại điểm này
                 </label>
               </div>
 
               <div className="flex shrink-0 items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => doiCho(idx, "len")}
-                  disabled={idx === 0}
-                  className="rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-30"
-                >
-                  Lên
-                </button>
-                <button
-                  type="button"
-                  onClick={() => doiCho(idx, "xuong")}
-                  disabled={idx === checkpoints.length - 1}
-                  className="rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-30"
-                >
-                  Xuống
-                </button>
-                <button
-                  type="button"
-                  onClick={() => xoa(idx)}
-                  aria-label={`Xóa điểm dừng ${idx + 1}`}
-                  className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <AntButton htmlType="button" onClick={() => doiCho(idx, "len")} disabled={idx === 0}>Lên
+                </AntButton>
+                <AntButton htmlType="button" onClick={() => doiCho(idx, "xuong")} disabled={idx === checkpoints.length - 1}>Xuống
+                </AntButton>
+                <AntButton htmlType="button" onClick={() => xoa(idx)} aria-label={`Xóa điểm dừng ${idx + 1}`} danger><Trash2 className="h-3.5 w-3.5" /></AntButton>
               </div>
             </div>
           ))}

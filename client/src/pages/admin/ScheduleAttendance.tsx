@@ -1,3 +1,10 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Flex as UIFlex,
+  Image,
+  Typography as AntTypography,
+} from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import adminService from "@/services/adminService";
@@ -42,7 +49,6 @@ export default function ScheduleAttendance() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeCheckpointId, setActiveCheckpointId] = useState<number | null>(null);
-  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!scheduleId) return;
@@ -167,9 +173,8 @@ export default function ScheduleAttendance() {
           >
             Quay lại Quản lý Chuyến
           </Link>
-          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 font-jakarta">
-            Báo cáo điểm danh &amp; Check-in đoàn
-          </h1>
+          <AntTypography.Title level={3} >Báo cáo điểm danh &amp; Check-in đoàn
+          </AntTypography.Title>
           <p className="text-sm text-gray-500 mt-1">
             <span className="font-semibold text-gray-800">{data.tour.title}</span> · Khởi hành:{" "}
             <span className="text-primary-700 font-medium">
@@ -187,40 +192,24 @@ export default function ScheduleAttendance() {
       </div>
 
       {groupedByDay.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center text-gray-500">
-          Tour này chưa khai báo điểm dừng nào nên chưa có dữ liệu điểm danh.
-        </div>
+        <UICard  ><UIFlex vertical gap="middle">Tour này chưa khai báo điểm dừng nào nên chưa có dữ liệu điểm danh.
+        </UIFlex></UICard>
       ) : (
         <>
-          <div className="space-y-3">
-            {groupedByDay.map(([day, checkpoints]) => (
-              <div key={day} className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500 w-16 shrink-0">
+          <UIFlex vertical gap={12} >{groupedByDay.map(([day, checkpoints]) => (
+              <UIFlex key={day}  wrap align="center"  gap={8}><span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500 w-16 shrink-0">
                   Ngày {day}
-                </span>
-                {checkpoints.map((checkpoint) => {
+                </span>{checkpoints.map((checkpoint) => {
                   const isActive = activeCheckpointId === checkpoint.id;
                   const soAnh = data.photos.filter(
                     (photo) => photo.itinerary_checkpoint_id === checkpoint.id,
                   ).length;
 
                   return (
-                    <button
-                      key={checkpoint.id}
-                      type="button"
-                      onClick={() => setActiveCheckpointId(checkpoint.id)}
-                      className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                        isActive
-                          ? "bg-primary-600 text-white shadow-md -translate-y-0.5"
-                          : "bg-white border border-gray-100 text-gray-700 hover:bg-gray-50 shadow-sm"
-                      }`}
-                    >
-                      <span>{checkpoint.name}</span>
-                      {/*
+                    <AntButton type={(isActive) ? "primary" : "default"} key={checkpoint.id} htmlType="button" onClick={() => setActiveCheckpointId(checkpoint.id)}><span>{checkpoint.name}</span>{/*
                         Điểm dừng bắt buộc có ảnh: trước đây trạng thái này là một biểu tượng máy
                         ảnh hoặc dấu chấm than, nghĩa phải đoán. Giờ nói thẳng bằng chữ.
-                      */}
-                      {checkpoint.is_required_photo && (
+                      */}{checkpoint.is_required_photo && (
                         <span
                           className={`text-[10px] font-bold uppercase tracking-wide ${
                             isActive
@@ -232,19 +221,15 @@ export default function ScheduleAttendance() {
                         >
                           {soAnh > 0 ? "Có ảnh" : "Thiếu ảnh"}
                         </span>
-                      )}
-                    </button>
+                      )}</AntButton>
                   );
-                })}
-              </div>
-            ))}
-          </div>
+                })}</UIFlex>
+            ))}</UIFlex>
 
           {activeCheckpoint && (
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
               <div className="xl:col-span-2 space-y-6">
-                <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm space-y-4">
-                  <div>
+                <UICard  ><UIFlex vertical gap="middle"><div>
                     <h2 className="text-lg font-bold text-gray-900 font-jakarta">
                       {activeCheckpoint.name}
                     </h2>
@@ -255,28 +240,20 @@ export default function ScheduleAttendance() {
                         : ""}{" "}
                       · <span className="font-bold text-gray-800">{stats.total} hành khách</span>
                     </p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {ATTENDANCE_STATUS_ORDER.map((status) => (
+                  </div><UIFlex   wrap   gap={8}>{ATTENDANCE_STATUS_ORDER.map((status) => (
                       <span
                         key={status}
                         className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold ${ATTENDANCE_STATUSES[status].badgeClass}`}
                       >
                         {ATTENDANCE_STATUSES[status].label}: {stats[status]}
                       </span>
-                    ))}
-                    <span className="px-2.5 py-1 rounded-lg border border-gray-200 bg-gray-50 text-gray-600 text-[11px] font-bold">
+                    ))}<span className="px-2.5 py-1 rounded-lg border border-gray-200 bg-gray-50 text-gray-600 text-[11px] font-bold">
                       Chưa ghi nhận: {stats.pending}
-                    </span>
-                  </div>
-
-                  {activeCheckpoint.is_required_photo && activePhotos.length === 0 && (
+                    </span></UIFlex>{activeCheckpoint.is_required_photo && activePhotos.length === 0 && (
                     <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl p-3">
                       Điểm dừng bắt buộc có ảnh check-in nhưng hướng dẫn viên chưa gửi ảnh nào.
                     </p>
-                  )}
-                </div>
+                  )}</UIFlex></UICard>
 
                 <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-100">
                   <div className="px-6 py-4 bg-gray-50/50 flex items-center justify-between">
@@ -295,25 +272,20 @@ export default function ScheduleAttendance() {
                   ) : (
                     data.bookings.map((booking) => (
                       <div key={booking.id} className="p-6 space-y-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold text-gray-900 text-base">
+                        <UIFlex   wrap align="center"  gap={8}><span className="font-bold text-gray-900 text-base">
                             {booking.customer_name}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-mono text-[11px] font-semibold">
+                          </span><span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-mono text-[11px] font-semibold">
                             BK-{booking.id}
-                          </span>
-                          <span className="text-xs text-gray-500">
+                          </span><span className="text-xs text-gray-500">
                             {booking.customer_phone || "Không có SĐT"} · {booking.guests} khách
-                          </span>
-                        </div>
+                          </span></UIFlex>
 
                         {(booking.passengers ?? []).length === 0 ? (
                           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
                             Đơn này chưa khai danh sách hành khách.
                           </p>
                         ) : (
-                          <div className="space-y-2">
-                            {(booking.passengers ?? []).map((passenger) => {
+                          <UIFlex vertical gap={8} >{(booking.passengers ?? []).map((passenger) => {
                               const checkin = checkinByPassenger.get(
                                 `${activeCheckpoint.id}:${passenger.id}`,
                               );
@@ -356,8 +328,7 @@ export default function ScheduleAttendance() {
                                   </div>
                                 </div>
                               );
-                            })}
-                          </div>
+                            })}</UIFlex>
                         )}
                       </div>
                     ))
@@ -380,22 +351,7 @@ export default function ScheduleAttendance() {
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
                     {activePhotos.map((photo) => (
-                      <button
-                        key={photo.id}
-                        type="button"
-                        onClick={() => setPreviewPhotoUrl(photo.image_path)}
-                        className="group relative h-36 rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all text-left"
-                      >
-                        <img
-                          src={photo.image_path}
-                          alt={`Ảnh check-in tại ${activeCheckpoint.name}`}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          loading="lazy"
-                        />
-                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
-                          Xem phóng to
-                        </div>
-                      </button>
+                      <Image key={photo.id} src={photo.image_path} alt={`Ảnh check-in tại ${activeCheckpoint.name}`} width="100%" styles={{ image: { maxHeight: 240, objectFit: "cover" } }} />
                     ))}
                   </div>
                 )}
@@ -405,23 +361,7 @@ export default function ScheduleAttendance() {
         </>
       )}
 
-      {previewPhotoUrl && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
-          onClick={() => setPreviewPhotoUrl(null)}
-        >
-          <div className="relative max-w-4xl w-full max-h-[90vh] overflow-hidden rounded-2xl">
-            <img
-              src={previewPhotoUrl}
-              alt="Ảnh check-in phóng to"
-              className="w-full h-full object-contain max-h-[85vh] mx-auto"
-            />
-            <p className="text-center text-white text-xs font-medium mt-2">
-              Bấm bất kỳ đâu để đóng
-            </p>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

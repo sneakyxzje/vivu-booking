@@ -1,3 +1,9 @@
+import {
+  Card as UICard,
+  Flex as UIFlex,
+  Table as AntTable,
+  Typography as AntTypography,
+} from "antd";
 import { useEffect, useState } from "react";
 import {
   AreaChart,
@@ -19,7 +25,7 @@ import {
   Calendar
 } from "lucide-react";
 import adminService, { type AdminDashboardData } from "@/services/adminService";
-import { DateRangePicker, type DateRange } from "@/components/DateRangePicker";
+import { DateRangePicker, type DateRange } from "@/components/admin/AdminDateRangePicker";
 import { formatDate, formatDateTime, formatPrice } from "@/utils/format";
 
 const DESTINATION_COLORS = ["#6366f1", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
@@ -157,13 +163,10 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* HEADER INFO */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <UIFlex vertical gap="large" >{/* HEADER INFO */}<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            Tổng quan hệ thống
-          </h1>
+          <AntTypography.Title level={3} >Tổng quan hệ thống
+          </AntTypography.Title>
           <p className="text-sm text-gray-500 mt-0.5">
             Phân tích số liệu doanh thu, hiệu suất bán tour du lịch và phân tích xu hướng
           </p>
@@ -174,9 +177,7 @@ export default function Dashboard() {
             {nhanKy}
           </span>
         </div>
-      </div>
-
-      {/*
+      </div>{/*
         BỘ LỌC KHOẢNG NGÀY — dùng `DateRangePicker` chung, không tự dựng hai ô ngày.
 
         Chú thích của chính component ấy đã ghi: bốn màn hình từng mỗi nơi tự dựng một kiểu, mỗi
@@ -185,8 +186,7 @@ export default function Dashboard() {
 
         `presets="past"` vì bảng điều khiển nhìn về dữ liệu đã xảy ra; `maxDate` chặn ngày tương
         lai, vốn luôn cho ra một kỳ rỗng.
-      */}
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-xs">
+      */}<div className="flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-xs">
         <DateRangePicker
           label="Khoảng thời gian"
           value={range}
@@ -200,38 +200,20 @@ export default function Dashboard() {
           Áp cho doanh thu, số đơn, khách mới, điểm đến và biểu đồ. Các số hiện
           trạng như tỷ lệ lấp đầy không đổi theo bộ lọc.
         </p>
-      </div>
-
-      {error && (
+      </div>{error && (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm text-rose-700">
           {error} Số liệu dưới đây là của lần tải gần nhất.
         </div>
-      )}
-
-      {/* KPI METRICS GRID */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      )}{/* KPI METRICS GRID */}<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {metrics.map((item, index) => {
           const Icon = item.icon;
           return (
-            <div
-              key={index}
-              className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{item.title}</p>
-                <div className={`p-2 rounded ${item.color} border shrink-0`}>
+            <UICard key={index} ><UIFlex vertical gap="middle"><UIFlex    align="center" justify="space-between" ><p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{item.title}</p><div className={`p-2 rounded ${item.color} border shrink-0`}>
                   <Icon className="w-5 h-5" />
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mt-3">{item.value}</h3>
-              <p className="mt-2.5 text-xs font-medium text-gray-400">{item.trend}</p>
-            </div>
+                </div></UIFlex><h3 className="text-2xl font-bold text-gray-900 mt-3">{item.value}</h3><p className="mt-2.5 text-xs font-medium text-gray-400">{item.trend}</p></UIFlex></UICard>
           );
         })}
-      </div>
-
-      {/* CHARTS LAYER */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      </div>{/* CHARTS LAYER */}<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Revenue & Bookings Line Chart */}
         <div className="lg:col-span-2 bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex flex-col">
           <div className="flex items-center justify-between mb-6">
@@ -335,53 +317,19 @@ export default function Dashboard() {
           {/* Custom Legends list */}
           <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-gray-600 mt-2">
             {destData.map((item, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded shrink-0" style={{ backgroundColor: item.color }} />
-                <span className="truncate">{item.name}</span>
-                <span className="text-gray-400 font-mono">({item.value} khách)</span>
-              </div>
+              <UIFlex key={index}   align="center"  gap={8}><span className="w-2.5 h-2.5 rounded shrink-0" style={{ backgroundColor: item.color }} /><span className="truncate">{item.name}</span><span className="text-gray-400 font-mono">({item.value} khách)</span></UIFlex>
             ))}
           </div>
         </div>
-      </div>
-
-      {/* RECENT BOOKINGS TABLE */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-xs">
-        <div className="p-5 border-b border-gray-100">
+      </div>{/* RECENT BOOKINGS TABLE */}<UICard  ><UIFlex vertical gap="middle"><div className="p-5 border-b border-gray-100">
           <h3 className="text-base font-bold text-gray-900 tracking-tight">Các giao dịch Booking mới nhất</h3>
           <p className="text-xs text-gray-400 mt-0.5">Theo dõi lịch trình thanh toán và trạng thái phê duyệt của khách hàng</p>
-        </div>
-
-        <div className="overflow-x-visible">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase border-b border-gray-200 tracking-wider">
-                <th className="py-3.5 px-6 w-20 text-center">ID</th>
-                <th className="py-3.5 px-6">Họ tên khách hàng</th>
-                <th className="py-3.5 px-6 w-96">Tên chương trình Tour</th>
-                <th className="py-3.5 px-6 text-right">Tổng thanh toán</th>
-                <th className="py-3.5 px-6 text-center">Thời gian</th>
-                <th className="py-3.5 px-6 text-center">Trạng thái</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 text-sm text-gray-700">
-              {bookingsData.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-sm text-gray-400">
-                    Chưa có giao dịch nào.
-                  </td>
-                </tr>
-              )}
-              {bookingsData.map((bk) => (
-                <tr key={bk.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-3.5 px-6 text-center text-gray-400 font-mono">#{bk.id}</td>
-                  <td className="py-3.5 px-6 font-semibold text-gray-950">{bk.customer}</td>
-                  <td className="py-3.5 px-6 text-gray-600">{bk.tour}</td>
-                  <td className="py-3.5 px-6 text-right font-bold text-gray-900 font-mono">
+        </div><div className="overflow-x-visible">
+          <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }}
+    dataSource={bookingsData.map((bk) => (
+                {key: bk.id, cells: [<>#{bk.id}</>,<>{bk.customer}</>,<>{bk.tour}</>,<>
                     {bk.price.toLocaleString()} đ
-                  </td>
-                  <td className="py-3.5 px-6 text-center text-gray-400 text-xs font-mono">{formatDateTime(bk.date)}</td>
-                  <td className="py-3.5 px-6 text-center">
+                  </>,<>{formatDateTime(bk.date)}</>,<>
                     <span
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold border ${
                         bk.status === "confirmed"
@@ -395,13 +343,13 @@ export default function Dashboard() {
                       {bk.status === "cancelled" && "Đã hủy"}
                       {bk.status === "pending" && "Chờ xác nhận"}
                     </span>
-                  </td>
-                </tr>
+                  </>], rowProps: {}}
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    columns={[{ key: "0", title: <>ID</>, align: "center", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Họ tên khách hàng</>, align: "left", render: (_value, record) => record.cells[1] },{ key: "2", title: <>Tên chương trình Tour</>, align: "left", render: (_value, record) => record.cells[2] },{ key: "3", title: <>Tổng thanh toán</>, align: "right", render: (_value, record) => record.cells[3] },{ key: "4", title: <>Thời gian</>, align: "center", render: (_value, record) => record.cells[4] },{ key: "5", title: <>Trạng thái</>, align: "center", render: (_value, record) => record.cells[5] }]}
+    onRow={(record) => record.rowProps}
+    locale={{ emptyText: <>
+                    Chưa có giao dịch nào.
+                  </> }} />
+        </div></UIFlex></UICard></UIFlex>
   );
 }

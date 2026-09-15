@@ -101,7 +101,7 @@ class ScheduleMergeService
     /**
      * Xem trước tác động: bao nhiêu đơn chuyển, bao nhiêu đơn bị hủy, còn đủ chỗ không.
      *
-     * @return array{can_merge: bool, blocked_reason: string|null, transferring: int, transferring_guests: int, cancelling: int, remaining_seats: int}
+     * @return array{can_merge: bool, blocked_reason: string|null, transferring: int, transferring_guests: int, transferring_seats: int, cancelling: int, remaining_seats: int, remaining_seats_after: int}
      */
     public function preview(TourSchedule $from, TourSchedule $to): array
     {
@@ -117,6 +117,8 @@ class ScheduleMergeService
 
         $chuyenDi = $this->bookingsToTransfer($from, $to);
         $huyDi = $this->bookingsToCancel($from, $to);
+        $soGheChuyen = (int) $chuyenDi->sum(fn (Booking $don) => $don->seatsTaken());
+        $soGheTrong = (int) $to->max_people - (int) $to->booked_people;
 
         return [
             'can_merge' => $coThe,
@@ -124,8 +126,10 @@ class ScheduleMergeService
             'transferring' => $chuyenDi->count(),
             // Số NGƯỜI cho màn hình đọc; số ghế dùng để kiểm sức chứa ở `assertCanMerge`.
             'transferring_guests' => (int) $chuyenDi->sum('guests'),
+            'transferring_seats' => $soGheChuyen,
             'cancelling' => $huyDi->count(),
-            'remaining_seats' => (int) $to->max_people - (int) $to->booked_people,
+            'remaining_seats' => $soGheTrong,
+            'remaining_seats_after' => $soGheTrong - $soGheChuyen,
         ];
     }
 
@@ -399,13 +403,13 @@ class ScheduleMergeService
         }
     }
 
-    /** 
+    /**
      * Đơn sẽ được chuyển sang chuyến đích.
      * Nếu ghép cùng ngày (chỉ gộp đoàn, không đổi lịch), chuyển cả đơn chưa thanh toán.
      */
     private function bookingsToTransfer(TourSchedule $from, TourSchedule $to)
     {
-        $cungNgay = $from->start_date && $to->start_date 
+        $cungNgay = $from->start_date && $to->start_date
             && Carbon::parse($from->start_date)->isSameDay(Carbon::parse($to->start_date));
 
         $trangThai = BookingStatus::paidValues();
@@ -419,13 +423,13 @@ class ScheduleMergeService
             ->get();
     }
 
-    /** 
+    /**
      * Đơn chưa thanh toán, sẽ bị hủy và mời đặt lại.
-     * Nếu ghép cùng ngày thì không hủy đơn nào (đã gom hết vào mảng chuyển đi). 
+     * Nếu ghép cùng ngày thì không hủy đơn nào (đã gom hết vào mảng chuyển đi).
      */
     private function bookingsToCancel(TourSchedule $from, TourSchedule $to)
     {
-        $cungNgay = $from->start_date && $to->start_date 
+        $cungNgay = $from->start_date && $to->start_date
             && Carbon::parse($from->start_date)->isSameDay(Carbon::parse($to->start_date));
 
         if ($cungNgay) {

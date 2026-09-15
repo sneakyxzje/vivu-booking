@@ -12,11 +12,9 @@ interface BulkProposalDialogProps {
   onClose: () => void;
 }
 
-const PIE_COLORS = ["#10b981", "#f43f5e", "#f59e0b", "#6b7280"]; // Green, Red, Amber, Gray
-
 export function BulkProposalDialog({ scheduleId, scheduleStartDate, isOpen, onClose }: BulkProposalDialogProps) {
   const [activeTab, setActiveTab] = useState<"create" | "stats">("create");
-  
+
   // Create State
   const [reason, setReason] = useState("");
   const [proposedDate, setProposedDate] = useState("");
@@ -105,14 +103,14 @@ export function BulkProposalDialog({ scheduleId, scheduleStartDate, isOpen, onCl
 
   const handleCancelBooking = async (bookingId: number) => {
     if (!confirm("Bạn có chắc chắn muốn hủy đơn hàng này không? Quá trình này sẽ giải phóng chỗ trên chuyến đi hiện tại.")) return;
-    
+
     setSaving(true);
     try {
-      await adminService.cancelBooking(bookingId, {
-        reason: "Khách hàng không đồng ý dời lịch hoặc quá hạn phản hồi Đề xuất thay đổi",
-        note: "Hủy từ Dashboard Đề xuất thay đổi",
-        refund_method: "manual"
-      });
+      await adminService.cancelBooking(
+        bookingId,
+        "Khách hàng không đồng ý dời lịch hoặc quá hạn phản hồi Đề xuất thay đổi",
+        "by_company",
+      );
       setToast({ isOpen: true, type: "success", message: "Đã hủy đơn thành công!" });
       loadStats(); // Tải lại danh sách
     } catch (error: any) {
@@ -169,7 +167,7 @@ export function BulkProposalDialog({ scheduleId, scheduleStartDate, isOpen, onCl
             <p className="text-xl font-bold text-amber-700">{stats.pending + stats.expired}</p>
           </div>
         </div>
-        
+
         <div className="h-64 mb-8">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -251,11 +249,11 @@ export function BulkProposalDialog({ scheduleId, scheduleStartDate, isOpen, onCl
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
     >
-      <div 
+      <div
         className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-scale-up flex flex-col max-h-[90vh] relative"
         onClick={(e) => e.stopPropagation()}
       >
@@ -266,7 +264,7 @@ export function BulkProposalDialog({ scheduleId, scheduleStartDate, isOpen, onCl
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
-        
+
         <div className="flex border-b border-gray-100 bg-slate-50/50 pr-12">
           <button
             className={`flex-1 py-4 text-sm font-bold transition-colors ${activeTab === "create" ? "text-primary-700 border-b-2 border-primary-600 bg-white shadow-sm" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"}`}
@@ -374,7 +372,7 @@ export function BulkProposalDialog({ scheduleId, scheduleStartDate, isOpen, onCl
           )}
         </div>
       </div>
-      
+
       {toast.isOpen && (
         <Toast
           message={toast.message}

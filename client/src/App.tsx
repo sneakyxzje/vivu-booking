@@ -7,7 +7,6 @@ import {
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Layout } from "@/components/Layout";
 import { GuideLayout } from "@/components/guide/GuideLayout";
-import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Login } from "@/pages/Login";
 import { Register } from "@/pages/Register";
 import { ForgotPassword } from "@/pages/ForgotPassword";
@@ -16,24 +15,6 @@ import { NotFound } from "@/pages/NotFound";
 import { Home } from "@/pages/Home";
 import { Tours } from "@/pages/Tours";
 import { PaymentResult } from "@/pages/PaymentResult";
-import Dashboard from "@/pages/admin/Dashboard";
-import TourList from "@/pages/admin/TourList";
-import AdminTourDetail from "@/pages/admin/TourDetail";
-import BookingManagement from "@/pages/admin/BookingManagement";
-import GuideManagement from "@/pages/admin/GuideManagement";
-import DiscountCodeManagement from "@/pages/admin/DiscountCodeManagement";
-import ServiceManagement from "@/pages/admin/ServiceManagement";
-import CategoryManagement from "@/pages/admin/CategoryManagement";
-import ReviewManagement from "@/pages/admin/ReviewManagement";
-import UserManagement from "@/pages/admin/UserManagement";
-import FinanceHub from "@/pages/admin/FinanceHub";
-import ContactMessages from "@/pages/admin/ContactMessages";
-import ScheduleAttendance from "@/pages/admin/ScheduleAttendance";
-import AttendanceReport from "@/pages/admin/AttendanceReport";
-import ScheduleManagement from "@/pages/admin/ScheduleManagement";
-import AuditLogManagement from "@/pages/admin/AuditLogManagement";
-import SandboxLab from "@/pages/admin/SandboxLab";
-import ChangeRequestManagement from "@/pages/admin/ChangeRequestManagement";
 import { GuideDashboard } from "@/pages/guide/GuideDashboard";
 import GuideAssignments from "@/pages/guide/GuideAssignments";
 import { GuideTours } from "@/pages/guide/GuideTours";
@@ -41,12 +22,9 @@ import { GuideBookings } from "@/pages/guide/GuideBookings";
 import { GuideAttendance } from "@/pages/guide/GuideAttendance";
 import GuideIncidents from "@/pages/guide/GuideIncidents";
 import GuideHandovers from "@/pages/guide/GuideHandovers";
-import IncidentManagement from "@/pages/admin/IncidentManagement";
-import HandoverManagement from "@/pages/admin/HandoverManagement";
 import NotificationCenter from "@/pages/NotificationCenter";
 import PolicyPage from "@/pages/PolicyPage";
 import TourDetail from "@/components/TourDetail";
-import { CreateTourForm } from "@/pages/admin/create/CreateTourForm";
 import BookingTour from "@/pages/BookingTour";
 import BookingSuccess from "@/pages/BookingSuccess";
 import { Profile } from "@/pages/Profile";
@@ -55,7 +33,6 @@ import ContactPage from "@/pages/ContactPage";
 import { BookingLookup } from "@/pages/BookingLookup";
 import GroupBooking from "@/pages/GroupBooking";
 import PassengerDeclaration from "@/pages/PassengerDeclaration";
-import GroupBookingManagement from "@/pages/admin/GroupBookingManagement";
 
 const router = createBrowserRouter([
   // 1. NHÓM ROUTES CHO USER (Sử dụng Layout chung của User có Header/Footer)
@@ -231,7 +208,7 @@ const router = createBrowserRouter([
     element: <ProtectedRoute allowedRoles={["admin"]} />,
     children: [
       {
-        element: <AdminLayout />,
+        lazy: async () => ({ Component: (await import("@/components/admin/AdminLayout")).AdminLayout }),
         children: [
           {
             path: "/admin",
@@ -239,96 +216,96 @@ const router = createBrowserRouter([
           },
           {
             path: "/admin/dashboard",
-            element: <Dashboard />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/Dashboard")).default }),
           },
           {
             path: "/admin/tours",
-            element: <TourList />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/TourList")).default }),
           },
           {
             path: "/admin/tours/create",
-            element: <CreateTourForm />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/create/CreateTourForm")).CreateTourForm }),
           },
           {
             path: "/admin/tours/:id/edit",
-            element: <CreateTourForm />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/create/CreateTourForm")).CreateTourForm }),
           },
           {
             path: "/admin/tours/:id",
-            element: <AdminTourDetail />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/TourDetail")).default }),
           },
           {
             path: "/admin/tour-schedules/:scheduleId/attendance",
-            element: <ScheduleAttendance />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/ScheduleAttendance")).default }),
           },
           {
             path: "/admin/attendance-reports",
-            element: <AttendanceReport />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/AttendanceReport")).default }),
           },
           {
             path: "/admin/schedules",
-            element: <ScheduleManagement />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/ScheduleManagement")).default }),
           },
           {
             path: "/admin/notifications",
-            element: <NotificationCenter />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/AdminNotifications")).default }),
           },
           {
             path: "/admin/audit-logs",
-            element: <AuditLogManagement />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/AuditLogManagement")).default }),
           },
           {
             path: "/admin/sandbox",
-            element: <SandboxLab />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/SandboxLab")).default }),
           },
           {
             path: "/admin/incidents",
-            element: <IncidentManagement />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/IncidentManagement")).default }),
           },
           {
             path: "/admin/handovers",
-            element: <HandoverManagement />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/HandoverManagement")).default }),
           },
           {
             path: "/admin/change-requests",
-            element: <ChangeRequestManagement />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/ChangeRequestManagement")).default }),
           },
           {
             path: "/admin/bookings",
-            element: <BookingManagement />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/BookingManagement")).default }),
           },
           {
             path: "/admin/group-bookings",
-            element: <GroupBookingManagement />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/GroupBookingManagement")).default }),
           },
           {
             path: "/admin/discount-codes",
-            element: <DiscountCodeManagement />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/DiscountCodeManagement")).default }),
           },
           {
             path: "/admin/guides",
-            element: <GuideManagement />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/GuideManagement")).default }),
           },
           {
             path: "/admin/services",
-            element: <ServiceManagement />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/ServiceManagement")).default }),
           },
           {
             path: "/admin/categories",
-            element: <CategoryManagement />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/CategoryManagement")).default }),
           },
           {
             path: "/admin/reviews",
-            element: <ReviewManagement />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/ReviewManagement")).default }),
           },
           {
             path: "/admin/users",
-            element: <UserManagement />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/UserManagement")).default }),
           },
           {
             // Một cửa cho mọi câu hỏi về tiền: sổ, phải thu, phải trả. Xem FinanceHub.
             path: "/admin/transactions",
-            element: <FinanceHub />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/FinanceHub")).default }),
           },
           {
             // Hai đường cũ vẫn sống, chỉ dẫn sang đúng tab: liên kết đã gửi cho kế toán và các
@@ -342,7 +319,7 @@ const router = createBrowserRouter([
           },
           {
             path: "/admin/contact-messages",
-            element: <ContactMessages />,
+            lazy: async () => ({ Component: (await import("@/pages/admin/ContactMessages")).default }),
           },
         ],
       },

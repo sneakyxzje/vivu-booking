@@ -21,12 +21,12 @@ class BookingProposalTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->admin = User::factory()->create([
             'role' => 'admin',
             'status' => 'active'
         ]);
-        
+
         // Tạo booking giả lập
         $this->booking = Booking::factory()->create([
             'customer_email' => 'test@example.com',
@@ -84,7 +84,7 @@ class BookingProposalTest extends TestCase
 
         // Đúng token và email => thành công
         $response = $this->getJson("/api/bookings/{$this->booking->public_token}/proposals?email=test@example.com");
-        
+
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.0.id', $proposal->id);

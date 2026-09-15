@@ -1,3 +1,11 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Flex as UIFlex,
+  Input as AntInput,
+  Table as AntTable,
+  Typography as AntTypography,
+} from "antd";
 import { useEffect, useState, useMemo, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import type { TourSchedule } from "@/types";
@@ -160,34 +168,21 @@ export default function TourList() {
 
 
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <UIFlex vertical gap="large" >{/* HEADER */}<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            Danh sách Tour du lịch
-          </h1>
+          <AntTypography.Title level={3} >Danh sách Tour du lịch
+          </AntTypography.Title>
           <p className="text-sm text-gray-500">
             Xem danh sách, quản lý cấu trúc, chỉ định và phân công hướng dẫn viên cho các chương trình tour
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {/*
+        <UIFlex    align="center"  gap={12}>{/*
             Chỉ hiện khi thật sự có tour đã xóa. Xóa mềm mà không có đường khôi phục thì chỉ là
             xóa cứng thêm một bước — lối vào phải nằm ngay chỗ người ta vừa xóa tour.
-          */}
-          {trashed.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setTrashOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-canvas border border-hairline text-ink rounded-md text-button-sm hover:bg-surface-soft transition-colors cursor-pointer"
-            >
-              <Archive className="w-4 h-4" />
-              {trashed.length} tour đã xóa
-            </button>
-          )}
-
-          <a
+          */}{trashed.length > 0 && (
+            <AntButton htmlType="button" onClick={() => setTrashOpen(true)}><Archive className="w-4 h-4" />{trashed.length}tour đã xóa
+            </AntButton>
+          )}<a
             href="/admin/tours/create"
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-md font-semibold text-sm hover:bg-primary-700 shadow-xs transition-colors cursor-pointer"
           >
@@ -195,12 +190,8 @@ export default function TourList() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Thêm Tour mới
-          </a>
-        </div>
-      </div>
-
-      {/* KPI STATS CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-5 gap-5">
+          </a></UIFlex>
+      </div>{/* KPI STATS CARDS */}<div className="grid grid-cols-1 sm:grid-cols-5 gap-5">
         {/* Tổng số Tour */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
           <div className="p-3.5 bg-primary-50 text-primary-600 rounded-md group-hover:bg-primary-100 transition-colors">
@@ -265,40 +256,18 @@ export default function TourList() {
             <h3 className="text-xl font-bold text-gray-900 mt-1">{stats.avgPrice.toLocaleString()}đ</h3>
           </div>
         </div>
-      </div>
-
-      {/* FILTER & SEARCH */}
-      <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
+      </div>{/* FILTER & SEARCH */}<UICard  ><UIFlex vertical gap="middle"><div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
           {/* Thanh tìm kiếm */}
-          <div className="relative md:col-span-11">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div  className="relative md:col-span-11"><AntInput prefix={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </span>
-            <input
-              type="text"
-              placeholder="Tìm kiếm tour theo tên hoặc địa điểm khởi hành..."
-              value={search}
-              onChange={handleSearch}
-              className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50"
-            />
-          </div>
+              </svg>} type="text" placeholder="Tìm kiếm tour theo tên hoặc địa điểm khởi hành..." value={search} onChange={handleSearch} style={{ width: "100%" }} /></div>
 
           {/* Xóa lọc */}
           <div className="md:col-span-1 flex">
-            <button
-              onClick={() => setSearch("")}
-              className="w-full py-2.5 text-sm text-gray-500 hover:text-primary-600 bg-gray-50 border border-gray-100 rounded-md font-medium hover:bg-primary-50 transition-colors cursor-pointer"
-            >
-              Xóa lọc
-            </button>
+            <AntButton onClick={() => setSearch("")} style={{ width: "100%" }} htmlType="button">Xóa lọc
+            </AntButton>
           </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden flex flex-col">
+        </div></UIFlex></UICard><div className="bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden flex flex-col">
         {loading ? (
           <div className="p-12 text-center text-gray-500 font-medium">
             Đang tải danh sách Tour du lịch...
@@ -306,60 +275,22 @@ export default function TourList() {
         ) : (
           <>
             <div className="overflow-x-visible">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-gray-200">
-                    <th className="py-3.5 px-6 w-16 text-center">ID</th>
-                    <th className="py-3.5 px-6 w-96">Tên chương trình Tour</th>
-                    <th className="py-3.5 px-6">Điểm khởi hành</th>
-                    <th className="py-3.5 text-right px-6">Giá gốc</th>
-                    <th className="py-3.5 px-6">Hướng dẫn viên</th>
-                    <th className="py-3.5 text-center px-6">Trạng thái</th>
-                    <th className="py-3.5 text-center px-6">Hành động</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-gray-100 text-sm">
-                  {paginatedTours.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="p-12 text-center text-gray-400">
-                        Không tìm thấy Tour nào phù hợp với bộ lọc.
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedTours.map((tour) => {
+              <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }}
+    dataSource={paginatedTours.map((tour) => {
                       const assignedCount =
                         tour.schedules?.filter((schedule) => (schedule.guides ?? []).length > 0)
                           .length ?? 0;
                       const scheduleCount = tour.schedules?.length ?? 0;
                       return (
-                        <tr
-                          key={tour.id}
-                          onClick={() => navigate("/admin/tours/" + tour.id)}
-                          className="cursor-pointer hover:bg-gray-50/50 transition-colors"
-                        >
-                          {/* ID */}
-                          <td className="py-3.5 px-6 text-center text-gray-500 font-mono">
+                        {key: tour.id, cells: [<>
                             #{tour.id}
-                          </td>
-
-                          {/* Tên Tour */}
-                          <td className="py-3.5 px-6 font-semibold text-gray-900 max-w-sm">
+                          </>,<>
                             {tour.title}
-                          </td>
-
-                          {/* Điểm đi */}
-                          <td className="py-3.5 px-6 text-gray-700">
+                          </>,<>
                             {tour.start_location}
-                          </td>
-
-                          {/* Giá */}
-                          <td className="py-3.5 px-6 text-right font-bold text-gray-900">
+                          </>,<>
                             {Number(tour.adult_price).toLocaleString()} đ
-                          </td>
-
-                          {/* Cột Hướng dẫn viên */}
-                          <td className="py-3.5 px-6">
+                          </>,<>
                             <span className={assignedCount > 0 ? "text-sm font-semibold text-gray-800" : "text-sm italic text-gray-400"}>
                               {scheduleCount === 0 ? (
                                 "Chưa có lịch"
@@ -367,10 +298,7 @@ export default function TourList() {
                                 <>{assignedCount}/{scheduleCount} chuyến đã phân công</>
                               )}
                             </span>
-                          </td>
-
-                          {/* Trạng thái */}
-                          <td className="py-3.5 px-6 text-center">
+                          </>,<>
                             <span
                               className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-semibold border ${tour.status === "active"
                                 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -380,12 +308,7 @@ export default function TourList() {
                               <span className={`w-1.5 h-1.5 rounded-full ${tour.status === "active" ? "bg-emerald-500" : tour.status === "full" ? "bg-red-500" : "bg-rose-500"}`}></span>
                               {tour.status === "active" ? "Hoạt động" : tour.status === "full" ? "Hết chỗ" : "Tạm dừng"}
                             </span>
-                          </td>
-                          {/* Hành động (3-dots dropdown) */}
-                          <td
-                            className="py-3.5 px-6 text-center"
-                            onClick={(event) => event.stopPropagation()}
-                          >
+                          </>,<>
                             <TableActions
                               id={tour.id}
                               actions={[
@@ -416,13 +339,14 @@ export default function TourList() {
                                 },
                               ]}
                             />
-                          </td>
-                        </tr>
+                          </>], rowProps: {onClick: () => navigate("/admin/tours/" + tour.id)}}
                       );
-                    })
-                  )}
-                </tbody>
-              </table>
+                    })}
+    columns={[{ key: "0", title: <>ID</>, align: "center", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Tên chương trình Tour</>, align: "left", render: (_value, record) => record.cells[1] },{ key: "2", title: <>Điểm khởi hành</>, align: "left", render: (_value, record) => record.cells[2] },{ key: "3", title: <>Giá gốc</>, align: "right", render: (_value, record) => record.cells[3] },{ key: "4", title: <>Hướng dẫn viên</>, align: "left", render: (_value, record) => record.cells[4] },{ key: "5", title: <>Trạng thái</>, align: "center", render: (_value, record) => record.cells[5] },{ key: "6", title: <>Hành động</>, align: "center", render: (_value, record) => record.cells[6] }]}
+    onRow={(record) => record.rowProps}
+    locale={{ emptyText: <>
+                        Không tìm thấy Tour nào phù hợp với bộ lọc.
+                      </> }} />
             </div>
 
             {/* PAGINATION PANEL */}
@@ -432,47 +356,16 @@ export default function TourList() {
                   Hiển thị <strong className="text-gray-800">{Math.min(totalItems, (currentPage - 1) * itemsPerPage + 1)} - {Math.min(totalItems, currentPage * itemsPerPage)}</strong> trên tổng số <strong className="text-gray-800">{totalItems}</strong> Tour du lịch
                 </span>
 
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((c) => Math.max(1, c - 1))}
-                    className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    Trước
-                  </button>
-                  
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      type="button"
-                      onClick={() => setCurrentPage(page)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-bold cursor-pointer transition-all duration-150 ${
-                        page === currentPage
-                          ? "bg-primary-600 text-white shadow-xs"
-                          : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-
-                  <button
-                    type="button"
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage((c) => Math.min(totalPages, c + 1))}
-                    className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    Sau
-                  </button>
-                </div>
+                <UIFlex    align="center"  gap={6}><AntButton htmlType="button" disabled={currentPage === 1} onClick={() => setCurrentPage((c) => Math.max(1, c - 1))}>Trước
+                  </AntButton>{Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <AntButton type={(page === currentPage) ? "primary" : "default"} key={page} htmlType="button" onClick={() => setCurrentPage(page)}>{page}</AntButton>
+                  ))}<AntButton htmlType="button" disabled={currentPage === totalPages} onClick={() => setCurrentPage((c) => Math.min(totalPages, c + 1))}>Sau
+                  </AntButton></UIFlex>
               </div>
             )}
           </>
         )}
-      </div>
-
-      {/*
+      </div>{/*
         Hộp thoại xóa tour.
 
         Hai kết cục, và hộp thoại đổi hẳn nội dung lẫn nút theo kết cục đó thay vì hiện một nút
@@ -483,8 +376,7 @@ export default function TourList() {
 
         Hệ thống KHÔNG tự ngừng bán thay khi thấy không xóa được. Bấm "xóa" mà máy lặng lẽ làm
         việc khác là máy quyết thay người dùng; ở đây nó nói lý do rồi để họ chọn.
-      */}
-      <Modal
+      */}<Modal
         isOpen={!!deletingTour}
         onClose={closeDeleteDialog}
         title={`Xóa tour: ${deletingTour?.title ?? ""}`}
@@ -492,14 +384,8 @@ export default function TourList() {
         size="lg"
         footer={
           <>
-            <button
-              type="button"
-              onClick={closeDeleteDialog}
-              disabled={deleteBusy}
-              className="px-4 py-2 bg-canvas border border-hairline text-button-sm rounded-lg text-ink hover:bg-surface-soft cursor-pointer"
-            >
-              Quay lại
-            </button>
+            <AntButton htmlType="button" onClick={closeDeleteDialog} disabled={deleteBusy}>Quay lại
+            </AntButton>
 
             {/*
               Ngừng bán luôn hiện nếu tour còn đang bán, kể cả khi xóa được. Hai việc khác nhau
@@ -507,27 +393,12 @@ export default function TourList() {
               xóa thì bỏ luôn khỏi danh sách.
             */}
             {deletePreview && !deletePreview.already_retired && (
-              <button
-                type="button"
-                onClick={() => chayThaoTacXoa(() => adminService.retireTour(deletingTour!.id))}
-                disabled={deleteBusy}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-canvas border border-hairline text-button-sm rounded-lg text-ink hover:bg-surface-soft disabled:opacity-40 cursor-pointer"
-              >
-                <Ban className="w-4 h-4" />
-                Ngừng bán
-              </button>
+              <AntButton htmlType="button" onClick={() => chayThaoTacXoa(() => adminService.retireTour(deletingTour!.id))} disabled={deleteBusy}><Ban className="w-4 h-4" />Ngừng bán
+              </AntButton>
             )}
 
             {deletePreview?.can_delete && (
-              <button
-                type="button"
-                onClick={() => chayThaoTacXoa(() => adminService.deleteTour(deletingTour!.id))}
-                disabled={deleteBusy}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-rose-600 text-white text-button-sm rounded-lg hover:bg-rose-700 disabled:opacity-40 cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-                {deleteBusy ? "Đang xóa..." : "Xóa tour"}
-              </button>
+              <AntButton htmlType="button" onClick={() => chayThaoTacXoa(() => adminService.deleteTour(deletingTour!.id))} disabled={deleteBusy} type="primary" danger><Trash2 className="w-4 h-4" />{deleteBusy ? "Đang xóa..." : "Xóa tour"}</AntButton>
             )}
           </>
         }
@@ -535,17 +406,13 @@ export default function TourList() {
         {!deletePreview ? (
           <p className="text-body-sm text-muted">Đang kiểm tra tour...</p>
         ) : deletePreview.can_delete ? (
-          <div className="space-y-4">
-            <p className="rounded-lg bg-emerald-50 px-4 py-3 text-body-sm text-emerald-900">
+          <UIFlex vertical gap={16} ><p className="rounded-lg bg-emerald-50 px-4 py-3 text-body-sm text-emerald-900">
               Tour sẽ biến mất khỏi trang khách và khỏi danh sách này, <b>nhưng không mất dữ liệu
               nào</b>. Bấm nhầm thì khôi phục lại được.
-            </p>
-
-            {/*
+            </p>{/*
               Liệt kê những thứ Ở LẠI, không phải những thứ mất đi. Đây là điểm khác biệt của xóa
               mềm và cũng là câu người bấm cần nghe: đơn hàng của khách không đi đâu cả.
-            */}
-            <div>
+            */}<div>
               <p className="text-caption text-muted mb-2">Vẫn giữ nguyên:</p>
               <ul className="space-y-1 text-body-sm text-body">
                 <li>{deletePreview.preserved.bookings} đơn đặt tour, kèm hành khách và sổ tiền</li>
@@ -553,25 +420,19 @@ export default function TourList() {
                 <li>{deletePreview.preserved.reviews} đánh giá của khách</li>
                 <li>{deletePreview.preserved.group_requests} yêu cầu booking đoàn</li>
               </ul>
-            </div>
-
-            {!deletePreview.already_retired && (
+            </div>{!deletePreview.already_retired && (
               <p className="text-body-sm text-muted">
                 Nếu chỉ muốn tạm dừng bán mà vẫn giữ tour trong danh sách quản trị thì chọn{" "}
                 <b>ngừng bán</b> thay vì xóa.
               </p>
-            )}
-          </div>
+            )}</UIFlex>
         ) : (
-          <div className="space-y-4">
-            <div className="flex gap-3 rounded-lg bg-amber-50 px-4 py-3">
+          <UIFlex vertical gap={16} ><div className="flex gap-3 rounded-lg bg-amber-50 px-4 py-3">
               <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-body-sm text-amber-900">
                 Chưa xóa tour này được — vẫn còn đoàn đang trông vào nó.
               </p>
-            </div>
-
-            <ul className="space-y-2">
+            </div><ul className="space-y-2">
               {deletePreview.blockers.map((item) => (
                 <li
                   key={item.key}
@@ -580,9 +441,7 @@ export default function TourList() {
                   {item.message}
                 </li>
               ))}
-            </ul>
-
-            {deletePreview.already_retired ? (
+            </ul>{deletePreview.already_retired ? (
               <p className="text-body-sm text-muted">
                 Tour này hiện <b>đã ngừng bán</b> nên không nhận khách mới. Đợi chuyến chạy xong
                 rồi xóa.
@@ -592,33 +451,23 @@ export default function TourList() {
                 Muốn thôi nhận khách mới ngay bây giờ thì chọn <b>ngừng bán</b> — chuyến đã chốt
                 vẫn chạy đúng cam kết.
               </p>
-            )}
-          </div>
+            )}</UIFlex>
         )}
-      </Modal>
-
-      {/* Tour đã xóa, và nút khôi phục từng cái. */}
-      <Modal
+      </Modal>{/* Tour đã xóa, và nút khôi phục từng cái. */}<Modal
         isOpen={trashOpen}
         onClose={() => setTrashOpen(false)}
         title="Tour đã xóa"
         subtitle="Không hiện trên trang khách và trong danh sách quản trị. Dữ liệu vẫn còn nguyên."
         size="2xl"
         footer={
-          <button
-            type="button"
-            onClick={() => setTrashOpen(false)}
-            className="px-4 py-2 bg-canvas border border-hairline text-button-sm rounded-lg text-ink hover:bg-surface-soft cursor-pointer"
-          >
-            Đóng
-          </button>
+          <AntButton htmlType="button" onClick={() => setTrashOpen(false)}>Đóng
+          </AntButton>
         }
       >
         {trashed.length === 0 ? (
           <p className="text-body-sm text-muted">Không có tour nào đã xóa.</p>
         ) : (
-          <div className="space-y-2">
-            {trashed.map((item) => (
+          <UIFlex vertical gap={8} >{trashed.map((item) => (
               <div
                 key={item.id}
                 className="flex flex-wrap items-center gap-3 rounded-lg border border-hairline-soft px-4 py-3"
@@ -631,28 +480,17 @@ export default function TourList() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => khoiPhuc(item.id)}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-canvas border border-hairline text-button-sm rounded-lg text-ink hover:bg-surface-soft cursor-pointer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  Khôi phục
-                </button>
+                <AntButton htmlType="button" onClick={() => khoiPhuc(item.id)}><RotateCcw className="w-4 h-4" />Khôi phục
+                </AntButton>
               </div>
-            ))}
-          </div>
+            ))}</UIFlex>
         )}
-      </Modal>
-
-      {/* --- CUSTOM ALERT TOAST --- */}
-      <Toast
+      </Modal>{/* --- CUSTOM ALERT TOAST --- */}<Toast
         message={toast.message}
         type={toast.type}
         isOpen={toast.isOpen}
         onClose={() => setToast((prev) => ({ ...prev, isOpen: false }))}
-      />
-    </div>
+      /></UIFlex>
   );
 }
 

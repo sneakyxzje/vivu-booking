@@ -231,7 +231,7 @@ export default function BookingSuccess() {
       setProposalError("Vui lòng nhập Email để xác nhận.");
       return;
     }
-    
+
     if (!id) return;
     setRespondingProposalId(proposalId);
     setProposalError("");
@@ -493,12 +493,12 @@ export default function BookingSuccess() {
                 <p className="text-sm text-amber-800 mb-4 whitespace-pre-line leading-relaxed">
                   {proposal.reason}
                 </p>
-                
+
                 <div className="bg-white p-4 rounded-lg border border-amber-100 shadow-sm">
                   <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">
                     Vui lòng chọn 1 trong các phương án sau trước hạn chót: {formatDateTime(proposal.response_deadline)}
                   </p>
-                  
+
                   {proposalError && respondingProposalId === proposal.id && (
                     <div className="mb-3 p-2 bg-rose-50 text-rose-700 text-xs rounded border border-rose-100">
                       {proposalError}
@@ -513,7 +513,7 @@ export default function BookingSuccess() {
                       placeholder="Nhập email đặt tour của bạn để xác nhận..."
                       className="w-full text-sm px-3 py-2 border rounded-md outline-none focus:border-amber-400"
                     />
-                    
+
                     <div className="flex flex-wrap gap-2">
                       {proposal.options.map((opt: any) => (
                         <button

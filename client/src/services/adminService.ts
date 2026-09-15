@@ -486,12 +486,15 @@ export interface MergeCandidate {
   tour_type: string | null;
   can_merge: boolean;
   blocked_reason: string | null;
-  /** Số đơn đã thanh toán sẽ được chuyển sang. */
+  /** Số đơn được chuyển; gồm cả đơn chờ thanh toán khi ghép cùng ngày. */
   transferring: number;
   transferring_guests: number;
+  /** Ghế thực tế cần chuyển, không tính em bé ngồi cùng người lớn. */
+  transferring_seats: number;
   /** Số đơn chưa thanh toán sẽ bị hủy và mời đặt lại. */
   cancelling: number;
   remaining_seats: number;
+  remaining_seats_after: number;
 }
 
 export interface MergeCandidatesResponse {
@@ -1949,11 +1952,6 @@ const adminService = {
     },
   ) => {
     const response = await api.post(`/admin/tour-schedules/${scheduleId}/bulk-proposals`, payload);
-    return response.data;
-  },
-
-  cancelBooking: async (bookingId: number, payload: { reason: string; note: string; refund_method: string }) => {
-    const response = await api.put(`/admin/bookings/${bookingId}/cancel`, payload);
     return response.data;
   },
 

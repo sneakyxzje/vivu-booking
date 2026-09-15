@@ -1,3 +1,10 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Flex as UIFlex,
+  Input as AntInput,
+  Select as AntSelect,
+} from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Banknote, Check, Copy, Loader2 } from "lucide-react";
 import adminService from "@/services/adminService";
@@ -20,7 +27,7 @@ import { formatDateTime, formatPrice } from "@/utils/format";
 const layLoi = (err: unknown, macDinh: string) =>
   (err as { response?: { data?: { message?: string } } })?.response?.data?.message || macDinh;
 
-export default function RefundManagement() {
+export default function RefundManagement({ onChanged }: { onChanged?: () => void } = {}) {
   const [rows, setRows] = useState<RefundQueueRow[]>([]);
   const [outstandingTotal, setOutstandingTotal] = useState(0);
   const [daTra, setDaTra] = useState(false);
@@ -85,6 +92,7 @@ export default function RefundManagement() {
       );
       setPaying(null);
       await taiDanhSach();
+      onChanged?.();
     } catch (err) {
       setError(layLoi(err, "Không ghi được khoản hoàn."));
     } finally {
@@ -106,61 +114,32 @@ export default function RefundManagement() {
   };
 
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-gray-500">
+    <UIFlex vertical gap="large" ><p className="text-sm text-gray-500">
         Các đơn đã hủy còn nghĩa vụ trả tiền lại cho khách. Ghi khoản đã chuyển vào sổ để đơn rời
         khỏi danh sách này.
-      </p>
-
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+      </p><div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
         <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
           Tổng còn phải trả khách
         </p>
         <p className="mt-1 text-3xl font-bold text-amber-900">{formatPrice(outstandingTotal)}</p>
-      </div>
-
-      {toast && (
+      </div>{toast && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
           {toast}
         </div>
-      )}
-
-      <div className="flex gap-2">
-        {[
+      )}<UIFlex      gap={8}>{[
           { key: false, label: "Còn phải trả" },
           { key: true, label: "Đã trả xong" },
         ].map((tab) => (
-          <button
-            key={String(tab.key)}
-            onClick={() => setDaTra(tab.key)}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
-              daTra === tab.key
-                ? "bg-primary-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {loading ? (
+          <AntButton type={(daTra === tab.key) ? "primary" : "default"} key={String(tab.key)} onClick={() => setDaTra(tab.key)} htmlType="button">{tab.label}</AntButton>
+        ))}</UIFlex>{loading ? (
         <div className="flex items-center justify-center gap-2 py-20 text-sm text-gray-500">
           <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
         </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-xl border border-gray-100 bg-white py-20 text-center text-sm text-gray-500 shadow-sm">
-          {daTra ? "Chưa có khoản hoàn nào đã trả xong." : "Không còn khoản nào phải trả khách."}
-        </div>
+        <UICard  ><UIFlex vertical gap="middle">{daTra ? "Chưa có khoản hoàn nào đã trả xong." : "Không còn khoản nào phải trả khách."}</UIFlex></UICard>
       ) : (
-        <div className="space-y-4">
-          {rows.map((row) => (
-            <article
-              key={row.id}
-              className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm space-y-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
+        <UIFlex vertical gap={16} >{rows.map((row) => (
+            <UICard key={row.id} ><UIFlex vertical gap="middle"><UIFlex   wrap align="start" justify="space-between" gap={16}><div>
                   <p className="font-bold text-gray-900">
                     Đơn #{row.id} · {row.customer_name}
                   </p>
@@ -172,9 +151,7 @@ export default function RefundManagement() {
                     {row.customer_email}
                     {row.customer_phone && ` · ${row.customer_phone}`}
                   </p>
-                </div>
-
-                <div className="text-right">
+                </div><div className="text-right">
                   <p className="text-xs font-medium text-gray-500">Còn phải trả</p>
                   <p className="text-xl font-bold text-amber-700">
                     {formatPrice(row.refund_outstanding)}
@@ -184,27 +161,18 @@ export default function RefundManagement() {
                       đã trả {formatPrice(row.refunded)} / {formatPrice(row.refund_due)}
                     </p>
                   )}
-                </div>
-              </div>
-
-              {row.cancel_reason && (
+                </div></UIFlex>{row.cancel_reason && (
                 <p className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
                   <strong>Lý do hủy:</strong> {row.cancel_reason}
                 </p>
-              )}
-
-              {row.refund_bank ? (
+              )}{row.refund_bank ? (
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-gray-200 bg-gray-50/60 p-3 text-xs">
                   <span>
                     <span className="text-gray-500">Số tài khoản:</span>{" "}
                     <strong className="font-mono text-gray-900">
                       {row.refund_bank.account_number}
                     </strong>
-                    <button
-                      onClick={() => chepSoTaiKhoan(row)}
-                      className="ml-2 inline-flex items-center gap-1 rounded border border-gray-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-50"
-                    >
-                      {copied === row.id ? (
+                    <AntButton onClick={() => chepSoTaiKhoan(row)} htmlType="button">{copied === row.id ? (
                         <>
                           <Check className="h-3 w-3" /> Đã chép
                         </>
@@ -212,8 +180,7 @@ export default function RefundManagement() {
                         <>
                           <Copy className="h-3 w-3" /> Chép
                         </>
-                      )}
-                    </button>
+                      )}</AntButton>
                   </span>
                   <span>
                     <span className="text-gray-500">Ngân hàng:</span>{" "}
@@ -235,95 +202,41 @@ export default function RefundManagement() {
                   Khách chưa khai tài khoản nhận hoàn (đơn này không hủy qua đường khách tự gửi
                   yêu cầu). Gọi cho khách theo số ở trên để lấy thông tin trước khi chuyển.
                 </p>
-              )}
-
-              {row.refund_outstanding > 0 && (
+              )}{row.refund_outstanding > 0 && (
                 <div className="border-t border-gray-100 pt-3">
-                  <button
-                    onClick={() => moFormChi(row)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-xs font-bold text-white hover:bg-primary-700"
-                  >
-                    <Banknote className="h-3.5 w-3.5" /> Ghi nhận đã chuyển tiền
-                  </button>
+                  <AntButton onClick={() => moFormChi(row)} type="primary" htmlType="button"><Banknote className="h-3.5 w-3.5" />Ghi nhận đã chuyển tiền
+                  </AntButton>
                 </div>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
-
-      <Modal
+              )}</UIFlex></UICard>
+          ))}</UIFlex>
+      )}<Modal
         isOpen={paying !== null}
         onClose={() => setPaying(null)}
         title={`Ghi khoản hoàn cho đơn #${paying?.id ?? ""}`}
       >
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+        <UIFlex vertical gap={16} ><p className="text-sm text-gray-600">
             Ghi lại khoản tiền vừa chuyển cho khách. Sổ chỉ thêm dòng, không sửa dòng cũ — ghi
             nhầm thì ghi một dòng điều chỉnh, không xóa.
-          </p>
-
-          {error && (
+          </p>{error && (
             <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
               {error}
             </p>
-          )}
-
-          <label className="block">
+          )}<label className="block">
             <span className="text-xs font-semibold text-gray-700">Số tiền</span>
-            <input
-              type="number"
-              min={1}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-            />
+            <AntInput type="number" min={1} value={amount} onChange={(e) => setAmount(e.target.value)} style={{ width: "100%" }} />
             <span className="mt-1 block text-[11px] text-gray-500">
               Còn nợ {formatPrice(paying?.refund_outstanding ?? 0)}
             </span>
-          </label>
-
-          <label className="block">
+          </label><label className="block">
             <span className="text-xs font-semibold text-gray-700">Hình thức</span>
-            <select
-              value={method}
-              onChange={(e) => setMethod(e.target.value as typeof method)}
-              className="mt-1 w-full rounded-xl border border-gray-200 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-            >
-              <option value="bank_transfer">Chuyển khoản</option>
-              <option value="cash">Tiền mặt</option>
-            </select>
-          </label>
-
-          <label className="block">
+            <AntSelect showSearch={{ optionFilterProp: "label" }} value={String((method) ?? "")} onChange={(e) => setMethod(e as typeof method)} style={{ width: "100%" }} options={[{ value: String("bank_transfer"), label: "Chuyển khoản", disabled: false },{ value: String("cash"), label: "Tiền mặt", disabled: false }].flat().filter((option) => !!option)} />
+          </label><label className="block">
             <span className="text-xs font-semibold text-gray-700">
               Mã giao dịch / chứng từ
             </span>
-            <input
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder="FT26083012345"
-              className="mt-1 w-full rounded-xl border border-gray-200 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-            />
-          </label>
-
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => setPaying(null)}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
-            >
-              Hủy
-            </button>
-            <button
-              onClick={ghiKhoanHoan}
-              disabled={actionLoading || Number(amount) <= 0}
-              className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-bold text-white hover:bg-primary-700 disabled:opacity-50"
-            >
-              {actionLoading ? "Đang ghi..." : "Ghi vào sổ"}
-            </button>
-          </div>
-        </div>
-      </Modal>
-    </div>
+            <AntInput value={reference} onChange={(e) => setReference(e.target.value)} placeholder="FT26083012345" style={{ width: "100%" }} />
+          </label><UIFlex     justify="end" gap={8}><AntButton onClick={() => setPaying(null)} htmlType="button">Hủy
+            </AntButton><AntButton onClick={ghiKhoanHoan} disabled={actionLoading || Number(amount) <= 0} type="primary" htmlType="button">{actionLoading ? "Đang ghi..." : "Ghi vào sổ"}</AntButton></UIFlex></UIFlex>
+      </Modal></UIFlex>
   );
 }

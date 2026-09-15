@@ -1,3 +1,12 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Checkbox as AntCheckbox,
+  Flex as UIFlex,
+  Input as AntInput,
+  Modal as AntModal,
+  Typography as AntTypography,
+} from "antd";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, CalendarDays, Clock, UserRound, Users } from "lucide-react";
@@ -168,22 +177,17 @@ export default function AdminTourDetail() {
 
   if (!tour) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-10 text-center">
-        <p className="font-semibold text-gray-900">Không tìm thấy tour.</p>
-        <Link
+      <UICard  ><UIFlex vertical gap="middle"><p className="font-semibold text-gray-900">Không tìm thấy tour.</p><Link
           to="/admin/tours"
           className="mt-4 inline-flex text-sm font-semibold text-primary-600"
         >
           Quay lại danh sách
-        </Link>
-      </div>
+        </Link></UIFlex></UICard>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
+    <UIFlex vertical gap="large" ><UIFlex   wrap align="center" justify="space-between" gap={16}><div>
           <Link
             to="/admin/tours"
             className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-primary-600"
@@ -191,9 +195,8 @@ export default function AdminTourDetail() {
             <ArrowLeft className="h-4 w-4" />
             Danh sách tour
           </Link>
-          <h1 className="text-2xl font-bold text-gray-950">{tour.title}</h1>
-        </div>
-        <span
+          <AntTypography.Title level={3} >{tour.title}</AntTypography.Title>
+        </div><span
           className={
             "rounded px-3 py-1.5 text-xs font-semibold " +
             (tour.status === "active"
@@ -204,10 +207,7 @@ export default function AdminTourDetail() {
           }
         >
           {tourStatusLabel[tour.status]}
-        </span>
-      </div>
-
-      <section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        </span></UIFlex><section className="overflow-hidden rounded-lg border border-gray-200 bg-white">
         <div className="grid lg:grid-cols-[320px_minmax(0,1fr)]">
           <div className="aspect-[4/3] bg-gray-100 lg:aspect-auto">
             {tour.thumbnail ? (
@@ -284,17 +284,12 @@ export default function AdminTourDetail() {
             </div>
           </div>
         </div>
-      </section>
-
-      <section className="rounded-lg border border-gray-200 bg-white">
-        <div className="border-b border-gray-200 px-6 py-4">
+      </section><UICard  ><UIFlex vertical gap="middle"><div className="border-b border-gray-200 px-6 py-4">
           <h2 className="font-bold text-gray-950">Các chuyến đi</h2>
           <p className="mt-1 text-sm text-gray-500">
             Phân công hướng dẫn viên riêng cho từng lịch khởi hành.
           </p>
-        </div>
-
-        {tour.schedules?.length ? (
+        </div>{tour.schedules?.length ? (
           <div className="divide-y divide-gray-100">
             {tour.schedules.map((schedule) => {
               const status = schedule.status || "open";
@@ -312,18 +307,15 @@ export default function AdminTourDetail() {
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     {/* Main Info */}
                     <div className="space-y-3 flex-1">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="text-xs font-bold text-primary-700 font-mono">
+                      <UIFlex   wrap align="center"  gap={12}><span className="text-xs font-bold text-primary-700 font-mono">
                           CHUYẾN #{schedule.id}
-                        </span>
-                        <span
+                        </span><span
                           className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                             statusClasses[status] || statusClasses.open
                           }`}
                         >
                           {statusLabel[status]}
-                        </span>
-                        {status === "cancelled" &&
+                        </span>{status === "cancelled" &&
                           schedule.cancelled_reason && (
                             <span className="text-xs text-rose-600 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100">
                               Lý do hủy: {schedule.cancelled_reason}
@@ -335,13 +327,11 @@ export default function AdminTourDetail() {
                               Đã ghép vào #{schedule.merged_into_schedule_id}
                             </span>
                           )}
-                      </div>
+                      </UIFlex>
 
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {/* Time */}
-                        <div className="flex items-center gap-2.5">
-                          <CalendarDays className="h-4.5 w-4.5 text-gray-400 shrink-0" />
-                          <div className="text-xs">
+                        <UIFlex    align="center"  gap={10}><CalendarDays className="h-4.5 w-4.5 text-gray-400 shrink-0" /><div className="text-xs">
                             <p className="text-gray-400">Thời gian khởi hành</p>
                             <p className="font-semibold text-gray-900 mt-0.5">
                               {formatDateTime(schedule.start_date)} -{" "}
@@ -350,15 +340,12 @@ export default function AdminTourDetail() {
                                 tour.number_of_days,
                               )}
                             </p>
-                          </div>
-                        </div>
+                          </div></UIFlex>
 
                         {/* Booking deadline */}
-                        <div className="flex items-center gap-2.5">
-                          <Clock
+                        <UIFlex    align="center"  gap={10}><Clock
                             className={`h-4.5 w-4.5 shrink-0 ${isOverdue && status === "open" ? "text-amber-500 animate-pulse" : "text-gray-400"}`}
-                          />
-                          <div className="text-xs">
+                          /><div className="text-xs">
                             <p className="text-gray-400">
                               Hạn đặt (Booking Deadline)
                             </p>
@@ -372,13 +359,10 @@ export default function AdminTourDetail() {
                                 </span>
                               )}
                             </p>
-                          </div>
-                        </div>
+                          </div></UIFlex>
 
                         {/* Guest capacity */}
-                        <div className="flex items-center gap-2.5">
-                          <Users className="h-4.5 w-4.5 text-gray-400 shrink-0" />
-                          <div className="text-xs">
+                        <UIFlex    align="center"  gap={10}><Users className="h-4.5 w-4.5 text-gray-400 shrink-0" /><div className="text-xs">
                             <p className="text-gray-400">Tình trạng chỗ</p>
                             <p className="font-semibold text-gray-900 mt-0.5">
                               {schedule.booked_people} / {schedule.max_people}{" "}
@@ -387,8 +371,7 @@ export default function AdminTourDetail() {
                                 (Tối thiểu: {minPeople})
                               </span>
                             </p>
-                          </div>
-                        </div>
+                          </div></UIFlex>
                       </div>
 
                       {/*
@@ -436,11 +419,7 @@ export default function AdminTourDetail() {
                                   key={guide.id}
                                   className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-800"
                                 >
-                                  <input
-                                    type="checkbox"
-                                    disabled={khoa}
-                                    checked={dangChon.includes(guide.id)}
-                                    onChange={() =>
+                                  <AntCheckbox disabled={khoa} checked={dangChon.includes(guide.id)} onChange={() =>
                                       setPendingGuideIds((current) => ({
                                         ...current,
                                         [schedule.id]: dangChon.includes(
@@ -451,24 +430,15 @@ export default function AdminTourDetail() {
                                             )
                                           : [...dangChon, guide.id],
                                       }))
-                                    }
-                                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 disabled:cursor-not-allowed"
-                                  />
+                                    } />
                                   {guide.name}
                                 </label>
                               ))}
                             </div>
 
-                            <button
-                              type="button"
-                              disabled={khoa || !coThayDoi}
-                              onClick={() => assignGuides(schedule, dangChon)}
-                              className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 transition-colors"
-                            >
-                              {assigningScheduleId === schedule.id
+                            <AntButton htmlType="button" disabled={khoa || !coThayDoi} onClick={() => assignGuides(schedule, dangChon)} type="primary">{assigningScheduleId === schedule.id
                                 ? "Đang lưu..."
-                                : "Lưu HDV"}
-                            </button>
+                                : "Lưu HDV"}</AntButton>
                           </div>
                         );
                       })()}
@@ -480,64 +450,31 @@ export default function AdminTourDetail() {
                         Vận hành chuyến
                       </p>
 
-                      <div className="flex flex-wrap gap-1.5">
-                        {/* Open/Close toggle */}
-                        {status === "open" && (
-                          <button
-                            type="button"
-                            onClick={() =>
+                      <UIFlex   wrap   gap={6}>{/* Open/Close toggle */}{status === "open" && (
+                          <AntButton htmlType="button" onClick={() =>
                               handleUpdateStatus(schedule.id, "closed")
-                            }
-                            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 duration-200"
-                          >
-                            Đóng bán
-                          </button>
-                        )}
-                        {status === "closed" && (
-                          <button
-                            type="button"
-                            onClick={() =>
+                            }>Đóng bán
+                          </AntButton>
+                        )}{status === "closed" && (
+                          <AntButton htmlType="button" onClick={() =>
                               handleUpdateStatus(schedule.id, "open")
-                            }
-                            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 transition-all active:scale-95 duration-200"
-                          >
-                            Mở bán lại
-                          </button>
-                        )}
-
-                        {/* Confirm action */}
-                        {(status === "open" || status === "closed") && (
-                          <button
-                            type="button"
-                            onClick={() =>
+                            }>Mở bán lại
+                          </AntButton>
+                        )}{/* Confirm action */}{(status === "open" || status === "closed") && (
+                          <AntButton htmlType="button" onClick={() =>
                               handleUpdateStatus(schedule.id, "confirmed")
-                            }
-                            className="rounded-lg bg-primary-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary-700 shadow-sm transition-all active:scale-95 duration-200"
-                          >
-                            Chốt chuyến
-                          </button>
-                        )}
-
-                        {/* Cancel action */}
-                        {(status === "open" ||
+                            } type="primary">Chốt chuyến
+                          </AntButton>
+                        )}{/* Cancel action */}{(status === "open" ||
                           status === "closed" ||
                           status === "confirmed") && (
-                          <button
-                            type="button"
-                            onClick={() => openCancelDialog(schedule.id)}
-                            className="rounded-lg border border-rose-150 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-100 transition-all active:scale-95 duration-200"
-                          >
-                            Hủy chuyến
-                          </button>
-                        )}
-
-                        {/* Closed states */}
-                        {(status === "completed" || status === "cancelled") && (
+                          <AntButton htmlType="button" onClick={() => openCancelDialog(schedule.id)} danger>Hủy chuyến
+                          </AntButton>
+                        )}{/* Closed states */}{(status === "completed" || status === "cancelled") && (
                           <span className="text-xs text-gray-400 italic">
                             Chuyến đi đã hoàn thành
                           </span>
-                        )}
-                      </div>
+                        )}</UIFlex>
 
                       <Link
                         to={`/admin/tour-schedules/${schedule.id}/attendance`}
@@ -555,14 +492,9 @@ export default function AdminTourDetail() {
           <div className="p-10 text-center text-sm text-gray-500">
             Tour chưa có lịch khởi hành.
           </div>
-        )}
-      </section>
-
-      <section className="rounded-lg border border-gray-200 bg-white">
-        <div className="border-b border-gray-200 px-6 py-4">
+        )}</UIFlex></UICard><UICard  ><UIFlex vertical gap="middle"><div className="border-b border-gray-200 px-6 py-4">
           <h2 className="font-bold text-gray-950">Lịch trình theo ngày</h2>
-        </div>
-        {tour.itineraries?.length ? (
+        </div>{tour.itineraries?.length ? (
           <div className="divide-y divide-gray-100">
             {tour.itineraries
               .slice()
@@ -590,13 +522,10 @@ export default function AdminTourDetail() {
           <div className="p-10 text-center text-sm text-gray-500">
             Chưa có lịch trình chi tiết.
           </div>
-        )}
-      </section>
-
-      {/* Modal Hủy Chuyến */}
-      {isCancelModalOpen && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in pointer-events-auto">
-          <div className="bg-white w-full max-w-sm rounded-xl shadow-2xl border border-gray-100 p-6 flex flex-col items-center text-center animate-scale-up">
+        )}</UIFlex></UICard>{/* Modal Hủy Chuyến */}{isCancelModalOpen && (
+        <AntModal open title={<>
+              Xác nhận hủy chuyến đi
+            </>} width={720} onCancel={() => setIsCancelModalOpen(false)} closable={true} keyboard={true} mask={{ closable: false }} footer={null} styles={{ body: { maxHeight: "72vh", overflowY: "auto" } }}><UIFlex vertical gap="middle">
             <div className="p-3.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 mb-4">
               <svg
                 className="w-6 h-6"
@@ -612,47 +541,24 @@ export default function AdminTourDetail() {
                 />
               </svg>
             </div>
-            <h4 className="text-base font-bold text-gray-900 mb-1">
-              Xác nhận hủy chuyến đi
-            </h4>
+
             <p className="text-xs text-gray-500 mb-4">
               Vui lòng cung cấp lý do chi tiết hủy chuyến đi này. Chỗ ngồi sẽ
               được trả lại và không thể phục hồi.
             </p>
-            <textarea
-              value={cancelReasonInput}
-              onChange={(e) => setCancelReasonInput(e.target.value)}
-              placeholder="Nhập lý do hủy (ví dụ: Không đủ khách tối thiểu, lý do thời tiết...)"
-              rows={3}
-              className="w-full rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-800 placeholder:text-gray-400 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 mb-4 resize-none"
-            />
+            <AntInput.TextArea value={cancelReasonInput} onChange={(e) => setCancelReasonInput(e.target.value)} placeholder="Nhập lý do hủy (ví dụ: Không đủ khách tối thiểu, lý do thời tiết...)" rows={3} style={{ width: "100%" }} />
             <div className="flex w-full gap-2">
-              <button
-                type="button"
-                onClick={() => setIsCancelModalOpen(false)}
-                className="flex-1 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl transition-colors"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                onClick={confirmCancelSchedule}
-                disabled={!cancelReasonInput.trim()}
-                className="flex-1 py-2 text-xs font-semibold text-white rounded-xl shadow-md bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Hủy chuyến
-              </button>
+              <AntButton htmlType="button" onClick={() => setIsCancelModalOpen(false)}>Hủy bỏ
+              </AntButton>
+              <AntButton htmlType="button" onClick={confirmCancelSchedule} disabled={!cancelReasonInput.trim()} type="primary" danger>Hủy chuyến
+              </AntButton>
             </div>
-          </div>
-        </div>
-      )}
-
-      <Toast
+          </UIFlex></AntModal>
+      )}<Toast
         message={toast.message}
         type={toast.type}
         isOpen={toast.isOpen}
         onClose={() => setToast((current) => ({ ...current, isOpen: false }))}
-      />
-    </div>
+      /></UIFlex>
   );
 }

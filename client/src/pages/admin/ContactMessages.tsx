@@ -1,3 +1,11 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Flex as UIFlex,
+  Input as AntInput,
+  Table as AntTable,
+  Typography as AntTypography,
+} from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { Check, Download, Loader2, Mail, RotateCcw } from "lucide-react";
 import adminService from "@/services/adminService";
@@ -106,78 +114,43 @@ export default function ContactMessages() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Liên hệ &amp; bản tin</h1>
+    <UIFlex vertical gap="large" ><div>
+        <AntTypography.Title level={3} >Liên hệ &amp; bản tin</AntTypography.Title>
         <p className="mt-1 text-sm text-gray-500">
           Lời nhắn gửi từ trang liên hệ, và những người đã để lại email ở trang chủ.
         </p>
-      </div>
-
-      {toast && (
+      </div>{toast && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
           {toast}
         </div>
-      )}
-
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
-              tab === t.key
-                ? "bg-primary-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            {t.label}
-            {t.key === "inbox" && newCount > 0 && ` (${newCount})`}
-          </button>
-        ))}
-      </div>
-
-      {tab === "inbox" ? (
+      )}<UIFlex   wrap   gap={8}>{TABS.map((t) => (
+          <AntButton type={(tab === t.key) ? "primary" : "default"} key={t.key} onClick={() => setTab(t.key)} htmlType="button">{t.label}{t.key === "inbox" && newCount > 0 && ` (${newCount})`}</AntButton>
+        ))}</UIFlex>{tab === "inbox" ? (
         <>
-          <div className="flex flex-wrap gap-2">
-            {[
+          <UIFlex   wrap   gap={8}>{[
               { key: "", label: "Tất cả" },
               { key: "new", label: "Chưa xử lý" },
               { key: "handled", label: "Đã xử lý" },
             ].map((f) => (
-              <button
-                key={f.key || "all"}
-                onClick={() => setStatusFilter(f.key)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  statusFilter === f.key
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+              <AntButton key={f.key || "all"} onClick={() => setStatusFilter(f.key)} htmlType="button">{f.label}</AntButton>
+            ))}</UIFlex>
 
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-20 text-sm text-gray-500">
               <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
             </div>
           ) : messages.length === 0 ? (
-            <div className="rounded-xl border border-gray-100 bg-white py-20 text-center text-sm text-gray-500 shadow-sm">
-              Chưa có lời nhắn nào.
-            </div>
+            <UICard  ><UIFlex vertical gap="middle">Chưa có lời nhắn nào.
+            </UIFlex></UICard>
           ) : (
-            <div className="space-y-4">
-              {messages.map((m) => (
+            <UIFlex vertical gap={16} >{messages.map((m) => (
                 <article
                   key={m.id}
                   className={`rounded-xl border bg-white p-5 shadow-sm space-y-3 ${
                     m.status === "new" ? "border-amber-200" : "border-gray-100"
                   }`}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
+                  <UIFlex   wrap align="start" justify="space-between" gap={12}><div>
                       <p className="font-bold text-gray-900">
                         {m.subject || "(không có tiêu đề)"}
                       </p>
@@ -188,9 +161,7 @@ export default function ContactMessages() {
                       {m.created_at && (
                         <p className="text-[11px] text-gray-400">{formatDateTime(m.created_at)}</p>
                       )}
-                    </div>
-
-                    <span
+                    </div><span
                       className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
                         m.status === "new"
                           ? "border-amber-200 bg-amber-50 text-amber-700"
@@ -198,8 +169,7 @@ export default function ContactMessages() {
                       }`}
                     >
                       {m.status === "new" ? "Chưa xử lý" : "Đã xử lý"}
-                    </span>
-                  </div>
+                    </span></UIFlex>
 
                   <p className="whitespace-pre-line rounded-lg bg-gray-50 p-4 text-sm leading-relaxed text-gray-700">
                     {m.message}
@@ -221,29 +191,19 @@ export default function ContactMessages() {
                     </a>
 
                     {m.status === "new" ? (
-                      <button
-                        onClick={() => {
+                      <AntButton onClick={() => {
                           setHandling(m);
                           setNote("");
                           setError("");
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
-                      >
-                        <Check className="h-3.5 w-3.5" /> Đánh dấu đã xử lý
-                      </button>
+                        }} type="primary" htmlType="button"><Check className="h-3.5 w-3.5" />Đánh dấu đã xử lý
+                      </AntButton>
                     ) : (
-                      <button
-                        onClick={() => danhDau(m)}
-                        disabled={actionLoading}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" /> Mở lại
-                      </button>
+                      <AntButton onClick={() => danhDau(m)} disabled={actionLoading} htmlType="button"><RotateCcw className="h-3.5 w-3.5" />Mở lại
+                      </AntButton>
                     )}
                   </div>
                 </article>
-              ))}
-            </div>
+              ))}</UIFlex>
           )}
         </>
       ) : (
@@ -253,14 +213,7 @@ export default function ContactMessages() {
               <p className="text-2xl font-bold text-gray-900">{subscriberTotal}</p>
               <p className="text-xs text-gray-500">địa chỉ đã đăng ký nhận tin</p>
             </div>
-            <button
-              onClick={xuatCsv}
-              disabled={exporting || subscriberTotal === 0}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-700 disabled:opacity-50"
-            >
-              <Download className="h-4 w-4" />
-              {exporting ? "Đang tải..." : "Xuất CSV"}
-            </button>
+            <AntButton onClick={xuatCsv} disabled={exporting || subscriberTotal === 0} type="primary" htmlType="button"><Download className="h-4 w-4" />{exporting ? "Đang tải..." : "Xuất CSV"}</AntButton>
           </div>
 
           {/*
@@ -278,75 +231,35 @@ export default function ContactMessages() {
               <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
             </div>
           ) : subscribers.length === 0 ? (
-            <div className="rounded-xl border border-gray-100 bg-white py-20 text-center text-sm text-gray-500 shadow-sm">
-              Chưa có ai đăng ký nhận tin.
-            </div>
+            <UICard  ><UIFlex vertical gap="middle">Chưa có ai đăng ký nhận tin.
+            </UIFlex></UICard>
           ) : (
             <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
-                  <tr>
-                    <th className="px-6 py-3 font-semibold">Email</th>
-                    <th className="px-6 py-3 font-semibold">Ngày đăng ký</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {subscribers.map((s) => (
-                    <tr key={s.id} className="hover:bg-gray-50/60">
-                      <td className="px-6 py-3 font-medium text-gray-800">{s.email}</td>
-                      <td className="px-6 py-3 text-xs text-gray-500">
+              <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }}
+    dataSource={subscribers.map((s) => (
+                    {key: s.id, cells: [<>{s.email}</>,<>
                         {formatDateTime(s.created_at)}
-                      </td>
-                    </tr>
+                      </>], rowProps: {}}
                   ))}
-                </tbody>
-              </table>
+    columns={[{ key: "0", title: <>Email</>, align: "left", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Ngày đăng ký</>, align: "left", render: (_value, record) => record.cells[1] }]}
+    onRow={(record) => record.rowProps}
+     />
             </div>
           )}
         </>
-      )}
-
-      <Modal
+      )}<Modal
         isOpen={handling !== null}
         onClose={() => setHandling(null)}
         title="Đánh dấu đã xử lý"
       >
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+        <UIFlex vertical gap={16} ><p className="text-sm text-gray-600">
             Ghi lại đã làm gì với lời nhắn này, để người trực ca sau không gọi lại khách lần nữa.
-          </p>
-
-          {error && (
+          </p>{error && (
             <p className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
               {error}
             </p>
-          )}
-
-          <textarea
-            rows={3}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Ví dụ: đã gọi lại, khách sẽ đặt tour Hạ Long tuần sau."
-            className="w-full rounded-xl border border-gray-200 p-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-          />
-
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => setHandling(null)}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
-            >
-              Hủy
-            </button>
-            <button
-              onClick={() => handling && danhDau(handling, note.trim() || undefined)}
-              disabled={actionLoading}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {actionLoading ? "Đang lưu..." : "Xong"}
-            </button>
-          </div>
-        </div>
-      </Modal>
-    </div>
+          )}<AntInput.TextArea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ví dụ: đã gọi lại, khách sẽ đặt tour Hạ Long tuần sau." style={{ width: "100%" }} /><UIFlex     justify="end" gap={8}><AntButton onClick={() => setHandling(null)} htmlType="button">Hủy
+            </AntButton><AntButton onClick={() => handling && danhDau(handling, note.trim() || undefined)} disabled={actionLoading} type="primary" htmlType="button">{actionLoading ? "Đang lưu..." : "Xong"}</AntButton></UIFlex></UIFlex>
+      </Modal></UIFlex>
   );
 }
