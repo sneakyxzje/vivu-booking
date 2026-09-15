@@ -481,6 +481,9 @@ export interface MergeCandidate {
   start_date: string;
   booked_people: number;
   max_people: number;
+  tour_id: number;
+  tour_title: string | null;
+  tour_type: string | null;
   can_merge: boolean;
   blocked_reason: string | null;
   /** Số đơn đã thanh toán sẽ được chuyển sang. */

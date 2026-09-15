@@ -1189,6 +1189,14 @@ export default function ScheduleManagement() {
                                       Lý do: {schedule.cancelled_reason}
                                     </span>
                                   )}
+                                {status === "cancelled" &&
+                                  schedule.merged_into_schedule_id && (
+                                    <span
+                                      className="text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 font-bold max-w-40 truncate"
+                                    >
+                                      Đã ghép vào #{schedule.merged_into_schedule_id}
+                                    </span>
+                                  )}
                               </div>
                             </td>
 
@@ -1316,9 +1324,7 @@ export default function ScheduleManagement() {
                                       : []),
 
                                     /* L03 - Ghép chuyến: chỉ có nghĩa khi chưa khởi hành và ít khách. */
-                                    ...(status === "open" ||
-                                    status === "closed" ||
-                                    status === "confirmed"
+                                    ...(status === "open"
                                       ? [
                                           {
                                             label: "Ghép chuyến",
@@ -1918,17 +1924,40 @@ export default function ScheduleManagement() {
               Ghép là đổi ngày đi của người đã trả tiền mà không hỏi họ. Người bấm nút phải biết
               hai hệ quả ấy trước khi bấm, không phải đọc lại quy trình sau khi khách gọi lên.
             */}
-            <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5 space-y-1">
-              <p className="text-xs font-bold text-amber-900">Ghép xong, hệ thống tự làm hai việc</p>
-              <p className="text-[11px] text-amber-800">
-                Gửi thư cho mọi khách của chuyến này: người đã thanh toán nhận thư báo ngày mới,
-                người chưa thanh toán nhận thư báo hủy kèm lời mời đặt lại.
-              </p>
-              <p className="text-[11px] text-amber-800">
-                Khách không đồng ý ngày mới thì hủy được và <b>hoàn đủ 100%</b>, không tính phí hủy —
-                vì đây là thay đổi do công ty thực hiện.
-              </p>
-            </div>
+            {(() => {
+              const selectedCandidate = mergeData?.candidates.find(c => c.schedule_id === mergeTargetId);
+              const isSameDay = selectedCandidate 
+                  ? selectedCandidate.start_date.split(' ')[0] === mergeData?.schedule.start_date.split(' ')[0]
+                  : false;
+
+              if (selectedCandidate && isSameDay) {
+                return (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50/70 px-3 py-2.5 space-y-1">
+                    <p className="text-xs font-bold text-blue-900">Ghép chuyến cùng ngày</p>
+                    <p className="text-[11px] text-blue-800">
+                      Toàn bộ đơn (đã và chưa thanh toán) sẽ được chuyển sang chuyến đích do không thay đổi ngày đi.
+                    </p>
+                    <p className="text-[11px] text-blue-800">
+                      Hệ thống <b>không tự động gửi thư báo</b> cho khách. Điều hành tự chịu trách nhiệm tổ chức, giữ nguyên dịch vụ đã cam kết và thông báo nội bộ.
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5 space-y-1">
+                  <p className="text-xs font-bold text-amber-900">Ghép đổi ngày, hệ thống tự làm hai việc</p>
+                  <p className="text-[11px] text-amber-800">
+                    Gửi thư cho mọi khách của chuyến này: người đã thanh toán nhận thư báo ngày mới,
+                    người chưa thanh toán nhận thư báo hủy kèm lời mời đặt lại.
+                  </p>
+                  <p className="text-[11px] text-amber-800">
+                    Khách không đồng ý ngày mới thì hủy được và <b>hoàn đủ 100%</b>, không tính phí hủy —
+                    vì đây là thay đổi do công ty thực hiện.
+                  </p>
+                </div>
+              );
+            })()}
 
             {mergeLoading && (
               <p className="text-sm text-gray-500">
@@ -1970,6 +1999,11 @@ export default function ScheduleManagement() {
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="text-sm font-bold text-gray-900">
                         #{item.schedule_id} · {formatDateTime(item.start_date)}
+                        {item.tour_title && item.tour_title !== mergeData?.schedule.tour_title && (
+                          <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-blue-800">
+                            Khác tour: {item.tour_title}
+                          </span>
+                        )}
                       </span>
                       <span className="text-[11px] text-gray-500">
                         {item.booked_people}/{item.max_people} chỗ
@@ -1999,12 +2033,26 @@ export default function ScheduleManagement() {
                 value={mergeReason}
                 onChange={(e) => setMergeReason(e.target.value)}
                 placeholder="VD: Hai chuyến đều chưa đủ khách tối thiểu nên dồn về một chuyến..."
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+                className={`w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors ${
+                  mergeReason.length > 0 && mergeReason.trim().length < 10
+                    ? "border-rose-300 focus:border-rose-400 focus:ring-1 focus:ring-rose-400 bg-rose-50/30"
+                    : "border-gray-200 focus:border-blue-400"
+                }`}
               />
-              <p className="text-[11px] text-gray-400 mt-1">
-                Khách sẽ đọc được nội dung này khi được thông báo đổi ngày khởi
-                hành.
-              </p>
+              <div className="flex justify-between items-start mt-1">
+                <p className="text-[11px] text-gray-400">
+                  Khách sẽ đọc được nội dung này khi được thông báo đổi ngày khởi hành.
+                </p>
+                <p
+                  className={`text-[10px] font-semibold transition-opacity duration-200 ${
+                    mergeReason.length > 0 && mergeReason.trim().length < 10
+                      ? "text-rose-500 opacity-100"
+                      : "opacity-0"
+                  }`}
+                >
+                  Cần ít nhất 10 ký tự
+                </p>
+              </div>
             </div>
 
             {mergeError && (

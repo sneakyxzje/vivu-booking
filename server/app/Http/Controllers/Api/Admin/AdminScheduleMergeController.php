@@ -8,6 +8,7 @@ use App\Models\TourSchedule;
 use App\Services\ScheduleMergeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 /**
  * L03 - Điều hành ghép hai chuyến của cùng một tour.
@@ -38,13 +39,12 @@ class AdminScheduleMergeController extends Controller
 
         $ungVien = TourSchedule::query()
             ->with('tour:id,title,type,status')
-            ->where('tour_id', $nguon->tour_id)
+            ->where(function ($query) use ($nguon) {
+                $query->where('tour_id', $nguon->tour_id)
+                      ->orWhere('start_date', $nguon->start_date);
+            })
             ->whereKeyNot($nguon->getKey())
-            ->whereIn('status', [
-                ScheduleStatus::Open->value,
-                ScheduleStatus::Closed->value,
-                ScheduleStatus::Confirmed->value,
-            ])
+            ->where('status', ScheduleStatus::Open->value)
             ->where('start_date', '>', now())
             ->orderBy('start_date')
             ->get()
@@ -54,6 +54,9 @@ class AdminScheduleMergeController extends Controller
                     'start_date' => $dich->start_date,
                     'booked_people' => (int) $dich->booked_people,
                     'max_people' => (int) $dich->max_people,
+                    'tour_id' => $dich->tour_id,
+                    'tour_title' => $dich->tour?->title,
+                    'tour_type' => $dich->tour?->type,
                 ] + $this->mergeService->preview($nguon, $dich);
             })
             ->filter(fn (array $row) => $row['can_merge'])
