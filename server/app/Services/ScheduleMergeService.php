@@ -115,8 +115,8 @@ class ScheduleMergeService
             $lyDo = $e->getMessage();
         }
 
-        $chuyenDi = $this->bookingsToTransfer($from);
-        $huyDi = $this->bookingsToCancel($from);
+        $chuyenDi = $this->bookingsToTransfer($from, $to);
+        $huyDi = $this->bookingsToCancel($from, $to);
         $soGheChuyen = (int) $chuyenDi->sum(fn (Booking $don) => $don->seatsTaken());
         $soGheTrong = (int) $to->max_people - (int) $to->booked_people;
 
@@ -165,8 +165,8 @@ class ScheduleMergeService
 
             $this->assertCanMerge($nguon, $dich);
 
-            $chuyenDi = $this->bookingsToTransfer($nguon);
-            $huyDi = $this->bookingsToCancel($nguon);
+            $chuyenDi = $this->bookingsToTransfer($nguon, $dich);
+            $huyDi = $this->bookingsToCancel($nguon, $dich);
 
             $tongKhachChuyen = (int) $chuyenDi->sum(fn (Booking $don) => $don->seatsTaken());
 
@@ -265,8 +265,10 @@ class ScheduleMergeService
         Carbon $ngayMoi,
         string $lyDo,
     ): void {
-        foreach ($this->donTheoId($idDaDoi) as $don) {
-            $this->gui($don, new ScheduleMergedMail($don, $ngayCu, $ngayMoi, $lyDo));
+        if (!$ngayCu->isSameDay($ngayMoi)) {
+            foreach ($this->donTheoId($idDaDoi) as $don) {
+                $this->gui($don, new ScheduleMergedMail($don, $ngayCu, $ngayMoi, $lyDo));
+            }
         }
 
         foreach ($this->donTheoId($idDaHuy) as $don) {
@@ -315,8 +317,13 @@ class ScheduleMergeService
         }
 
         // 1. Cùng tour. Ghép hai tour khác nhau là đổi hẳn sản phẩm khách đã mua.
+        // Ngoại lệ: Nếu 2 chuyến KHÁC tour nhưng khởi hành CÙNG NGÀY CÙNG GIỜ, hệ thống cho phép ghép.
+        // Điều hành sẽ tự chịu trách nhiệm tổ chức và giữ nguyên dịch vụ đã cam kết.
         if ((int) $from->tour_id !== (int) $to->tour_id) {
-            throw new BusinessRuleException('Chỉ ghép được hai chuyến của cùng một tour.');
+            $cungGio = $from->start_date && $to->start_date && $from->start_date->equalTo($to->start_date);
+            if (!$cungGio) {
+                throw new BusinessRuleException('Chỉ ghép được hai chuyến của cùng một tour, hoặc hai chuyến khác tour nhưng phải khởi hành cùng ngày và cùng giờ.');
+            }
         }
 
         $loai = TourType::tryFrom((string) ($from->tour?->type ?? TourType::Shared->value));
@@ -327,13 +334,13 @@ class ScheduleMergeService
             );
         }
 
-        // 2. Cả hai chưa khởi hành.
+        // 2. Cả hai phải đang mở bán. Chuyến đã đóng bán hoặc chốt chạy không được xáo trộn.
         foreach ([$from, $to] as $schedule) {
             $trangThai = $this->lifecycle->effectiveStatus($schedule);
 
-            if (!in_array($trangThai, [ScheduleStatus::Open, ScheduleStatus::Closed, ScheduleStatus::Confirmed], true)) {
+            if ($trangThai !== ScheduleStatus::Open) {
                 throw new BusinessRuleException(sprintf(
-                    'Chuyến #%d đang ở trạng thái "%s" nên không ghép được.',
+                    'Chuyến #%d đang ở trạng thái "%s" (không phải Đang mở bán) nên không ghép được.',
                     $schedule->getKey(),
                     $trangThai->label(),
                 ));
@@ -370,7 +377,7 @@ class ScheduleMergeService
         }
 
         // 3. Chuyến đích còn đủ chỗ cho toàn bộ khách của chuyến nguồn.
-        $canChuyen = (int) $this->bookingsToTransfer($from)->sum(fn (Booking $don) => $don->seatsTaken());
+        $canChuyen = (int) $this->bookingsToTransfer($from, $to)->sum(fn (Booking $don) => $don->seatsTaken());
         $conTrong = (int) $to->max_people - (int) $to->booked_people;
 
         if ($conTrong < $canChuyen) {
@@ -396,18 +403,39 @@ class ScheduleMergeService
         }
     }
 
-    /** Đơn đã thanh toán, sẽ được chuyển sang chuyến đích. */
-    private function bookingsToTransfer(TourSchedule $from)
+    /**
+     * Đơn sẽ được chuyển sang chuyến đích.
+     * Nếu ghép cùng ngày (chỉ gộp đoàn, không đổi lịch), chuyển cả đơn chưa thanh toán.
+     */
+    private function bookingsToTransfer(TourSchedule $from, TourSchedule $to)
     {
+        $cungNgay = $from->start_date && $to->start_date
+            && Carbon::parse($from->start_date)->isSameDay(Carbon::parse($to->start_date));
+
+        $trangThai = BookingStatus::paidValues();
+        if ($cungNgay) {
+            $trangThai[] = BookingStatus::Pending->value;
+        }
+
         return Booking::query()
             ->where('tour_schedule_id', $from->getKey())
-            ->whereIn('status', BookingStatus::paidValues())
+            ->whereIn('status', $trangThai)
             ->get();
     }
 
-    /** Đơn chưa thanh toán, sẽ bị hủy và mời đặt lại. */
-    private function bookingsToCancel(TourSchedule $from)
+    /**
+     * Đơn chưa thanh toán, sẽ bị hủy và mời đặt lại.
+     * Nếu ghép cùng ngày thì không hủy đơn nào (đã gom hết vào mảng chuyển đi).
+     */
+    private function bookingsToCancel(TourSchedule $from, TourSchedule $to)
     {
+        $cungNgay = $from->start_date && $to->start_date
+            && Carbon::parse($from->start_date)->isSameDay(Carbon::parse($to->start_date));
+
+        if ($cungNgay) {
+            return collect();
+        }
+
         return Booking::query()
             ->where('tour_schedule_id', $from->getKey())
             ->where('status', BookingStatus::Pending->value)

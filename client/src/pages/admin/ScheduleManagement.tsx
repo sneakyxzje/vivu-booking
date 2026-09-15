@@ -55,6 +55,7 @@ import {
   getEndDate,
   toDateTimeLocalValue,
 } from "@/utils/format";
+import { BulkProposalDialog } from "@/components/admin/BulkProposalDialog";
 import {
   LY_DO_DOI_HAN_TOI_THIEU,
   statusLabel,
@@ -176,6 +177,10 @@ export default function ScheduleManagement() {
   const [manifestScheduleId, setManifestScheduleId] = useState<number | null>(
     null,
   );
+
+  // State Gửi đề xuất hàng loạt
+  const [bulkProposalSchedule, setBulkProposalSchedule] = useState<ExtendedSchedule | null>(null);
+
   const [dangXuatDanhSach, setDangXuatDanhSach] = useState(false);
   const [manifest, setManifest] = useState<ScheduleManifestResponse | null>(
     null,
@@ -1016,7 +1021,16 @@ export default function ScheduleManagement() {
                                     >
                                       Lý do: {schedule.cancelled_reason}
                                     </span>
-                                  )}</UIFlex>
+                                  )}
+                                {status === "cancelled" &&
+                                  schedule.merged_into_schedule_id && (
+                                    <span
+                                      className="text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 font-bold max-w-40 truncate"
+                                    >
+                                      Đã ghép vào #{schedule.merged_into_schedule_id}
+                                    </span>
+                                  )}
+                              </UIFlex>
                             </>,<>
                               <UIFlex    align="center" justify="end" gap={8}>{(status === "completed" ||
                                   status === "cancelled") && (
@@ -1097,6 +1111,18 @@ export default function ScheduleManagement() {
                                         ]
                                       : []),
 
+                                    /* Bulk Proposal: Đề xuất thay đổi hàng loạt */
+                                    ...(status === "open"
+                                      ? [
+                                          {
+                                            label: "Đề xuất thay đổi",
+                                            onClick: () =>
+                                              setBulkProposalSchedule(schedule),
+                                            icon: <ClipboardCheck className="w-4 h-4" />,
+                                          },
+                                        ]
+                                      : []),
+
                                     ...(status === "open" || status === "closed"
                                       ? [
                                           {
@@ -1115,9 +1141,7 @@ export default function ScheduleManagement() {
                                       : []),
 
                                     /* L03 - Ghép chuyến: chỉ có nghĩa khi chưa khởi hành và ít khách. */
-                                    ...(status === "open" ||
-                                    status === "closed" ||
-                                    status === "confirmed"
+                                    ...(status === "open"
                                       ? [
                                           {
                                             label: "Ghép chuyến",
@@ -1911,7 +1935,16 @@ export default function ScheduleManagement() {
                   cancelReasonInput.trim().length < 10
                 } type="primary" danger>{cancelSaving ? "Đang hủy..." : "Xác nhận hủy chuyến"}</AntButton></UIFlex>
           </UIFlex></AntModal>
-      )}<Toast
+      )}
+      {/* Hộp thoại Đề xuất thay đổi (Bulk Proposal) */}
+      <BulkProposalDialog
+        scheduleId={bulkProposalSchedule?.id ?? 0}
+        scheduleStartDate={bulkProposalSchedule?.start_date ?? ""}
+        isOpen={bulkProposalSchedule !== null}
+        onClose={() => setBulkProposalSchedule(null)}
+      />
+
+      <Toast
         message={toast.message}
         type={toast.type}
         isOpen={toast.isOpen}

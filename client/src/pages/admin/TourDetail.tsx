@@ -320,7 +320,14 @@ export default function AdminTourDetail() {
                             <span className="text-xs text-rose-600 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100">
                               Lý do hủy: {schedule.cancelled_reason}
                             </span>
-                          )}</UIFlex>
+                          )}
+                        {status === "cancelled" &&
+                          schedule.merged_into_schedule_id && (
+                            <span className="text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200 font-bold">
+                              Đã ghép vào #{schedule.merged_into_schedule_id}
+                            </span>
+                          )}
+                      </UIFlex>
 
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {/* Time */}

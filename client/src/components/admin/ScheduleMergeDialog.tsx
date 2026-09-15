@@ -2,6 +2,7 @@ import { Alert, Button, Card, Col, Descriptions, Flex, Form, Input, Modal, Row, 
 import type { ExtendedSchedule } from "@/types";
 import type { MergeCandidatesResponse } from "@/services/adminService";
 import { formatDateTime } from "@/utils/format";
+import dayjs from "dayjs";
 
 interface Props {
   schedules: ExtendedSchedule[];
@@ -25,11 +26,12 @@ export function ScheduleMergeDialog({
   onSourceChange, onTargetChange, onReasonChange, onClose, onConfirm,
 }: Props) {
   const source = schedules.find((item) => item.id === sourceId);
-  const eligibleSources = schedules.filter((item) => ["open", "closed", "confirmed"].includes(item.status) || item.id === sourceId);
+  const eligibleSources = schedules.filter((item) => item.status === "open" || item.id === sourceId);
   const tourOptions = [...new Map(eligibleSources.map((item) => [item.tour_id, item.tour_title])).entries()];
   const sourceOptions = eligibleSources.filter((item) => item.tour_id === source?.tour_id);
   const preview = data?.schedule.id === sourceId && !loading ? data : null;
   const target = preview?.candidates.find((item) => item.schedule_id === targetId);
+  const isSameDay = !!target && dayjs(target.start_date).isSame(preview?.schedule.start_date, "day");
   const canConfirm = !!target?.can_merge && !loading && !saving && reason.trim().length >= 10 && reason.trim().length <= 500;
 
   return <Modal open title="Ghép chuyến" width={1080} onCancel={onClose} closable={!saving} keyboard={!saving}
@@ -41,7 +43,7 @@ export function ScheduleMergeDialog({
     <Flex vertical gap="middle">
       <Typography.Paragraph>Chọn chuyến chuyển khách đi và chuyến nhận khách, rồi kiểm tra kết quả trước khi xác nhận.</Typography.Paragraph>
       <Form layout="vertical">
-        <Form.Item label="Tour cần ghép chuyến" extra="Hai chuyến phải thuộc cùng một tour. Đổi tour hoặc chuyến nguồn sẽ xóa lựa chọn chuyến nhận.">
+        <Form.Item label="Tour của chuyến nguồn" extra="Có thể ghép khác tour khi trùng thời điểm khởi hành. Đổi tour hoặc chuyến nguồn sẽ xóa lựa chọn chuyến nhận.">
           <Select showSearch optionFilterProp="label" value={source?.tour_id} disabled={saving}
             options={tourOptions.map(([value, label]) => ({ value, label }))}
             onChange={(id) => { const next = eligibleSources.find((item) => item.tour_id === id); if (next) onSourceChange(next.id); }} />
@@ -57,7 +59,7 @@ export function ScheduleMergeDialog({
                 <Descriptions column={1} size="small" items={[
                   { key: "date", label: "Khởi hành hiện tại", children: source ? formatDateTime(source.start_date) : "Chưa có thông tin" },
                   { key: "guests", label: "Số khách sẽ chuyển", children: target ? `${target.transferring_guests} khách` : "—" },
-                  { key: "orders", label: "Đơn đã thanh toán sẽ chuyển", children: target ? `${target.transferring} đơn` : "—" },
+                  { key: "orders", label: "Đơn sẽ chuyển", children: target ? `${target.transferring} đơn` : "—" },
                 ]} />
                 <Alert type="warning" showIcon title="Sau khi ghép, chuyến nguồn chuyển thành Đã hủy." />
               </Flex>
@@ -69,7 +71,7 @@ export function ScheduleMergeDialog({
                 <Form.Item label="Chuyến đích">
                   <Select value={target?.schedule_id} placeholder="Chọn chuyến nhận khách" disabled={saving || loading || !preview?.candidates.length}
                     onChange={onTargetChange} options={preview?.candidates.map((item) => ({
-                      value: item.schedule_id, label: `#${item.schedule_id} · ${formatDateTime(item.start_date)}`, disabled: !item.can_merge,
+                      value: item.schedule_id, label: `#${item.schedule_id} · ${formatDateTime(item.start_date)}${item.tour_id !== source?.tour_id ? ` · Khác tour: ${item.tour_title}` : ""}`, disabled: !item.can_merge,
                     }))} />
                 </Form.Item>
                 <Descriptions column={1} size="small" items={[
@@ -78,7 +80,7 @@ export function ScheduleMergeDialog({
                   { key: "remaining", label: "Chỗ còn trống hiện tại", children: target ? `${target.remaining_seats} ghế` : "—" },
                 ]} />
                 {preview?.candidates.length === 0 && <Alert type="warning" showIcon title="Không có chuyến phù hợp"
-                  description="Hai chuyến phải cùng tour, chưa qua hạn chốt danh sách, lệch không quá 2 ngày và chuyến nhận còn đủ chỗ. Hãy chọn chuyến nguồn khác." />}
+                  description="Hai chuyến phải đang mở bán, chưa qua hạn chốt danh sách và chuyến nhận còn đủ chỗ. Cùng tour được lệch tối đa 2 ngày; khác tour phải trùng thời điểm khởi hành. Hãy chọn chuyến nguồn khác." />}
               </Flex>
             </Card>
           </Col>
@@ -94,9 +96,12 @@ export function ScheduleMergeDialog({
           </Row>
         </Flex> : <Typography.Text type="secondary">{loading ? "Đang tải thông tin ghép chuyến…" : "Chọn chuyến nhận để xem số đơn, số khách và số ghế sau khi ghép."}</Typography.Text>}
       </Card>
-      <Alert type="warning" showIcon title="Hệ thống thông báo ngày mới cho khách đã thanh toán."
-        description="Khách không đồng ý ngày mới có quyền yêu cầu hủy và hoàn toàn bộ số tiền đã trả, không tính phí hủy. Đơn chưa thanh toán bị hủy sẽ được thông báo và mời đặt lại." />
-      <Form layout="vertical"><Form.Item label="Lý do ghép chuyến" required extra="Nhập 10–500 ký tự. Khách sẽ đọc được lý do này trong thông báo.">
+      {target && (isSameDay
+        ? <Alert type="info" showIcon title="Ghép chuyến cùng ngày"
+            description="Các đơn đã thanh toán và đang chờ thanh toán đều được chuyển. Hệ thống không tự động gửi email; điều hành chịu trách nhiệm thông báo và bảo đảm dịch vụ đã cam kết." />
+        : <Alert type="warning" showIcon title="Ghép đổi ngày: chỉ chuyển các đơn đã thanh toán."
+            description="Hệ thống gửi email thông báo ngày mới. Khách không đồng ý có quyền yêu cầu hủy và hoàn toàn bộ số tiền đã trả, không tính phí hủy. Đơn đang chờ thanh toán bị hủy sẽ được thông báo và mời đặt lại." />)}
+      <Form layout="vertical"><Form.Item label="Lý do ghép chuyến" required extra="Nhập 10–500 ký tự. Khi ghép đổi ngày, lý do này được gửi cho khách trong email thông báo.">
         <Input.TextArea value={reason} disabled={saving} rows={3} maxLength={500} showCount onChange={(event) => onReasonChange(event.target.value)}
           placeholder="Ví dụ: Hai chuyến chưa đủ số khách tối thiểu, công ty sắp xếp ghép về một chuyến." />
       </Form.Item></Form>

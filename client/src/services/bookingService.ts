@@ -287,6 +287,13 @@ const bookingService = {
   // Task X06b - Gửi lại mã tra cứu về email cho khách vãng lai (Edge Case A16)
   resendLookupCode: (payload: { email: string; phone?: string }) =>
     api.post<{ success: boolean; message: string }>("/bookings/resend-code", payload),
+
+  // Customer Proposals API
+  getProposals: (publicToken: string) =>
+    api.get(`/bookings/${publicToken}/proposals`),
+
+  respondToProposal: (publicToken: string, payload: { proposal_id: number; choice_id: string; customer_email: string }) =>
+    api.post(`/bookings/${publicToken}/proposals/respond`, payload),
 };
 
 export default bookingService;
