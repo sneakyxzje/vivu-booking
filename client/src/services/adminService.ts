@@ -1935,7 +1935,56 @@ const adminService = {
     const response = await api.post(`/admin/bookings/${bookingId}/send-mail`, { type });
     return response.data.message as string;
   },
+
+  // --- BULK PROPOSAL (Gửi đề xuất hàng loạt) ---
+  sendBulkProposals: async (
+    scheduleId: number,
+    payload: {
+      reason: string;
+      proposed_date?: string;
+      response_deadline: string;
+    },
+  ) => {
+    const response = await api.post(`/admin/tour-schedules/${scheduleId}/bulk-proposals`, payload);
+    return response.data;
+  },
+
+  cancelBooking: async (bookingId: number, payload: { reason: string; note: string; refund_method: string }) => {
+    const response = await api.put(`/admin/bookings/${bookingId}/cancel`, payload);
+    return response.data;
+  },
+
+  getProposalStats: async (scheduleId: number) => {
+    const response = await api.get(`/admin/tour-schedules/${scheduleId}/proposals/stats`);
+    return response.data.data as ProposalStatsResponse;
+  },
 };
+
+export interface ProposalItem {
+  id: number;
+  status: string;
+  reason: string;
+  proposed_date: string | null;
+  response_deadline: string;
+  responded_at: string | null;
+  booking: {
+    id: number;
+    public_token: string;
+    customer_name: string;
+    customer_email: string;
+    customer_phone: string;
+    status: string;
+  };
+}
+
+export interface ProposalStatsResponse {
+  total: number;
+  pending: number;
+  accepted: number;
+  rejected: number;
+  expired: number;
+  proposals: ProposalItem[];
+}
 
 /** Một kịch bản nghiệp vụ trong danh mục sân thử. */
 export interface SandboxScenarioInfo {

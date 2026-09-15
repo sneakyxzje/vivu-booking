@@ -40,6 +40,7 @@ import {
   getEndDate,
   toDateTimeLocalValue,
 } from "@/utils/format";
+import { BulkProposalDialog } from "@/components/admin/BulkProposalDialog";
 import {
   LY_DO_DOI_HAN_TOI_THIEU,
   statusLabel,
@@ -161,6 +162,10 @@ export default function ScheduleManagement() {
   const [manifestScheduleId, setManifestScheduleId] = useState<number | null>(
     null,
   );
+  
+  // State Gửi đề xuất hàng loạt
+  const [bulkProposalSchedule, setBulkProposalSchedule] = useState<TourSchedule | null>(null);
+
   const [dangXuatDanhSach, setDangXuatDanhSach] = useState(false);
   const [manifest, setManifest] = useState<ScheduleManifestResponse | null>(
     null,
@@ -1277,6 +1282,18 @@ export default function ScheduleManagement() {
                                             onClick: () =>
                                               openDeadlineDialog(schedule),
                                             icon: <Clock className="w-4 h-4" />,
+                                          },
+                                        ]
+                                      : []),
+
+                                    /* Bulk Proposal: Đề xuất thay đổi hàng loạt */
+                                    ...(status === "open"
+                                      ? [
+                                          {
+                                            label: "Đề xuất thay đổi",
+                                            onClick: () =>
+                                              setBulkProposalSchedule(schedule),
+                                            icon: <ClipboardCheck className="w-4 h-4" />,
                                           },
                                         ]
                                       : []),
@@ -2440,6 +2457,14 @@ export default function ScheduleManagement() {
           </div>
         </div>
       )}
+
+      {/* Hộp thoại Đề xuất thay đổi (Bulk Proposal) */}
+      <BulkProposalDialog
+        scheduleId={bulkProposalSchedule?.id ?? 0}
+        scheduleStartDate={bulkProposalSchedule?.start_date ?? ""}
+        isOpen={bulkProposalSchedule !== null}
+        onClose={() => setBulkProposalSchedule(null)}
+      />
 
       <Toast
         message={toast.message}
