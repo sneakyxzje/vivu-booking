@@ -185,14 +185,12 @@ export const Home: React.FC = () => {
       reviewedTours.map(async (tour) => {
         try {
           const res = await tourService.getReviews(tour.id);
-          return (res.data ?? [])
-            .slice(0, 2)
-            .map((item) => ({
-              name: item.user?.name ?? "Khách hàng Vivu",
-              role: `Đã tham gia ${tour.title}`,
-              stars: Number(item.rating) || 5,
-              comment: item.comment,
-            }));
+          return (res.data ?? []).slice(0, 2).map((item) => ({
+            name: item.user?.name ?? "Khách hàng Vivu",
+            role: `Đã tham gia ${tour.title}`,
+            stars: Number(item.rating) || 5,
+            comment: item.comment,
+          }));
         } catch {
           return [];
         }
@@ -300,7 +298,10 @@ export const Home: React.FC = () => {
    * Nên các chip giờ đi cùng một đường với ô tìm kiếm. Một kiểu lọc, chạy trên toàn bộ danh mục,
    * và không có bản sao nào để lệch nhau về sau.
    */
-  const chuyenSangDanhMuc = (ghiDe?: { category?: string; duration?: string }) => {
+  const chuyenSangDanhMuc = (ghiDe?: {
+    category?: string;
+    duration?: string;
+  }) => {
     const category = ghiDe?.category ?? selectedCategory;
     const duration = ghiDe?.duration ?? selectedDuration;
 
@@ -348,14 +349,9 @@ export const Home: React.FC = () => {
         </div>
 
         <div className="relative z-10 max-w-5xl mx-auto px-4 text-center">
-          <span className="inline-block px-4 py-1.5 rounded-full bg-primary-500/20 text-blue-200 text-xs font-semibold tracking-wider uppercase mb-4 border border-blue-400/20 backdrop-blur-md">
-            Mạng bán tour trực tuyến hàng đầu
-          </span>
           <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight leading-none mb-6">
             Khám phá Việt Nam <br className="hidden md:inline" />
-            <span className="text-blue-100">
-              Cùng Vivu Booking
-            </span>
+            <span className="text-blue-100">Cùng Vivu Booking</span>
           </h1>
           <p className="text-base md:text-lg text-gray-200 max-w-2xl mx-auto mb-10 leading-relaxed font-light">
             Tìm kiếm tour du lịch trọn gói, du thuyền cao cấp và trải nghiệm
@@ -515,7 +511,8 @@ export const Home: React.FC = () => {
               <div className="mt-10 text-center">
                 <p className="text-sm text-gray-500">
                   Đang hiển thị {tours.length} trong tổng số{" "}
-                  <span className="font-bold text-gray-900">{tongSoTour}</span> tour
+                  <span className="font-bold text-gray-900">{tongSoTour}</span>{" "}
+                  tour
                 </p>
                 <Link
                   to="/tours"
@@ -572,8 +569,10 @@ export const Home: React.FC = () => {
               cho lần đặt tour đầu tiên!
             </h2>
             <p className="text-blue-100 text-sm md:text-base font-light">
-              Nhập mã <strong className="font-bold text-white">WELCOME15</strong> khi
-              đặt tour để được giảm 15% (tối đa 1.000.000đ cho đơn từ 1.000.000đ).
+              Nhập mã{" "}
+              <strong className="font-bold text-white">WELCOME15</strong> khi
+              đặt tour để được giảm 15% (tối đa 1.000.000đ cho đơn từ
+              1.000.000đ).
             </p>
           </div>
 
@@ -626,7 +625,9 @@ export const Home: React.FC = () => {
                     {t.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 text-sm">{t.name}</h4>
+                    <h4 className="font-bold text-gray-900 text-sm">
+                      {t.name}
+                    </h4>
                     <p className="text-gray-400 text-xs">{t.role}</p>
                   </div>
                 </div>
