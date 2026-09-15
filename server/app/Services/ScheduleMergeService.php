@@ -313,12 +313,12 @@ class ScheduleMergeService
         }
 
         // 1. Cùng tour. Ghép hai tour khác nhau là đổi hẳn sản phẩm khách đã mua.
-        // NGoại lệ: Nếu 2 chuyến KHÁC tour nhưng khởi hành CÙNG NGÀY, hệ thống cho phép ghép.
+        // Ngoại lệ: Nếu 2 chuyến KHÁC tour nhưng khởi hành CÙNG NGÀY CÙNG GIỜ, hệ thống cho phép ghép.
         // Điều hành sẽ tự chịu trách nhiệm tổ chức và giữ nguyên dịch vụ đã cam kết.
         if ((int) $from->tour_id !== (int) $to->tour_id) {
-            $cungNgay = Carbon::parse($from->start_date)->isSameDay(Carbon::parse($to->start_date));
-            if (!$cungNgay) {
-                throw new BusinessRuleException('Chỉ ghép được hai chuyến của cùng một tour, hoặc hai chuyến khác tour nhưng phải khởi hành cùng ngày.');
+            $cungGio = $from->start_date && $to->start_date && $from->start_date->equalTo($to->start_date);
+            if (!$cungGio) {
+                throw new BusinessRuleException('Chỉ ghép được hai chuyến của cùng một tour, hoặc hai chuyến khác tour nhưng phải khởi hành cùng ngày và cùng giờ.');
             }
         }
 
@@ -330,13 +330,13 @@ class ScheduleMergeService
             );
         }
 
-        // 2. Cả hai chưa khởi hành.
+        // 2. Cả hai phải đang mở bán. Chuyến đã đóng bán hoặc chốt chạy không được xáo trộn.
         foreach ([$from, $to] as $schedule) {
             $trangThai = $this->lifecycle->effectiveStatus($schedule);
 
-            if (!in_array($trangThai, [ScheduleStatus::Open, ScheduleStatus::Closed, ScheduleStatus::Confirmed], true)) {
+            if ($trangThai !== ScheduleStatus::Open) {
                 throw new BusinessRuleException(sprintf(
-                    'Chuyến #%d đang ở trạng thái "%s" nên không ghép được.',
+                    'Chuyến #%d đang ở trạng thái "%s" (không phải Đang mở bán) nên không ghép được.',
                     $schedule->getKey(),
                     $trangThai->label(),
                 ));
