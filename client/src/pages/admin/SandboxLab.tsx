@@ -1,3 +1,10 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Flex as UIFlex,
+  Select as AntSelect,
+  Typography as AntTypography,
+} from "antd";
 import adminService from "@/services/adminService";
 import type {
   SandboxRunResult,
@@ -67,86 +74,52 @@ const SandboxLab = () => {
   };
 
   return (
-    <div className="space-y-5">
-      <header className="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-5">
-        <h1 className="text-lg font-bold text-amber-900">Sân thử nghiệm nghiệp vụ</h1>
+    <UIFlex vertical gap={20} ><header className="rounded-2xl border border-amber-200 bg-amber-50 px-6 py-5">
+        <AntTypography.Title level={3} >Sân thử nghiệm nghiệp vụ</AntTypography.Title>
         <p className="mt-1 max-w-4xl text-sm leading-relaxed text-amber-800">
           Mỗi kịch bản tự dựng dữ liệu của nó, chạy các bước theo đúng thứ tự đời thật, rồi tự chấm
           từng bước. <b>Không có bước nào được giả lập</b> — mọi thao tác gọi đúng dịch vụ và đúng
           lệnh nền mà đường thật đi qua. Thứ duy nhất bị can thiệp là ngày khởi hành của chuyến, và
           đó là cách kéo đồng hồ tới nơi thay vì chờ mười ngày.
         </p>
-      </header>
-
-      <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
+      </header><div className="grid gap-5 lg:grid-cols-[320px_1fr]">
         {/* ── Cột trái: danh mục kịch bản ─────────────────────────────────────── */}
         <aside className="space-y-4">
           {theoNhom.map(([nhom, ds]) => (
-            <div key={nhom} className="rounded-2xl border border-gray-200 bg-white p-3">
-              <p className="px-1.5 pb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+            <UICard key={nhom} ><UIFlex vertical gap="middle"><p className="px-1.5 pb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
                 {nhom}
-              </p>
-              <div className="space-y-1">
-                {ds.map((kb) => {
+              </p><UIFlex vertical gap={4} >{ds.map((kb) => {
                   const chon = dangChon === kb.id;
                   return (
-                    <button
-                      key={kb.id}
-                      type="button"
-                      disabled={dangChay}
-                      onClick={() => void chay(kb.id)}
-                      className={`w-full rounded-xl px-3 py-2.5 text-left transition-colors disabled:opacity-50 ${
-                        chon
-                          ? "bg-primary-50 ring-1 ring-primary-200"
-                          : "hover:bg-gray-50"
-                      }`}
-                    >
-                      <span
+                    <AntButton type={(chon) ? "primary" : "default"} key={kb.id} htmlType="button" disabled={dangChay} onClick={() => void chay(kb.id)}><span
                         className={`block text-xs font-bold ${chon ? "text-primary-800" : "text-gray-800"}`}
                       >
                         {kb.ten}
-                      </span>
-                      <span className="mt-0.5 block text-[11px] leading-relaxed text-gray-500">
+                      </span><span className="mt-0.5 block text-[11px] leading-relaxed text-gray-500">
                         {kb.chung_minh}
-                      </span>
-                    </button>
+                      </span></AntButton>
                   );
-                })}
-              </div>
-            </div>
+                })}</UIFlex></UIFlex></UICard>
           ))}
         </aside>
 
         {/* ── Cột phải: biên bản ──────────────────────────────────────────────── */}
-        <section className="space-y-4">
-          {loi && (
+        <UIFlex vertical gap={16} >{loi && (
             <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
               {loi}
             </div>
-          )}
-
-          {dangChay && (
-            <div className="rounded-2xl border border-gray-200 bg-white px-6 py-12 text-center text-sm text-gray-500">
-              Đang dựng dữ liệu và chạy các bước…
-            </div>
-          )}
-
-          {!dangChay && !bienBan && !loi && (
-            <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-16 text-center">
-              <p className="text-sm font-semibold text-gray-700">
+          )}{dangChay && (
+            <UICard  ><UIFlex vertical gap="middle">Đang dựng dữ liệu và chạy các bước…
+            </UIFlex></UICard>
+          )}{!dangChay && !bienBan && !loi && (
+            <UICard  ><UIFlex vertical gap="middle"><p className="text-sm font-semibold text-gray-700">
                 Chọn một kịch bản ở cột bên trái
-              </p>
-              <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-gray-500">
+              </p><p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-gray-500">
                 Mỗi lần chạy đều dựng lại dữ liệu từ đầu, nên bấm đi bấm lại bao nhiêu lần cũng ra
                 cùng kết quả và không ăn vào kịch bản khác.
-              </p>
-            </div>
-          )}
-
-          {!dangChay && bienBan && <BienBan bb={bienBan} />}
-        </section>
-      </div>
-    </div>
+              </p></UIFlex></UICard>
+          )}{!dangChay && bienBan && <BienBan bb={bienBan} />}</UIFlex>
+      </div></UIFlex>
   );
 };
 
@@ -159,20 +132,17 @@ const BienBan = ({ bb }: { bb: SandboxRunResult }) => (
         bb.dat ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"
       }`}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <UIFlex    align="start" justify="space-between" gap={16}><div>
           <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">{bb.nhom}</p>
           <h2 className="mt-0.5 text-base font-bold text-gray-900">{bb.ten}</h2>
           <p className="mt-1 text-xs leading-relaxed text-gray-600">{bb.chung_minh}</p>
-        </div>
-        <span
+        </div><span
           className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
             bb.dat ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
           }`}
         >
           {bb.dat ? "ĐẠT" : "CÓ BƯỚC HỎNG"}
-        </span>
-      </div>
+        </span></UIFlex>
     </div>
 
     <ol className="space-y-2">
@@ -183,15 +153,13 @@ const BienBan = ({ bb }: { bb: SandboxRunResult }) => (
             b.dat ? "border-gray-200" : "border-rose-300 ring-1 ring-rose-100"
           }`}
         >
-          <div className="flex items-start gap-3">
-            <span
+          <UIFlex    align="start"  gap={12}><span
               className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
                 b.dat ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
               }`}
             >
               {b.dat ? "✓" : "✗"}
-            </span>
-            <div className="min-w-0 flex-1">
+            </span><div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-gray-900">
                 Bước {b.thu_tu} · {b.lam_gi}
               </p>
@@ -207,8 +175,7 @@ const BienBan = ({ bb }: { bb: SandboxRunResult }) => (
                   {b.ket_qua}
                 </dd>
               </dl>
-            </div>
-          </div>
+            </div></UIFlex>
         </li>
       ))}
     </ol>
@@ -255,12 +222,9 @@ const ThongTinDon = ({ don }: { don: SandboxScenarioBooking }) => {
   };
 
   return (
-  <div className="rounded-2xl border border-gray-200 bg-white p-5">
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="rounded-lg bg-gray-900 px-2.5 py-1 text-xs font-bold text-white">
+  <UICard  ><UIFlex vertical gap="middle"><UIFlex   wrap align="center"  gap={12}><span className="rounded-lg bg-gray-900 px-2.5 py-1 text-xs font-bold text-white">
         {don.ma}
-      </span>
-      <span
+      </span><span
         className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
           don.trang_thai === "cancelled"
             ? "bg-rose-50 text-rose-700"
@@ -270,16 +234,11 @@ const ThongTinDon = ({ don }: { don: SandboxScenarioBooking }) => {
         }`}
       >
         {don.trang_thai}
-      </span>
-      {don.han_tra_not && (
+      </span>{don.han_tra_not && (
         <span className="text-xs text-gray-500">Hạn trả nốt {don.han_tra_not}</span>
-      )}
-      <span className="text-xs text-gray-500">
+      )}<span className="text-xs text-gray-500">
         Chỗ {don.cho_da_tra ? "đã về kho" : "đang giữ"}
-      </span>
-    </div>
-
-    <div className="mt-4 grid gap-3 sm:grid-cols-4">
+      </span></UIFlex><div className="mt-4 grid gap-3 sm:grid-cols-4">
       {[
         ["Giá trị đơn", don.tong_don, "text-gray-900"],
         ["Đã thu", don.da_thu, "text-emerald-700"],
@@ -293,15 +252,12 @@ const ThongTinDon = ({ don }: { don: SandboxScenarioBooking }) => {
           </p>
         </div>
       ))}
-    </div>
-
-    {/*
+    </div>{/*
       Sổ giao dịch với dấu cộng trừ rõ ràng.
 
       Đây là bảng trả lời nhanh nhất cho câu "vậy tiền của khách đi đâu" — câu hay bị vặn nhất về
       mô hình đặt cọc, và là câu mà mọi đoạn giải thích bằng chữ đều thua một cột số.
-    */}
-    <div className="mt-4">
+    */}<div className="mt-4">
       <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Sổ giao dịch</p>
       {don.so_giao_dich.length === 0 ? (
         <p className="mt-2 rounded-lg bg-gray-50 px-3.5 py-2.5 text-xs text-gray-500">
@@ -334,9 +290,7 @@ const ThongTinDon = ({ don }: { don: SandboxScenarioBooking }) => {
           ))}
         </div>
       )}
-    </div>
-
-    {don.nhat_ky.length > 0 && (
+    </div>{don.nhat_ky.length > 0 && (
       <div className="mt-4">
         <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Nhật ký đơn</p>
         <div className="mt-2 space-y-1.5">
@@ -354,37 +308,19 @@ const ThongTinDon = ({ don }: { don: SandboxScenarioBooking }) => {
           ))}
         </div>
       </div>
-    )}
-
-    {/*
+    )}{/*
       Gửi lại một lá thư của chính đơn này.
 
       Đặt ở đây chứ không phải một màn riêng: lá thư nói về đơn này, và cả những lời từ chối cũng
       vậy — thư nhắc trả nốt bị chối trên đơn không còn nợ, thư báo hủy bị chối trên đơn còn hiệu
       lực. Một lá thư sai hoàn cảnh tệ hơn không có thư, vì nó đến từ công ty và khách tin nó.
-    */}
-    <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50/70 p-3.5">
+    */}<div className="mt-4 rounded-xl border border-gray-100 bg-gray-50/70 p-3.5">
       <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Gửi lại thư</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <select
-          value={loaiThu}
-          onChange={(e) => setLoaiThu(e.target.value)}
-          className="min-w-[240px] flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs"
-        >
-          {LOAI_THU.map(([gt, nhan]) => (
-            <option key={gt} value={gt}>
-              {nhan}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          disabled={dangGui}
-          onClick={() => void guiThu()}
-          className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-2 text-xs font-bold text-primary-700 transition-colors hover:bg-primary-100 disabled:opacity-50"
-        >
-          {dangGui ? "Đang gửi…" : "Gửi ngay"}
-        </button>
+        <AntSelect showSearch={{ optionFilterProp: "label" }} value={String((loaiThu) ?? "")} onChange={(e) => setLoaiThu(e)} style={{ width: "100%" }} options={[LOAI_THU.map(([gt, nhan]) => (
+            { value: String(gt), label: nhan, disabled: false }
+          ))].flat().filter((option) => !!option)} />
+        <AntButton htmlType="button" disabled={dangGui} onClick={() => void guiThu()}>{dangGui ? "Đang gửi…" : "Gửi ngay"}</AntButton>
       </div>
       {ketQuaThu && (
         <p
@@ -397,8 +333,7 @@ const ThongTinDon = ({ don }: { don: SandboxScenarioBooking }) => {
           {ketQuaThu.text}
         </p>
       )}
-    </div>
-  </div>
+    </div></UIFlex></UICard>
   );
 };
 

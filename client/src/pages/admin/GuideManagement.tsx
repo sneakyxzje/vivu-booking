@@ -1,3 +1,12 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Flex as UIFlex,
+  Input as AntInput,
+  Select as AntSelect,
+  Table as AntTable,
+  Typography as AntTypography,
+} from "antd";
 import React, { useState, useEffect, useMemo } from "react";
 import type { Guide } from "@/types";
 import adminService from "@/services/adminService";
@@ -199,32 +208,21 @@ export default function GuideManagement() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <UIFlex vertical gap="large" >{/* HEADER */}<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            Quản lý Hướng dẫn viên
-          </h1>
+          <AntTypography.Title level={3} >Quản lý Hướng dẫn viên
+          </AntTypography.Title>
           <p className="text-sm text-gray-500">
             Quản lý danh sách, cấp tài khoản và phân công nhiệm vụ cho Hướng dẫn viên (Guide)
           </p>
         </div>
         <div>
-          <button
-            onClick={handleOpenCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white rounded-md font-semibold text-sm hover:bg-primary-700 shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 cursor-pointer"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <AntButton onClick={handleOpenCreateModal} type="primary" htmlType="button"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Thêm hướng dẫn viên
-          </button>
+            </svg>Thêm hướng dẫn viên
+          </AntButton>
         </div>
-      </div>
-
-      {/* KPI STATS CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      </div>{/* KPI STATS CARDS */}<div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {/* Tổng số HDV */}
         <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs flex items-center gap-4 hover:shadow-sm transition-all duration-300 transform hover:-translate-y-0.5 group">
           <div className="p-3.5 bg-primary-50 text-primary-600 rounded-md group-hover:bg-primary-100 transition-colors">
@@ -278,129 +276,55 @@ export default function GuideManagement() {
             <h3 className="text-xl font-bold text-gray-900 mt-1 text-rose-605">{stats.inactive} nhân sự</h3>
           </div>
         </div>
-      </div>
-
-      {/* FILTER & SEARCH */}
-      <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-xs space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
+      </div>{/* FILTER & SEARCH */}<UICard  ><UIFlex vertical gap="middle"><div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
           {/* Thanh tìm kiếm */}
-          <div className="relative md:col-span-8">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div  className="relative md:col-span-8"><AntInput prefix={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
                   d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
-              </svg>
-            </span>
-            <input
-              type="text"
-              placeholder="Tìm kiếm hướng dẫn viên theo tên, email, điện thoại, địa chỉ..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50"
-            />
-          </div>
+              </svg>} type="text" placeholder="Tìm kiếm hướng dẫn viên theo tên, email, điện thoại, địa chỉ..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: "100%" }} /></div>
 
           {/* Lọc trạng thái hoạt động */}
           <div className="md:col-span-3">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white cursor-pointer"
-            >
-              <option value="all">Tất cả trạng thái</option>
-              <option value="active">Đang hoạt động</option>
-              <option value="inactive">Tạm dừng hoạt động</option>
-            </select>
+            <AntSelect showSearch={{ optionFilterProp: "label" }} value={String((statusFilter) ?? "")} onChange={(e) => setStatusFilter(e)} style={{ width: "100%" }} options={[{ value: String("all"), label: "Tất cả trạng thái", disabled: false },{ value: String("active"), label: "Đang hoạt động", disabled: false },{ value: String("inactive"), label: "Tạm dừng hoạt động", disabled: false }].flat().filter((option) => !!option)} />
           </div>
 
           {/* Xóa lọc nhanh */}
           <div className="md:col-span-1 flex">
-            <button
-              onClick={() => {
+            <AntButton onClick={() => {
                 setSearch("");
                 setStatusFilter("all");
-              }}
-              className="w-full py-2 text-sm text-gray-500 hover:text-primary-600 bg-gray-50 border border-gray-100 rounded-md font-medium hover:bg-primary-50 transition-colors cursor-pointer"
-            >
-              Xóa lọc
-            </button>
+              }} style={{ width: "100%" }} htmlType="button">Xóa lọc
+            </AntButton>
           </div>
-        </div>
-      </div>
-
-      {/* DATA TABLE */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-xs">
-        {loading ? (
+        </div></UIFlex></UICard>{/* DATA TABLE */}<UICard  ><UIFlex vertical gap="middle">{loading ? (
           <div className="p-12 text-center text-gray-500 font-medium">
             Đang tải danh sách Hướng dẫn viên...
           </div>
         ) : (
           <div className="overflow-x-visible">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-gray-200">
-                  <th className="py-3.5 px-6 w-16 text-center">ID</th>
-                  <th className="py-3.5 px-6">Thông tin Hướng dẫn viên</th>
-                  <th className="py-3.5 px-6">Điện thoại / Địa chỉ</th>
-                  <th className="py-3.5 px-6">Hồ sơ năng lực</th>
-                  <th className="py-3.5 text-center px-6">Số Tour phụ trách</th>
-                  <th className="py-3.5 px-6">Ngày tạo tài khoản</th>
-                  <th className="py-3.5 text-center px-6">Trạng thái</th>
-                  <th className="py-3.5 text-center px-6">Hành động</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 text-sm">
-                {filteredGuides.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="p-12 text-center text-gray-400">
-                      Không tìm thấy Hướng dẫn viên nào phù hợp.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredGuides.map((guide) => (
-                    <tr key={guide.id} className="hover:bg-gray-50/50 transition-colors">
-                      {/* ID */}
-                      <td className="py-3.5 px-6 text-center text-gray-500 font-mono">
+            <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }}
+    dataSource={filteredGuides.map((guide) => (
+                    {key: guide.id, cells: [<>
                         #{guide.id}
-                      </td>
-
-                      {/* Basic Info */}
-                      <td className="py-3.5 px-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-primary-600 text-white font-bold flex items-center justify-center text-sm shadow-inner uppercase">
+                      </>,<>
+                        <UIFlex    align="center"  gap={12}><div className="w-10 h-10 rounded-full bg-primary-600 text-white font-bold flex items-center justify-center text-sm shadow-inner uppercase">
                             {guide.name.charAt(0)}
-                          </div>
-                          <div>
+                          </div><div>
                             <p className="font-semibold text-gray-900">{guide.name}</p>
                             <p className="text-xs text-gray-400 mt-0.5 font-mono">{guide.email}</p>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* SĐT & Địa chỉ */}
-                      <td className="py-3.5 px-6">
+                          </div></UIFlex>
+                      </>,<>
                         <div>
                           <p className="font-medium text-gray-800 font-mono text-xs">{guide.phone ?? "Chưa cập nhật"}</p>
                           <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{guide.address ?? "Không có địa chỉ"}</p>
                         </div>
-                      </td>
-
-                      {/*
-                        Hồ sơ năng lực — chuyên môn trước, rồi tới tuyến quen.
-
-                        Đây là hai thứ được cộng điểm khi xếp người, nên là hai thứ điều hành cần
-                        liếc thấy ngay ở danh sách. Chưa khai thì mời bổ sung chứ không để ô trống:
-                        ô trống đọc như "ở đây không có gì", trong khi ý là ngược lại.
-                      */}
-                      <td className="py-3.5 px-6">
+                      </>,<>
                         {guide.guide_profile ? (
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap gap-1">
-                              {(guide.guide_categories ?? []).length === 0 ? (
+                          <UIFlex vertical gap={4} ><UIFlex   wrap   gap={4}>{(guide.guide_categories ?? []).length === 0 ? (
                                 <span className="text-[11px] text-gray-400">Chưa khai chuyên môn</span>
                               ) : (
                                 (guide.guide_categories ?? []).map((loai) => (
@@ -411,44 +335,24 @@ export default function GuideManagement() {
                                     {loai.name}
                                   </span>
                                 ))
-                              )}
-                            </div>
-
-                            {(guide.guide_profile.regions ?? []).length > 0 && (
+                              )}</UIFlex>{(guide.guide_profile.regions ?? []).length > 0 && (
                               <p className="text-[11px] text-gray-500 line-clamp-1">
                                 Tuyến quen: {(guide.guide_profile.regions ?? []).join(", ")}
                               </p>
-                            )}
-
-                            {(guide.guide_profile.languages ?? []).length > 0 && (
+                            )}{(guide.guide_profile.languages ?? []).length > 0 && (
                               <p className="text-[11px] text-gray-400 line-clamp-1">
                                 {(guide.guide_profile.languages ?? []).join(", ")}
                               </p>
-                            )}
-                          </div>
+                            )}</UIFlex>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => setProfileGuide(guide)}
-                            className="text-xs font-semibold text-amber-700 hover:underline cursor-pointer"
-                          >
-                            Chưa có hồ sơ — bổ sung
-                          </button>
+                          <AntButton htmlType="button" onClick={() => setProfileGuide(guide)}>Chưa có hồ sơ — bổ sung
+                          </AntButton>
                         )}
-                      </td>
-
-                      {/* Số Tour phụ trách */}
-                      <td className="py-3.5 px-6 text-center font-bold text-primary-600">
+                      </>,<>
                         {guide.assigned_tours_count ?? 0} tours
-                      </td>
-
-                      {/* Ngày gia nhập */}
-                      <td className="py-3.5 px-6 text-gray-500 text-xs">
+                      </>,<>
                         {guide.created_at}
-                      </td>
-
-                      {/* Trạng thái */}
-                      <td className="py-3.5 px-6 text-center">
+                      </>,<>
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-xs font-semibold border ${guide.status === "active"
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -458,10 +362,7 @@ export default function GuideManagement() {
                           <span className={`w-1.5 h-1.5 rounded-full ${guide.status === "active" ? "bg-emerald-500" : "bg-rose-500"}`}></span>
                           {guide.status === "active" ? "Hoạt động" : "Tạm dừng"}
                         </span>
-                      </td>
-
-                      {/* Hành động */}
-                      <td className="py-3.5 px-6 text-center">
+                      </>,<>
                         <TableActions
                           id={guide.id}
                           actions={[
@@ -509,33 +410,21 @@ export default function GuideManagement() {
                             },
                           ]}
                         />
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                      </>], rowProps: {}}
+                  ))}
+    columns={[{ key: "0", title: <>ID</>, align: "center", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Thông tin Hướng dẫn viên</>, align: "left", render: (_value, record) => record.cells[1] },{ key: "2", title: <>Điện thoại / Địa chỉ</>, align: "left", render: (_value, record) => record.cells[2] },{ key: "3", title: <>Hồ sơ năng lực</>, align: "left", render: (_value, record) => record.cells[3] },{ key: "4", title: <>Số Tour phụ trách</>, align: "center", render: (_value, record) => record.cells[4] },{ key: "5", title: <>Ngày tạo tài khoản</>, align: "left", render: (_value, record) => record.cells[5] },{ key: "6", title: <>Trạng thái</>, align: "center", render: (_value, record) => record.cells[6] },{ key: "7", title: <>Hành động</>, align: "center", render: (_value, record) => record.cells[7] }]}
+    onRow={(record) => record.rowProps}
+    locale={{ emptyText: <>
+                      Không tìm thấy Hướng dẫn viên nào phù hợp.
+                    </> }} />
           </div>
-        )}
-
-        {/* PAGINATION */}
-        {!loading && totalPages > 1 && (
+        )}{/* PAGINATION */}{!loading && totalPages > 1 && (
           <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-100 sm:px-6">
             <div className="flex-1 flex justify-between sm:hidden">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-              >
-                Trước
-              </button>
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-              >
-                Sau
-              </button>
+              <AntButton disabled={currentPage === 1} onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))} htmlType="button">Trước
+              </AntButton>
+              <AntButton disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))} htmlType="button">Sau
+              </AntButton>
             </div>
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
               <div>
@@ -545,45 +434,22 @@ export default function GuideManagement() {
               </div>
               <div>
                 <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                  <button
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage(1)}
-                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Đầu
-                  </button>
-                  <button
-                    disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                    className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Trước
-                  </button>
+                  <AntButton disabled={currentPage === 1} onClick={() => setCurrentPage(1)} htmlType="button">Đầu
+                  </AntButton>
+                  <AntButton disabled={currentPage === 1} onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))} htmlType="button">Trước
+                  </AntButton>
                   <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-primary-50 text-sm font-semibold text-primary-600">
                     {currentPage}
                   </span>
-                  <button
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                    className="relative inline-flex items-center px-3 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Sau
-                  </button>
-                  <button
-                    disabled={currentPage === totalPages}
-                    onClick={() => setCurrentPage(totalPages)}
-                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    Cuối
-                  </button>
+                  <AntButton disabled={currentPage === totalPages} onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))} htmlType="button">Sau
+                  </AntButton>
+                  <AntButton disabled={currentPage === totalPages} onClick={() => setCurrentPage(totalPages)} htmlType="button">Cuối
+                  </AntButton>
                 </nav>
               </div>
             </div>
           </div>
-        )}
-      </div>
-      {/* CREATE & EDIT FORM MODAL */}
-      <Modal
+        )}</UIFlex></UICard>{/* CREATE & EDIT FORM MODAL */}<Modal
         isOpen={isModalOpen && !!currentGuide}
         onClose={() => {
           setIsModalOpen(false);
@@ -595,138 +461,65 @@ export default function GuideManagement() {
         size="xl"
         footer={
           <>
-            <button
-              type="button"
-              onClick={() => {
+            <AntButton htmlType="button" onClick={() => {
                 setIsModalOpen(false);
                 setCurrentGuide(null);
-              }}
-              className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-md text-gray-700 hover:bg-gray-50 transition-all focus:outline-none cursor-pointer"
-            >
-              Đóng
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-primary-600 text-sm font-semibold rounded-md text-white hover:bg-primary-700 shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 cursor-pointer"
-            >
-              Lưu thay đổi
-            </button>
+              }}>Đóng
+            </AntButton>
+            <AntButton htmlType="submit" type="primary">Lưu thay đổi
+            </AntButton>
           </>
         }
       >
         {currentGuide && (
-          <div className="space-y-4">
-            {/* Họ tên */}
-            <div>
+          <UIFlex vertical gap={16} >{/* Họ tên */}<div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                 Họ và tên <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="text"
-                required
-                value={currentGuide.name || ""}
-                onChange={(e) => setCurrentGuide((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Nhập họ tên hướng dẫn viên"
-                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-medium"
-              />
-            </div>
-
-            {/* Email */}
-            <div>
+              <AntInput type="text" required value={currentGuide.name || ""} onChange={(e) => setCurrentGuide((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nhập họ tên hướng dẫn viên" style={{ width: "100%" }} />
+            </div>{/* Email */}<div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                 Email tài khoản {!currentGuide.id && <span className="text-rose-500">*</span>}
               </label>
-              <input
-                type="email"
-                required={!currentGuide.id}
-                disabled={!!currentGuide.id}
-                value={currentGuide.email || ""}
-                onChange={(e) => setCurrentGuide((prev) => ({ ...prev, email: e.target.value }))}
-                placeholder="nguyenvanan@gmail.com"
-                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
-              />
+              <AntInput type="email" required={!currentGuide.id} disabled={!!currentGuide.id} value={currentGuide.email || ""} onChange={(e) => setCurrentGuide((prev) => ({ ...prev, email: e.target.value }))} placeholder="nguyenvanan@gmail.com" style={{ width: "100%" }} />
               {currentGuide.id && (
                 <span className="text-[10px] text-gray-400 mt-1 block">Email không được phép thay đổi sau khi tạo</span>
               )}
-            </div>
-
-            {/* Password (Chỉ cho tạo mới) */}
-            {!currentGuide.id && (
+            </div>{/* Password (Chỉ cho tạo mới) */}{!currentGuide.id && (
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                   Mật khẩu khởi tạo <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="password"
-                  required
-                  value={currentGuide.password || ""}
-                  onChange={(e) => setCurrentGuide((prev) => ({ ...prev, password: e.target.value }))}
-                  placeholder="Tối thiểu 6 ký tự"
-                  className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-medium"
-                />
+                <AntInput type="password" required value={currentGuide.password || ""} onChange={(e) => setCurrentGuide((prev) => ({ ...prev, password: e.target.value }))} placeholder="Tối thiểu 6 ký tự" style={{ width: "100%" }} />
               </div>
-            )}
-
-            {/* SĐT */}
-            <div>
+            )}{/* SĐT */}<div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                 Số điện thoại
               </label>
-              <input
-                type="text"
-                disabled={!!currentGuide.id}
-                value={currentGuide.phone || ""}
-                onChange={(e) => setCurrentGuide((prev) => ({ ...prev, phone: e.target.value }))}
-                placeholder="09xxxxxxxx"
-                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
-              />
+              <AntInput type="text" disabled={!!currentGuide.id} value={currentGuide.phone || ""} onChange={(e) => setCurrentGuide((prev) => ({ ...prev, phone: e.target.value }))} placeholder="09xxxxxxxx" style={{ width: "100%" }} />
               {currentGuide.id && (
                 <span className="text-[10px] text-gray-400 mt-1 block">Số điện thoại không được phép thay đổi qua API này</span>
               )}
-            </div>
-
-            {/* Địa chỉ */}
-            <div>
+            </div>{/* Địa chỉ */}<div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                 Địa chỉ thường trú
               </label>
-              <input
-                type="text"
-                disabled={!!currentGuide.id}
-                value={currentGuide.address || ""}
-                onChange={(e) => setCurrentGuide((prev) => ({ ...prev, address: e.target.value }))}
-                placeholder="Quận/Huyện, Tỉnh/Thành Phố"
-                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 disabled:bg-gray-100 disabled:text-gray-400 bg-gray-50/50 font-medium"
-              />
+              <AntInput type="text" disabled={!!currentGuide.id} value={currentGuide.address || ""} onChange={(e) => setCurrentGuide((prev) => ({ ...prev, address: e.target.value }))} placeholder="Quận/Huyện, Tỉnh/Thành Phố" style={{ width: "100%" }} />
               {currentGuide.id && (
                 <span className="text-[10px] text-gray-400 mt-1 block">Địa chỉ không được phép thay đổi qua API này</span>
               )}
-            </div>
-
-            {/* Trạng thái */}
-            <div>
+            </div>{/* Trạng thái */}<div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                 Trạng thái hoạt động
               </label>
-              <select
-                value={currentGuide.status || "active"}
-                onChange={(e) =>
+              <AntSelect showSearch={{ optionFilterProp: "label" }} value={String((currentGuide.status || "active") ?? "")} onChange={(e) =>
                   setCurrentGuide((prev) => ({
                     ...prev,
-                    status: e.target.value as "active" | "inactive",
-                  }))
-                }
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white cursor-pointer"
-              >
-                <option value="active">Đang hoạt động (Active)</option>
-                <option value="inactive">Tạm dừng hoạt động (Inactive)</option>
-              </select>
-            </div>
-          </div>
+                    status: e as "active" | "inactive",
+                  }))} style={{ width: "100%" }} options={[{ value: String("active"), label: "Đang hoạt động (Active)", disabled: false },{ value: String("inactive"), label: "Tạm dừng hoạt động (Inactive)", disabled: false }].flat().filter((option) => !!option)} />
+            </div></UIFlex>
         )}
-      </Modal>
-
-      <GuideProfileModal
+      </Modal><GuideProfileModal
         guide={profileGuide}
         onClose={() => setProfileGuide(null)}
         onSaved={(message) => {
@@ -734,17 +527,12 @@ export default function GuideManagement() {
           fetchGuides();
         }}
         onError={(message) => showToast(message, "error")}
-      />
-
-      {/* --- CUSTOM ALERTS RENDER --- */}
-      <Toast
+      />{/* --- CUSTOM ALERTS RENDER --- */}<Toast
         message={toast.message}
         type={toast.type}
         isOpen={toast.isOpen}
         onClose={() => setToast((prev) => ({ ...prev, isOpen: false }))}
-      />
-
-      <ConfirmModal
+      /><ConfirmModal
         message={confirm.message}
         isOpen={confirm.isOpen}
         onConfirm={() => {
@@ -752,7 +540,6 @@ export default function GuideManagement() {
           confirm.onConfirm();
         }}
         onCancel={() => setConfirm((prev) => ({ ...prev, isOpen: false }))}
-      />
-    </div>
+      /></UIFlex>
   );
 }

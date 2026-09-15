@@ -1,3 +1,11 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Checkbox as AntCheckbox,
+  Flex as UIFlex,
+  Input as AntInput,
+  Select as AntSelect,
+} from "antd";
 import React, { useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -22,7 +30,7 @@ import {
   taoChuyen,
 } from "./formHelpers";
 import { LY_DO_DOI_HAN_TOI_THIEU, statusLabel } from "@/utils/schedule";
-import { DateTimePicker } from "@/components/DateTimePicker";
+import { DateTimePicker } from "@/components/admin/AdminDateTimePicker";
 import {
   TEN_THANG,
   THU,
@@ -399,42 +407,17 @@ export const TourFormScheduleSection: React.FC<Props> = ({
   const soChon = dangChon.length;
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-4 xl:grid-cols-[298px_minmax(0,1fr)]">
+    <UIFlex vertical gap={16} ><div className="grid gap-4 xl:grid-cols-[298px_minmax(0,1fr)]">
         {/* ── Lịch tháng ─────────────────────────────────────────────────── */}
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <button
-              type="button"
-              aria-label="Tháng trước"
-              onClick={() =>
+        <UICard  ><UIFlex vertical gap="middle"><div className="mb-3 flex items-center justify-between">
+            <AntButton htmlType="button" aria-label="Tháng trước" onClick={() =>
                 setThangDangXem((t) => new Date(t.getFullYear(), t.getMonth() - 1, 1))
-              }
-              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setThangDangXem(new Date(homNay.getFullYear(), homNay.getMonth(), 1))}
-              title="Về tháng này"
-              className="rounded-lg px-2 py-1 text-sm font-bold text-gray-900 transition-colors hover:bg-gray-100"
-            >
-              {TEN_THANG[thangDangXem.getMonth()]} {thangDangXem.getFullYear()}
-            </button>
-            <button
-              type="button"
-              aria-label="Tháng sau"
-              onClick={() =>
+              }><ChevronLeft className="h-4 w-4" /></AntButton>
+            <AntButton htmlType="button" onClick={() => setThangDangXem(new Date(homNay.getFullYear(), homNay.getMonth(), 1))} title="Về tháng này">{TEN_THANG[thangDangXem.getMonth()]}{thangDangXem.getFullYear()}</AntButton>
+            <AntButton htmlType="button" aria-label="Tháng sau" onClick={() =>
                 setThangDangXem((t) => new Date(t.getFullYear(), t.getMonth() + 1, 1))
-              }
-              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-7 gap-1">
+              }><ChevronRight className="h-4 w-4" /></AntButton>
+          </div><div className="grid grid-cols-7 gap-1">
             {THU.map((t) => (
               <span
                 key={t}
@@ -454,208 +437,86 @@ export const TourFormScheduleSection: React.FC<Props> = ({
               const daQua = d < homNay;
 
               return (
-                <button
-                  key={khoa}
-                  type="button"
-                  disabled={daQua}
-                  onClick={() => bamO(d)}
-                  aria-pressed={daMo}
-                  title={daMo ? "Chuyến đã mở — bấm để chọn sửa hàng loạt" : "Bấm để mở chuyến"}
-                  className={[
-                    "relative h-9 rounded-lg text-xs font-semibold transition-colors",
-                    daQua
-                      ? "cursor-not-allowed text-gray-300"
-                      : daMo
-                        ? "bg-primary-600 text-white hover:bg-primary-700"
-                        : "text-gray-700 hover:bg-primary-50 hover:text-primary-700",
-                    duocChon ? "ring-2 ring-primary-300 ring-offset-1" : "",
-                  ].join(" ")}
-                >
-                  {d.getDate()}
-                  {daMo && chuyen.length > 1 && (
+                <AntButton type={duocChon ? "primary" : "default"} variant={daMo && !duocChon ? "outlined" : undefined} color={daMo ? "primary" : "default"} key={khoa} htmlType="button" disabled={daQua} onClick={() => bamO(d)} aria-pressed={duocChon} title={daMo ? "Chuyến đã mở — bấm để chọn sửa hàng loạt" : "Bấm để mở chuyến"}>{d.getDate()}{daMo && chuyen.length > 1 && (
                     <span className="absolute right-1 top-0.5 text-[9px] font-bold">
                       ×{chuyen.length}
                     </span>
-                  )}
-                </button>
+                  )}</AntButton>
               );
             })}
-          </div>
-
-          <p className="mt-3 flex items-center gap-1.5 text-[11px] text-gray-500">
+          </div><p className="mt-3 flex items-center gap-1.5 text-[11px] text-gray-500">
             <span className="inline-block h-2.5 w-2.5 rounded-sm bg-primary-600" />
             Ngày đã mở chuyến. Bấm ngày trống để mở thêm.
-          </p>
-
-          {/* Mặc định áp cho chuyến mở từ lịch */}
-          <div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+          </p>{/* Mặc định áp cho chuyến mở từ lịch */}<div className="mt-4 space-y-3 border-t border-gray-100 pt-4">
             <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">
               Mặc định cho chuyến mới
             </p>
             <div className="grid grid-cols-2 gap-2">
               <label className="block">
                 <span className="mb-1 block text-[10px] font-semibold text-gray-500">Giờ đi</span>
-                <input
-                  type="time"
-                  value={gioMacDinh}
-                  onChange={(e) => setGioMacDinh(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-800 focus:border-primary-500 focus:outline-none"
-                />
+                <AntInput type="time" value={gioMacDinh} onChange={(e) => setGioMacDinh(e.target.value)} style={{ width: "100%" }} />
               </label>
               <label className="block">
                 <span className="mb-1 block text-[10px] font-semibold text-gray-500">Giờ về</span>
-                <input
-                  type="time"
-                  value={gioVeMacDinh}
-                  onChange={(e) => setGioVeMacDinh(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-800 focus:border-primary-500 focus:outline-none"
-                />
+                <AntInput type="time" value={gioVeMacDinh} onChange={(e) => setGioVeMacDinh(e.target.value)} style={{ width: "100%" }} />
               </label>
               <label className="block">
                 <span className="mb-1 block text-[10px] font-semibold text-gray-500">Tối thiểu</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={toiThieuMacDinh}
-                  onChange={(e) => setToiThieuMacDinh(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-800 focus:border-primary-500 focus:outline-none"
-                />
+                <AntInput type="number" min={1} value={toiThieuMacDinh} onChange={(e) => setToiThieuMacDinh(e.target.value)} style={{ width: "100%" }} />
               </label>
               <label className="block">
                 <span className="mb-1 block text-[10px] font-semibold text-gray-500">Tối đa</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={toiDaMacDinh}
-                  onChange={(e) => setToiDaMacDinh(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs text-gray-800 focus:border-primary-500 focus:outline-none"
-                />
+                <AntInput type="number" min={1} value={toiDaMacDinh} onChange={(e) => setToiDaMacDinh(e.target.value)} style={{ width: "100%" }} />
               </label>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => themTheoThu(6)}
-                className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1.5 text-[11px] font-semibold text-gray-700 hover:bg-gray-200"
-              >
-                <CalendarPlus className="h-3.5 w-3.5" />
-                Mọi thứ Bảy
-              </button>
-              <button
-                type="button"
-                onClick={() => themTheoThu(0)}
-                className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1.5 text-[11px] font-semibold text-gray-700 hover:bg-gray-200"
-              >
-                <CalendarPlus className="h-3.5 w-3.5" />
-                Mọi Chủ nhật
-              </button>
-            </div>
-          </div>
-        </div>
+            <UIFlex   wrap   gap={8}><AntButton htmlType="button" onClick={() => themTheoThu(6)}><CalendarPlus className="h-3.5 w-3.5" />Mọi thứ Bảy
+              </AntButton><AntButton htmlType="button" onClick={() => themTheoThu(0)}><CalendarPlus className="h-3.5 w-3.5" />Mọi Chủ nhật
+              </AntButton></UIFlex>
+          </div></UIFlex></UICard>
 
         {/* ── Danh sách chuyến ───────────────────────────────────────────── */}
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-gray-800">
+        <UIFlex vertical gap={12} ><UIFlex   wrap align="center" justify="space-between" gap={8}><p className="text-sm font-semibold text-gray-800">
               {items.length > 0 ? `${items.length} chuyến khởi hành` : "Chưa có chuyến nào"}
               {soChon > 0 && (
                 <span className="ml-2 text-primary-600">· đang chọn {soChon}</span>
               )}
-            </p>
-            {items.length > 0 && (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
+            </p>{items.length > 0 && (
+              <UIFlex      gap={8}><AntButton htmlType="button" onClick={() =>
                     setDangChon(soChon === items.length ? [] : items.map((item) => item.uid))
-                  }
-                  className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-50"
-                >
-                  {soChon === items.length ? "Bỏ chọn hết" : "Chọn tất cả"}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Sửa hàng loạt — chỉ hiện khi có chuyến đang chọn, vì ngoài lúc đó nó không có nghĩa. */}
-          {soChon > 0 && (
+                  }>{soChon === items.length ? "Bỏ chọn hết" : "Chọn tất cả"}</AntButton></UIFlex>
+            )}</UIFlex>{/* Sửa hàng loạt — chỉ hiện khi có chuyến đang chọn, vì ngoài lúc đó nó không có nghĩa. */}{soChon > 0 && (
             <div className="rounded-xl border border-primary-200 bg-primary-50/60 p-3">
               <p className="mb-2.5 text-xs font-bold text-primary-800">
                 Áp cho {soChon} chuyến đang chọn
               </p>
-              <div className="flex flex-wrap items-end gap-2.5">
-                <label className="block">
+              <UIFlex   wrap align="end"  gap={10}><label className="block">
                   <span className="mb-1 block text-[10px] font-semibold text-gray-600">Giờ đi</span>
-                  <input
-                    type="time"
-                    defaultValue={gioMacDinh}
-                    onChange={(e) => e.target.value && apGioHangLoat(e.target.value)}
-                    className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs"
-                  />
-                </label>
-                <label className="block">
+                  <AntInput type="time" defaultValue={gioMacDinh} onChange={(e) => e.target.value && apGioHangLoat(e.target.value)} style={{ width: "100%" }} />
+                </label><label className="block">
                   <span className="mb-1 block text-[10px] font-semibold text-gray-600">Giờ về</span>
-                  <input
-                    type="time"
-                    defaultValue={gioVeMacDinh}
-                    onChange={(e) => e.target.value && apGioVeHangLoat(e.target.value)}
-                    className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs"
-                  />
-                </label>
-                <label className="block">
+                  <AntInput type="time" defaultValue={gioVeMacDinh} onChange={(e) => e.target.value && apGioVeHangLoat(e.target.value)} style={{ width: "100%" }} />
+                </label><label className="block">
                   <span className="mb-1 block text-[10px] font-semibold text-gray-600">
                     Tối thiểu
                   </span>
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder="—"
-                    onChange={(e) =>
+                  <AntInput type="number" min={1} placeholder="—" onChange={(e) =>
                       e.target.value && apDungHangLoat({ min_people: e.target.value })
-                    }
-                    className="w-20 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs"
-                  />
-                </label>
-                <label className="block">
+                    } style={{ width: "100%" }} />
+                </label><label className="block">
                   <span className="mb-1 block text-[10px] font-semibold text-gray-600">Tối đa</span>
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder="—"
-                    onChange={(e) =>
+                  <AntInput type="number" min={1} placeholder="—" onChange={(e) =>
                       e.target.value && apDungHangLoat({ max_people: e.target.value })
-                    }
-                    className="w-20 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs"
-                  />
-                </label>
-                <label className="block">
+                    } style={{ width: "100%" }} />
+                </label><label className="block">
                   <span className="mb-1 block text-[10px] font-semibold text-gray-600">
                     Trạng thái
                   </span>
-                  <select
-                    onChange={(e) => e.target.value && apDungHangLoat({ status: e.target.value })}
-                    defaultValue=""
-                    className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs"
-                  >
-                    <option value="">Giữ nguyên</option>
-                    <option value="open">Mở bán</option>
-                    <option value="closed">Tạm đóng</option>
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => xoaChuyen(dangChon)}
-                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Xóa {soChon} chuyến
-                </button>
-              </div>
+                  <AntSelect showSearch={{ optionFilterProp: "label" }} onChange={(e) => e && apDungHangLoat({ status: e })} defaultValue={""} style={{ width: "100%" }} options={[{ value: String(""), label: "Giữ nguyên", disabled: false },{ value: String("open"), label: "Mở bán", disabled: false },{ value: String("closed"), label: "Tạm đóng", disabled: false }].flat().filter((option) => !!option)} />
+                </label><AntButton htmlType="button" onClick={() => xoaChuyen(dangChon)} danger><Trash2 className="h-3.5 w-3.5" />Xóa {soChon}chuyến
+                </AntButton></UIFlex>
             </div>
-          )}
-
-          {items.length === 0 ? (
+          )}{items.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/60 px-6 py-10 text-center">
               <CalendarDays className="mx-auto h-8 w-8 text-gray-300" />
               <p className="mt-3 text-sm font-semibold text-gray-700">
@@ -697,26 +558,15 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                     }`}
                   >
                     <div className="flex items-center gap-3 px-3 py-2.5">
-                      <input
-                        type="checkbox"
-                        checked={duocChon}
-                        onChange={() =>
+                      <AntCheckbox checked={duocChon} onChange={() =>
                           setDangChon((cu) =>
                             cu.includes(item.uid)
                               ? cu.filter((uid) => uid !== item.uid)
                               : [...cu, item.uid],
                           )
-                        }
-                        aria-label={`Chọn chuyến ${nhanNgay(item.start_date)}`}
-                        className="h-4 w-4 shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      />
+                        } aria-label={`Chọn chuyến ${nhanNgay(item.start_date)}`} />
 
-                      <button
-                        type="button"
-                        onClick={() => setDangMo(moRong ? null : item.uid)}
-                        className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                      >
-                        <span className="min-w-0">
+                      <AntButton htmlType="button" onClick={() => setDangMo(moRong ? null : item.uid)}><span className="min-w-0">
                           <span className="block truncate text-sm font-bold text-gray-900">
                             {nhanNgay(item.start_date)}
                             {item.start_date.length >= 16 && (
@@ -731,40 +581,21 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                               ` · chốt ${hienThiNgay(item.booking_deadline, true)}`}
                             {item.guide_ids.length > 0 && ` · ${item.guide_ids.length} HDV`}
                           </span>
-                        </span>
-
-                        <span
+                        </span><span
                           className={`ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${trangThai.lop}`}
                         >
                           {trangThai.chu}
-                        </span>
-                        <ChevronDown
+                        </span><ChevronDown
                           className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${
                             moRong ? "rotate-180" : ""
                           }`}
-                        />
-                      </button>
+                        /></AntButton>
 
                       {/* Mở thêm một ca nữa trong cùng ngày. Lịch bên trái không làm được việc
                           này vì bấm vào ngày đã có chuyến là chọn để sửa hàng loạt. */}
-                      <button
-                        type="button"
-                        onClick={() => themCungNgay(item)}
-                        aria-label={`Thêm chuyến khác trong ngày ${nhanNgay(item.start_date)}`}
-                        title="Thêm chuyến khác trong ngày này"
-                        className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
-                      >
-                        <CalendarPlus className="h-4 w-4" />
-                      </button>
+                      <AntButton htmlType="button" onClick={() => themCungNgay(item)} aria-label={`Thêm chuyến khác trong ngày ${nhanNgay(item.start_date)}`} title="Thêm chuyến khác trong ngày này"><CalendarPlus className="h-4 w-4" /></AntButton>
 
-                      <button
-                        type="button"
-                        onClick={() => xoaChuyen([item.uid])}
-                        aria-label={`Xóa chuyến ${nhanNgay(item.start_date)}`}
-                        className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <AntButton htmlType="button" onClick={() => xoaChuyen([item.uid])} aria-label={`Xóa chuyến ${nhanNgay(item.start_date)}`} danger><Trash2 className="h-4 w-4" /></AntButton>
                     </div>
 
                     {loi && (
@@ -864,29 +695,17 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                               <label className="mb-1 block text-[11px] font-bold text-gray-600">
                                 Tối thiểu <span className="text-red-500">*</span>
                               </label>
-                              <input
-                                type="number"
-                                min={1}
-                                value={item.min_people}
-                                onChange={(e) =>
+                              <AntInput type="number" min={1} value={item.min_people} onChange={(e) =>
                                   capNhat(item.uid, { min_people: e.target.value })
-                                }
-                                className={`${fieldClass} !py-2 text-xs`}
-                              />
+                                } style={{ width: "100%" }} />
                             </div>
                             <div>
                               <label className="mb-1 block text-[11px] font-bold text-gray-600">
                                 Tối đa <span className="text-red-500">*</span>
                               </label>
-                              <input
-                                type="number"
-                                min={1}
-                                value={item.max_people}
-                                onChange={(e) =>
+                              <AntInput type="number" min={1} value={item.max_people} onChange={(e) =>
                                   capNhat(item.uid, { max_people: e.target.value })
-                                }
-                                className={`${fieldClass} !py-2 text-xs`}
-                              />
+                                } style={{ width: "100%" }} />
                             </div>
                           </div>
 
@@ -903,14 +722,7 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                               "confirmed" không khớp option nào.
                             */}
                             {conDangBan(item.status) ? (
-                              <select
-                                value={item.status}
-                                onChange={(e) => capNhat(item.uid, { status: e.target.value })}
-                                className={`${fieldClass} !py-2 text-xs`}
-                              >
-                                <option value="open">Đang mở bán</option>
-                                <option value="closed">Tạm đóng bán</option>
-                              </select>
+                              <AntSelect showSearch={{ optionFilterProp: "label" }} value={String((item.status) ?? "")} onChange={(e) => capNhat(item.uid, { status: e })} style={{ width: "100%" }} options={[{ value: String("open"), label: "Đang mở bán", disabled: false },{ value: String("closed"), label: "Tạm đóng bán", disabled: false }].flat().filter((option) => !!option)} />
                             ) : (
                               <>
                                 <div
@@ -940,15 +752,9 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                               Lý do dời hạn chốt <span className="text-red-500">*</span>
                             </label>
-                            <textarea
-                              rows={2}
-                              value={item.booking_deadline_reason ?? ""}
-                              onChange={(e) =>
+                            <AntInput.TextArea rows={2} value={item.booking_deadline_reason ?? ""} onChange={(e) =>
                                 capNhat(item.uid, { booking_deadline_reason: e.target.value })
-                              }
-                              placeholder="VD: Nhà xe chốt sớm hơn một ngày so với thỏa thuận cũ."
-                              className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs outline-none focus:border-amber-400"
-                            />
+                              } placeholder="VD: Nhà xe chốt sớm hơn một ngày so với thỏa thuận cũ." style={{ width: "100%" }} />
                             <p className="mt-1 text-[11px] text-amber-700">
                               Chuyến này đã có trên hệ thống, hạn chốt đang đổi từ{" "}
                               <strong>
@@ -1009,12 +815,7 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                                         : "border-gray-200 bg-white text-gray-600 hover:border-primary-200"
                                     }`}
                                   >
-                                    <input
-                                      type="checkbox"
-                                      checked={chon}
-                                      onChange={() => doiHuongDanVien(String(guide.id))}
-                                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600"
-                                    />
+                                    <AntCheckbox checked={chon} onChange={() => doiHuongDanVien(String(guide.id))} />
                                     {guide.name}
                                   </label>
                                 );
@@ -1026,12 +827,7 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                                   key={id}
                                   className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700"
                                 >
-                                  <input
-                                    type="checkbox"
-                                    checked
-                                    onChange={() => doiHuongDanVien(id)}
-                                    className="h-3.5 w-3.5 rounded border-gray-300 text-amber-600"
-                                  />
+                                  <AntCheckbox checked onChange={() => doiHuongDanVien(id)} />
                                   Người đã chọn nay vướng lịch khác
                                 </label>
                               ))}
@@ -1044,9 +840,7 @@ export const TourFormScheduleSection: React.FC<Props> = ({
                 );
               })}
             </div>
-          )}
-        </div>
-      </div>
-    </div>
+          )}</UIFlex>
+      </div></UIFlex>
   );
 };

@@ -1,9 +1,17 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Flex as UIFlex,
+  Input as AntInput,
+  Select as AntSelect,
+  Table as AntTable,
+} from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Download, Loader2, Search } from "lucide-react";
 import adminService from "@/services/adminService";
 import type { TransactionFilters, TransactionRow } from "@/services/adminService";
-import { DateRangePicker } from "@/components/DateRangePicker";
+import { DateRangePicker } from "@/components/admin/AdminDateRangePicker";
 import { formatDateTime, formatPrice } from "@/utils/format";
 
 /**
@@ -119,28 +127,12 @@ export default function TransactionRegister() {
 
   const dangLoc = Object.values(filters).some((v) => String(v ?? "").trim() !== "");
 
-  const inputClass =
-    "w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20";
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <p className="max-w-xl text-sm text-gray-500">
+    <UIFlex vertical gap="large" ><UIFlex   wrap align="end" justify="space-between" gap={16}><p className="max-w-xl text-sm text-gray-500">
           Mọi khoản thu và hoàn của mọi đơn, xếp theo thời gian. Dùng để đối chiếu với sao kê ngân
           hàng.
-        </p>
-        <button
-          onClick={xuatCsv}
-          disabled={exporting || totals.count === 0}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-primary-700 disabled:opacity-50"
-        >
-          <Download className="h-4 w-4" />
-          {exporting ? "Đang tải..." : "Xuất CSV"}
-        </button>
-      </div>
-
-      {/* Ba tổng của khoảng đang lọc. Tiền vào và ra khác màu vì đó là điều đầu tiên cần phân biệt. */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        </p><AntButton onClick={xuatCsv} disabled={exporting || totals.count === 0} type="primary" htmlType="button"><Download className="h-4 w-4" />{exporting ? "Đang tải..." : "Xuất CSV"}</AntButton></UIFlex>{/* Ba tổng của khoảng đang lọc. Tiền vào và ra khác màu vì đó là điều đầu tiên cần phân biệt. */}<div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
           <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Tiền vào</p>
           <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-900">
@@ -153,16 +145,10 @@ export default function TransactionRegister() {
             {formatPrice(totals.out)}
           </p>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Thực còn</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">
+        <UICard  ><UIFlex vertical gap="middle"><p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Thực còn</p><p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">
             {formatPrice(totals.net)}
-          </p>
-          <p className="text-xs text-gray-400">{totals.count} bút toán</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-5">
+          </p><p className="text-xs text-gray-400">{totals.count} bút toán</p></UIFlex></UICard>
+      </div><div className="grid grid-cols-2 gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-5">
         {/*
           Bật chọn giờ ở đây: đối chiếu sao kê hay cần cắt theo ca, và máy chủ lọc tới giờ thật
           (xem trait LocKhoangThoiGian) chứ không cắt bỏ phần giờ.
@@ -178,19 +164,10 @@ export default function TransactionRegister() {
         </div>
         <label className="block">
           <span className="text-[11px] font-semibold text-gray-500">Chiều tiền</span>
-          <select
-            value={filters.direction ?? ""}
-            onChange={(e) =>
-              setFilters((cu) => ({ ...cu, direction: e.target.value as TransactionFilters["direction"] }))
-            }
-            className={`mt-1 ${inputClass}`}
-          >
-            {CHIEU.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <AntSelect showSearch={{ optionFilterProp: "label" }} value={String(filters.direction ?? "")} onChange={(e) =>
+              setFilters((cu) => ({ ...cu, direction: e as TransactionFilters["direction"] }))} style={{ width: "100%" }} options={[CHIEU.map((o) => (
+              { value: String(o.key), label: o.label, disabled: false }
+            ))].flat().filter((option) => !!option)} />
         </label>
         {/*
           Loại bút toán — hẹp hơn chiều tiền.
@@ -201,66 +178,30 @@ export default function TransactionRegister() {
         */}
         <label className="block">
           <span className="text-[11px] font-semibold text-gray-500">Loại</span>
-          <select
-            value={filters.kind ?? ""}
-            onChange={(e) =>
-              setFilters((cu) => ({ ...cu, kind: e.target.value as TransactionFilters["kind"] }))
-            }
-            className={`mt-1 ${inputClass}`}
-          >
-            {LOAI_BUT_TOAN.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <AntSelect showSearch={{ optionFilterProp: "label" }} value={String(filters.kind ?? "")} onChange={(e) =>
+              setFilters((cu) => ({ ...cu, kind: e as TransactionFilters["kind"] }))} style={{ width: "100%" }} options={[LOAI_BUT_TOAN.map((o) => (
+              { value: String(o.key), label: o.label, disabled: false }
+            ))].flat().filter((option) => !!option)} />
         </label>
         <label className="block">
           <span className="text-[11px] font-semibold text-gray-500">Hình thức</span>
-          <select
-            value={filters.method ?? ""}
-            onChange={(e) =>
-              setFilters((cu) => ({ ...cu, method: e.target.value as TransactionFilters["method"] }))
-            }
-            className={`mt-1 ${inputClass}`}
-          >
-            {HINH_THUC.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <AntSelect showSearch={{ optionFilterProp: "label" }} value={String(filters.method ?? "")} onChange={(e) =>
+              setFilters((cu) => ({ ...cu, method: e as TransactionFilters["method"] }))} style={{ width: "100%" }} options={[HINH_THUC.map((o) => (
+              { value: String(o.key), label: o.label, disabled: false }
+            ))].flat().filter((option) => !!option)} />
         </label>
         <label className="col-span-2 block lg:col-span-1">
           <span className="text-[11px] font-semibold text-gray-500">Mã chứng từ / tên khách</span>
-          <div className="relative mt-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              value={filters.q ?? ""}
-              onChange={(e) => setFilters((cu) => ({ ...cu, q: e.target.value }))}
-              placeholder="FT2609..."
-              className={`${inputClass} pl-9`}
-            />
-          </div>
+          <div  className="relative mt-1"><AntInput prefix={<Search size={16} />} value={filters.q ?? ""} onChange={(e) => setFilters((cu) => ({ ...cu, q: e.target.value }))} placeholder="FT2609..." style={{ width: "100%" }} /></div>
         </label>
-      </div>
-
-      {dangLoc && (
-        <button
-          onClick={datLai}
-          className="text-xs font-bold text-primary-600 underline hover:text-primary-700"
-        >
-          Xóa bộ lọc
-        </button>
-      )}
-
-      {error && (
+      </div>{dangLoc && (
+        <AntButton onClick={datLai} htmlType="button">Xóa bộ lọc
+        </AntButton>
+      )}{error && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
         </div>
-      )}
-
-      <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+      )}<div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-20 text-sm text-gray-500">
             <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
@@ -271,24 +212,11 @@ export default function TransactionRegister() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500">
-                <tr>
-                  <th className="whitespace-nowrap px-5 py-3 font-semibold">Thời gian</th>
-                  <th className="px-5 py-3 font-semibold">Đơn / khách</th>
-                  <th className="px-5 py-3 font-semibold">Loại</th>
-                  <th className="px-5 py-3 font-semibold">Hình thức</th>
-                  <th className="px-5 py-3 font-semibold">Chứng từ</th>
-                  <th className="whitespace-nowrap px-5 py-3 text-right font-semibold">Số tiền</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50/60">
-                    <td className="whitespace-nowrap px-5 py-3 text-xs tabular-nums text-gray-600">
+            <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }}
+    dataSource={rows.map((row) => (
+                  {key: row.id, cells: [<>
                       {row.paid_at ? formatDateTime(row.paid_at) : "—"}
-                    </td>
-                    <td className="px-5 py-3">
+                    </>,<>
                       {/*
                         Bấm sang đúng đơn: "khoản này của ai" mà trả lời xong vẫn phải tự đi tìm
                         đơn thì mới xong được một nửa.
@@ -303,8 +231,7 @@ export default function TransactionRegister() {
                       {row.tour_title && (
                         <p className="text-[11px] text-gray-400">{row.tour_title}</p>
                       )}
-                    </td>
-                    <td className="px-5 py-3">
+                    </>,<>
                       <span
                         className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
                           row.direction === "out"
@@ -314,9 +241,7 @@ export default function TransactionRegister() {
                       >
                         {row.kind_label}
                       </span>
-                    </td>
-                    <td className="px-5 py-3 text-xs text-gray-600">{row.method_label ?? "—"}</td>
-                    <td className="px-5 py-3">
+                    </>,<>{row.method_label ?? "—"}</>,<>
                       <p className="font-mono text-xs text-gray-700">{row.reference ?? "—"}</p>
                       {row.recorded_by ? (
                         <p className="text-[11px] text-gray-400">{row.recorded_by} ghi</p>
@@ -324,44 +249,26 @@ export default function TransactionRegister() {
                         // Không có người ghi nghĩa là cổng thanh toán tự vào sổ, không ai bấm nút.
                         <p className="text-[11px] text-gray-400">Hệ thống ghi</p>
                       )}
-                    </td>
-                    <td
-                      className={`whitespace-nowrap px-5 py-3 text-right font-mono text-sm font-bold tabular-nums ${
-                        row.direction === "out" ? "text-rose-600" : "text-emerald-700"
-                      }`}
-                    >
+                    </>,<>
                       {row.direction === "out" ? "−" : "+"}
                       {formatPrice(row.amount)}
-                    </td>
-                  </tr>
+                    </>], rowProps: {}}
                 ))}
-              </tbody>
-            </table>
+    columns={[{ key: "0", title: <>Thời gian</>, align: "left", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Đơn / khách</>, align: "left", render: (_value, record) => record.cells[1] },{ key: "2", title: <>Loại</>, align: "left", render: (_value, record) => record.cells[2] },{ key: "3", title: <>Hình thức</>, align: "left", render: (_value, record) => record.cells[3] },{ key: "4", title: <>Chứng từ</>, align: "left", render: (_value, record) => record.cells[4] },{ key: "5", title: <>Số tiền</>, align: "right", render: (_value, record) => record.cells[5] }]}
+    onRow={(record) => record.rowProps}
+     />
           </div>
         )}
-      </div>
-
-      {lastPage > 1 && (
+      </div>{lastPage > 1 && (
         <nav className="flex items-center justify-center gap-2" aria-label="Phân trang sổ giao dịch">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Trước
-          </button>
+          <AntButton onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} htmlType="button">Trước
+          </AntButton>
           <span className="px-2 text-sm text-gray-600 tabular-nums">
             Trang {page}/{lastPage}
           </span>
-          <button
-            onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
-            disabled={page >= lastPage}
-            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Sau
-          </button>
+          <AntButton onClick={() => setPage((p) => Math.min(lastPage, p + 1))} disabled={page >= lastPage} htmlType="button">Sau
+          </AntButton>
         </nav>
-      )}
-    </div>
+      )}</UIFlex>
   );
 }

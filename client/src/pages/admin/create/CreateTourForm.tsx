@@ -1,3 +1,8 @@
+import {
+  Button as AntButton,
+  Flex as UIFlex,
+  Typography as AntTypography,
+} from "antd";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
@@ -300,8 +305,7 @@ export const CreateTourForm: React.FC = () => {
     if (error) setError("");
   };
 
-  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
+  const handleThumbnailChange = (file: File) => {
 
     setForm((prev) => {
       if (prev.thumbnail_preview) URL.revokeObjectURL(prev.thumbnail_preview);
@@ -327,8 +331,7 @@ export const CreateTourForm: React.FC = () => {
   };
 
   /** Chọn ảnh lần nữa là THÊM vào bộ ảnh, không thay thế bộ đang có. */
-  const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
+  const handleGalleryChange = (files: File[]) => {
     if (files.length === 0) return;
 
     setForm((prev) => ({
@@ -340,8 +343,6 @@ export const CreateTourForm: React.FC = () => {
       ],
     }));
 
-    // Cho phép chọn lại đúng tệp vừa chọn: không xóa thì sự kiện change không bắn lần thứ hai.
-    e.target.value = "";
     if (error) setError("");
   };
 
@@ -532,9 +533,7 @@ export const CreateTourForm: React.FC = () => {
           <ArrowLeft className="h-4 w-4" />
           Danh sách tour
         </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-gray-950">
-          {isEdit ? "Sửa tour" : "Tạo tour mới"}
-        </h1>
+        <AntTypography.Title level={3} >{isEdit ? "Sửa tour" : "Tạo tour mới"}</AntTypography.Title>
         <p className="mt-1 text-sm text-gray-500">
           {isEdit
             ? "Bấm thẳng vào bước cần sửa, không phải đi lại từ đầu."
@@ -616,8 +615,7 @@ export const CreateTourForm: React.FC = () => {
           )}
 
           {buoc === 3 && (
-            <div className="space-y-5">
-              <TourFormMediaSection
+            <UIFlex vertical gap={20} ><TourFormMediaSection
                 labelClass={labelClass}
                 thumbnailName={form.thumbnail_file?.name ?? null}
                 thumbnailPreview={form.thumbnail_preview}
@@ -627,9 +625,7 @@ export const CreateTourForm: React.FC = () => {
                 onThumbnailRemove={boAnhBia}
                 onGalleryChange={handleGalleryChange}
                 onRemoveGalleryImage={removeGalleryImage}
-              />
-
-              <TourFormTaxonomySection
+              /><TourFormTaxonomySection
                 labelClass={labelClass}
                 categories={categories}
                 services={services}
@@ -638,8 +634,7 @@ export const CreateTourForm: React.FC = () => {
                 onToggleCategory={(cid) => toggleId("category_ids", cid)}
                 onToggleService={(sid) => toggleId("service_ids", sid)}
                 optionsLoading={optionsLoading}
-              />
-            </div>
+              /></UIFlex>
           )}
         </form>
 
@@ -680,25 +675,13 @@ export const CreateTourForm: React.FC = () => {
           </Link>
 
           {buoc > 0 && (
-            <button
-              type="button"
-              onClick={() => doiBuoc(buoc - 1)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Quay lại
-            </button>
+            <AntButton htmlType="button" onClick={() => doiBuoc(buoc - 1)}><ArrowLeft className="h-4 w-4" />Quay lại
+            </AntButton>
           )}
 
           {!laBuocCuoi && (
-            <button
-              type="button"
-              onClick={() => doiBuoc(buoc + 1)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
-            >
-              Tiếp theo
-              <ArrowRight className="h-4 w-4" />
-            </button>
+            <AntButton htmlType="button" onClick={() => doiBuoc(buoc + 1)} type="primary">Tiếp theo
+              <ArrowRight className="h-4 w-4" /></AntButton>
           )}
 
           {/*
@@ -706,19 +689,7 @@ export const CreateTourForm: React.FC = () => {
             họ bấm "Tiếp theo" cho hết bốn bước rồi mới được lưu là vô cớ.
           */}
           {(laBuocCuoi || isEdit) && (
-            <button
-              type="submit"
-              form="tour-form"
-              disabled={submitting}
-              className={`inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                laBuocCuoi
-                  ? "bg-primary-600 text-white hover:bg-primary-700"
-                  : "border border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100"
-              }`}
-            >
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {submitting ? "Đang lưu..." : isEdit ? "Cập nhật tour" : "Tạo tour"}
-            </button>
+            <AntButton type={"primary"} htmlType="submit" form="tour-form" disabled={submitting}>{submitting && <Loader2 className="h-4 w-4 animate-spin" />}{submitting ? "Đang lưu..." : isEdit ? "Cập nhật tour" : "Tạo tour"}</AntButton>
           )}
         </div>
       </div>
