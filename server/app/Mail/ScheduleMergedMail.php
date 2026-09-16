@@ -30,6 +30,7 @@ class ScheduleMergedMail extends Mailable implements ShouldQueue
         public Carbon $ngayCu,
         public Carbon $ngayMoi,
         public string $lyDo,
+        public ?string $responseToken = null,
     ) {
         $this->booking->loadMissing(['tour', 'schedule']);
     }
@@ -61,6 +62,9 @@ class ScheduleMergedMail extends Mailable implements ShouldQueue
                  */
                 'conThieu' => app(\App\Services\BookingPaymentService::class)->balanceDue($this->booking),
                 'hanTraNotMoi' => $this->booking->balanceDueAt(),
+                'responseToken' => $this->responseToken,
+                'responseDeadline' => $this->ngayMoi->copy()->subDays(2)->endOfDay()->format('H:i, d/m/Y'),
+                'backendUrl' => rtrim(config('app.url'), '/'),
                 'frontendBookingUrl' => rtrim(config('app.frontend_url'), '/')
                     . '/booking-success/' . $this->booking->public_token,
             ],

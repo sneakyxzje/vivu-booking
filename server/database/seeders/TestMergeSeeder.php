@@ -45,7 +45,7 @@ class TestMergeSeeder extends Seeder
             ]
         );
 
-        $ngayKhoiHanh = Carbon::now()->addDays(7)->startOfDay();
+        $ngayKhoiHanh = Carbon::now()->addDays(9)->startOfDay();
 
         // 2. Tạo 2 chuyến cùng ngày
         $chuyenA = TourSchedule::query()->updateOrCreate(

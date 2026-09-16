@@ -34,6 +34,8 @@ class Alert extends Notification
     public const XIN_BAN_GIAO = 'handover_requested';
     public const SU_CO = 'incident_reported';
 
+    public const KHACH_PHAN_HOI_GHEP_CHUYEN = 'customer_transfer_response';
+
     /**
      * Khách vắng mặt tại điểm đón đầu tiên hoặc điểm cuối của hành trình.
      *

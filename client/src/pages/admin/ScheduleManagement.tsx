@@ -55,7 +55,6 @@ import {
   getEndDate,
   toDateTimeLocalValue,
 } from "@/utils/format";
-import { BulkProposalDialog } from "@/components/admin/BulkProposalDialog";
 import {
   LY_DO_DOI_HAN_TOI_THIEU,
   statusLabel,
@@ -179,7 +178,6 @@ export default function ScheduleManagement() {
   );
 
   // State Gửi đề xuất hàng loạt
-  const [bulkProposalSchedule, setBulkProposalSchedule] = useState<ExtendedSchedule | null>(null);
 
   const [dangXuatDanhSach, setDangXuatDanhSach] = useState(false);
   const [manifest, setManifest] = useState<ScheduleManifestResponse | null>(
@@ -1936,13 +1934,6 @@ export default function ScheduleManagement() {
                 } type="primary" danger>{cancelSaving ? "Đang hủy..." : "Xác nhận hủy chuyến"}</AntButton></UIFlex>
           </UIFlex></AntModal>
       )}
-      {/* Hộp thoại Đề xuất thay đổi (Bulk Proposal) */}
-      <BulkProposalDialog
-        scheduleId={bulkProposalSchedule?.id ?? 0}
-        scheduleStartDate={bulkProposalSchedule?.start_date ?? ""}
-        isOpen={bulkProposalSchedule !== null}
-        onClose={() => setBulkProposalSchedule(null)}
-      />
 
       <Toast
         message={toast.message}

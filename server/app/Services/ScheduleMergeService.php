@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -265,10 +266,13 @@ class ScheduleMergeService
         Carbon $ngayMoi,
         string $lyDo,
     ): void {
-        if (!$ngayCu->isSameDay($ngayMoi)) {
-            foreach ($this->donTheoId($idDaDoi) as $don) {
-                $this->gui($don, new ScheduleMergedMail($don, $ngayCu, $ngayMoi, $lyDo));
-            }
+        foreach ($this->donTheoId($idDaDoi) as $don) {
+            $transfer = BookingTransfer::query()
+                ->where('booking_id', $don->getKey())
+                ->orderByDesc('id')
+                ->first();
+            
+            $this->gui($don, new ScheduleMergedMail($don, $ngayCu, $ngayMoi, $lyDo, $transfer?->response_token));
         }
 
         foreach ($this->donTheoId($idDaHuy) as $don) {
@@ -469,6 +473,7 @@ class ScheduleMergeService
             'reason' => $reason,
             'approved_by' => $actor?->getKey(),
             'approved_at' => now(),
+            'response_token' => Str::uuid()->toString(),
         ]);
 
         $this->auditLogger->log(

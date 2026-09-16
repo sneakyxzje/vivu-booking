@@ -82,24 +82,35 @@
                             {{-- Quyền từ chối. Đây là phần quan trọng nhất của lá thư: khách không chọn việc
                                  đổi ngày, nên từ chối không phải là hủy đơn tự nguyện. --}}
                             <p style="margin:14px 0 0;font-size:13px;color:#065f46;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:12px 14px;line-height:1.6;">
-                                <strong>Nếu ngày mới không phù hợp với Quý khách:</strong> gọi tổng đài 1900 1234 hoặc
-                                trả lời thư này để hủy đơn, và <strong>công ty hoàn lại đủ 100% số tiền đã thanh
+                                <strong>Nếu ngày mới không phù hợp với Quý khách:</strong> Quý khách có quyền từ chối đổi ngày và <strong>công ty hoàn lại đủ 100% số tiền đã thanh
                                 toán</strong>. Quý khách không chịu bất kỳ khoản phí hủy nào, vì đây là thay đổi do
                                 công ty thực hiện.
                             </p>
 
-                            <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#4b5563;">
-                                Nếu ngày mới vẫn đi được, Quý khách không cần làm gì thêm. Danh sách hành khách và mọi
-                                thông tin khác của đơn đã được chuyển sang chuyến mới.
-                            </p>
-
-                            <p style="margin:22px 0;">
-                                <a href="{{ $frontendBookingUrl }}" style="display:inline-block;background:#0b817a;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 18px;border-radius:8px;">
-                                    Xem lại chi tiết đơn
+                            @if($responseToken)
+                            <div style="margin: 24px 0; text-align: center;">
+                                <p style="margin-bottom: 8px; font-size: 14px; color: #374151; font-weight: bold;">
+                                    Vui lòng chọn 1 trong 2 phương án dưới đây:
+                                </p>
+                                <p style="margin-bottom: 16px; font-size: 13px; color: #dc2626;">
+                                    (Hạn chót phản hồi: <strong>{{ $responseDeadline ?? 'Trước ngày khởi hành 2 ngày' }}</strong>)
+                                </p>
+                                <a href="{{ $backendUrl }}/api/transfer/{{ $responseToken }}/accept" 
+                                   style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;margin-right:12px;">
+                                    Đồng ý đổi ngày
                                 </a>
+                                <a href="{{ $backendUrl }}/api/transfer/{{ $responseToken }}/reject" 
+                                   style="display:inline-block;background:#dc2626;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;">
+                                    Từ chối & Hoàn tiền
+                                </a>
+                            </div>
+                            @endif
+
+                            <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#4b5563;">
+                                Hoặc Quý khách có thể <a href="{{ $frontendBookingUrl }}" style="color:#0b817a;font-weight:bold;">Xem lại chi tiết đơn hàng</a>.
                             </p>
 
-                            <p style="margin:0;font-size:13px;line-height:1.6;color:#4b5563;">
+                            <p style="margin:22px 0;font-size:13px;line-height:1.6;color:#4b5563;">
                                 Chúng tôi xin lỗi vì sự thay đổi này và cảm ơn Quý khách đã thông cảm.
                             </p>
                         </td>

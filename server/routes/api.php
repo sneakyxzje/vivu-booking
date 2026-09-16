@@ -178,6 +178,10 @@ Route::post('/contact', [ContactController::class, 'store'])->middleware('thrott
 // nhất mà mỗi lượt gọi tốn tiền thật trả cho bên thứ ba.
 Route::post('/chat', [ChatController::class, 'store'])->middleware('throttle:chat');
 
+// Khách hàng phản hồi từ chối/chấp nhận đổi chuyến
+Route::get('/transfer/{token}/{action}', [\App\Http\Controllers\Api\BookingTransferResponseController::class, 'handleResponse']);
+
+
 Route::post('/newsletter', function (\Illuminate\Http\Request $request) {
     $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
 

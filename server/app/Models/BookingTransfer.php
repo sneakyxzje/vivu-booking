@@ -22,6 +22,9 @@ class BookingTransfer extends Model
         'reason',
         'approved_by',
         'approved_at',
+        'response',
+        'responded_at',
+        'response_token',
     ];
 
     protected function casts(): array
