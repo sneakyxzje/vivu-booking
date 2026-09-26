@@ -145,7 +145,14 @@ class ScheduleMergeService
         string $reason,
         ?User $actor = null,
     ): array {
-        return DB::transaction(function () use ($from, $to, $reason, $actor) {
+        // Chụp dữ liệu cần thiết để gửi mail TRƯỚC khi vào transaction.
+        // Sau khi transaction commit, gọi baoChoKhach() trực tiếp thay vì
+        // dùng DB::afterCommit() — afterCommit không fire reliably khi
+        // QUEUE_CONNECTION=sync hoặc khi không có outer transaction.
+        $ngayCu = $from->start_date->copy();
+        $ngayMoi = $to->start_date->copy();
+
+        $result = DB::transaction(function () use ($from, $to, $reason, $actor) {
             // Cùng thứ tự khóa với BookingTransferService: id tăng dần, để hai thao tác ghép
             // chéo nhau không chờ nhau vô hạn.
             $ids = collect([$from->getKey(), $to->getKey()])->unique()->sort()->values();
@@ -222,29 +229,23 @@ class ScheduleMergeService
                 $actor?->getKey(),
             );
 
-            /*
-             * Báo cho khách, sau khi giao dịch đã chốt.
-             *
-             * Ghép chuyến đổi ngày đi của người đã trả tiền mà không hỏi họ - đó là quyết định vận
-             * hành, và chấp nhận được. Không báo lại mới là chỗ không chấp nhận được: khách biết
-             * chuyện khi ra bến vào đúng ngày cũ.
-             *
-             * Ngày cũ phải chụp lại ở đây. Sau khi ghép, đơn đã trỏ sang chuyến đích nên không còn
-             * đường nào đọc ngược ra ngày khách từng đặt.
-             */
-            $ngayCu = $nguon->start_date->copy();
-            $ngayMoi = $dich->start_date->copy();
-            $idDaDoi = $chuyenDi->pluck('id')->all();
-            $idDaHuy = $huyDi->pluck('id')->all();
-
-            DB::afterCommit(fn () => $this->baoChoKhach($idDaDoi, $idDaHuy, $ngayCu, $ngayMoi, $reason));
-            DB::afterCommit(fn () => $this->canhBaoDonConNoSatNgay($idDaDoi));
-
             return [
                 'transferred' => $chuyenDi->count(),
-                'cancelled' => $huyDi->count(),
+                'cancelled'   => $huyDi->count(),
+                'idDaDoi'     => $chuyenDi->pluck('id')->all(),
+                'idDaHuy'     => $huyDi->pluck('id')->all(),
             ];
         });
+
+        // Gửi mail SAU KHI transaction đã commit thành công.
+        // Gọi trực tiếp thay vì DB::afterCommit() để đảm bảo luôn chạy.
+        $this->baoChoKhach($result['idDaDoi'], $result['idDaHuy'], $ngayCu, $ngayMoi, $reason);
+        $this->canhBaoDonConNoSatNgay($result['idDaDoi']);
+
+        return [
+            'transferred' => $result['transferred'],
+            'cancelled'   => $result['cancelled'],
+        ];
     }
 
     /**
@@ -411,39 +412,32 @@ class ScheduleMergeService
      * Đơn sẽ được chuyển sang chuyến đích.
      * Nếu ghép cùng ngày (chỉ gộp đoàn, không đổi lịch), chuyển cả đơn chưa thanh toán.
      */
+    /**
+     * Toàn bộ đơn của chuyến nguồn — đã thanh toán hay chưa đều chuyển hết.
+     *
+     * Hệ thống không tự động hủy đơn nào. Khách nhận mail, bấm Đồng ý hoặc Từ chối,
+     * hệ thống ghi nhận. Admin nhìn danh sách biết ai đi, ai cần hoàn tiền — rồi xử lý tay.
+     */
     private function bookingsToTransfer(TourSchedule $from, TourSchedule $to)
     {
-        $cungNgay = $from->start_date && $to->start_date
-            && Carbon::parse($from->start_date)->isSameDay(Carbon::parse($to->start_date));
-
-        $trangThai = BookingStatus::paidValues();
-        if ($cungNgay) {
-            $trangThai[] = BookingStatus::Pending->value;
-        }
-
         return Booking::query()
             ->where('tour_schedule_id', $from->getKey())
-            ->whereIn('status', $trangThai)
+            ->whereIn('status', [
+                ...BookingStatus::paidValues(),
+                BookingStatus::Pending->value,
+            ])
             ->get();
     }
 
     /**
-     * Đơn chưa thanh toán, sẽ bị hủy và mời đặt lại.
-     * Nếu ghép cùng ngày thì không hủy đơn nào (đã gom hết vào mảng chuyển đi).
+     * Luôn trả về rỗng — hệ thống không tự động hủy đơn khi ghép chuyến.
+     *
+     * Yêu cầu nhóm trưởng: mọi đơn đều được chuyển, Admin xem danh sách
+     * và xử lý tay với các trường hợp khách từ chối hoặc chưa thanh toán.
      */
     private function bookingsToCancel(TourSchedule $from, TourSchedule $to)
     {
-        $cungNgay = $from->start_date && $to->start_date
-            && Carbon::parse($from->start_date)->isSameDay(Carbon::parse($to->start_date));
-
-        if ($cungNgay) {
-            return collect();
-        }
-
-        return Booking::query()
-            ->where('tour_schedule_id', $from->getKey())
-            ->where('status', BookingStatus::Pending->value)
-            ->get();
+        return collect();
     }
 
     private function moveBooking(
