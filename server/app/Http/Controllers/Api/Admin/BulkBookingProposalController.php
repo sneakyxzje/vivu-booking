@@ -54,6 +54,11 @@ class BulkBookingProposalController extends Controller
 
         DB::transaction(function () use ($targetBookings, $validated, $adminId, &$proposalsCreated) {
             foreach ($targetBookings as $booking) {
+                $booking = \App\Models\Booking::query()->whereKey($booking->id)->lockForUpdate()->firstOrFail();
+                if (!in_array($booking->status, BookingStatus::paidValues(), true)
+                    || $booking->proposals()->pending()->whereNotNull('schedule_snapshot')->exists()) {
+                    throw new \App\Exceptions\BusinessRuleException('Đơn đã thay đổi hoặc đang chờ phản hồi ghép chuyến. Vui lòng tải lại.');
+                }
                 // Hủy các đề xuất pending cũ của booking này
                 BookingChangeProposal::where('booking_id', $booking->id)
                     ->where('status', ProposalStatus::Pending->value)

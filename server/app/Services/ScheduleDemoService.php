@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 class ScheduleDemoService
 {
     public const COMMANDS = [
+        'bookings:expire-proposals',
         'bookings:release-expired',
         'bookings:send-balance-reminders',
         'bookings:cancel-unpaid-balances',
@@ -53,7 +54,7 @@ class ScheduleDemoService
         $this->assertEnabled();
         return DB::transaction(function () use ($id, $milestone, $actor) {
             $schedule = TourSchedule::query()->lockForUpdate()->findOrFail($id);
-            if ($schedule->status->isFinal()) {
+            if ($schedule->status->isFinal() && !($schedule->merged_into_schedule_id && in_array($milestone, ['proposal_expired', 'process'], true))) {
                 throw new BusinessRuleException('Chuyến đã kết thúc hoặc đã hủy.');
             }
             if ($milestone === 'departure' && $schedule->status !== ScheduleStatus::Confirmed) {
@@ -90,6 +91,11 @@ class ScheduleDemoService
             'departure' => ['Đến giờ khởi hành', $schedule->start_date],
             'completion' => ['Qua giờ kết thúc', $end->copy()->addSecond()],
         ];
+        $proposalDeadline = \App\Models\BookingChangeProposal::query()->pending()
+            ->where('from_schedule_id', $schedule->id)->min('response_deadline');
+        if ($proposalDeadline && $schedule->merged_into_schedule_id) {
+            $moments['proposal_expired'] = ['Qua hạn phản hồi ghép chuyến', Carbon::parse($proposalDeadline)->addSecond()];
+        }
         $holdExpiry = $schedule->bookings()->where('status', 'pending')->whereNotNull('expires_at')->min('expires_at');
         if ($holdExpiry) {
             $moments['hold_expired'] = ['Qua hạn giữ chỗ chưa thanh toán', Carbon::parse($holdExpiry)->addSecond()];
@@ -105,7 +111,7 @@ class ScheduleDemoService
         $milestones = [];
         foreach ($moments as $key => [$label, $at]) {
             $reason = null;
-            if ($terminal) {
+            if ($terminal && $key !== 'proposal_expired') {
                 $reason = 'Chuyến đã kết thúc hoặc đã hủy.';
             } elseif ($at->lte($current)) {
                 $reason = 'Đã qua mốc này. Có thể chạy lại xử lý tại mốc hiện tại.';

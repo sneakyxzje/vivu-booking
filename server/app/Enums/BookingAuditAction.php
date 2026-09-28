@@ -33,6 +33,7 @@ enum BookingAuditAction: string
 
     /** Chuyển đơn sang chuyến khác, cùng tour hoặc khác tour. */
     case Transferred = 'transferred';
+    case MergeProposed = 'merge_proposed';
 
     /** Ghi một khoản thu hoặc hoàn vào sổ giao dịch của đơn (đơn đoàn trả nhiều đợt). */
     case PaymentRecorded = 'payment_recorded';
@@ -60,6 +61,7 @@ enum BookingAuditAction: string
             self::PassengerSupplementSent => 'Đã gửi bản bổ sung cho nhà cung cấp',
             self::ContactUpdated => 'Sửa thông tin liên hệ',
             self::Transferred => 'Chuyển sang chuyến khác',
+            self::MergeProposed => 'Chờ phản hồi ghép chuyến',
             self::PaymentRecorded => 'Ghi sổ giao dịch',
             self::GuestsReduced => 'Đoàn giảm số khách',
             self::RefundAccountUpdated => 'Nhập tài khoản nhận tiền hoàn',

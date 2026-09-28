@@ -9,6 +9,7 @@ use App\Enums\ScheduleStatus;
 use App\Enums\TourType;
 use App\Exceptions\BusinessRuleException;
 use App\Mail\BookingProposalMail;
+use App\Mail\BookingCancelledMail;
 use App\Mail\BookingTransferredMail;
 use App\Models\Booking;
 use App\Models\BookingChangeProposal;
@@ -27,6 +28,8 @@ class ScheduleMergeService
     public function __construct(
         private ScheduleLifecycleService $lifecycle,
         private BookingAuditLogger $auditLogger,
+        private BookingPaymentService $payments,
+        private BookingHoldService $holds,
     ) {}
 
     public function preview(TourSchedule $from, TourSchedule $to): array
@@ -43,7 +46,8 @@ class ScheduleMergeService
             'can_merge' => $reason === null, 'blocked_reason' => $reason,
             'transferring' => $bookings->count(),
             'transferring_guests' => (int) $bookings->sum('guests'),
-            'transferring_seats' => $seats, 'cancelling' => 0,
+            'transferring_seats' => $seats,
+            'cancelling' => $from->bookings()->where('status', BookingStatus::Pending->value)->count(),
             'requires_consent' => true,
             'response_deadline' => $this->responseDeadline($from, $to)->toDateTimeString(),
             'remaining_seats' => $to->remainingSeats(),
@@ -97,11 +101,6 @@ class ScheduleMergeService
                     throw new BusinessRuleException("Đơn #{$booking->id} chưa có email nhận đề xuất.");
                 }
                 $snapshot = ['from' => $this->snapshot($source), 'to' => $this->snapshot($target)];
-                $existing = $booking->proposals()->pending()->where('to_schedule_id', $target->id)
-                    ->where('response_deadline', '>', DemoClock::booking($booking))->first();
-                if ($existing && $existing->schedule_snapshot == $snapshot) {
-                    continue;
-                }
                 $booking->proposals()->pending()->update(['status' => ProposalStatus::Expired->value]);
                 $proposal = BookingChangeProposal::create([
                     'booking_id' => $booking->id, 'admin_id' => $actor->id,
@@ -110,24 +109,59 @@ class ScheduleMergeService
                     'response_deadline' => $this->responseDeadline($source, $target),
                     'status' => ProposalStatus::Pending->value,
                 ]);
+                $previous = $booking->status;
+                $this->releaseSeats($booking, $source);
+                $booking->forceFill(['status' => BookingStatus::AwaitingTransfer->value])->save();
+                $this->auditLogger->logStatusChange($booking, BookingAuditAction::MergeProposed,
+                    $previous, BookingStatus::AwaitingTransfer->value, $reason,
+                    ['proposal_id' => $proposal->id, 'to_schedule_id' => $target->id]);
                 Mail::to($email)->queue((new BookingProposalMail($booking, $proposal))->afterCommit());
                 $count++;
             }
-            return ['proposed' => $count, 'transferred' => 0, 'cancelled' => 0];
+            $cancelled = 0;
+            foreach ($source->bookings()->where('status', BookingStatus::Pending->value)->lockForUpdate()->get() as $booking) {
+                $this->cancelWithRefund($booking, $source, 'Chuyến đã hủy để ghép sang chuyến khác. ' . $reason);
+                $cancelled++;
+            }
+            $source->forceFill(['merged_into_schedule_id' => $target->id])->save();
+            $this->lifecycle->transitionTo($source, ScheduleStatus::Cancelled,
+                'Hủy chuyến nguồn để ghép sang chuyến #' . $target->id . '. ' . $reason, $actor->id);
+            app(ScheduleAuditLogger::class)->log($source, \App\Enums\ScheduleAuditAction::Cancelled,
+                ['status' => ScheduleStatus::Open->value],
+                ['status' => ScheduleStatus::Cancelled->value, 'merged_into_schedule_id' => $target->id,
+                    'awaiting_responses' => $count, 'cancelled_bookings' => $cancelled], $reason, $actor);
+            return ['proposed' => $count, 'transferred' => 0, 'cancelled' => $cancelled];
         });
     }
 
-    public function respond(BookingChangeProposal $proposal, string $action, ?string $note): BookingChangeProposal
+    public function respond(BookingChangeProposal $proposal, string $action, ?string $note = null): BookingChangeProposal
     {
+        if (!in_array($action, ['accept', 'reject', 'expire'], true)) {
+            throw new BusinessRuleException('Phản hồi không hợp lệ.');
+        }
         return DB::transaction(function () use ($proposal, $action, $note) {
             $schedules = TourSchedule::query()->whereIn('id', array_filter([$proposal->from_schedule_id, $proposal->to_schedule_id]))
                 ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $booking = Booking::query()->whereKey($proposal->booking_id)->lockForUpdate()->firstOrFail();
             $locked = BookingChangeProposal::query()->whereKey($proposal->id)->lockForUpdate()->firstOrFail();
+            if ($action === 'expire' && ($locked->status !== ProposalStatus::Pending
+                || DemoClock::booking($booking)->lt($locked->response_deadline))) {
+                return $locked;
+            }
             if ($locked->status !== ProposalStatus::Pending) {
                 throw new BusinessRuleException('Đề xuất đã được xử lý hoặc hết hạn.');
             }
-            if (DemoClock::booking($booking)->gte($locked->response_deadline)) {
+            $expired = DemoClock::booking($booking)->gte($locked->response_deadline);
+            if (($expired || $action === 'reject') && $locked->schedule_snapshot) {
+                $source = $schedules->get($locked->from_schedule_id);
+                if ($source && (int) $booking->tour_schedule_id === (int) $source->id
+                    && $booking->status === BookingStatus::AwaitingTransfer->value) {
+                    $this->cancelWithRefund($booking, $source, $expired
+                        ? 'Hết hạn phản hồi ghép chuyến. Chuyến nguồn đã hủy.'
+                        : 'Khách từ chối ghép chuyến. Chuyến nguồn đã hủy.');
+                }
+            }
+            if ($expired) {
                 $locked->update(['status' => ProposalStatus::Expired->value]);
                 return $locked;
             }
@@ -135,22 +169,25 @@ class ScheduleMergeService
                 $source = $schedules->get($locked->from_schedule_id);
                 $target = $schedules->get($locked->to_schedule_id);
                 if (!$source || !$target || (int) $booking->tour_schedule_id !== (int) $source->id
-                    || !in_array($booking->status, BookingStatus::paidValues(), true)) {
-                    throw new BusinessRuleException('Đơn hoặc chuyến đã thay đổi; cần đề xuất mới. Chuyến hiện tại được giữ nguyên.');
+                    || $booking->status !== BookingStatus::AwaitingTransfer->value
+                    || $source->status !== ScheduleStatus::Cancelled
+                    || (int) $source->merged_into_schedule_id !== (int) $target->id) {
+                    throw new BusinessRuleException('Đơn hoặc phương án ghép đã thay đổi. Vui lòng liên hệ điều hành để xử lý hoàn tiền.');
                 }
                 // MySQL JSON có thể đổi thứ tự khóa object; so nội dung, không so thứ tự khóa.
                 if ($locked->schedule_snapshot != ['from' => $this->snapshot($source), 'to' => $this->snapshot($target)]) {
-                    throw new BusinessRuleException('Lịch trình hoặc hạn thanh toán đã thay đổi; cần đề xuất mới.');
+                    throw new BusinessRuleException('Chuyến thay thế đã thay đổi. Vui lòng chọn từ chối để nhận hoàn tiền hoặc liên hệ điều hành.');
                 }
-                $this->assertCanMerge($source, $target, $booking->seatsTaken());
+                $this->assertCanMerge($source, $target, $booking->seatsTaken(), accepting: true);
                 $seats = $booking->seatsTaken();
                 $booking->forceFill([
                     'tour_id' => $target->tour_id, 'tour_schedule_id' => $target->id,
                     'departure_date' => $target->start_date,
+                    'status' => BookingStatus::Confirmed->value,
+                    'seats_released' => false, 'seats_released_at' => null, 'seats_released_by' => null,
                     'transfer_count' => (int) $booking->transfer_count + 1,
                     'balance_reminder_sent_at' => null, 'balance_final_notice_at' => null,
                 ])->save();
-                $source->decrement('booked_people', min($seats, (int) $source->booked_people));
                 $target->increment('booked_people', $seats);
                 $transfer = BookingTransfer::create([
                     'booking_id' => $booking->id,
@@ -163,11 +200,6 @@ class ScheduleMergeService
                 $this->auditLogger->log($booking, BookingAuditAction::Transferred,
                     ['tour_schedule_id' => $source->id],
                     ['tour_schedule_id' => $target->id, 'proposal_id' => $locked->id, 'customer_accepted' => true], $locked->reason);
-                if (!$source->bookings()->whereIn('status', [...BookingStatus::paidValues(), BookingStatus::Pending->value])->exists()) {
-                    $source->forceFill(['merged_into_schedule_id' => $target->id])->save();
-                    $this->lifecycle->transitionTo($source, ScheduleStatus::Cancelled,
-                        'Mọi khách đã đồng ý chuyển chuyến; chuyến nguồn không còn đơn đang hoạt động.', $locked->admin_id);
-                }
                 $email = $booking->customer_email ?: $booking->customer?->email;
                 if ($email) {
                     Mail::to($email)->queue((new BookingTransferredMail($transfer))->afterCommit());
@@ -175,10 +207,41 @@ class ScheduleMergeService
             }
             $locked->update([
                 'status' => $action === 'accept' ? ProposalStatus::Accepted->value : ProposalStatus::Rejected->value,
-                'customer_note' => $note, 'responded_at' => DemoClock::booking($booking),
+                'customer_note' => $note, 'responded_at' => DemoClock::schedule($schedules->get($locked->from_schedule_id)),
             ]);
             return $locked;
         });
+    }
+
+
+    private function releaseSeats(Booking $booking, TourSchedule $source): void
+    {
+        if ($booking->status !== BookingStatus::AwaitingTransfer->value) {
+            $source->decrement('booked_people', min($booking->seatsTaken(), (int) $source->booked_people));
+            $booking->forceFill([
+                'seats_released' => true, 'seats_released_at' => DemoClock::schedule($source),
+            ])->save();
+        }
+    }
+
+    private function cancelWithRefund(Booking $booking, TourSchedule $source, string $reason): void
+    {
+        $previous = $booking->status;
+        $refund = $this->payments->nghiaVuHoanGop($booking, $this->payments->paidForTour($booking));
+        $this->releaseSeats($booking, $source);
+        $booking->forceFill([
+            'status' => BookingStatus::Cancelled->value,
+            'cancel_type' => 'by_company', 'cancel_reason' => $reason,
+            'cancelled_at' => DemoClock::schedule($source), 'refund_amount' => $refund,
+        ])->save();
+        $this->holds->releaseDiscountUsage($booking);
+        $this->auditLogger->logStatusChange($booking, BookingAuditAction::Cancelled,
+            $previous, BookingStatus::Cancelled->value, $reason,
+            ['refund_amount' => $refund, 'refund_percent' => 100, 'seats_released' => true]);
+        $email = $booking->customer_email ?: $booking->customer?->email;
+        if ($email) {
+            Mail::to($email)->queue((new BookingCancelledMail($booking))->afterCommit());
+        }
     }
 
     private function bookingsToTransfer(TourSchedule $from)
@@ -186,7 +249,7 @@ class ScheduleMergeService
         return $from->bookings()->whereIn('status', BookingStatus::paidValues())->get();
     }
 
-    public function assertCanMerge(TourSchedule $from, TourSchedule $to, ?int $seats = null): void
+    public function assertCanMerge(TourSchedule $from, TourSchedule $to, ?int $seats = null, bool $accepting = false): void
     {
         if ((int) $from->getKey() === (int) $to->getKey()) {
             throw new BusinessRuleException('Chuyến nguồn và chuyến đích trùng nhau.');
@@ -215,7 +278,7 @@ class ScheduleMergeService
         }
 
         // 2. Cả hai phải đang mở bán. Chuyến đã đóng bán hoặc chốt chạy không được xáo trộn.
-        foreach ([$from, $to] as $schedule) {
+        foreach ($accepting ? [$to] : [$from, $to] as $schedule) {
             $trangThai = $this->lifecycle->effectiveStatus($schedule);
 
             if ($trangThai !== ScheduleStatus::Open) {
@@ -228,7 +291,7 @@ class ScheduleMergeService
         }
 
 
-        foreach ([['chuyến nguồn', $from], ['chuyến đích', $to]] as [$ten, $schedule]) {
+        foreach ($accepting ? [['chuyến đích', $to]] : [['chuyến nguồn', $from], ['chuyến đích', $to]] as [$ten, $schedule]) {
             $hanChot = $schedule->booking_deadline ?? $schedule->defaultBookingDeadline();
 
             if ($hanChot && DemoClock::schedule($schedule)->gte($hanChot)) {

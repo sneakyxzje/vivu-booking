@@ -122,17 +122,18 @@ class CommittedDeparturePolicyTest extends TestCase
         app(BookingPaymentService::class)->record($booking, 'balance', 500000);
     }
 
-    public function test_proposal_does_not_move_or_cancel_before_consent(): void
+    public function test_merge_cancels_source_and_waits_for_consent_before_moving_booking(): void
     {
         $source = $this->schedule();
         $target = $this->schedule(11);
         $booking = $this->booking($source, 8, 1);
         $proposal = $this->propose($booking, $target);
         $this->assertSame($source->id, $booking->fresh()->tour_schedule_id);
-        $this->assertSame(ScheduleStatus::Open, $source->fresh()->status);
+        $this->assertSame(ScheduleStatus::Cancelled, $source->fresh()->status);
+        $this->assertSame('awaiting_transfer', $booking->fresh()->status);
+        $this->assertEquals(0, $source->fresh()->booked_people);
         Mail::assertQueued(BookingProposalMail::class);
-        $this->assertStringContainsString('giữ nguyên chuyến ban đầu', (new BookingProposalMail($booking, $proposal))->render());
-        $this->propose($booking, $target);
+        $this->assertStringContainsString('Chuyến ban đầu đã hủy.', (new BookingProposalMail($booking, $proposal))->render());
         $this->assertSame(1, $booking->proposals()->count());
     }
 
@@ -154,7 +155,7 @@ class CommittedDeparturePolicyTest extends TestCase
         $this->assertSame(ScheduleStatus::Confirmed, $target->fresh()->status);
     }
 
-    public function test_rejection_or_silence_keeps_original_trip(): void
+    public function test_rejection_or_silence_cancels_and_records_full_refund(): void
     {
         $source = $this->schedule();
         $target = $this->schedule(11);
@@ -169,7 +170,13 @@ class CommittedDeparturePolicyTest extends TestCase
         $this->assertSame($source->id, $silent->fresh()->tour_schedule_id);
         $this->travelTo($source->booking_deadline);
         $this->artisan('schedules:confirm-ready')->assertSuccessful();
-        $this->assertSame(ScheduleStatus::Confirmed, $source->fresh()->status);
+        $this->assertSame(ScheduleStatus::Cancelled, $source->fresh()->status);
+        foreach ([$reject, $silent] as $booking) {
+            $this->assertSame('cancelled', $booking->fresh()->status);
+            $this->assertSame('by_company', $booking->fresh()->cancel_type);
+            $this->assertEquals(1000000, app(BookingPaymentService::class)->refundOutstanding($booking->fresh()));
+            $this->assertSame(0, $booking->payments()->where('kind', 'refund')->count());
+        }
     }
 
     public function test_acceptance_rechecks_capacity_and_rolls_back_without_losing_source(): void
@@ -214,7 +221,7 @@ class CommittedDeparturePolicyTest extends TestCase
         $this->getJson('/api/bookings/'.$booking->public_token)->assertOk()->assertJsonMissingPath('data.payment_url');
     }
 
-    public function test_expiry_worker_preserves_booking_and_cannot_accept_twice(): void
+    public function test_expiry_worker_records_refund_and_cannot_accept_twice(): void
     {
         $source = $this->schedule();
         $target = $this->schedule(11);
@@ -229,7 +236,8 @@ class CommittedDeparturePolicyTest extends TestCase
         $this->artisan('bookings:expire-proposals')->assertSuccessful();
         $this->assertSame(ProposalStatus::Expired, $silent->proposals()->first()->status);
         $this->assertSame($source->id, $silent->fresh()->tour_schedule_id);
-        $this->assertSame('confirmed', $silent->fresh()->status);
+        $this->assertSame('cancelled', $silent->fresh()->status);
+        $this->assertEquals(1000000, $silent->fresh()->refund_amount);
     }
 
     public function test_late_gateway_callback_does_not_confirm_an_unrecorded_deposit(): void
@@ -254,5 +262,138 @@ class CommittedDeparturePolicyTest extends TestCase
         $this->assertSame('cancelled', $booking->fresh()->status);
         $this->assertSame(0, $booking->payments()->count());
         $this->assertDatabaseHas('payment_logs', ['booking_id' => $booking->id, 'transaction_no' => 'LATE-CUTOFF']);
+    }
+
+    public function test_rejecting_a_deposit_refunds_only_money_collected_and_expiry_is_idempotent(): void
+    {
+        $source = $this->schedule();
+        $target = $this->schedule(11);
+        $booking = $this->booking($source);
+        // A previous partial refund must not be subtracted twice.
+        BookingPayment::create(['booking_id' => $booking->id, 'kind' => 'refund',
+            'amount' => 100000, 'paid_at' => now()]);
+        $proposal = $this->propose($booking, $target);
+        $this->assertSame('awaiting_transfer', $booking->fresh()->status);
+        $this->artisan('bookings:check-seat-consistency')->assertSuccessful();
+        app(ScheduleMergeService::class)->respond($proposal, 'reject');
+        $this->assertEquals(400000, app(BookingPaymentService::class)->refundOutstanding($booking->fresh()));
+        $this->assertEquals(500000, $booking->fresh()->refund_amount);
+        $this->assertSame(2, $booking->payments()->count());
+        $this->travelTo($proposal->response_deadline);
+        $this->artisan('bookings:expire-proposals')->assertSuccessful();
+        $this->artisan('bookings:expire-proposals')->assertSuccessful();
+        $this->assertSame(2, $booking->payments()->count());
+        Mail::assertQueued(\App\Mail\BookingCancelledMail::class, 1);
+        $this->artisan('bookings:check-seat-consistency')->assertSuccessful();
+    }
+
+    public function test_waiting_booking_cannot_pay_balance_or_overwrite_merge_proposal(): void
+    {
+        $booking = $this->booking($this->schedule());
+        $proposal = $this->propose($booking, $this->schedule(11));
+        \Laravel\Sanctum\Sanctum::actingAs($this->admin);
+        $this->deleteJson('/api/admin/bookings/'.$booking->id.'/proposals/'.$proposal->id)->assertStatus(422);
+        $this->postJson('/api/admin/bookings/'.$booking->id.'/proposals', [
+            'reason' => 'Không được thay thế phương án ghép đang chờ',
+            'response_deadline' => now()->addDay()->toDateTimeString(),
+        ])->assertStatus(422);
+        $this->assertSame(ProposalStatus::Pending, $proposal->fresh()->status);
+        $this->expectException(BusinessRuleException::class);
+        app(BookingPaymentService::class)->record($booking->fresh(), 'balance', 500000);
+    }
+
+    public function test_acceptance_preserves_deposit_and_moves_only_accepting_group(): void
+    {
+        $source = $this->schedule();
+        $target = $this->schedule(11);
+        $accept = $this->booking($source, 2);
+        $reject = $this->booking($source, 3);
+        $this->propose($accept, $target);
+        app(ScheduleMergeService::class)->respond($accept->proposals()->first(), 'accept');
+        app(ScheduleMergeService::class)->respond($reject->proposals()->first(), 'reject');
+        $this->assertSame('confirmed', $accept->fresh()->status);
+        $this->assertEquals(1000000, app(BookingPaymentService::class)->paidForTour($accept->fresh()));
+        $this->assertSame($target->id, $accept->fresh()->tour_schedule_id);
+        $this->assertSame($source->id, $reject->fresh()->tour_schedule_id);
+        $this->assertEquals(1500000, $reject->fresh()->refund_amount);
+        $this->assertEquals(2, $target->fresh()->booked_people);
+        $this->assertEquals(0, $source->fresh()->booked_people);
+        $this->assertFalse($accept->fresh()->seats_released);
+        $this->artisan('bookings:check-seat-consistency')->assertSuccessful();
+    }
+
+    public function test_demo_can_expire_merge_on_cancelled_source_without_touching_other_departures(): void
+    {
+        config(['demo.enabled' => true]);
+        $source = $this->schedule();
+        $booking = $this->booking($source);
+        $proposal = $this->propose($booking, $this->schedule(11));
+        $otherSource = $this->schedule(20);
+        $other = $this->booking($otherSource);
+        $otherProposal = $this->propose($other, $this->schedule(21));
+        $result = app(\App\Services\ScheduleDemoService::class)
+            ->moveToMilestone($source->id, 'proposal_expired', $this->admin);
+        $this->assertSame('cancelled', $result['status']);
+        $this->assertSame('cancelled', $booking->fresh()->status);
+        $this->assertEquals(500000, $booking->fresh()->refund_amount);
+        $this->assertSame(ProposalStatus::Expired, $proposal->fresh()->status);
+        $this->assertSame(ProposalStatus::Pending, $otherProposal->fresh()->status);
+        $this->assertSame('awaiting_transfer', $other->fresh()->status);
+    }
+
+    public function test_accept_at_deadline_becomes_full_refund_without_moving(): void
+    {
+        $source = $this->schedule();
+        $target = $this->schedule(11);
+        $booking = $this->booking($source);
+        $proposal = $this->propose($booking, $target);
+        $this->travelTo($proposal->response_deadline);
+        $this->postJson('/api/bookings/'.$booking->public_token.'/proposals/'.$proposal->id.'/respond?email=guest@example.com',
+            ['action' => 'accept'])->assertStatus(422);
+        $this->assertSame('cancelled', $booking->fresh()->status);
+        $this->assertEquals(500000, $booking->fresh()->refund_amount);
+        $this->assertEquals(0, $target->fresh()->booked_people);
+        $this->assertSame(0, \App\Models\BookingTransfer::where('booking_id', $booking->id)->count());
+    }
+
+    public function test_waiting_booking_cannot_be_cancelled_with_customer_penalty(): void
+    {
+        $booking = $this->booking($this->schedule());
+        $this->propose($booking, $this->schedule(11));
+        $this->expectException(BusinessRuleException::class);
+        app(\App\Services\BookingPolicyService::class)->assertCancellable($booking->fresh());
+    }
+
+    public function test_invalid_contact_rolls_back_source_cancellation_and_all_proposals(): void
+    {
+        $source = $this->schedule();
+        $first = $this->booking($source);
+        $invalid = $this->booking($source);
+        $invalid->update(['customer_email' => '']);
+        try {
+            $this->propose($first, $this->schedule(11));
+            $this->fail('Expected the missing contact to block the merge.');
+        } catch (BusinessRuleException $exception) {
+            $this->assertStringContainsString('email', $exception->getMessage());
+        }
+        $this->assertSame(ScheduleStatus::Open, $source->fresh()->status);
+        $this->assertSame('confirmed', $first->fresh()->status);
+        $this->assertSame(0, $first->proposals()->count());
+        $this->assertEquals(2, $source->fresh()->booked_people);
+    }
+
+    public function test_source_cannot_merge_again_while_waiting_for_responses(): void
+    {
+        $source = $this->schedule();
+        $booking = $this->booking($source);
+        $target = $this->schedule(11);
+        $this->propose($booking, $target);
+        try {
+            $this->propose($booking->fresh(), $target);
+            $this->fail('A cancelled source must not merge twice.');
+        } catch (BusinessRuleException) {
+            $this->assertSame(1, $booking->proposals()->count());
+            $this->assertSame('awaiting_transfer', $booking->fresh()->status);
+        }
     }
 }

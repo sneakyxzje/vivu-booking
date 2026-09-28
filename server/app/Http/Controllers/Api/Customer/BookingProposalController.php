@@ -35,7 +35,7 @@ class BookingProposalController extends Controller
 
         BookingChangeProposal::where('booking_id', $booking->id)->pending()
             ->where('response_deadline', '<=', DemoClock::booking($booking))
-            ->update(['status' => ProposalStatus::Expired->value]);
+            ->get()->each(fn ($proposal) => $this->proposalService->respond($proposal, 'expire'));
 
         $proposals = BookingChangeProposal::where('booking_id', $booking->id)
             ->orderBy('created_at', 'desc')
@@ -72,11 +72,15 @@ class BookingProposalController extends Controller
         ]);
         $proposal = $this->proposalService->respond($proposal, $validated['action'], $validated['note'] ?? null);
         if ($proposal->status === ProposalStatus::Expired) {
-            return response()->json(['success' => false, 'message' => 'Đề xuất đã hết hạn. Chuyến hiện tại được giữ nguyên.'], 422);
+            return response()->json(['success' => false, 'message' => $proposal->schedule_snapshot
+                ? 'Đề xuất đã hết hạn. Đơn đã hủy và được ghi nhận hoàn đủ số tiền đã thu còn lại.'
+                : 'Đề xuất đã hết hạn.'], 422);
         }
         $msg = $validated['action'] === 'accept'
             ? 'Đã xác nhận đồng ý đề xuất.'
-            : 'Đã từ chối đề xuất. Chuyến hiện tại được giữ nguyên.';
+            : ($proposal->schedule_snapshot
+                ? 'Đã hủy đơn và ghi nhận chờ hoàn đủ số tiền đã thu còn lại.'
+                : 'Đã từ chối đề xuất.');
 
         return response()->json([
             'success' => true,

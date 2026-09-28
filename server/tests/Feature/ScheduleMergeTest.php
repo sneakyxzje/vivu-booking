@@ -106,7 +106,7 @@ class ScheduleMergeTest extends TestCase
             $this->service()->respond($proposal, 'accept', null);
             $count++;
         }
-        return ['transferred' => $count, 'cancelled' => 0, 'proposed' => $result['proposed']];
+        return ['transferred' => $count, 'cancelled' => $result['cancelled'], 'proposed' => $result['proposed']];
     }
 
     // --- Luồng chính --------------------------------------------------------------------
@@ -135,8 +135,8 @@ class ScheduleMergeTest extends TestCase
         $this->service()->merge($this->nguon, $this->dich, 'Đề xuất ghép hai chuyến.', $this->dieuHanh);
         Mail::assertQueued(\App\Mail\BookingProposalMail::class,
             fn ($thu) => $thu->hasTo($daTra->customer_email));
-        Mail::assertNotQueued(BookingCancelledMail::class);
-        $this->assertSame('pending', $chuaTra->fresh()->status);
+        Mail::assertQueued(BookingCancelledMail::class, fn ($mail) => $mail->hasTo($chuaTra->customer_email));
+        $this->assertSame('cancelled', $chuaTra->fresh()->status);
     }
 
 
@@ -240,13 +240,13 @@ class ScheduleMergeTest extends TestCase
     }
 
 
-    public function test_don_chua_thanh_toan_giu_nguyen_cho_toi_han_giu_cho(): void
+    public function test_don_chua_thanh_toan_bi_huy_khi_ghep_chuyen(): void
     {
         $don = $this->taoDon($this->nguon, 'pending');
         $result = $this->service()->merge($this->nguon, $this->dich, 'Đề xuất ghép hai chuyến.', $this->dieuHanh);
-        $this->assertSame(0, $result['cancelled']);
+        $this->assertSame(1, $result['cancelled']);
         $this->assertSame(0, $result['proposed']);
-        $this->assertSame('pending', $don->fresh()->status);
+        $this->assertSame('cancelled', $don->fresh()->status);
         $this->assertSame($this->nguon->id, $don->fresh()->tour_schedule_id);
     }
 
@@ -452,7 +452,7 @@ class ScheduleMergeTest extends TestCase
         $this->assertSame(3, $duBao['transferring_guests']);
         $this->assertSame(2, $duBao['transferring_seats']);
         $this->assertSame(1, $duBao['transferring']);
-        $this->assertSame(0, $duBao['cancelling']);
+        $this->assertSame(1, $duBao['cancelling']);
         $this->assertSame(17, $duBao['remaining_seats']);
         $this->assertSame(15, $duBao['remaining_seats_after']);
         $this->assertSame($this->nguon->id, (int) $giaDinh->fresh()->tour_schedule_id);
@@ -483,16 +483,16 @@ class ScheduleMergeTest extends TestCase
         $this->assertSame(1, $duBao['transferring']);
         $this->assertSame(3, $duBao['transferring_guests']);
         $this->assertSame(2, $duBao['transferring_seats']);
-        $this->assertSame(0, $duBao['cancelling']);
+        $this->assertSame(1, $duBao['cancelling']);
         $this->assertSame(15, $duBao['remaining_seats_after']);
 
         $ketQua = $this->mergeAndAccept($this->nguon->fresh(), $dich->fresh(), 'Ghep hai chuyen cung ngay vi chua du khach.', $this->dieuHanh);
         $this->assertSame(1, $ketQua['transferred']);
-        $this->assertSame(0, $ketQua['cancelled']);
+        $this->assertSame(1, $ketQua['cancelled']);
         $this->assertSame($dich->id, (int) $giaDinh->fresh()->tour_schedule_id);
         $this->assertSame($this->nguon->id, (int) $chuaTra->fresh()->tour_schedule_id);
-        $this->assertSame('pending', $chuaTra->fresh()->getRawOriginal('status'));
-        $this->assertNull($this->nguon->fresh()->merged_into_schedule_id);
+        $this->assertSame('cancelled', $chuaTra->fresh()->getRawOriginal('status'));
+        $this->assertEquals($dich->id, $this->nguon->fresh()->merged_into_schedule_id);
         $this->assertSame($duBao['remaining_seats_after'], (int) $dich->fresh()->max_people - (int) $dich->fresh()->booked_people);
         Mail::assertQueued(\App\Mail\BookingProposalMail::class);
     }
@@ -507,7 +507,7 @@ class ScheduleMergeTest extends TestCase
             'reason' => 'Hai chuyen deu thieu khach toi thieu nen don ve mot.',
         ])->assertOk();
 
-        $this->assertSame(ScheduleStatus::Open->value, $this->nguon->fresh()->getRawOriginal('status'));
+        $this->assertSame(ScheduleStatus::Cancelled->value, $this->nguon->fresh()->getRawOriginal('status'));
     }
 
     public function test_khach_khong_ghep_duoc_chuyen(): void

@@ -7,12 +7,7 @@ namespace App\Enums;
  *
  * Định nghĩa đầy đủ ở docs/nghiep-vu/01-tac-nhan-va-vong-doi.md mục 5.
  *
- * Lưu ý quan trọng khi dùng: cột bookings.status là varchar nhưng luồng nghiệp vụ mới chỉ ghi
- * xuống năm giá trị. Ba trạng thái còn lại đã có trong enum này vì chúng là đích đến đã chốt
- * trong tài liệu, nhưng chưa có luồng nào sinh ra cho tới khi các task tương ứng vào:
- *
- *   DepositPaid, Paid  -> task N01
- *   Transferred        -> task I01
+ * Cột bookings.status là varchar. AwaitingTransfer tách đơn chờ ghép khỏi danh sách đoàn.
  *
  * Dùng liveValues() khi cần biết luồng hiện tại có thể sinh ra những giá trị nào.
  */
@@ -29,6 +24,9 @@ enum BookingStatus: string
 
     /** Đã vào danh sách đoàn. */
     case Confirmed = 'confirmed';
+
+    /** Chuyến nguồn đã hủy; chờ khách chọn chuyển chuyến hoặc hoàn tiền. */
+    case AwaitingTransfer = 'awaiting_transfer';
 
     /** Đã đi xong. */
     case Completed = 'completed';
@@ -49,6 +47,7 @@ enum BookingStatus: string
             self::DepositPaid => 'Đã đóng cọc',
             self::Paid => 'Đã thanh toán',
             self::Confirmed => 'Đã xác nhận',
+            self::AwaitingTransfer => 'Chờ phản hồi ghép chuyến',
             self::Completed => 'Đã hoàn thành',
             self::NoShow => 'Khách không có mặt',
             self::Cancelled => 'Đã hủy',
@@ -173,7 +172,7 @@ enum BookingStatus: string
     }
 
     /**
-     * Năm giá trị mà luồng nghiệp vụ hiện tại có thể sinh ra.
+     * Các giá trị mà luồng nghiệp vụ hiện tại có thể sinh ra.
      * Xóa hàm này khi N01 và I01 đã mở nốt ba trạng thái còn lại.
      *
      * @return array<int, string>
@@ -183,6 +182,7 @@ enum BookingStatus: string
         return [
             self::Pending->value,
             self::Confirmed->value,
+            self::AwaitingTransfer->value,
             self::Cancelled->value,
             self::Completed->value,
             self::NoShow->value,

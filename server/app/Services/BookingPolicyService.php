@@ -39,6 +39,10 @@ class BookingPolicyService
 
         $status = BookingStatus::tryFrom((string) $booking->status);
 
+        if ($status === BookingStatus::AwaitingTransfer) {
+            throw new BusinessRuleException('Đơn đang chờ phản hồi ghép chuyến. Vui lòng chọn từ chối phương án ghép để được hoàn đủ tiền.');
+        }
+
         if ($status?->isTerminal()) {
             // Giữ mã 400 thay vì 422 để không đổi hợp đồng API của luồng hủy đang chạy.
             throw new BusinessRuleException(

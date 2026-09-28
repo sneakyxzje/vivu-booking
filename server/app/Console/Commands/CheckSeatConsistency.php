@@ -94,6 +94,7 @@ class CheckSeatConsistency extends Command
     {
         return (int) Booking::query()
             ->where('tour_schedule_id', $scheduleId)
+            ->where('status', '!=', 'awaiting_transfer')
             ->where(function ($query) {
                 $query->where('status', '!=', 'cancelled')
                     ->orWhere(function ($heldSeats) {

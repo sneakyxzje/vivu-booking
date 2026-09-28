@@ -38,7 +38,12 @@
         </p>
 
         <p style="color: #dc2626; font-size: 0.9em; font-weight: bold;">
-            Từ chối hoặc không phản hồi: giữ nguyên chuyến ban đầu. Chỉ chuyển khi Quý khách đồng ý. Quý khách vẫn cần thanh toán đủ trước hạn chốt của chuyến đang đặt.
+            @if($proposal->schedule_snapshot)
+            Chuyến ban đầu đã hủy. Nếu đồng ý, quý khách được chuyển sang chuyến đề xuất và giữ nguyên số tiền đã thanh toán.
+            Nếu từ chối hoặc hết hạn chưa phản hồi, đơn được hủy và ghi nhận chờ hoàn đủ số tiền đã thu còn lại.
+            @else
+            Chỉ áp dụng thay đổi khi quý khách đồng ý.
+            @endif
         </p>
 
         <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">

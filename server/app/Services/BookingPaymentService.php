@@ -82,6 +82,10 @@ class BookingPaymentService
                 throw new BusinessRuleException('Đã tới hạn chốt danh sách, không thể thanh toán thêm cho đơn này.');
             }
 
+            if (in_array($kind, BookingPayment::THU, true) && $fresh->status === BookingStatus::AwaitingTransfer->value) {
+                throw new BusinessRuleException('Vui lòng phản hồi ghép chuyến trước khi thanh toán thêm.');
+            }
+
             $daThu = $this->netPaid($fresh);
 
             if ($kind === BookingPayment::HOAN && round($amount) > $daThu) {

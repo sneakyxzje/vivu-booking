@@ -45,12 +45,13 @@ class BookingProposalController extends Controller
             'response_deadline' => ['required', 'date', 'after:now'],
         ]);
 
-        // Hủy các đề xuất đang chờ cũ (nếu có) để tránh xung đột
-        BookingChangeProposal::where('booking_id', $booking->id)
-            ->where('status', ProposalStatus::Pending->value)
-            ->update(['status' => ProposalStatus::Expired->value]);
-
         $proposal = DB::transaction(function () use ($booking, $validated) {
+            $booking = Booking::query()->whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            if ($booking->proposals()->pending()->whereNotNull('schedule_snapshot')->exists()) {
+                throw new \App\Exceptions\BusinessRuleException('Đơn đang chờ khách phản hồi ghép chuyến, không thể thay thế đề xuất.');
+            }
+            $booking->proposals()->pending()->update(['status' => ProposalStatus::Expired->value]);
+
             $proposal = BookingChangeProposal::create([
                 'booking_id' => $booking->id,
                 'admin_id' => auth()->id() ?? 1, // fallback for testing if no auth
@@ -87,6 +88,10 @@ class BookingProposalController extends Controller
                 'success' => false,
                 'message' => 'Chỉ có thể hủy đề xuất đang chờ phản hồi.',
             ], 400);
+        }
+
+        if ($proposal->schedule_snapshot) {
+            return response()->json(['success' => false, 'message' => 'Không thể xóa phương án ghép khi chuyến nguồn đã hủy. Khách cần phản hồi hoặc chờ hết hạn để hoàn tiền.'], 422);
         }
 
         $proposal->update(['status' => ProposalStatus::Expired->value]);
