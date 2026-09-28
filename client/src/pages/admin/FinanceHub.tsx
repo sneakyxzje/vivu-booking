@@ -1,5 +1,5 @@
-import { Flex as AntFlex, Typography as AntTypography, Button, Card, Col, Row, Statistic, Tabs } from "antd";
-import { useCallback, useEffect, useState } from "react";
+import { Flex as AntFlex, Typography as AntTypography, Alert, Button, Card, Col, Row, Skeleton, Tabs } from "antd";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowDownLeft, ArrowUpRight, BookOpen } from "lucide-react";
 import adminService from "@/services/adminService";
@@ -46,14 +46,20 @@ export default function FinanceHub() {
    * hợp lý mà vô nghĩa.
    */
   const [phaiThu, setPhaiThu] = useState({ total: 0, count: 0 });
-  const [phaiTra, setPhaiTra] = useState({ total: 0, count: 0 });
+  const [phaiTra, setPhaiTra] = useState({ total: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const requestId = useRef(0);
 
-  const napSoTreo = useCallback(async () => {
-    try {
-      const [thu, tra] = await Promise.all([
+  const napSoTreo = useCallback(() => {
+    const id = ++requestId.current;
+    return Promise.all([
         adminService.getReceivables(),
         adminService.getRefundQueue(false),
-      ]);
+      ]).then(([thu, tra]) => {
+      if (id !== requestId.current) return;
+      if (!thu || !tra) throw new Error("Chưa có dữ liệu công nợ");
+      setError(false);
 
       setPhaiThu({
         total: thu?.outstanding_total ?? 0,
@@ -61,34 +67,43 @@ export default function FinanceHub() {
       });
       setPhaiTra({
         total: tra?.outstanding_total ?? 0,
-        count: tra?.data?.length ?? 0,
       });
-    } catch (err) {
+    }).catch((err) => {
+      if (id !== requestId.current) return;
+      setError(true);
       console.error("Không nạp được số dư treo:", err);
-    }
+    }).finally(() => {
+      if (id === requestId.current) setLoading(false);
+    });
   }, []);
 
   useEffect(() => {
     napSoTreo();
+    return () => { requestId.current += 1; };
   }, [napSoTreo, tab]);
 
   const doiTab = (key: TabKey) => {
+    if (key !== tab) setLoading(true);
     // `replace` để bấm quay lại không phải lùi qua từng tab đã xem.
     setSearchParams(key === "ledger" ? {} : { tab: key }, { replace: true });
   };
 
   return <AntFlex vertical gap="large">
-    <div><AntTypography.Title level={3}>Sổ giao dịch</AntTypography.Title><AntTypography.Text type="secondary">Tiền vào, tiền ra và các khoản còn phải thu, phải trả.</AntTypography.Text></div>
-    <Row gutter={[16, 16]}>
-      <Col xs={24} md={12}><Card><Statistic title="Khách còn nợ công ty" value={phaiThu.total} formatter={(value) => formatPrice(Number(value))} />
-        <AntFlex justify="space-between" align="center" wrap gap="small"><AntTypography.Text type="secondary">{phaiThu.count} đơn chưa thu đủ</AntTypography.Text><Button onClick={() => doiTab("receivables")}>Xem khoản phải thu</Button></AntFlex>
-      </Card></Col>
-      <Col xs={24} md={12}><Card><Statistic title="Công ty còn nợ khách" value={phaiTra.total} formatter={(value) => formatPrice(Number(value))} />
-        <AntFlex justify="space-between" align="center" wrap gap="small"><AntTypography.Text type="secondary">{phaiTra.count} đơn chờ hoàn</AntTypography.Text><Button onClick={() => doiTab("refunds")}>Xem khoản phải trả</Button></AntFlex>
-      </Card></Col>
-    </Row>
-    <Tabs activeKey={tab} onChange={(key) => doiTab(key as TabKey)} destroyOnHidden items={TABS.map(({ key, label, icon: Icon, hint }) => ({
-      key, label, icon: <Icon size={16} />, children: <AntFlex vertical gap="middle"><AntTypography.Text type="secondary">{hint}</AntTypography.Text>
+    <div><AntTypography.Title level={3}>Sổ giao dịch</AntTypography.Title><AntTypography.Text type="secondary">Tra cứu dòng tiền, đối chiếu chứng từ và theo dõi công nợ.</AntTypography.Text></div>
+    <Card size="small" title="Công nợ hiện tại" extra={<AntTypography.Text type="secondary">Toàn bộ đơn</AntTypography.Text>}>
+      {loading ? <Skeleton active paragraph={{ rows: 1 }} title={false} /> : error ? <Alert type="warning" showIcon title="Chưa tải được tổng công nợ" action={<Button onClick={() => { setLoading(true); napSoTreo(); }}>Thử lại</Button>} /> : <Row gutter={[24, 12]}>
+        <Col xs={24} md={12}><AntFlex justify="space-between" align="center" gap="small" wrap>
+          <AntFlex vertical><AntTypography.Text type="secondary">Khách còn phải trả · {phaiThu.count} đơn</AntTypography.Text><AntTypography.Text strong>{formatPrice(phaiThu.total)}</AntTypography.Text></AntFlex>
+          <Button onClick={() => doiTab("receivables")}>Xem phải thu</Button>
+        </AntFlex></Col>
+        <Col xs={24} md={12}><AntFlex justify="space-between" align="center" gap="small" wrap>
+          <AntFlex vertical><AntTypography.Text type="secondary">Cần hoàn lại khách</AntTypography.Text><AntTypography.Text strong>{formatPrice(phaiTra.total)}</AntTypography.Text></AntFlex>
+          <Button onClick={() => doiTab("refunds")}>Xem phải hoàn</Button>
+        </AntFlex></Col>
+      </Row>}
+    </Card>
+    <Tabs activeKey={tab} onChange={(key) => doiTab(key as TabKey)} items={TABS.map(({ key, label, icon: Icon }) => ({
+      key, label, icon: <Icon size={16} />, children: <AntFlex vertical gap="middle">
         {key === "ledger" ? <TransactionRegister /> : key === "receivables" ? <ReceivableManagement /> : <RefundManagement onChanged={napSoTreo} />}
       </AntFlex>,
     }))} />

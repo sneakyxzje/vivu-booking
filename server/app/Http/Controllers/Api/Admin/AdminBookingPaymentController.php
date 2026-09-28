@@ -46,6 +46,7 @@ class AdminBookingPaymentController extends Controller
                 'id' => $bt->id,
                 'kind' => $bt->kind,
                 'kind_label' => $bt->kindLabel(),
+                'direction' => in_array($bt->kind, BookingPayment::RA, true) ? 'out' : 'in',
                 'amount' => (float) $bt->amount,
                 'method' => $bt->method,
                 'reference' => $bt->reference,
@@ -112,7 +113,7 @@ class AdminBookingPaymentController extends Controller
         $daTra = (bool) ($filters['settled'] ?? false);
 
         $bookings = Booking::query()
-            ->with(['tour:id,title', 'schedule:id,start_date', 'payments'])
+            ->with(['tour:id,title', 'schedule:id,start_date,booking_deadline', 'payments'])
             ->whereNotNull('refund_amount')
             ->where('refund_amount', '>', 0)
             ->latest('cancelled_at')

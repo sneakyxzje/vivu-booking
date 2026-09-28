@@ -253,6 +253,47 @@ class AdminTransactionRegisterTest extends TestCase
         $this->assertStringNotContainsString('Khach A', $noiDung);
     }
 
+    public function test_tim_ma_don_chinh_xac_va_csv_cung_bo_loc(): void
+    {
+        $this->butToan($this->donA, 'deposit', 1_000_000, 'cash');
+        $this->butToan($this->donA, 'refund', 200_000, 'bank_transfer');
+        $other = $this->butToan($this->donB, 'balance', 3_000_000, 'gateway');
+        $other->update(['reference' => 'BK-' . $this->donA->id]);
+
+        $query = '?q=BK-' . $this->donA->id;
+        $this->actingAs($this->admin, 'sanctum')->getJson('/api/admin/transactions' . $query)
+            ->assertOk()->assertJsonCount(2, 'data.data')
+            ->assertJsonPath('data.totals.in', 1_000_000)
+            ->assertJsonPath('data.totals.out', 200_000)
+            ->assertJsonPath('data.totals.net', 800_000);
+        $csv = $this->get('/api/admin/transactions/export' . $query)->assertOk()->streamedContent();
+        $this->assertStringContainsString('Khach A', $csv);
+        $this->assertStringNotContainsString('Khach B', $csv);
+    }
+
+    public function test_tim_ma_giao_dich_va_email_khach(): void
+    {
+        $entry = $this->butToan($this->donA, 'balance', 1_000_000, 'cash');
+        $this->butToan($this->donB, 'balance', 2_000_000, 'cash');
+        foreach (['GD-' . $entry->id, $this->donA->customer_email] as $keyword) {
+            $this->actingAs($this->admin, 'sanctum')->getJson('/api/admin/transactions?q=' . urlencode($keyword))
+                ->assertOk()->assertJsonCount(1, 'data.data')
+                ->assertJsonPath('data.data.0.id', $entry->id);
+        }
+    }
+
+    public function test_lich_su_don_tra_ve_dung_chieu_tien_cua_phu_phi(): void
+    {
+        $this->butToan($this->donA, 'surcharge', 500_000, 'cash');
+        $this->butToan($this->donA, 'surcharge_refund', 100_000, 'cash');
+        $entries = $this->actingAs($this->admin, 'sanctum')
+            ->getJson('/api/admin/bookings/' . $this->donA->id . '/payments')->assertOk()->json('data.entries');
+        $this->assertCount(2, $entries);
+        foreach ($entries as $entry) {
+            $this->assertSame($entry['kind'] === 'surcharge' ? 'in' : 'out', $entry['direction']);
+        }
+    }
+
     public function test_khach_khong_vao_duoc_so_tong(): void
     {
         $khach = User::create([

@@ -1,274 +1,223 @@
-import {
-  Button as AntButton,
-  Card as UICard,
-  Flex as UIFlex,
-  Input as AntInput,
-  Select as AntSelect,
-  Table as AntTable,
-} from "antd";
-import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { Download, Loader2, Search } from "lucide-react";
+import { Alert, Button, Card, Col, Descriptions, Drawer, Empty, Flex, Form, Input, Row, Select, Skeleton, Statistic, Table, Tag, Timeline, Typography, theme } from "antd";
+import type { TableColumnsType } from "antd";
+import { useEffect, useRef, useState } from "react";
+import { ArrowDownLeft, ArrowUpRight, Download, RefreshCw, Search } from "lucide-react";
 import adminService from "@/services/adminService";
 import type { TransactionFilters, TransactionRow } from "@/services/adminService";
+import type { BookingLedger } from "@/types";
 import { DateRangePicker } from "@/components/admin/AdminDateRangePicker";
 import { formatDateTime, formatPrice } from "@/utils/format";
 
-/**
- * Sổ giao dịch tổng — mọi đồng tiền vào và ra, xếp theo thời gian.
- *
- * Sổ vốn chỉ mở được từ bên trong một đơn, tức chỉ trả lời được "khách này đã trả chưa". Kế toán
- * hỏi ngược lại mỗi ngày: hôm nay thu bao nhiêu, khoản trên sao kê này là của ai, tháng này tiền
- * mặt bao nhiêu. Không câu nào trả lời được bằng cách mở lần lượt từng đơn.
- *
- * Ba con số ở đầu trang tính trên TOÀN BỘ bộ lọc, không riêng trang đang xem — đó là con số đem
- * đi đối chiếu sao kê, và cộng nhầm hai mươi lăm dòng đầu vẫn ra một số trông hợp lý.
- */
-
-const HINH_THUC = [
-  { key: "", label: "Mọi hình thức" },
-  { key: "bank_transfer", label: "Chuyển khoản" },
-  { key: "cash", label: "Tiền mặt" },
-  { key: "gateway", label: "Cổng thanh toán" },
+const { Text, Title } = Typography;
+const METHODS = [
+  { value: "", label: "Tất cả hình thức" },
+  { value: "bank_transfer", label: "Chuyển khoản" },
+  { value: "cash", label: "Tiền mặt" },
+  { value: "gateway", label: "Cổng thanh toán" },
 ];
-
-const CHIEU = [
-  { key: "", label: "Vào và ra" },
-  { key: "in", label: "Tiền vào" },
-  { key: "out", label: "Tiền hoàn ra" },
+const KINDS = [
+  { value: "", label: "Tất cả loại giao dịch" },
+  { value: "deposit", label: "Tiền cọc" },
+  { value: "balance", label: "Thanh toán phần còn lại" },
+  { value: "refund", label: "Hoàn tiền" },
+  { value: "surcharge", label: "Thu phụ phí sự cố" },
+  { value: "surcharge_refund", label: "Hoàn do sự cố" },
 ];
+const messageOf = (err: unknown, fallback: string) =>
+  (err as { response?: { data?: { message?: string } } })?.response?.data?.message || fallback;
 
-/**
- * Loại bút toán, hẹp hơn chiều tiền.
- *
- * Hai nhóm cố ý không trộn: `deposit` và `balance` là tiền của GIÁ TOUR, còn `surcharge` là tiền
- * sinh ra từ sự cố dọc đường — một đêm phòng chạy bão chẳng hạn. Gộp chúng lại thì con số "đã thu
- * cho tour" sai, và bảng phí hủy sẽ đem hoàn cả đêm phòng khách đã ở thật.
- */
-const LOAI_BUT_TOAN = [
-  { key: "", label: "Mọi loại" },
-  { key: "deposit", label: "Tiền cọc" },
-  { key: "balance", label: "Thanh toán phần còn lại" },
-  { key: "refund", label: "Hoàn tiền" },
-  { key: "surcharge", label: "Thu phụ phí sự cố" },
-  { key: "surcharge_refund", label: "Hoàn do sự cố" },
-];
-
+/** Tổng, bảng và CSV dùng cùng bộ lọc; lịch sử của một đơn luôn lấy toàn bộ. */
 export default function TransactionRegister() {
+  const { token } = theme.useToken();
   const [rows, setRows] = useState<TransactionRow[]>([]);
-  const [totals, setTotals] = useState({ in: 0, out: 0, net: 0, count: 0 });
+  const [totals, setTotals] = useState<{ in: number; out: number; net: number; count: number } | null>(null);
   const [page, setPage] = useState(1);
-  const [lastPage, setLastPage] = useState(1);
+  const [filters, setFilters] = useState<TransactionFilters>({});
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
+  const [exportError, setExportError] = useState("");
+  const [reload, setReload] = useState(0);
+  const [selected, setSelected] = useState<TransactionRow | null>(null);
+  const [ledger, setLedger] = useState<BookingLedger | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+  const [detailReload, setDetailReload] = useState(0);
+  const requestId = useRef(0);
 
-  const [filters, setFilters] = useState<TransactionFilters>({
-    from: "",
-    to: "",
-    direction: "",
-    kind: "",
-    method: "",
-    q: "",
-  });
-
-  /** Bỏ các trường rỗng: gửi `direction=""` lên là máy chủ từ chối vì không thuộc tập cho phép. */
-  const thamSo = useCallback(
-    () =>
-      Object.fromEntries(
-        Object.entries(filters).filter(([, v]) => String(v ?? "").trim() !== ""),
-      ) as TransactionFilters,
-    [filters],
-  );
-
-  const taiDanhSach = useCallback(async () => {
+  const changeFilters = (patch: TransactionFilters, reset = false) => {
+    requestId.current += 1;
     setLoading(true);
-    setError("");
-
-    try {
-      const result = await adminService.getTransactions({ ...thamSo(), page });
-      setRows(result?.data ?? []);
-      setLastPage(result?.last_page ?? 1);
-      if (result?.totals) setTotals(result.totals);
-    } catch (err) {
-      setError(
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-          "Không tải được sổ giao dịch.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [thamSo, page]);
-
-  useEffect(() => {
-    // Chờ một nhịp sau khi gõ, để mỗi phím không thành một lượt gọi máy chủ.
-    const timer = setTimeout(taiDanhSach, 300);
-    return () => clearTimeout(timer);
-  }, [taiDanhSach]);
-
-  // Đổi bộ lọc thì về trang 1: giữ nguyên trang 3 khi kết quả còn 8 dòng là hiện một trang trống.
-  useEffect(() => {
     setPage(1);
-  }, [filters]);
+    setFilters((previous) => reset ? patch : { ...previous, ...patch });
+  };
+  const params = Object.fromEntries(Object.entries(filters).filter(([, value]) => String(value ?? "").trim() !== "")) as TransactionFilters;
 
-  const xuatCsv = async () => {
+  useEffect(() => {
+    const id = ++requestId.current;
+    let active = true;
+    const timer = setTimeout(async () => {
+      setLoading(true);
+      setError("");
+      const query = Object.fromEntries(Object.entries(filters).filter(([, value]) => String(value ?? "").trim() !== "")) as TransactionFilters;
+      try {
+        const result = await adminService.getTransactions({ ...query, page });
+        if (!active || id !== requestId.current) return;
+        if (!result) throw new Error("Empty response");
+        setRows(result.data);
+        setTotals(result.totals);
+      } catch (err) {
+        if (!active || id !== requestId.current) return;
+        setRows([]);
+        setTotals(null);
+        setError(messageOf(err, "Không tải được sổ giao dịch. Vui lòng thử lại."));
+      } finally {
+        if (active && id === requestId.current) setLoading(false);
+      }
+    }, 300);
+    return () => { active = false; clearTimeout(timer); };
+  }, [filters, page, reload]);
+
+  useEffect(() => {
+    if (!selected) return;
+    let active = true;
+    adminService.getBookingLedger(selected.booking_id).then((result) => {
+      if (!active) return;
+      if (!result) throw new Error("Empty response");
+      setLedger(result);
+    }).catch((err) => {
+      if (active) setDetailError(messageOf(err, "Không tải được lịch sử thu–hoàn của đơn."));
+    }).finally(() => { if (active) setDetailLoading(false); });
+    return () => { active = false; };
+  }, [selected, detailReload]);
+
+  const exportCsv = async () => {
     setExporting(true);
-    try {
-      await adminService.exportTransactions(thamSo());
-    } catch {
-      setError("Không tải được tệp CSV.");
-    } finally {
-      setExporting(false);
-    }
+    setExportError("");
+    try { await adminService.exportTransactions(params); }
+    catch (err) { setExportError(messageOf(err, "Không tải được tệp CSV.")); }
+    finally { setExporting(false); }
   };
 
-  const datLai = () =>
-    setFilters({ from: "", to: "", direction: "", kind: "", method: "", q: "" });
+  const openDetail = (row: TransactionRow) => {
+    setLedger(null);
+    setDetailLoading(true);
+    setDetailError("");
+    setSelected(row);
+  };
 
-  const dangLoc = Object.values(filters).some((v) => String(v ?? "").trim() !== "");
+  const columns: TableColumnsType<TransactionRow> = [
+    { title: "Giao dịch / thời gian", key: "transaction", width: 180, render: (_, row) => <Flex vertical gap={4}>
+      <Button type="link" style={{ padding: 0, height: "auto", alignSelf: "flex-start" }} onClick={() => openDetail(row)}>GD-{row.id}</Button>
+      <Text type="secondary">{row.paid_at ? formatDateTime(row.paid_at) : "Chưa có thời gian"}</Text>
+    </Flex> },
+    { title: "Đơn đặt / khách hàng", key: "booking", width: 260, render: (_, row) => <Flex vertical gap={4}>
+      <Flex gap="small" align="center" wrap>
+        <Button type="link" style={{ padding: 0, height: "auto" }} onClick={() => openDetail(row)}>BK-{row.booking_id}</Button>
+        <Text strong>{row.customer_name || "Khách chưa có tên"}</Text>
+      </Flex>
+      <Text type="secondary" ellipsis={{ tooltip: row.tour_title }}>{row.tour_title || "—"}</Text>
+    </Flex> },
+    { title: "Nội dung", key: "kind", width: 190, render: (_, row) => <Flex vertical gap={6}>
+      <div><Tag color={row.direction === "in" ? "green" : "volcano"}>{row.direction === "in" ? "Thu tiền" : "Hoàn tiền"}</Tag></div>
+      <Text>{row.kind_label}</Text>
+    </Flex> },
+    { title: "Số tiền", key: "amount", width: 170, align: "right", render: (_, row) => <Text strong style={{ color: row.direction === "in" ? token.colorSuccessText : token.colorErrorText, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+      {row.direction === "in" ? "+" : "−"}{formatPrice(row.amount)}
+    </Text> },
+    { title: "Hình thức / chứng từ", key: "reference", width: 230, render: (_, row) => <Flex vertical gap={4}>
+      <Text>{row.method_label || "Chưa ghi hình thức"}</Text>
+      {row.reference ? <Text code copyable={{ text: row.reference }} style={{ overflowWrap: "anywhere" }}>{row.reference}</Text> : <Text type="secondary">Chưa có mã chứng từ</Text>}
+    </Flex> },
+    { title: "Người ghi nhận", key: "actor", width: 155, render: (_, row) => <Text>{row.recorded_by || "Hệ thống"}</Text> },
+  ];
+  const activeFilters = Object.keys(params).length;
 
+  return <Flex vertical gap="middle">
+    <Flex justify="space-between" align="center" wrap gap="small">
+      <div><Title level={4} style={{ margin: 0 }}>Lịch sử thu & hoàn tiền</Title><Text type="secondary">Bấm mã giao dịch hoặc mã đơn để xem chi tiết và toàn bộ lịch sử của đơn.</Text></div>
+      <Flex gap="small">
+        <Button icon={<RefreshCw size={16} />} loading={loading} onClick={() => { setLoading(true); setReload((value) => value + 1); }}>Tải lại</Button>
+        <Button icon={<Download size={16} />} loading={exporting} disabled={loading || !totals?.count || !!error} onClick={exportCsv}>Xuất CSV</Button>
+      </Flex>
+    </Flex>
 
-  return (
-    <UIFlex vertical gap="large" ><UIFlex   wrap align="end" justify="space-between" gap={16}><p className="max-w-xl text-sm text-gray-500">
-          Mọi khoản thu và hoàn của mọi đơn, xếp theo thời gian. Dùng để đối chiếu với sao kê ngân
-          hàng.
-        </p><AntButton onClick={xuatCsv} disabled={exporting || totals.count === 0} type="primary" htmlType="button"><Download className="h-4 w-4" />{exporting ? "Đang tải..." : "Xuất CSV"}</AntButton></UIFlex>{/* Ba tổng của khoảng đang lọc. Tiền vào và ra khác màu vì đó là điều đầu tiên cần phân biệt. */}<div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Tiền vào</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-900">
-            {formatPrice(totals.in)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-rose-200 bg-rose-50 p-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-rose-700">Hoàn ra</p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-rose-900">
-            {formatPrice(totals.out)}
-          </p>
-        </div>
-        <UICard  ><UIFlex vertical gap="middle"><p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Thực còn</p><p className="mt-1 text-2xl font-bold tabular-nums text-gray-900">
-            {formatPrice(totals.net)}
-          </p><p className="text-xs text-gray-400">{totals.count} bút toán</p></UIFlex></UICard>
-      </div><div className="grid grid-cols-2 gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-5">
-        {/*
-          Bật chọn giờ ở đây: đối chiếu sao kê hay cần cắt theo ca, và máy chủ lọc tới giờ thật
-          (xem trait LocKhoangThoiGian) chứ không cắt bỏ phần giờ.
-        */}
-        <div className="col-span-2">
-          <DateRangePicker
-            label="Khoảng thời gian"
-            withTime
-            maxDate={new Date()}
-            value={{ from: filters.from ?? "", to: filters.to ?? "" }}
-            onChange={(khoang) => setFilters((cu) => ({ ...cu, ...khoang }))}
-          />
-        </div>
-        <label className="block">
-          <span className="text-[11px] font-semibold text-gray-500">Chiều tiền</span>
-          <AntSelect showSearch={{ optionFilterProp: "label" }} value={String(filters.direction ?? "")} onChange={(e) =>
-              setFilters((cu) => ({ ...cu, direction: e as TransactionFilters["direction"] }))} style={{ width: "100%" }} options={[CHIEU.map((o) => (
-              { value: String(o.key), label: o.label, disabled: false }
-            ))].flat().filter((option) => !!option)} />
-        </label>
-        {/*
-          Loại bút toán — hẹp hơn chiều tiền.
+    <Card size="small">
+      <Form layout="vertical">
+        <Row gutter={[16, 12]}>
+          <Col xs={24} lg={12}><Form.Item label="Tìm giao dịch" style={{ marginBottom: 0 }}>
+            <Input prefix={<Search size={16} />} allowClear maxLength={100} value={filters.q || ""} placeholder="Mã đơn BK-123, GD-456, chứng từ, tên hoặc email khách" onChange={(event) => changeFilters({ q: event.target.value })} />
+          </Form.Item></Col>
+          <Col xs={24} lg={12}><Form.Item style={{ marginBottom: 0 }}>
+            <DateRangePicker label="Thời gian giao dịch" withTime maxDate={new Date()} value={{ from: filters.from || "", to: filters.to || "" }} onChange={(range) => changeFilters(range)} />
+          </Form.Item></Col>
+          <Col xs={24} sm={8}><Form.Item label="Chiều tiền" style={{ marginBottom: 0 }}><Select value={filters.direction || ""} options={[{ value: "", label: "Tất cả tiền vào / ra" }, { value: "in", label: "Tiền vào" }, { value: "out", label: "Tiền hoàn ra" }]} onChange={(direction) => changeFilters({ direction: direction as TransactionFilters["direction"], kind: "" })} /></Form.Item></Col>
+          <Col xs={24} sm={8}><Form.Item label="Loại giao dịch" style={{ marginBottom: 0 }}><Select value={filters.kind || ""} options={KINDS.filter((kind) => !kind.value || !filters.direction || (filters.direction === "out" ? kind.value.includes("refund") : !kind.value.includes("refund")))} onChange={(kind) => changeFilters({ kind: kind as TransactionFilters["kind"] })} /></Form.Item></Col>
+          <Col xs={24} sm={8}><Form.Item label="Hình thức thanh toán" style={{ marginBottom: 0 }}><Select value={filters.method || ""} options={METHODS} onChange={(method) => changeFilters({ method: method as TransactionFilters["method"] })} /></Form.Item></Col>
+        </Row>
+      </Form>
+      {!!activeFilters && <Flex justify="space-between" align="center" wrap gap="small" style={{ marginTop: 16 }}><Text type="secondary">Đang áp dụng bộ lọc · Tổng tiền và CSV theo cùng kết quả.</Text><Button onClick={() => changeFilters({}, true)}>Xóa bộ lọc</Button></Flex>}
+    </Card>
 
-          "Chiều tiền" trả lời vào hay ra; "loại" trả lời vào bằng đường nào. Tiền cọc khác thanh
-          toán phần còn lại, và phụ thu sự cố lại là túi tiền khác hẳn giá tour. Không có ô này thì
-          câu "tháng này thu được bao nhiêu tiền cọc" phải xuất CSV rồi lọc trong Excel.
-        */}
-        <label className="block">
-          <span className="text-[11px] font-semibold text-gray-500">Loại</span>
-          <AntSelect showSearch={{ optionFilterProp: "label" }} value={String(filters.kind ?? "")} onChange={(e) =>
-              setFilters((cu) => ({ ...cu, kind: e as TransactionFilters["kind"] }))} style={{ width: "100%" }} options={[LOAI_BUT_TOAN.map((o) => (
-              { value: String(o.key), label: o.label, disabled: false }
-            ))].flat().filter((option) => !!option)} />
-        </label>
-        <label className="block">
-          <span className="text-[11px] font-semibold text-gray-500">Hình thức</span>
-          <AntSelect showSearch={{ optionFilterProp: "label" }} value={String(filters.method ?? "")} onChange={(e) =>
-              setFilters((cu) => ({ ...cu, method: e as TransactionFilters["method"] }))} style={{ width: "100%" }} options={[HINH_THUC.map((o) => (
-              { value: String(o.key), label: o.label, disabled: false }
-            ))].flat().filter((option) => !!option)} />
-        </label>
-        <label className="col-span-2 block lg:col-span-1">
-          <span className="text-[11px] font-semibold text-gray-500">Mã chứng từ / tên khách</span>
-          <div  className="relative mt-1"><AntInput prefix={<Search size={16} />} value={filters.q ?? ""} onChange={(e) => setFilters((cu) => ({ ...cu, q: e.target.value }))} placeholder="FT2609..." style={{ width: "100%" }} /></div>
-        </label>
-      </div>{dangLoc && (
-        <AntButton onClick={datLai} htmlType="button">Xóa bộ lọc
-        </AntButton>
-      )}{error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {error}
-        </div>
-      )}<div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
-        {loading ? (
-          <div className="flex items-center justify-center gap-2 py-20 text-sm text-gray-500">
-            <Loader2 className="h-4 w-4 animate-spin" /> Đang tải...
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="py-20 text-center text-sm text-gray-500">
-            Không có bút toán nào khớp điều kiện lọc.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }}
-    dataSource={rows.map((row) => (
-                  {key: row.id, cells: [<>
-                      {row.paid_at ? formatDateTime(row.paid_at) : "—"}
-                    </>,<>
-                      {/*
-                        Bấm sang đúng đơn: "khoản này của ai" mà trả lời xong vẫn phải tự đi tìm
-                        đơn thì mới xong được một nửa.
-                      */}
-                      <Link
-                        to="/admin/bookings"
-                        className="font-mono text-xs font-bold text-primary-600 hover:underline"
-                      >
-                        BK-{row.booking_id}
-                      </Link>
-                      <p className="text-sm font-semibold text-gray-900">{row.customer_name ?? "—"}</p>
-                      {row.tour_title && (
-                        <p className="text-[11px] text-gray-400">{row.tour_title}</p>
-                      )}
-                    </>,<>
-                      <span
-                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
-                          row.direction === "out"
-                            ? "border-rose-200 bg-rose-50 text-rose-700"
-                            : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                        }`}
-                      >
-                        {row.kind_label}
-                      </span>
-                    </>,<>{row.method_label ?? "—"}</>,<>
-                      <p className="font-mono text-xs text-gray-700">{row.reference ?? "—"}</p>
-                      {row.recorded_by ? (
-                        <p className="text-[11px] text-gray-400">{row.recorded_by} ghi</p>
-                      ) : (
-                        // Không có người ghi nghĩa là cổng thanh toán tự vào sổ, không ai bấm nút.
-                        <p className="text-[11px] text-gray-400">Hệ thống ghi</p>
-                      )}
-                    </>,<>
-                      {row.direction === "out" ? "−" : "+"}
-                      {formatPrice(row.amount)}
-                    </>], rowProps: {}}
-                ))}
-    columns={[{ key: "0", title: <>Thời gian</>, align: "left", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Đơn / khách</>, align: "left", render: (_value, record) => record.cells[1] },{ key: "2", title: <>Loại</>, align: "left", render: (_value, record) => record.cells[2] },{ key: "3", title: <>Hình thức</>, align: "left", render: (_value, record) => record.cells[3] },{ key: "4", title: <>Chứng từ</>, align: "left", render: (_value, record) => record.cells[4] },{ key: "5", title: <>Số tiền</>, align: "right", render: (_value, record) => record.cells[5] }]}
-    onRow={(record) => record.rowProps}
-     />
-          </div>
-        )}
-      </div>{lastPage > 1 && (
-        <nav className="flex items-center justify-center gap-2" aria-label="Phân trang sổ giao dịch">
-          <AntButton onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} htmlType="button">Trước
-          </AntButton>
-          <span className="px-2 text-sm text-gray-600 tabular-nums">
-            Trang {page}/{lastPage}
-          </span>
-          <AntButton onClick={() => setPage((p) => Math.min(lastPage, p + 1))} disabled={page >= lastPage} htmlType="button">Sau
-          </AntButton>
-        </nav>
-      )}</UIFlex>
-  );
+    <Row gutter={[16, 12]}>
+      {[
+        { title: "Tổng tiền vào", amount: totals?.in, color: token.colorSuccessText, icon: <ArrowDownLeft size={20} />, hint: "Các khoản thu trong kết quả lọc" },
+        { title: "Tổng tiền hoàn ra", amount: totals?.out, color: token.colorErrorText, icon: <ArrowUpRight size={20} />, hint: "Các khoản hoàn đã ghi nhận" },
+        { title: "Chênh lệch thu − hoàn", amount: totals?.net, color: token.colorText, icon: undefined, hint: "Theo bộ lọc, không phải số dư tài khoản" },
+      ].map((item) => <Col xs={24} md={8} key={item.title}><Card size="small" loading={loading}>
+        <Statistic title={item.title} value={item.amount ?? 0} formatter={(value) => item.amount == null ? "—" : formatPrice(Number(value))} prefix={item.icon} styles={{ content: { color: item.color, fontSize: 24, fontVariantNumeric: "tabular-nums" } }} />
+        <Text type="secondary">{item.hint}</Text>
+      </Card></Col>)}
+    </Row>
+
+    {error && <Alert type="error" showIcon title={error} action={<Button onClick={() => { setLoading(true); setReload((value) => value + 1); }}>Thử lại</Button>} />}
+    {exportError && <Alert type="error" showIcon title={exportError} closable onClose={() => setExportError("")} />}
+    <Card size="small" title={totals ? `${totals.count.toLocaleString("vi-VN")} giao dịch` : "Danh sách giao dịch"} extra={<Text type="secondary">Mới nhất trước</Text>}>
+      <Table<TransactionRow> rowKey="id" columns={columns} dataSource={rows} loading={loading} scroll={{ x: 1185 }}
+        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={error ? "Dữ liệu chưa tải được" : "Không có giao dịch phù hợp"}>{!!activeFilters && !error && <Button onClick={() => changeFilters({}, true)}>Xóa bộ lọc</Button>}</Empty> }}
+        pagination={{ current: page, pageSize: 25, total: totals?.count ?? 0, showSizeChanger: false, showTotal: (total, range) => `${range[0]}–${range[1]} / ${total} giao dịch`, onChange: (next) => { requestId.current += 1; setLoading(true); setPage(next); } }} />
+    </Card>
+
+    <Drawer open={!!selected} onClose={() => setSelected(null)} title={selected ? `Giao dịch GD-${selected.id} · Đơn BK-${selected.booking_id}` : "Chi tiết giao dịch"} size={680}>
+      {selected && <Flex vertical gap="large">
+        <Card size="small">
+          <Flex justify="space-between" align="start" gap="middle" wrap>
+            <div><Tag color={selected.direction === "in" ? "green" : "volcano"}>{selected.kind_label}</Tag><Title level={3} style={{ color: selected.direction === "in" ? token.colorSuccessText : token.colorErrorText, marginTop: 12 }}>{selected.direction === "in" ? "+" : "−"}{formatPrice(selected.amount)}</Title></div>
+            <Text type="secondary">{selected.paid_at ? formatDateTime(selected.paid_at) : "—"}</Text>
+          </Flex>
+          <Descriptions column={1} size="small" items={[
+            { key: "customer", label: "Khách hàng", children: selected.customer_name || "—" },
+            { key: "tour", label: "Tour", children: selected.tour_title || "—" },
+            { key: "method", label: "Hình thức", children: selected.method_label || "—" },
+            { key: "reference", label: "Mã chứng từ", children: selected.reference ? <Text copyable style={{ overflowWrap: "anywhere" }}>{selected.reference}</Text> : "Chưa có mã chứng từ" },
+            { key: "actor", label: "Người ghi", children: selected.recorded_by || "Hệ thống" },
+            { key: "note", label: "Ghi chú", children: <Text style={{ whiteSpace: "pre-wrap" }}>{selected.note || "Không có ghi chú"}</Text> },
+          ]} />
+        </Card>
+        <Flex vertical gap="middle">
+          <div><Title level={4} style={{ margin: 0 }}>Lịch sử đơn BK-{selected.booking_id}</Title><Text type="secondary">Toàn bộ các lần thu và hoàn, không giới hạn bởi bộ lọc bên ngoài.</Text></div>
+          {detailLoading ? <Skeleton active /> : detailError ? <Alert type="error" showIcon title={detailError} action={<Button onClick={() => { setDetailLoading(true); setDetailError(""); setDetailReload((value) => value + 1); }}>Thử lại</Button>} /> : ledger && <>
+            <Descriptions bordered size="small" column={1} items={[
+              { key: "total", label: "Giá trị đơn", children: formatPrice(ledger.total_amount) },
+              { key: "net", label: "Đã thu cho tour (trừ hoàn)", children: formatPrice(ledger.net_paid) },
+              ...(!["cancelled", "transferred"].includes(selected.booking_status || "") ? [{ key: "due", label: "Còn phải thu", children: formatPrice(ledger.balance_due) }] : []),
+              { key: "refund", label: "Còn phải hoàn khách", children: formatPrice(ledger.refund_outstanding) },
+            ]} />
+            <Text type="secondary">Phụ phí sự cố được liệt kê riêng trong lịch sử; không cộng vào tiền thu cho giá tour.</Text>
+            {ledger.entries.length === 0 ? <Empty description="Đơn chưa có giao dịch" /> : <Timeline items={[...ledger.entries].sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime() || b.id - a.id).map((entry) => ({
+              color: entry.direction === "out" ? "red" : "green",
+              content: <Flex vertical gap={6}>
+                <Flex justify="space-between" align="center" wrap gap="small"><Text strong>GD-{entry.id} · {entry.kind_label}</Text><Text strong style={{ color: entry.direction === "out" ? token.colorErrorText : token.colorSuccessText }}>{entry.direction === "out" ? "−" : "+"}{formatPrice(entry.amount)}</Text></Flex>
+                {entry.id === selected.id && <div><Tag color="blue">Giao dịch đang xem</Tag></div>}
+                <Text type="secondary">{entry.paid_at ? formatDateTime(entry.paid_at) : "—"} · {METHODS.find((method) => method.value === entry.method)?.label || entry.method || "Chưa có hình thức"} · {entry.recorded_by || "Hệ thống"}</Text>
+                {entry.reference && <Text code copyable style={{ overflowWrap: "anywhere" }}>{entry.reference}</Text>}
+                {entry.note && <Text style={{ whiteSpace: "pre-wrap" }}>{entry.note}</Text>}
+              </Flex>,
+            }))} />}
+            <Button onClick={() => { changeFilters({ q: `BK-${selected.booking_id}` }, true); setSelected(null); }}>Lọc các giao dịch của đơn này</Button>
+          </>}
+        </Flex>
+      </Flex>}
+    </Drawer>
+  </Flex>;
 }

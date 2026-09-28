@@ -77,7 +77,8 @@ export interface GroupBookingPublicView {
 /** Một bút toán trên sổ giao dịch. Số tiền luôn dương, `kind` quyết định dấu. */
 export interface PaymentEntry {
   id: number;
-  kind: "deposit" | "balance" | "refund";
+  kind: "deposit" | "balance" | "refund" | "surcharge" | "surcharge_refund";
+  direction: "in" | "out";
   kind_label: string;
   amount: number;
   method: string | null;
