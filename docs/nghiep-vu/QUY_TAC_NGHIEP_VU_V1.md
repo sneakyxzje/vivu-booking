@@ -1,5 +1,7 @@
 **Vivu Booking — bộ quy tắc nghiệp vụ V1 đã chốt để triển khai**
 
+> Cập nhật 26/09/2026: các quy tắc hạn trả nốt, số khách tối thiểu và ghép chuyến bên dưới được thay thế bởi [Đặt cọc và cam kết khởi hành](COC_VA_CAM_KET_KHOI_HANH.md).
+
 Ngày soạn: 13/09/2026. Dành cho nhóm đồ án thống nhất cách hoạt động, đối chiếu website và chuẩn bị bảo vệ.
 
 Trạng thái: chốt làm căn cứ triển khai và nghiệm thu theo yêu cầu của người phụ trách dự án. Khi tài liệu cũ, lời hướng dẫn hoặc kịch bản thử khác V1, ghi nhận phần cần sửa theo V1; không yêu cầu từng thành viên tự chọn lại quy tắc. Mọi thay đổi V1 về sau phải ghi rõ lý do và các phần bị ảnh hưởng.
@@ -172,11 +174,10 @@ Các quan sát dưới đây dựa trên tệp cấu hình, quy tắc trạng th
 | Có xử lý tự động quá hạn | V1 đưa qua quyết định điều hành/gia hạn có ghi nhận | Cần xem lại tác vụ nền và tránh hai cách xử lý cùng tồn tại |
 | HDV có xác nhận đơn kèm khoản thu | V1 HDV nhận nhiệm vụ và điểm danh | Làm rõ quyền và tên thao tác |
 | Ghép có thể đổi ngày trước khi hỏi từng khách | Ngoài luồng cốt lõi V1 | Nếu giữ phải bổ sung quy tắc chấp thuận trước khi tích hợp |
-| Đã có sân thử nghiệm theo kịch bản | Dùng lại sau khi cập nhật kỳ vọng theo V1 | Kịch bản cũ báo đạt không chứng minh phù hợp V1 |
 
 Không chỉ sửa phần chữ để công bố V1 trong khi xử lý còn theo quy tắc cũ. Khi áp dụng, phải kiểm tra cả thông báo, điều khoản gắn với đơn, công nợ, lịch nền và các màn hình liên quan. Với dữ liệu demo nên tạo bộ mới; đơn cũ giữ giá và phiên bản chính sách đã đồng ý.
 
-Bằng chứng để nhóm tìm lại: [cấu hình booking](../../server/config/booking.php), [trạng thái chuyến](../../server/app/Enums/ScheduleStatus.php), [chính sách hiện tại](../../client/src/pages/PolicyPage.tsx), [sân thử](../../client/src/pages/admin/SandboxLab.tsx).
+Bằng chứng để nhóm tìm lại: [cấu hình booking](../../server/config/booking.php), [trạng thái chuyến](../../server/app/Enums/ScheduleStatus.php), [chính sách hiện tại](../../client/src/pages/PolicyPage.tsx).
 
 **12. Ba câu chuyện để giải thích với hội đồng**
 
@@ -193,3 +194,14 @@ Bạn phụ trách quy tắc tiền/chỗ, các hạn và tích hợp. Thành vi
 Mỗi người nhận dữ liệu mẫu tại giai đoạn cần thử, không phải chờ ngày thật từ lúc đặt. Người phụ trách chính chuẩn bị các bộ: đang bán; đã cọc; có yêu cầu hủy; chuẩn bị đi; đang đi; đã kết thúc. Mốc cần thử gồm trước hạn, đúng hạn và sau hạn; tác vụ nền liên quan cũng phải được chạy. Mỗi lần thử dùng dữ liệu có thể tạo lại và môi trường riêng để tránh tác động chéo.
 
 Mỗi task ghi bốn điều: dữ liệu đầu vào; thao tác; kết quả theo V1; kết quả quan sát. Kết quả khác V1 cần được xác định là lỗi thực hiện hay quy tắc V1 cần điều chỉnh. Không sửa kỳ vọng chỉ để kịch bản báo đạt.
+
+### Điểm danh theo ngày hiện tại
+
+- HDV còn phụ trách chuyến chỉ được ghi/sửa điểm danh, ghi chú và thêm ảnh tại điểm dừng thuộc **ngày hiện tại theo Asia/Ho_Chi_Minh**, khi chuyến đang diễn ra.
+- Ngày của điểm dừng = ngày khởi hành theo giờ Việt Nam + (ngày lịch trình - 1). Chỉ xét ngày; không tự đặt giờ đến cho từng địa điểm.
+- Ngày đã qua và ngày chưa tới chỉ được xem. Qua 00:00, ngày cũ bị khóa, ngày mới được mở. Không cho HDV ghi bù hoặc sửa ngày cũ; cần đính chính thì báo điều hành.
+- Chuyến kết thúc/hủy chỉ được xem. Chuyển ngày/điểm trên màn hình không làm thay đổi quyền ghi và không tự lưu.
+- Máy chủ kiểm tra mọi lần lưu và tải ảnh. Giao diện dựa trên thời gian máy chủ, tự cập nhật khi mở qua ngày mới; thay đổi đồng hồ thiết bị không mở khóa.
+- Lịch sử thay đổi trong ngày vẫn được lưu. Cột ghi bù cũ được giữ để đọc lịch sử, không phát sinh bản ghi bù mới.
+- Môi trường demo vẫn dùng đồng hồ chuyến do máy chủ quản lý; cùng quy tắc ngày Việt Nam, không dùng ngày do HDV chọn.
+- Ảnh điểm danh gắn với chuyến, điểm dừng và HDV tải lên. Không xin quyền vị trí, không thu thập GPS, không bắt buộc tọa độ điểm dừng và không kiểm tra khoảng cách. Vẫn kiểm tra ảnh tối đa 5MB, quyền phụ trách chuyến và ngày được phép thêm ảnh, kể cả sau khi tải lên dịch vụ lưu trữ.

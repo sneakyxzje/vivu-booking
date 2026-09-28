@@ -144,7 +144,7 @@ Các mã là tên bộ cần chuẩn bị, không phải ID/seed chắc chắn �
 | QL-T12 | Thành viên 1 mở lại đơn sau bạn duyệt/ghi hoàn | Hai phía cùng kết quả và phân biệt đang hoàn/đã hoàn đủ |
 | QL-T13 | Tải danh sách lỗi hoặc rỗng | Lỗi tải không được trình bày như “không còn khoản phải trả” |
 
-Không chỉnh ngày máy tính hay bảng phí để thử. Nhận bộ trước/đúng/sau hạn từ trưởng nhóm. Sân thử tự báo đạt chưa thay thế các lần bấm biểu mẫu và kiểm tra quyền.
+Không chỉnh ngày máy tính hay bảng phí để thử. Nhận bộ trước/đúng/sau hạn từ trưởng nhóm. Kiểm thử tự động chưa thay thế các lần bấm biểu mẫu và kiểm tra quyền.
 
 **Bàn giao và ranh giới**
 

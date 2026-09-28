@@ -50,7 +50,7 @@ Không phát triển trong đợt này: chuyển/ghép chuyến, báo giá đoà
 |---|---|---|
 | CORE-01 | Áp lịch 7–5–3; tách xác nhận chuyến với đóng nhận khách; thống nhất tên và điều kiện của các trạng thái | Chuyến xác nhận tại D−7 vẫn nhận khách đến D−3 nếu còn chỗ; từng hạn thể hiện cùng một thời điểm ở các vai trò |
 | CORE-02 | Giữ chỗ, cọc/trả nốt, quá hạn và gia hạn; phí hủy, duyệt hủy/hoàn; thời điểm giao dịch và chỗ còn lại | Số tiền theo bảng V1; không hủy hai lần/ghi thu hai lần; yêu cầu hợp lệ không mất quyền vì nhân viên xử lý chậm |
-| CORE-03 | Chuẩn bị dữ liệu thử tạo lại được, thao tác đưa tới mốc và chạy tác vụ liên quan; cập nhật kỳ vọng sân thử | Mỗi thành viên có bộ dữ liệu ở đúng giai đoạn, không phải tự sửa ngày hoặc chờ nhiều ngày |
+| CORE-03 | Chuẩn bị dữ liệu thử tạo lại được ở các mốc trước/đúng/sau hạn và chạy tác vụ liên quan; cập nhật kỳ vọng kiểm thử | Mỗi thành viên có bộ dữ liệu ở đúng giai đoạn, không phải tự sửa ngày hoặc chờ nhiều ngày |
 | CORE-04 | Tách các nhánh ngoài V1, tích hợp phần của ba thành viên và kiểm tra ba câu chuyện cuối | Không còn đường thao tác/lệnh nền dùng quy tắc cũ gây thay đổi tiền/chỗ trái V1 |
 
 Bạn cung cấp cho các thành viên: tên trạng thái và ý nghĩa; số tiền/hạn cần hiển thị; thao tác được phép và lý do bị chặn; danh tính người có quyền thực hiện. Nếu xử lý phía máy chủ chưa xong, họ có thể làm bố cục từ dữ liệu mẫu rõ nhãn; không công bố mẫu đó là kết quả chạy thật.
