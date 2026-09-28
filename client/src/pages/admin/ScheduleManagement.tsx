@@ -54,7 +54,6 @@ import {
   formatPrice,
   toDateTimeLocalValue,
 } from "@/utils/format";
-import { BulkProposalDialog } from "@/components/admin/BulkProposalDialog";
 import {
   LY_DO_DOI_HAN_TOI_THIEU,
   getScheduleUnavailableReason,
@@ -138,9 +137,6 @@ export default function ScheduleManagement() {
   const [manifestScheduleId, setManifestScheduleId] = useState<number | null>(
     null,
   );
-
-  // State Gửi đề xuất hàng loạt
-  const [bulkProposalSchedule, setBulkProposalSchedule] = useState<ExtendedSchedule | null>(null);
 
   const [dangXuatDanhSach, setDangXuatDanhSach] = useState(false);
   const [manifest, setManifest] = useState<ScheduleManifestResponse | null>(
@@ -782,7 +778,7 @@ export default function ScheduleManagement() {
         onReload={loadData} onFeedback={(message, type) => setToast({ message, type, isOpen: true })}
         onGuides={openGuideDialog} onManifest={openManifestCheck}
         onAttendance={id => navigate(`/admin/tour-schedules/${id}/attendance`)}
-        onDeadline={openDeadlineDialog} onPropose={setBulkProposalSchedule}
+        onDeadline={openDeadlineDialog}
         onConfirm={schedule => handleUpdateStatus(schedule.id, "confirmed")}
         onMerge={openMergeDialog} onHandover={openHandoverDialog} onCancel={openCancelDialog} />
       {/* Bàn giao hướng dẫn viên giữa chừng */}{handoverScheduleId !== null && (
@@ -1489,13 +1485,6 @@ export default function ScheduleManagement() {
                 } type="primary" danger>{cancelSaving ? "Đang hủy..." : "Xác nhận hủy chuyến"}</AntButton></UIFlex>
           </UIFlex></AntModal>
       )}
-      {/* Hộp thoại Đề xuất thay đổi (Bulk Proposal) */}
-      <BulkProposalDialog
-        scheduleId={bulkProposalSchedule?.id ?? 0}
-        scheduleStartDate={bulkProposalSchedule?.start_date ?? ""}
-        isOpen={bulkProposalSchedule !== null}
-        onClose={() => setBulkProposalSchedule(null)}
-      />
 
       <Toast
         message={toast.message}

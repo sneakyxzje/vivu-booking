@@ -16,7 +16,6 @@ interface Props {
   onManifest: (id: number) => void;
   onAttendance: (id: number) => void;
   onDeadline: (schedule: ExtendedSchedule) => void;
-  onPropose: (schedule: ExtendedSchedule) => void;
   onConfirm: (schedule: ExtendedSchedule) => void;
   onMerge: (id: number) => void;
   onHandover: (id: number) => void;
@@ -92,7 +91,6 @@ export function ScheduleDetailsDrawer(props: Props) {
           {status === "open" && <>
             <Button onClick={() => act(() => props.onConfirm(s))}>Chốt chuyến</Button>
             <Button onClick={() => act(() => props.onMerge(s.id))}>Ghép với chuyến khác</Button>
-            <Button onClick={() => act(() => props.onPropose(s))}>Gửi đề xuất đổi lịch</Button>
           </>}
           <Button danger onClick={() => act(() => props.onCancel(s.id))}>Hủy chuyến</Button>
         </Flex>
