@@ -2,13 +2,24 @@
 
 ## Kết luận
 
-Chưa thể xác nhận toàn bộ luồng đã ăn khớp. Lượt rà soát ban đầu xác định 6 vấn đề ở các bước nối xác thực → tạo đơn, nhận tiền → hoàn tiền, hủy → chuyển chuyến, tự động hóa → kết thúc và điều khoản → hành vi hệ thống. Sau đó đã sửa nội dung điều khoản/FAQ (A6) theo yêu cầu; còn 5 vấn đề A1–A5 chưa xử lý.
+Chưa thể xác nhận toàn bộ luồng đã ăn khớp. Lượt rà soát ban đầu xác định 6 vấn đề ở các bước nối xác thực → tạo đơn, nhận tiền → hoàn tiền, hủy → chuyển chuyến, tự động hóa → kết thúc và điều khoản → hành vi hệ thống. Sau đó đã sửa nội dung điều khoản/FAQ (A6) theo yêu cầu; đã sửa thêm OTP tạo đơn và gửi lại yêu cầu (A1/A5). Còn A2–A4 chưa xử lý. Mâu thuẫn VNPay mã 24 ở A7 đã được sửa khi chuẩn bị bản demo laptop.
 
-Đây là lượt kiểm tra mã nguồn, API và kiểm thử trong môi trường cô lập. Lượt này không sửa nghiệp vụ chạy thật, không gửi thư hoặc gọi cổng thanh toán thật, không chạy migration trên cơ sở dữ liệu phát triển.
+Đây là lượt kiểm tra mã nguồn, API và kiểm thử trong môi trường cô lập. Lượt rà soát ban đầu không sửa nghiệp vụ chạy thật, không gửi thư hoặc gọi cổng thanh toán thật, không chạy migration trên cơ sở dữ liệu phát triển.
 
 Nguồn nghiệp vụ ưu tiên: [Đặt cọc và cam kết khởi hành](COC_VA_CAM_KET_KHOI_HANH.md), cùng các yêu cầu đã chốt về OTP khai hành khách, điểm danh đúng ngày và bỏ GPS. Các đoạn V1 cũ về mốc 7–5–3 hoặc yêu cầu đủ khách không được dùng để thay thế quy tắc mới.
 
-## Bằng chứng kiểm tra
+## Cập nhật sau khi sửa OTP đặt tour
+
+- A1/A5 đã sửa: mỗi lần gửi mã có challenge riêng; xác thực đúng trả token bí mật, chỉ lưu hash trong cơ sở dữ liệu. Token gắn email và tài khoản nếu đã đăng nhập; khách vãng lai phải giữ đúng token đã nhận, biết email không đủ để đặt đơn.
+- OTP hết hạn sau 5 phút, tối đa 5 lần nhập sai; nhập sai không kéo dài thời hạn. Token chưa dùng hết hạn sau 15 phút. Giới hạn gửi mã theo email/IP được giữ lại.
+- Tạo đơn dùng token + `Idempotency-Key` + nội dung yêu cầu. Khóa dòng xác thực, lưu đơn và tiêu thụ token trong cùng giao dịch. Gửi lại cùng yêu cầu trong 24 giờ trả đơn đã tạo, không trừ chỗ hoặc lượt giảm giá lần nữa; thay nội dung/mã yêu cầu phải xác thực lại.
+- Form giữ token, mã yêu cầu và nội dung khi lỗi mạng/lỗi máy chủ để bấm lại. Hiện giữ trong bộ nhớ trang, chưa phục hồi qua tải lại/đóng trang. Đơn hủy hoặc quá hạn không được cấp lại liên kết thanh toán qua đường gửi lại.
+- Cập nhật fixture OTP của các bài nghiệp vụ cũ; kiểm thử OTP riêng vẫn đi qua API gửi/xác thực thật với mail giả lập. Token đặt tour không mở quyền sửa hành khách.
+- Kiểm thử backend: **967 bài, 966 đạt, 1 thất bại**, 3.698 assertions. Riêng OTP đặt tour **19/19 đạt**, OTP hành khách **14/14 đạt**. Bài còn thất bại là A7, không phải OTP. Kết quả: `server/storage/logs/otp-full.xml`.
+- Frontend **56/56 bài đạt**, build đạt; ESLint các file frontend sửa không có lỗi, còn một cảnh báo dependency có sẵn trong `BookingTour.tsx`. Chưa kiểm tra thao tác trên trình duyệt hoặc tranh chấp giao dịch MySQL.
+- Đã chạy migration bổ sung `2026_09_28_000002_create_booking_checkout_verifications` trên môi trường phát triển. Khi đưa bản này lên cloud phải chạy migration mới và triển khai frontend/backend cùng phiên bản.
+
+## Bằng chứng kiểm tra ban đầu
 
 - Bộ kiểm thử backend đầy đủ: **948 bài, 914 đạt, 34 thất bại**, 3.452 assertions, không có bài bỏ qua. SQLite trong bộ nhớ.
 - Bộ kiểm thử frontend hiện có: **56/56 đạt**. Đây là kiểm thử hàm xử lý dữ liệu, chưa phải thao tác giao diện trên trình duyệt.
@@ -17,9 +28,11 @@ Nguồn nghiệp vụ ưu tiên: [Đặt cọc và cam kết khởi hành](COC_V
 - Chạy thêm 5 phép tái hiện độc lập: **5/5 xác nhận được hành vi có vấn đề** ở mục A1–A5. Những phép này mô tả lỗi hiện hữu, kết quả “passed” của chúng KHÔNG có nghĩa nghiệp vụ đã đúng.
 - Kết quả thô: `server/storage/logs/business-audit-junit.xml`, `server/storage/logs/business-audit-probes.xml`. Mã tái hiện nằm ngoài các suite chuẩn: `server/storage/logs/BusinessLogicAuditProbeTest.php`.
 
-## Những điểm chưa khớp
+## Các phát hiện và trạng thái xử lý
 
-### A1 — Ưu tiên cao: OTP tạo đơn không gắn với người/phiên đã xác thực
+Mô tả A1/A5 bên dưới ghi lại lỗi trước khi sửa; kết quả hiện tại nằm ở phần cập nhật phía trên.
+
+### A1 — Đã sửa: OTP tạo đơn không gắn với người/phiên đã xác thực
 
 **Hiện tượng:** OTP đúng tạo `booking_verified_<email> = true` dùng chung trong cache. API tạo đơn chỉ cần thấy cờ này; không yêu cầu token chứng minh chính request đó đã xác thực.
 
@@ -67,7 +80,7 @@ Nguồn nghiệp vụ ưu tiên: [Đặt cọc và cam kết khởi hành](COC_V
 
 **Hướng xử lý:** bổ sung xử lý bù theo thứ tự hủy đơn thiếu tiền → chốt chuyến có khách đủ điều kiện → cập nhật trạng thái theo thời gian → chốt đơn. Phải kiểm tra lại điều kiện từng bước, không chỉ đổi nhãn hiển thị.
 
-### A5 — Ưu tiên vừa: gửi lại cùng yêu cầu đặt chỗ bị OTP chặn trước bước trả lại đơn cũ
+### A5 — Đã sửa: gửi lại cùng yêu cầu đặt chỗ bị OTP chặn trước bước trả lại đơn cũ
 
 **Hiện tượng:** tạo đơn thành công xóa cờ OTP; request gửi lại bị 403 ngay tại cửa xác thực, chưa chạy tới kiểm tra đơn trùng bên trong transaction.
 
@@ -93,7 +106,13 @@ Nguồn nghiệp vụ ưu tiên: [Đặt cọc và cam kết khởi hành](COC_V
 
 **Kiểm tra phần sửa:** ESLint trang điều khoản và build frontend đạt; `PublicPolicyTest` đạt 6/6 bài, 31 assertions. Chưa kiểm tra trực quan trên trình duyệt.
 
-## Phạm vi đã đối chiếu
+### A7 — Phát hiện khi gỡ chặn test OTP: VNPay mã 24 hủy đơn trước hạn giữ chỗ
+
+**Hiện tượng:** `VNPayCallbackService::xuLyDonChoThanhToan()` gọi `expireStaleHold` ngay khi mã phản hồi là `24`. Kiểm thử `GuideOperationsFixesTest::test_tra_tien_that_bai_thi_don_van_giu_cho_toi_het_han` yêu cầu đơn còn pending để khách đổi thẻ/thử lại đến hết hạn giữ chỗ, nhưng thực tế nhận cancelled.
+
+**Trạng thái:** đã sửa khi chuẩn bị bản demo laptop. Mã 24 chỉ hủy lượt thanh toán, đơn còn pending và giữ nguyên hạn/chỗ để khách thử lại. Không gia hạn giữ chỗ. Đã kiểm tra thanh toán lại thành công, IPN lặp không ghi trùng bút toán và tự hủy khi hết hạn. Giữ nguyên kỳ vọng nghiệp vụ của bài kiểm thử cũ.
+
+## Phạm vi đã đối chiếu ban đầu
 
 | Khâu | Bằng chứng hiện có | Đánh giá |
 |---|---|---|
@@ -119,9 +138,17 @@ Nguồn nghiệp vụ ưu tiên: [Đặt cọc và cam kết khởi hành](COC_V
 
 ## Thứ tự khắc phục đề nghị
 
-1. OTP tạo đơn và gửi lại yêu cầu: A1 + A5 trong cùng thiết kế.
+1. OTP tạo đơn và gửi lại yêu cầu: A1 + A5 đã sửa và có kiểm thử hồi quy.
 2. Thu muộn/thừa và hoàn tiền: A2, bao gồm giao dịch lặp và đối soát.
 3. Chấp thuận khi đổi chuyến: A3 cho mọi cửa điều hành có thể chuyển khách.
 4. Xử lý bù tác vụ nền: A4, đối chiếu số chỗ và trạng thái sau nhiều lần chạy.
 5. Điều khoản/FAQ: A6 đã sửa nội dung và rà mẫu email/hợp đồng; vẫn cần xử lý A3 để mọi cửa chuyển khách tuân thủ chấp thuận.
-6. Cập nhật tiền điều kiện OTP của các bài kiểm thử cũ, sửa nhận diện alias trong bộ kiểm tra lược đồ, chạy lại toàn bộ và kiểm thử xuyên suốt trên môi trường tích hợp.
+6. Đã cập nhật tiền điều kiện OTP, sửa nhận diện alias/validation rule trong bộ kiểm tra lược đồ và chạy lại toàn bộ. A7 đã được sửa ở lượt chuẩn bị laptop. Còn kiểm thử xuyên suốt các dịch vụ bên ngoài trên môi trường tích hợp.
+
+## Bản demo laptop — kết quả cuối
+
+- Backend: **988/988 bài đạt**, 4.071 assertions; frontend: **56/56 bài đạt**, build thành công.
+- Đã khôi phục dữ liệu trên MySQL riêng, áp dụng hai migration OTP/bổ sung hành khách; thử từ chối database đã tồn tại và kích hoạt bằng file môi trường thử nghiệm. Database nguồn và `.env` gốc giữ nguyên.
+- Bộ dữ liệu đã ẩn thông tin cá nhân, bỏ thư/token/session cũ; 15 tour, 62 chuyến, 31 đơn và đủ 59 ngày lịch trình. Số chỗ khớp, không có thứ tự thời gian chuyến sai.
+- Đăng nhập ba vai trò và gọi API đơn/guide/phần khách trên database khôi phục đều thành công. Chi tiết tour mẫu trả đủ các ngày.
+- Cách cài: [DEMO_LAPTOP.md](../DEMO_LAPTOP.md). SMTP, Cloudinary và VNPay cần cấu hình riêng trên laptop; lượt kiểm tra này không thay thế kiểm tra dịch vụ thật. Các phát hiện A2–A4 vẫn cần xử lý riêng, không được coi là đã khắc phục chỉ vì toàn bộ test hiện có đạt.

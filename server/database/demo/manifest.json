@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "snapshot_date": "2026-09-28",
+  "sha256": "92f258dd9f3ef63e5824a590de7748b60b8550424b2454c4ec94d5f8bec137a3",
+  "counts": {
+    "users": 19,
+    "tours": 15,
+    "tour_schedules": 62,
+    "bookings": 31,
+    "booking_passengers": 33,
+    "booking_payments": 28,
+    "tour_itineraries": 59,
+    "itinerary_checkpoints": 112
+  }
+}
