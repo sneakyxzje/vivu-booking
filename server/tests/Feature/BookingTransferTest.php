@@ -107,6 +107,59 @@ class BookingTransferTest extends TestCase
         return app(BookingTransferService::class);
     }
 
+    public function test_demo_source_deadline_blocks_preview_and_transfer_before_real_deadline(): void
+    {
+        config(['demo.enabled' => true]);
+        $don = $this->taoDon();
+        $this->assertTrue($this->service()->preview($don, $this->chuyenDich)['can_transfer']);
+        $this->chuyenGoc->forceFill([
+            'status' => ScheduleStatus::Confirmed,
+            'demo_time' => $this->chuyenGoc->booking_deadline,
+            'demo_time_set_at' => now(),
+        ])->save();
+        $don->refresh();
+
+        foreach (['customer', 'company'] as $initiator) {
+            $preview = $this->service()->preview($don, $this->chuyenDich, $initiator);
+            $this->assertFalse($preview['can_transfer']);
+            $this->assertStringContainsString('Chuyến hiện tại đã qua hạn chốt', $preview['blocked_reason']);
+        }
+
+        try {
+            $this->service()->transfer($don, $this->chuyenDich, 'Demo deadline', $this->dieuHanh, canCu: $this->daHoiKhach($don));
+            $this->fail('Transfer must be rejected at the demo deadline.');
+        } catch (\App\Exceptions\BusinessRuleException $e) {
+            $this->assertStringContainsString('Chuyến hiện tại đã qua hạn chốt', $e->getMessage());
+        }
+        $this->assertSame($this->chuyenGoc->id, (int) $don->fresh()->tour_schedule_id);
+        $this->assertSame(2, (int) $this->chuyenGoc->fresh()->booked_people);
+        $this->assertSame(0, (int) $this->chuyenDich->fresh()->booked_people);
+        $this->assertDatabaseCount('booking_transfers', 0);
+
+        config(['demo.enabled' => false]);
+        $this->assertTrue($this->service()->preview($don->fresh(), $this->chuyenDich)['can_transfer']);
+    }
+
+    public function test_demo_target_deadline_blocks_transfer_even_when_status_is_still_open(): void
+    {
+        config(['demo.enabled' => true]);
+        $don = $this->taoDon();
+        $this->chuyenDich->forceFill([
+            'demo_time' => $this->chuyenDich->booking_deadline,
+            'demo_time_set_at' => now(),
+        ])->save();
+
+        foreach (['customer', 'company'] as $initiator) {
+            $preview = $this->service()->preview($don, $this->chuyenDich, $initiator);
+            $this->assertFalse($preview['can_transfer']);
+            $this->assertStringContainsString('Chuyến đích đã qua hạn chốt', $preview['blocked_reason']);
+        }
+
+        $this->expectException(\App\Exceptions\BusinessRuleException::class);
+        $this->expectExceptionMessage('Chuyến đích đã qua hạn chốt');
+        $this->service()->transfer($don, $this->chuyenDich, 'Demo deadline', $this->dieuHanh, canCu: $this->daHoiKhach($don));
+    }
+
     /**
      * Một cuộc trao đổi đã ghi nhận, khách đồng ý — căn cứ để chuyển chuyến.
      *

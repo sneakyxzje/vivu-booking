@@ -145,7 +145,7 @@ class BookingTransferService
             // Chuyển xong là quá hạn ngay: khách sẽ nhận thư đòi trả nốt trong vài ngày.
             'balance_overdue_after' => $this->payments->balanceDue($thu) > 0
                 && $hanTraNotMoi !== null
-                && now()->gte($hanTraNotMoi),
+                && DemoClock::schedule($toSchedule)->gte($hanTraNotMoi),
             // Nặng hơn một bậc: quá sát để cả quy trình nhắc rồi hủy kịp chạy, phải thu tay.
             'auto_collect_too_late' => $this->payments->tuDongThuNotKhongKip($thu),
         ];
@@ -404,7 +404,7 @@ class BookingTransferService
              */
             $hanChot = $fromSchedule->booking_deadline ?? $fromSchedule->defaultBookingDeadline();
 
-            if (!$nguonBiHuy && $hanChot && now()->gte($hanChot)) {
+            if (!$nguonBiHuy && $hanChot && DemoClock::schedule($fromSchedule)->gte($hanChot)) {
                 throw new BusinessRuleException(sprintf(
                     'Chuyến hiện tại đã qua hạn chốt danh sách ngày %s. Suất ở chuyến này đã cam kết '
                         . 'với nhà cung cấp nên không chuyển đi được; nếu khách không đi được, xử lý '
@@ -436,7 +436,7 @@ class BookingTransferService
          */
         $hanChotDich = $toSchedule->booking_deadline ?? $toSchedule->defaultBookingDeadline();
 
-        if ($hanChotDich && now()->gte($hanChotDich)) {
+        if ($hanChotDich && DemoClock::schedule($toSchedule)->gte($hanChotDich)) {
             throw new BusinessRuleException(sprintf(
                 'Chuyến đích đã qua hạn chốt danh sách ngày %s nên không nhận thêm khách được. '
                     . 'Chọn chuyến khác, hoặc dời hạn chốt của chuyến đích nếu nhà cung cấp còn nhận.',
@@ -477,7 +477,7 @@ class BookingTransferService
         if ($soNgayBaoTruoc > 0 && $fromSchedule?->start_date) {
             $hanBaoTruoc = Carbon::parse($fromSchedule->start_date)->subDays($soNgayBaoTruoc);
 
-            if (now()->gt($hanBaoTruoc)) {
+            if (DemoClock::schedule($fromSchedule)->gt($hanBaoTruoc)) {
                 throw new BusinessRuleException(sprintf(
                     'Khách chỉ đổi được chuyến trước ngày khởi hành ít nhất %d ngày. '
                         . 'Sau mốc đó cần bộ phận điều hành thực hiện.',
