@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * Model lịch khởi hành.
  *
- * Vòng đời đầy đủ: open → closed → confirmed → in_progress → completed
+ * Vòng đời đầy đủ: open → confirmed → in_progress → completed
  *                                              ↘ cancelled
  *
  * Tài liệu: docs/nghiep-vu/01-tac-nhan-va-vong-doi.md §4
@@ -40,6 +40,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class TourSchedule extends Model
 {
     use HasFactory;
+    protected $appends = ['demo_clock'];
+
+    public function getDemoClockAttribute(): ?array
+    {
+        return \App\Services\DemoClock::metadata($this);
+    }
+
+    public function scopeForClock(Builder $query): Builder
+    {
+        return \App\Services\DemoClock::commandScope($query);
+    }
     protected $fillable = [
         'tour_id',
         'start_date',
@@ -159,7 +170,8 @@ class TourSchedule extends Model
     {
         return $query
             ->whereIn('status', [ScheduleStatus::Open->value, ScheduleStatus::Confirmed->value])
-            ->where('start_date', '>', now());
+            ->where(fn (Builder $q) => \App\Services\DemoClock::whereScheduleTime($q,
+                fn (Builder $at, $time) => $at->where('start_date', '>', $time)));
     }
 
     /** Các chuyến đang chạy (đoàn đang đi). */
@@ -186,13 +198,14 @@ class TourSchedule extends Model
         return $query
             ->where('status', ScheduleStatus::Open->value)
             ->whereColumn('booked_people', '<', 'max_people')
-            ->where(function (Builder $q) use ($hanMacDinh) {
-                $q->where('booking_deadline', '>', now())
+            ->where(fn (Builder $times) => \App\Services\DemoClock::whereScheduleTime($times,
+                fn (Builder $at, $time) => $at->where(function (Builder $q) use ($hanMacDinh, $time) {
+                $q->where('booking_deadline', '>', $time)
                     // Chuyến chưa đặt hạn chốt riêng thì áp hạn mặc định, đúng như `isBookable()`.
                     ->orWhere(fn (Builder $sub) => $sub
                         ->whereNull('booking_deadline')
-                        ->where('start_date', '>', now()->addDays($hanMacDinh)));
-            });
+                        ->where('start_date', '>', $time->copy()->addDays($hanMacDinh)));
+            })));
     }
 
     // ─── Helper methods ──────────────────────────────────────────────────────
@@ -211,13 +224,13 @@ class TourSchedule extends Model
             return false;
         }
 
-        if ($this->booking_deadline && now()->gte($this->booking_deadline)) {
+        if ($this->booking_deadline && \App\Services\DemoClock::schedule($this)->gte($this->booking_deadline)) {
             return false;
         }
 
         // Chuyến chưa đặt hạn chốt thì lấy mặc định để quy tắc không im lặng bỏ qua.
         // Xem docs/nghiep-vu/03-luong-huy-va-hoan-tien.md mục 3.
-        if (!$this->booking_deadline && $this->start_date && now()->gte($this->defaultBookingDeadline())) {
+        if (!$this->booking_deadline && $this->start_date && \App\Services\DemoClock::schedule($this)->gte($this->defaultBookingDeadline())) {
             return false;
         }
 

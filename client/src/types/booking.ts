@@ -14,6 +14,7 @@ export type BookingStatus =
   | "no_show";
 
 export interface Booking {
+  demo_clock?: import("@/utils/demoClock").DemoClockValue | null;
   id: number;
   public_token: string;
   tour_id: number;

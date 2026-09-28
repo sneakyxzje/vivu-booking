@@ -108,7 +108,7 @@ class ScheduleLifecycleService
             // forceFill thay cho update vì các cột truy vết chỉ được thêm vào fillable ở A03.
             // Payload dựng hoàn toàn từ tham số của hàm, không nhận dữ liệu người dùng, nên
             // bỏ qua mass assignment ở đây là an toàn.
-            $locked->forceFill($this->payloadFor($to, $reason, $actorId))->save();
+            $locked->forceFill($this->payloadFor($to, $reason, $actorId, $locked))->save();
 
             return $locked;
         });
@@ -134,7 +134,7 @@ class ScheduleLifecycleService
             return $current;
         }
 
-        $now ??= now();
+        $now ??= DemoClock::schedule($schedule);
 
         if ($this->endMoment($schedule)?->lt($now)) {
             return ScheduleStatus::Completed;
@@ -153,7 +153,7 @@ class ScheduleLifecycleService
      */
     public function resolveStatusByTime(TourSchedule $schedule, ?Carbon $now = null): ?ScheduleStatus
     {
-        $now ??= now();
+        $now ??= DemoClock::schedule($schedule);
         $current = $this->currentStatus($schedule);
 
         // isFinal() đã bao gồm Cancelled và Completed.
@@ -175,16 +175,16 @@ class ScheduleLifecycleService
     /**
      * @return array<string, mixed>
      */
-    private function payloadFor(ScheduleStatus $to, ?string $reason, ?int $actorId): array
+    private function payloadFor(ScheduleStatus $to, ?string $reason, ?int $actorId, TourSchedule $schedule): array
     {
         $payload = ['status' => $to->value];
 
         if ($to === ScheduleStatus::Confirmed) {
-            $payload['confirmed_at'] = now();
+            $payload['confirmed_at'] = DemoClock::schedule($schedule);
         }
 
         if ($to === ScheduleStatus::Cancelled) {
-            $payload['cancelled_at'] = now();
+            $payload['cancelled_at'] = DemoClock::schedule($schedule);
             $payload['cancelled_by'] = $actorId;
             $payload['cancelled_reason'] = $reason;
         }
@@ -194,7 +194,7 @@ class ScheduleLifecycleService
 
     private function hasDeparted(TourSchedule $schedule): bool
     {
-        return (bool) $this->startMoment($schedule)?->isPast();
+        return (bool) $this->startMoment($schedule)?->lt(DemoClock::schedule($schedule));
     }
 
     private function startMoment(TourSchedule $schedule): ?Carbon

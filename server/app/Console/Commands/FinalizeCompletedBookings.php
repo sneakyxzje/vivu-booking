@@ -26,7 +26,9 @@ class FinalizeCompletedBookings extends Command
         parent::__construct();
     }
 
-    public function handle(): int
+    use \App\Console\Concerns\RunsWithDemoClock;
+
+    public function handleForClock(): int
     {
         $tongHoanThanh = 0;
         $tongVangMat = 0;
@@ -65,7 +67,7 @@ class FinalizeCompletedBookings extends Command
      */
     private function candidates()
     {
-        return TourSchedule::query()
+        return TourSchedule::query()->forClock()
             ->with('tour:id,number_of_days')
             ->whereIn('status', [
                 ScheduleStatus::Confirmed->value,

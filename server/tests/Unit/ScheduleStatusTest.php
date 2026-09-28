@@ -19,8 +19,7 @@ class ScheduleStatusTest extends TestCase
     private function expectedMatrix(): array
     {
         return [
-            'open' => ['closed', 'confirmed', 'cancelled'],
-            'closed' => ['open', 'confirmed', 'cancelled'],
+            'open' => ['confirmed', 'cancelled'],
             'confirmed' => ['in_progress', 'cancelled'],
             'in_progress' => ['completed'],
             'completed' => [],
@@ -78,9 +77,9 @@ class ScheduleStatusTest extends TestCase
         $this->assertFalse(ScheduleStatus::InProgress->isFinal());
     }
 
-    public function test_dong_ban_co_the_mo_lai_khi_co_khach_huy(): void
+    public function test_khong_con_trang_thai_dong_ban(): void
     {
-        $this->assertTrue(ScheduleStatus::Closed->canTransitionTo(ScheduleStatus::Open));
+        $this->assertNull(ScheduleStatus::tryFrom('closed'));
     }
 
     public function test_chi_chuyen_dang_mo_ban_moi_nhan_dat_cho(): void
@@ -102,7 +101,7 @@ class ScheduleStatusTest extends TestCase
         $this->assertTrue(ScheduleStatus::Completed->blocksCancellation());
 
         $this->assertFalse(ScheduleStatus::Open->blocksCancellation());
-        $this->assertFalse(ScheduleStatus::Closed->blocksCancellation());
+        $this->assertFalse(ScheduleStatus::Open->blocksCancellation());
         $this->assertFalse(ScheduleStatus::Confirmed->blocksCancellation());
         $this->assertFalse(ScheduleStatus::Cancelled->blocksCancellation());
     }
@@ -110,7 +109,7 @@ class ScheduleStatusTest extends TestCase
     public function test_quy_doi_gia_tri_cu_cua_chuyen_chua_khoi_hanh(): void
     {
         $this->assertSame(ScheduleStatus::Open, ScheduleStatus::fromLegacy('active'));
-        $this->assertSame(ScheduleStatus::Closed, ScheduleStatus::fromLegacy('full'));
+        $this->assertSame(ScheduleStatus::Open, ScheduleStatus::fromLegacy('full'));
         $this->assertSame(ScheduleStatus::Cancelled, ScheduleStatus::fromLegacy('inactive'));
     }
 
@@ -133,10 +132,10 @@ class ScheduleStatusTest extends TestCase
         $this->assertSame(ScheduleStatus::Open, ScheduleStatus::fromLegacy('gia_tri_khong_ton_tai'));
     }
 
-    public function test_values_tra_ve_dung_sau_trang_thai(): void
+    public function test_values_tra_ve_dung_nam_trang_thai(): void
     {
         $this->assertSame(
-            ['open', 'closed', 'confirmed', 'in_progress', 'completed', 'cancelled'],
+            ['open', 'confirmed', 'in_progress', 'completed', 'cancelled'],
             ScheduleStatus::values(),
         );
     }

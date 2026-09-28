@@ -34,7 +34,9 @@ class SendDepartureReminders extends Command
 
     protected $description = 'Gửi thư nhắc khách trước ngày khởi hành';
 
-    public function handle(): int
+    use \App\Console\Concerns\RunsWithDemoClock;
+
+    public function handleForClock(): int
     {
         $soNgay = (int) config('booking.departure_reminder_days', 3);
 
@@ -46,15 +48,15 @@ class SendDepartureReminders extends Command
          * nhận thư, vì hôm sau họ đã rơi ra ngoài khung. Quét cả khoảng thì lần chạy kế tiếp bắt
          * lại được họ, và cột `departure_reminder_sent_at` lo việc không gửi trùng.
          */
-        $den = now()->addDays($soNgay)->endOfDay();
+        $den = \App\Services\DemoClock::commandNow()->addDays($soNgay)->endOfDay();
 
-        $bookings = Booking::query()
+        $bookings = Booking::query()->forClock()
             ->with(['tour', 'schedule.guides:id,name,phone', 'customer:id,email'])
             ->whereIn('status', BookingStatus::paidValues())
             ->whereNull('departure_reminder_sent_at')
             ->whereHas('schedule', fn ($q) => $q
                 ->whereNotIn('status', [ScheduleStatus::Cancelled->value, ScheduleStatus::Completed->value])
-                ->where('start_date', '>', now())
+                ->where('start_date', '>', \App\Services\DemoClock::commandNow())
                 ->where('start_date', '<=', $den))
             ->get();
 
@@ -84,7 +86,7 @@ class SendDepartureReminders extends Command
                  * kịp ghi mốc rồi tiến trình chết — chỉ dẫn tới một thư trùng, phiền hơn nhưng
                  * không ai lỡ chuyến vì nó.
                  */
-                $booking->forceFill(['departure_reminder_sent_at' => now()])->save();
+                $booking->forceFill(['departure_reminder_sent_at' => \App\Services\DemoClock::commandNow()])->save();
                 $daGui++;
 
                 $this->line("  Đã nhắc {$email} (đơn #{$booking->id})");

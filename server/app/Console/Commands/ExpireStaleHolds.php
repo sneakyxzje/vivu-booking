@@ -37,7 +37,9 @@ class ExpireStaleHolds extends Command
         parent::__construct();
     }
 
-    public function handle(): int
+    use \App\Console\Concerns\RunsWithDemoClock;
+
+    public function handleForClock(): int
     {
         $daDon = 0;
 
@@ -79,7 +81,7 @@ class ExpireStaleHolds extends Command
      */
     private function candidates()
     {
-        return Booking::query()
+        return Booking::query()->forClock()
             ->where('status', 'pending')
             ->whereNotNull('tour_schedule_id')
             ->whereHas('schedule', function ($query) {

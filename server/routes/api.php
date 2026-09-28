@@ -337,7 +337,14 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         Route::get('/schedules/{id}/attendance-report', [AdminAttendanceController::class, 'scheduleReport']);
 
 
-        // A10 — Đổi trạng thái chuyến thủ công (open ↔ closed, → confirmed, → cancelled).
+        Route::get('/demo-availability', [\App\Http\Controllers\Api\Admin\AdminScheduleDemoController::class, 'availability']);
+        Route::get('/tour-schedules/{id}/demo', [\App\Http\Controllers\Api\Admin\AdminScheduleDemoController::class, 'show']);
+        Route::post('/tour-schedules/{id}/demo/enable', [\App\Http\Controllers\Api\Admin\AdminScheduleDemoController::class, 'enable']);
+        Route::post('/tour-schedules/{id}/demo/advance', [\App\Http\Controllers\Api\Admin\AdminScheduleDemoController::class, 'advance']);
+        Route::post('/tour-schedules/{id}/demo/status', [\App\Http\Controllers\Api\Admin\AdminScheduleDemoController::class, 'status']);
+        Route::post('/tour-schedules/{id}/demo/milestone', [\App\Http\Controllers\Api\Admin\AdminScheduleDemoController::class, 'milestone']);
+
+        // A10 — Chốt chuyến thủ công; hủy chuyến đi qua luồng xử lý đơn riêng.
         Route::patch('/schedules/{id}/status', [AdminTourController::class, 'updateScheduleStatus']);
 
         // Đổi hướng dẫn viên giữa chừng. Tách khỏi phân công thường vì bắt buộc kèm biên bản.

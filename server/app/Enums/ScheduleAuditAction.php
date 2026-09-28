@@ -17,6 +17,7 @@ enum ScheduleAuditAction: string
 
     /** Đổi hướng dẫn viên giữa chừng, kèm biên bản bàn giao. */
     case GuideHandover = 'guide_handover';
+    case DemoClockChanged = 'demo_clock_changed';
 
     public function label(): string
     {
@@ -24,6 +25,7 @@ enum ScheduleAuditAction: string
             self::DeadlineChanged => 'Đổi hạn chốt danh sách',
             self::Cancelled => 'Hủy chuyến',
             self::GuideHandover => 'Bàn giao hướng dẫn viên',
+            self::DemoClockChanged => 'Chuyển mốc thời gian demo',
         };
     }
 
