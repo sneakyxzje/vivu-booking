@@ -4,6 +4,7 @@ import type { ItineraryFormItem } from "./types";
 import { danhSoLai } from "./formHelpers";
 import { fillItineraryDays } from "./itineraryValidation";
 import { CheckpointManager } from "../../admin/CheckpointManager";
+import { ItineraryImagesInput } from "./ItineraryImagesInput";
 
 interface Props {
   labelClass: string;
@@ -69,6 +70,9 @@ export function TourFormItinerarySection({ items: savedItems, maxDays, onChange 
           <Form.Item label="Hoạt động trong ngày" htmlFor={`itinerary-${activeIndex}-content`} required>
             <Input.TextArea id={`itinerary-${activeIndex}-content`} value={current.content} onChange={event => update({ content: event.target.value })}
               autoSize={{ minRows: 7, maxRows: 18 }} placeholder={"Sáng: Đón khách và khởi hành.\nTrưa: Ăn trưa tại nhà hàng.\nChiều: Tham quan các điểm trong chương trình.\nTối: Ăn tối, nhận phòng và nghỉ ngơi."} />
+          </Form.Item>
+          <Form.Item label="Ảnh trong ngày" extra="Không bắt buộc · Tối đa 8 ảnh, mỗi ảnh 5 MB. Ảnh được tải lên khi lưu tour.">
+            <ItineraryImagesInput item={current} onChange={update} />
           </Form.Item>
         </Form>
 

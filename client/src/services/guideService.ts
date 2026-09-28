@@ -99,6 +99,8 @@ export const buildTourPayload = (form: unknown) => {
           route_points?: string[];
           rest_stops?: string;
           content: string;
+          images?: string[];
+          image_files?: File[];
           checkpoints?: {
             id?: number;
             name: string;
@@ -124,6 +126,12 @@ export const buildTourPayload = (form: unknown) => {
     );
     data.append(`itineraries[${index}][rest_stops]`, item.rest_stops ?? "");
     data.append(`itineraries[${index}][content]`, item.content);
+    if (item.images !== undefined) {
+      data.append(`itineraries[${index}][replace_images]`, "1");
+      item.images.forEach(url => data.append(`itineraries[${index}][images][]`, url));
+    }
+    item.image_files?.forEach(file => data.append(`itineraries[${index}][image_files][]`, file));
+
 
     /*
      * Điểm dừng. Trước đây payload bỏ qua hẳn phần này, nên mọi điểm dừng khai ở biểu mẫu tạo

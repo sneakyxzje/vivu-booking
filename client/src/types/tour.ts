@@ -50,6 +50,7 @@ export interface ItineraryCheckpoint {
 }
 
 export interface TourItinerary {
+  images?: string[] | null;
   id: number;
   tour_id: number;
   day_number: number;

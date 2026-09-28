@@ -20,6 +20,8 @@ export interface CheckpointItem {
 }
 
 export interface ItineraryFormItem {
+  images?: string[];
+  image_files?: File[];
   id?: number;
   day_number: string;
   title: string;

@@ -244,6 +244,8 @@ export const CreateTourForm: React.FC = () => {
           image_previews: [],
           itineraries: fillItineraryDays(
             tour.itineraries?.map((item) => ({
+              images: item.images ?? [],
+              image_files: [],
               id: item.id,
               day_number: String(item.day_number),
               title: item.title,
