@@ -28,6 +28,8 @@ use Tests\TestCase;
  */
 class GuideOperationsFixesTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private User $dieuHanh;
@@ -351,7 +353,7 @@ class GuideOperationsFixesTest extends TestCase
 
         $chuyen = $this->taoChuyen(now()->addDays(20));
 
-        $don = $this->postJson('/api/bookings', [
+        $don = $this->postVerifiedBooking([
             'tour_id' => $this->tour->id,
             'tour_schedule_id' => $chuyen->id,
             'customer_name' => 'Khach Doi The',
@@ -376,6 +378,17 @@ class GuideOperationsFixesTest extends TestCase
             (int) $chuyen->fresh()->booked_people,
             'Chỗ vẫn được giữ cho tới khi hết hạn thanh toán.',
         );
+        $this->assertDatabaseCount('booking_payments', 0);
+
+        // Khách đổi thẻ và trả lại trên cùng đơn; IPN lặp không thu tiền hai lần.
+        $retry = $this->vnpayQuayVe($booking, 4_000_000);
+        $this->getJson('/api/vnpay/ipn?' . http_build_query($retry))->assertOk();
+        $this->getJson('/api/vnpay/ipn?' . http_build_query($retry))->assertOk();
+        $this->assertSame('confirmed', $booking->fresh()->status);
+        $this->assertNull($booking->fresh()->expires_at);
+        $this->assertSame($choTruoc, (int) $chuyen->fresh()->booked_people);
+        $this->assertDatabaseCount('booking_payments', 1);
+        $this->assertSame(4_000_000.0, (float) $booking->payments()->sum('amount'));
     }
 
     /** Hết hạn thì tác vụ nền vẫn dọn đúng như cũ — không có đơn nào nằm lại vĩnh viễn. */
@@ -385,7 +398,7 @@ class GuideOperationsFixesTest extends TestCase
 
         $chuyen = $this->taoChuyen(now()->addDays(20));
 
-        $this->postJson('/api/bookings', [
+        $this->postVerifiedBooking([
             'tour_id' => $this->tour->id,
             'tour_schedule_id' => $chuyen->id,
             'customer_name' => 'Khach Bo Cuoc',

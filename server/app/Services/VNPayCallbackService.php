@@ -127,7 +127,7 @@ class VNPayCallbackService
             }
 
             if ($booking->status === 'pending') {
-                return $this->xuLyDonChoThanhToan($booking, $thanhCong, $soTien, $maGiaoDich, $query['vnp_ResponseCode'] ?? null);
+                return $this->xuLyDonChoThanhToan($booking, $thanhCong, $soTien, $maGiaoDich);
             }
 
             /*
@@ -196,7 +196,6 @@ class VNPayCallbackService
         bool $thanhCong,
         float $soTien,
         ?string $maGiaoDich,
-        ?string $rspCode = null,
     ): array {
         /*
          * Trả tiền THẤT BẠI thì đơn giữ nguyên `pending`, không hủy.
@@ -211,15 +210,9 @@ class VNPayCallbackService
          * rồi `BookingHoldService` tự dọn nếu khách thật sự bỏ cuộc — không cần một đường hủy thứ
          * hai chạy sớm hơn hạn mà cả hệ thống đang cam kết với khách.
          *
-         * NGOẠI LỆ: Nếu khách chủ động bấm "Hủy thanh toán/Quay lại" trên cổng VNPay (mã lỗi 24),
-         * ta có cơ sở chắc chắn là họ đã từ chối mua. Lúc này cần dọn dẹp và nhả chỗ ngay lập tức.
+         * Mã 24 chỉ hủy lượt thanh toán tại cổng; khách vẫn có thể đổi thẻ và thử lại trong hạn.
          */
         if (!$thanhCong) {
-            if ($rspCode === '24') {
-                $this->holdService->expireStaleHold($booking, 'Khách hàng từ chối thanh toán tại cổng VNPay');
-                $booking->refresh();
-            }
-
             return $this->ketQua(null, false, self::RSP_THANH_CONG, $booking->id);
         }
 
