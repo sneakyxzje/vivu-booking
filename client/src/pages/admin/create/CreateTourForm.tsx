@@ -13,6 +13,8 @@ import { TourFormItinerarySection } from "@/components/guide/tour-form/TourFormI
 import { TourFormScheduleSection } from "@/components/guide/tour-form/TourFormScheduleSection";
 import { daDoiHanChot, khoaChuyenMoi, ngayRong } from "@/components/guide/tour-form/formHelpers";
 import { LY_DO_DOI_HAN_TOI_THIEU } from "@/utils/schedule";
+import { fillItineraryDays, itineraryErrors } from "@/components/guide/tour-form/itineraryValidation";
+import { scheduleErrors } from "@/components/guide/tour-form/scheduleValidation";
 import { TourFormTaxonomySection } from "@/components/guide/tour-form/TourFormTaxonomySection";
 import { TourFormSidebar } from "@/components/guide/tour-form/TourFormSidebar";
 import {
@@ -122,7 +124,12 @@ export const CreateTourForm: React.FC = () => {
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [guidesByUid, setGuidesByUid] = useState<Record<string, Guide[]>>({});
+  const [guideAvailability, setGuideAvailability] = useState<{ key: string; guides: Record<string, Guide[]> }>({ key: "", guides: {} });
+  const availabilityKey = JSON.stringify({
+    days: form.number_of_days,
+    schedules: form.schedules.map(({ uid, start_date }) => ({ uid, start_date })),
+  });
+  const guidesByUid = guideAvailability.key === availabilityKey ? guideAvailability.guides : {};
 
   /**
    * Đang hỏi máy chủ ai rảnh hay chưa — suy ra, không giữ thành state riêng.
@@ -170,7 +177,8 @@ export const CreateTourForm: React.FC = () => {
    * danh sách chuyến được sắp lại theo ngày, nên vị trí không đứng yên.
    */
   useEffect(() => {
-    const numberOfDays = Number(form.number_of_days);
+    const source: { days: string; schedules: Pick<ScheduleFormItem, "uid" | "start_date">[] } = JSON.parse(availabilityKey);
+    const numberOfDays = Number(source.days);
     const soNgayHopLe = Number.isInteger(numberOfDays) && numberOfDays >= 1;
 
     let cancelled = false;
@@ -180,7 +188,7 @@ export const CreateTourForm: React.FC = () => {
       // mỗi chuyến, nếu không màn hình đứng mãi ở "đang tìm hướng dẫn viên".
       const entries = soNgayHopLe
         ? await Promise.all(
-            form.schedules.map(async (schedule) => {
+            source.schedules.map(async (schedule) => {
               if (!schedule.start_date) return [schedule.uid, []] as const;
 
               try {
@@ -194,9 +202,9 @@ export const CreateTourForm: React.FC = () => {
               }
             }),
           )
-        : form.schedules.map((schedule) => [schedule.uid, []] as const);
+        : source.schedules.map((schedule) => [schedule.uid, []] as const);
 
-      if (!cancelled) setGuidesByUid(Object.fromEntries(entries));
+      if (!cancelled) setGuideAvailability({ key: availabilityKey, guides: Object.fromEntries(entries) });
     };
 
     loadAvailableGuides();
@@ -204,7 +212,7 @@ export const CreateTourForm: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [form.number_of_days, form.schedules]);
+  }, [availabilityKey]);
 
   useEffect(() => {
     // Tạo mới thì không có gì để tải: `loading` đã khởi tạo bằng `isEdit` nên vốn đang là false.
@@ -234,7 +242,7 @@ export const CreateTourForm: React.FC = () => {
           thumbnail_preview: "",
           images: [],
           image_previews: [],
-          itineraries:
+          itineraries: fillItineraryDays(
             tour.itineraries?.map((item) => ({
               id: item.id,
               day_number: String(item.day_number),
@@ -254,7 +262,7 @@ export const CreateTourForm: React.FC = () => {
                   description: cp.description ?? "",
                   is_required_photo: Boolean(cp.is_required_photo),
                 })),
-            })) ?? emptyForm.itineraries,
+            })) ?? [], tour.number_of_days),
           schedules:
             tour.schedules?.map((item) => ({
               id: item.id,
@@ -296,12 +304,18 @@ export const CreateTourForm: React.FC = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({
+      ...prev, [name]: value,
+      itineraries: name === "number_of_days" ? fillItineraryDays(prev.itineraries, Number(value)) : prev.itineraries,
+    }));
     if (error) setError("");
   };
 
   const datTruong = (name: string, value: string) => {
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({
+      ...prev, [name]: value,
+      itineraries: name === "number_of_days" ? fillItineraryDays(prev.itineraries, Number(value)) : prev.itineraries,
+    }));
     if (error) setError("");
   };
 
@@ -375,7 +389,7 @@ export const CreateTourForm: React.FC = () => {
    * phải, và cái chặn lúc bấm Lưu. Ba chỗ nói cùng một điều vì chỉ có một chỗ định nghĩa nó.
    *
    * Luật ở đây khớp với luật máy chủ áp trong `AdminTourController` — số đêm không quá số ngày,
-   * lịch trình không quá số ngày, khách tối thiểu không quá sức chứa, hạn chốt phải TRƯỚC giờ
+   * lịch trình đủ từng ngày, khách mục tiêu không quá sức chứa, hạn chốt phải TRƯỚC giờ
    * khởi hành.
    */
   const loiTheoBuoc = useMemo<string[][]>(() => {
@@ -390,17 +404,18 @@ export const CreateTourForm: React.FC = () => {
     if (!Number.isInteger(soNgay) || soNgay < 1) buoc1.push("Số ngày phải từ 1 trở lên");
     if (Number(form.number_of_nights) > soNgay) buoc1.push("Số đêm đang lớn hơn số ngày");
 
-    const buoc2: string[] = [];
-    if (form.itineraries.length === 0) buoc2.push("Lịch trình chưa có ngày nào");
-    if (Number.isInteger(soNgay) && form.itineraries.length > soNgay) {
-      buoc2.push(`Lịch trình đang nhiều hơn ${soNgay} ngày của tour`);
-    }
-    const ngayThieu = form.itineraries.filter(
-      (item) => !item.title.trim() || !item.content.trim(),
-    ).length;
-    if (ngayThieu > 0) buoc2.push(`${ngayThieu} ngày chưa có tiêu đề hoặc nội dung`);
+    const buoc2 = itineraryErrors(form.itineraries, soNgay);
+    const ngayThieuTenDiemDanh = form.itineraries
+      .map((item, index) => item.checkpoints?.some(point => !point.name.trim()) ? index + 1 : null)
+      .filter((day): day is number => day !== null);
+    if (ngayThieuTenDiemDanh.length) buoc2.push(`Ngày ${ngayThieuTenDiemDanh.join(", ")} có điểm danh chưa đặt tên`);
 
     const buoc3: string[] = [];
+    const invalidTimes = form.schedules.some(item =>
+      !["in_progress", "completed", "cancelled"].includes(item.status)
+      && ["start_date", "end_date", "arrival_at", "return_departure_at"].some(field =>
+        scheduleErrors(item)[field as keyof ScheduleFormItem]));
+    if (invalidTimes) buoc3.push("Có chuyến cần kiểm tra ngày giờ. Mở chuyến để xem lỗi tại ô nhập.");
     if (form.schedules.length === 0) buoc3.push("Chưa mở ngày khởi hành nào");
     if (form.schedules.some((item) => !item.start_date)) {
       buoc3.push("Có chuyến chưa chọn ngày khởi hành");
@@ -410,7 +425,7 @@ export const CreateTourForm: React.FC = () => {
         (item) => Number(item.min_people) > Number(item.max_people),
       )
     ) {
-      buoc3.push("Có chuyến đặt khách tối thiểu lớn hơn sức chứa");
+      buoc3.push("Có chuyến đặt khách mục tiêu lớn hơn sức chứa");
     }
     if (
       form.schedules.some(
@@ -520,8 +535,8 @@ export const CreateTourForm: React.FC = () => {
   }
 
   const laBuocCuoi = buoc === BUOC.length - 1;
-  // Bước lịch khởi hành cần cả bề ngang cho lịch tháng, nên cột xem trước lui ra.
-  const anCotPhai = buoc === 2;
+  // Hai bước nhập lịch cần đủ bề ngang để soạn nội dung và xem ngày giờ.
+  const anCotPhai = buoc === 1 || buoc === 2;
 
   return (
     <div className="w-full animate-fade-in pb-4">
