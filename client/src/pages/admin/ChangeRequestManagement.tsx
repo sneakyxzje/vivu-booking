@@ -217,7 +217,7 @@ export default function ChangeRequestManagement() {
                       </>,<>
                         {soTien(item.estimated_refund)}
                         <span className="block font-normal text-gray-500">
-                          {item.estimated_refund_percent}%
+                          Phí hủy {100 - Number(item.estimated_refund_percent)}% giá trị đơn
                         </span>
                       </>,<>
                         <span
@@ -292,7 +292,7 @@ export default function ChangeRequestManagement() {
                 {soTien(detail.request.estimated_refund)}
               </p>
               <p className="text-[11px] text-emerald-700 mt-1">
-                {detail.request.estimated_refund_percent}% giá trị đơn, chốt lúc
+                Phí hủy {100 - Number(detail.request.estimated_refund_percent)}% giá trị đơn, chốt lúc
                 khách gửi ngày {formatDateTime(detail.request.created_at)}
               </p>
             </div>{detail.seats_will_be_released ? (

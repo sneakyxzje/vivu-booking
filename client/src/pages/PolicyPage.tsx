@@ -67,7 +67,7 @@ export default function PolicyPage() {
   useDocumentMeta({
     title: "Điều khoản, chính sách hủy và bảo mật",
     description:
-      "Điều kiện đặt tour, bảng phí hủy theo mốc thời gian, mức hoàn tiền và cách chúng tôi xử lý dữ liệu cá nhân của bạn.",
+      "Điều kiện đặt tour, hoàn hủy theo hạn chốt danh sách và cách chúng tôi xử lý dữ liệu cá nhân của bạn.",
   });
 
   const [data, setData] = useState<PolicyResponse | null>(null);
@@ -324,8 +324,9 @@ export default function PolicyPage() {
               đến hạn chốt danh sách mà vẫn chưa trả đủ thì hệ thống hủy đơn và
               giữ lại khoản cọc <Manh>{data.payment.deposit_percent}% giá trị đơn</Manh>,
               tối đa bằng số tiền đã thu. Khoản đã trả vượt tiền cọc được ghi nhận
-              để hoàn lại. Trường hợp này không áp dụng bảng phí khách chủ động hủy
-              tại mục 5. Hạn thanh toán cụ thể hiển thị trên đơn hàng.
+              để hoàn lại. Hạn thanh toán cụ thể hiển thị trên đơn hàng. Nếu đã gửi
+              yêu cầu hủy trước hạn và chưa rút lại, hệ thống giữ quyền hoàn đủ theo
+              yêu cầu đó khi xử lý đơn quá hạn.
             </Doan>
 
             <Doan>
@@ -369,10 +370,8 @@ export default function PolicyPage() {
             </Doan>
 
             <Doan>
-              <Manh>5.2.</Manh> Phí hủy được xác định căn cứ vào số ngày còn lại
-              tính đến giờ khởi hành ghi trên đơn hàng, theo giờ Việt Nam.
-              Tỷ lệ dưới đây tính trên <Manh>tổng giá trị đơn</Manh>, không phải
-              trên số tiền đã đặt cọc:
+              <Manh>5.2.</Manh> Tiền hoàn được xác định theo thời điểm gửi yêu cầu
+              hủy so với <Manh>hạn chốt danh sách của chuyến</Manh>, theo giờ Việt Nam:
             </Doan>
 
             <div className="mt-5 overflow-x-auto">
@@ -380,10 +379,10 @@ export default function PolicyPage() {
                 <thead>
                   <tr className="border-b border-hairline">
                     <th className="text-caption-sm text-muted py-2.5 pr-6 font-normal tracking-wide uppercase">
-                      Hủy trước ngày khởi hành
+                      Thời điểm gửi yêu cầu hủy
                     </th>
                     <th className="text-caption-sm text-muted py-2.5 font-normal tracking-wide uppercase">
-                      Phí hủy trên giá trị đơn
+                      Cách hoàn tiền
                     </th>
                   </tr>
                 </thead>
@@ -397,7 +396,7 @@ export default function PolicyPage() {
                         {bac.window}
                       </td>
                       <td className="text-body-md text-ink py-3.5 pr-6 font-semibold tabular-nums">
-                        {100 - bac.refund_percent}%
+                        {bac.note}
                       </td>
                     </tr>
                   ))}
@@ -406,17 +405,18 @@ export default function PolicyPage() {
             </div>
 
             <Doan>
-              <Manh>5.3.</Manh> Số ngày quy định tại khoản 5.2 được tính đến phần
-              lẻ và không làm tròn lên. Yêu cầu hủy gửi trước giờ khởi hành 47
-              giờ tương ứng 1,96 ngày và được xếp vào bậc dưới 2 ngày.
+              <Manh>5.3.</Manh> Mốc chốt được tính đúng theo ngày giờ hiển thị
+              trên đơn. Gửi yêu cầu đúng lúc đến hạn chốt đã thuộc trường hợp
+              giữ cọc. Không làm tròn ngày và không dùng bảng phí theo số ngày
+              trước khởi hành.
             </Doan>
 
             <Doan>
-              <Manh>5.4.</Manh> Phí hủy được tính trên tổng giá trị đơn hàng. Số
-              tiền hoàn bằng số tiền khách hàng đã thực thanh toán trừ đi phí hủy
-              và trong mọi trường hợp <Manh>không nhỏ hơn 0</Manh>. Khách hàng
-              không phải thanh toán thêm bất kỳ khoản nào khi hủy, kể cả khi phí
-              hủy lớn hơn số tiền đã thanh toán.
+              <Manh>5.4.</Manh> Trước hạn chốt, hoàn toàn bộ số đã thanh toán.
+              Từ hạn chốt đến trước khởi hành, giữ khoản cọc bằng{" "}
+              <Manh>{data.payment.deposit_percent}% tổng giá trị đơn</Manh>,
+              tối đa bằng số đã thu; hoàn phần đã trả vượt khoản cọc. Khách hàng
+              không phải nộp thêm tiền khi hủy.
             </Doan>
 
             <Doan>
@@ -436,7 +436,9 @@ export default function PolicyPage() {
             <Doan>
               <Manh>5.7.</Manh> Trước khi xác nhận hủy, hệ thống hiển thị mức
               hoàn và số tiền dự kiến nhận lại tương ứng với thời điểm gửi yêu
-              cầu để khách hàng đối chiếu.
+              cầu để khách hàng đối chiếu. Mức phí được giữ tại thời điểm gửi,
+              kể cả khi điều hành duyệt sau hạn chốt. Số tiền hoàn được cập nhật
+              theo số thực thanh toán khi xử lý.
             </Doan>
 
             <Doan>
@@ -775,9 +777,8 @@ export default function PolicyPage() {
                 thư điện tử đã đăng ký.
               </li>
               <li>
-                Đơn đã thanh toán là cam kết giữ chỗ chính thức giữa Vivu Booking
-                và khách hàng, kèm theo bảng phí hủy tại thời điểm đặt như nêu ở
-                mục 5.
+                Đơn đã thanh toán là cam kết giữ chỗ giữa Vivu Booking và khách hàng.
+                Hủy đơn áp dụng hạn chốt danh sách của chuyến như nêu ở mục 5.
               </li>
               <li>
                 Công ty có quyền từ chối hoặc hủy các đơn có dấu hiệu gian lận,
@@ -813,16 +814,9 @@ export default function PolicyPage() {
             <Muc>18. Hiệu lực thi hành</Muc>
 
             <Doan>
-              {data.cancellation.effective_from ? (
-                <>
-                  Bảng phí hủy tại mục 5 có hiệu lực từ{" "}
-                  <Manh>{data.cancellation.effective_from}</Manh>.{" "}
-                </>
-              ) : null}
-              Đơn đặt tour phát sinh trước thời điểm này tiếp tục áp dụng bảng phí
-              tại thời điểm đặt — hệ thống lưu điều khoản vào từng đơn ngay khi
-              khách hàng đặt, nên việc công ty cập nhật chính sách không làm thay
-              đổi thỏa thuận đã ký kết.
+              Chính sách hoàn hủy tại mục 5 áp dụng thống nhất theo hạn chốt danh sách
+              của chuyến. Các đơn đã hủy và khoản hoàn đã ghi nhận được giữ nguyên;
+              không tính lại các giao dịch đã xử lý.
             </Doan>
 
             <Doan>
@@ -862,26 +856,26 @@ export default function PolicyPage() {
                   để hoàn lại.
                 </p>
                 <p>
-                  Trường hợp này <strong>không áp dụng bảng phí hủy theo số ngày</strong> ở
-                  mục 5. Nếu chưa thanh toán khoản nào, đơn hết hạn giữ chỗ sẽ tự hủy
-                  và không có tiền cọc để khấu trừ.
+                  Nếu chưa thanh toán khoản nào, đơn hết hạn giữ chỗ sẽ tự hủy và
+                  không có tiền cọc để khấu trừ. Nếu bạn đã gửi yêu cầu hủy trước hạn
+                  và chưa rút lại, quyền hoàn đủ được giữ khi hệ thống xử lý đơn quá hạn.
                 </p>
               </CauHoi>
 
               <CauHoi hoi="Nếu tôi chủ động hủy đơn thì được hoàn bao nhiêu?">
                 <p>
-                  Phí hủy áp dụng theo bảng ở mục 5, dựa trên thời điểm gửi yêu cầu
-                  và bảng phí áp dụng cho đơn của bạn. Phí được tính trên{" "}
-                  <strong>tổng giá trị đơn</strong>.
+                  Gửi yêu cầu <strong>trước hạn chốt danh sách</strong>: hoàn toàn
+                  bộ số tiền đã thanh toán.
                 </p>
                 <p>
-                  <strong>Tiền hoàn = số đã thanh toán − phí hủy</strong>, tối thiểu
-                  bằng 0. Nếu bạn mới đóng cọc và phí hủy bằng hoặc lớn hơn khoản
-                  cọc đó thì bạn không nhận lại tiền cọc và không phải nộp thêm.
+                  Gửi yêu cầu <strong>từ hạn chốt đến trước khởi hành</strong>:
+                  giữ cọc {data.payment.deposit_percent}% giá trị đơn, tối đa bằng số
+                  đã thu; hoàn phần đã trả vượt cọc. Bạn không phải nộp thêm tiền khi hủy.
                 </p>
                 <p>
                   Đơn đã thanh toán cần gửi yêu cầu và chờ điều hành duyệt hủy.
-                  Trước khi gửi, bạn có thể xem số tiền hoàn dự kiến.
+                  Mức phí được giữ theo lúc gửi, kể cả khi duyệt sau hạn chốt.
+                  Chuyến đã khởi hành thì không còn hủy được.
                 </p>
               </CauHoi>
 

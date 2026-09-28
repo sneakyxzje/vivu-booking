@@ -37,7 +37,7 @@ export const RefundPolicyCard = ({ publicToken }: { publicToken: string }) => {
 
   if (loading || !quote) return null;
 
-  const daKhoiHanh = quote.hours_before !== null && quote.hours_before < 0;
+  const daKhoiHanh = quote.hours_before !== null && quote.hours_before <= 0;
   const soNgayConLai =
     quote.hours_before !== null ? Math.floor(quote.hours_before / 24) : null;
 
@@ -81,7 +81,7 @@ export const RefundPolicyCard = ({ publicToken }: { publicToken: string }) => {
             {formatPrice(quote.refund_amount)}
           </p>
           <p className="mt-1 text-xs text-gray-600">
-            Hoàn {quote.refund_percent}% giá trị đơn. Phí hủy{" "}
+            Phí hủy{" "}
             {formatPrice(quote.cancellation_fee)} trên tổng {formatPrice(quote.total_amount)}.
           </p>
           {quote.paid_amount === 0 && (
@@ -109,7 +109,7 @@ export const RefundPolicyCard = ({ publicToken }: { publicToken: string }) => {
                       className={dangApDung ? "bg-primary-50 font-bold text-primary-800" : "text-gray-600"}
                     >
                       <td className="px-3 py-2">{rule.window}</td>
-                      <td className="px-3 py-2 text-right">Hoàn {rule.refund_percent}%</td>
+                      <td className="px-3 py-2 text-right">{rule.note}</td>
                     </tr>
                   );
                 })}

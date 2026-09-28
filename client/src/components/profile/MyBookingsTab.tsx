@@ -1388,7 +1388,7 @@ export const MyBookingsTab: React.FC = () => {
                         giờ tới khởi hành
                       </span>
                       <span className="font-bold text-gray-900">
-                        Mức hoàn {requestPreview.refund_percent}%
+                        {requestPreview.cancellation_fee === 0 ? "Hoàn đủ số đã trả" : "Giữ khoản cọc 50% giá trị đơn"}
                       </span>
                     </div>
 
