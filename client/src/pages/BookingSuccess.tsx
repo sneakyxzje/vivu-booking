@@ -1,3 +1,6 @@
+import { DemoClockNotice } from "@/components/DemoClockNotice";
+import { businessNow, type DemoClockValue } from "@/utils/demoClock";
+import { Alert, Breadcrumb, Card, Descriptions, Flex, Result, Tag, Typography, Button as AntButton, Input as AntInput } from "antd";
 import {
   Link,
   useLocation,
@@ -7,10 +10,11 @@ import {
 import { useEffect, useState } from "react";
 import bookingService from "@/services/bookingService";
 import { RefundPolicyCard } from "@/components/RefundPolicyCard";
-import { CreditCardIcon, ChevronRightIcon } from "@/components/Icons";
+import { CreditCardIcon } from "@/components/Icons";
 import { formatDateTime } from "@/utils/format";
 
 type Booking = {
+  demo_clock?: DemoClockValue | null;
   id: number;
   public_token?: string;
   customer_name: string;
@@ -107,33 +111,9 @@ const isCancelledStatus = (status: string) =>
  * nhưng với khách thì một bên còn việc phải làm và một bên thì không.
  */
 const getStatusBadge = (status: string, conNo = 0) => {
-  if (isPaidStatus(status)) {
-    if (conNo > 0) {
-      return (
-        <span className="bg-teal-50 text-teal-700 border border-teal-200 text-xs font-bold px-3 py-1 rounded-full">
-          Đã cọc
-        </span>
-      );
-    }
-
-    return (
-      <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold px-3 py-1 rounded-full">
-        Đã thanh toán
-      </span>
-    );
-  }
-  if (isPendingStatus(status)) {
-    return (
-      <span className="bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold px-3 py-1 rounded-full animate-pulse">
-        Chờ thanh toán
-      </span>
-    );
-  }
-  return (
-    <span className="bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold px-3 py-1 rounded-full">
-      {isCancelledStatus(status) ? "Thanh toán chưa hoàn tất" : status}
-    </span>
-  );
+  if (isPaidStatus(status)) return <Tag color={conNo > 0 ? "processing" : "success"}>{conNo > 0 ? "Đã cọc" : "Đã thanh toán"}</Tag>;
+  if (isPendingStatus(status)) return <Tag color="warning">Chờ thanh toán</Tag>;
+  return <Tag color="error">{status === "failed" ? "Thanh toán chưa hoàn tất" : isCancelledStatus(status) ? "Đã hủy" : status}</Tag>;
 };
 
 export default function BookingSuccess() {
@@ -182,8 +162,8 @@ export default function BookingSuccess() {
 
       setRefundError(
         (data?.errors ? Object.values(data.errors).flat()[0] : null) ??
-          data?.message ??
-          "Không lưu được thông tin tài khoản. Vui lòng thử lại.",
+        data?.message ??
+        "Không lưu được thông tin tài khoản. Vui lòng thử lại.",
       );
     } finally {
       setRefundSaving(false);
@@ -194,8 +174,9 @@ export default function BookingSuccess() {
   // Proposals
   const [proposals, setProposals] = useState<any[]>([]);
   const [respondingProposalId, setRespondingProposalId] = useState<number | null>(null);
-  const [proposalEmail, setProposalEmail] = useState("");
+  const [proposalEmail, setProposalEmail] = useState(searchParams.get("email") ?? "");
   const [proposalError, setProposalError] = useState("");
+  const [proposalErrorId, setProposalErrorId] = useState<number | null>(null);
 
   // Luôn tải bản mới nhất từ server (kể cả khi đã có dữ liệu từ trang đặt tour),
   // để trạng thái đơn phản ánh đúng khi bị admin hủy hoặc hết hạn giữ chỗ.
@@ -206,6 +187,7 @@ export default function BookingSuccess() {
       try {
         const response = await bookingService.getById(id);
         setBooking(response.data.data as Booking);
+        if (!proposalEmail) setProposalEmail(response.data.data.customer_email ?? "");
       } catch {
         if (!state) setBooking(null);
       } finally {
@@ -215,7 +197,7 @@ export default function BookingSuccess() {
 
     const loadProposals = async () => {
       try {
-        const response = await bookingService.getProposals(id);
+        const response = await bookingService.getProposals(id, proposalEmail.trim());
         setProposals(response.data?.data || []);
       } catch {
         // ignore
@@ -223,10 +205,12 @@ export default function BookingSuccess() {
     };
 
     loadBooking();
-    loadProposals();
-  }, [id, state]);
+    if (proposalEmail.trim()) loadProposals();
+  }, [id, state, proposalEmail]);
 
   const handleRespondProposal = async (proposalId: number, choiceId: string) => {
+    if (respondingProposalId !== null) return;
+    setProposalErrorId(proposalId);
     if (!proposalEmail.trim()) {
       setProposalError("Vui lòng nhập Email để xác nhận.");
       return;
@@ -242,8 +226,10 @@ export default function BookingSuccess() {
         choice_id: choiceId,
         customer_email: proposalEmail.trim(),
       });
+      const updated = await bookingService.getById(id);
+      setBooking(updated.data.data as Booking);
       // Refresh
-      const response = await bookingService.getProposals(id);
+      const response = await bookingService.getProposals(id, proposalEmail.trim());
       setProposals(response.data?.data || []);
     } catch (err: any) {
       setProposalError(err.response?.data?.message || "Lỗi khi xác nhận. Vui lòng thử lại.");
@@ -265,7 +251,7 @@ export default function BookingSuccess() {
     const tick = () => {
       const secondsLeft = Math.max(
         0,
-        Math.floor((expiresAt - Date.now()) / 1000),
+        Math.floor((expiresAt - businessNow(booking)) / 1000),
       );
       setRemainingSeconds(secondsLeft);
 
@@ -387,6 +373,10 @@ export default function BookingSuccess() {
    * tuần sau đơn của họ bị hủy vì chưa trả nốt.
    */
   const daCocChuaDu = paid && remainingAmount > 0;
+  // Đơn cũ có thể còn lưu lời giải thích dài trước khi rút gọn lý do hủy.
+  const cancellationReason = booking.cancel_reason
+    ?.replace(/,\s*hệ thống tự hủy để nhường chỗ\.?$/u, "")
+    .trim();
 
   const headerTitle = daCocChuaDu
     ? "Đã nhận tiền cọc, chỗ của bạn được giữ"
@@ -400,85 +390,28 @@ export default function BookingSuccess() {
   const headerDescription = daCocChuaDu
     ? `Booking BK${booking.id} đã được giữ chỗ. Còn ${formatCurrency(remainingAmount)} cần thanh toán${booking.balance_due_at ? ` trước ngày ${formatDateTime(booking.balance_due_at)}` : ""}; chúng tôi đã gửi chi tiết về ${booking.customer_email}.`
     : paid
-    ? `Booking BK${booking.id} đã được xác nhận. Thông tin hóa đơn và phiếu xác nhận đã được gửi về ${booking.customer_email}.`
-    : cancelled
-      ? `Đơn BK${booking.id} đã bị hủy${booking.cancel_reason ? ` — lý do: ${booking.cancel_reason}` : ""}. Nếu bạn đã thanh toán cho đơn này, chúng tôi sẽ liên hệ hoàn tiền. Cần hỗ trợ vui lòng liên hệ hotline.`
-      : paymentStatus === "failed"
-        ? "Giao dịch chưa hoàn tất hoặc đã bị hủy. Bạn có thể chọn tour khác hoặc liên hệ hỗ trợ để được kiểm tra."
-        : `Chúng tôi đã ghi nhận yêu cầu đặt tour và gửi hướng dẫn thanh toán về ${booking.customer_email}. Vui lòng hoàn tất thanh toán để giữ chỗ.`;
+      ? `Booking BK${booking.id} đã được xác nhận. Thông tin hóa đơn và phiếu xác nhận đã được gửi về ${booking.customer_email}.`
+      : cancelled
+        ? `Đơn BK${booking.id} đã bị hủy${cancellationReason ? ` — lý do: ${cancellationReason}` : ""}. Nếu bạn đã thanh toán cho đơn này, chúng tôi sẽ liên hệ hoàn tiền. Cần hỗ trợ vui lòng liên hệ hotline.`
+        : paymentStatus === "failed"
+          ? "Giao dịch chưa hoàn tất hoặc đã bị hủy. Bạn có thể chọn tour khác hoặc liên hệ hỗ trợ để được kiểm tra."
+          : `Chúng tôi đã ghi nhận yêu cầu đặt tour và gửi hướng dẫn thanh toán về ${booking.customer_email}. Vui lòng hoàn tất thanh toán để giữ chỗ.`;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 font-inter">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
-        <nav className="flex items-center gap-2 text-xs md:text-sm text-gray-500 font-medium mb-6">
-          <Link to="/" className="hover:text-primary-600 transition-colors">
-            Trang chủ
-          </Link>
-          <ChevronRightIcon className="w-3.5 h-3.5 text-gray-300" />
-          <span className="text-gray-900 font-medium">Hóa đơn đặt tour</span>
-        </nav>
+        <Breadcrumb style={{ marginBottom: 24 }} items={[{ title: <Link to="/">Trang chủ</Link> }, { title: "Đơn đặt tour" }]} />
 
-        <div className="bg-white rounded-xl p-6 md:p-8 border border-gray-100 shadow-sm mb-8 flex flex-col md:flex-row items-center gap-6">
-          <div
-            className={`w-16 h-16 rounded-lg border flex items-center justify-center shrink-0 ${paid ? "bg-emerald-50 border-emerald-100 text-emerald-600" : cancelled ? "bg-rose-50 border-rose-100 text-rose-600" : "bg-amber-50 border-amber-100 text-amber-600"}`}
-          >
-            <svg
-              className="w-8 h-8"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              {paid ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2.5}
-                  d="M5 13l4 4L19 7"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2.2}
-                  d="M12 8v4m0 4h.01M12 3a9 9 0 110 18 9 9 0 010-18z"
-                />
-              )}
-            </svg>
-          </div>
-          <div className="text-center md:text-left flex-1">
-            <div className="flex flex-col gap-2 md:flex-row md:items-center">
-              <h1 className="text-2xl md:text-2xl font-bold text-gray-900 font-plus-jakarta tracking-tight">
-                {headerTitle}
-              </h1>
-              <span className="md:ml-2">{getStatusBadge(booking.status, remainingAmount)}</span>
-            </div>
-            <p className="mt-1.5 text-sm text-gray-500 leading-relaxed max-w-3xl">
-              {headerDescription}
-            </p>
-          </div>
-          <div className="text-center md:text-right shrink-0">
-            <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-              Mã booking
-            </p>
-            <p className="text-2xl font-bold text-primary-600 font-mono">
-              BK{booking.id}
-            </p>
-            {(booking.public_token || id) && (
-              <button
-                type="button"
-                onClick={() =>
-                  navigator.clipboard?.writeText(
-                    String(booking.public_token ?? id),
-                  )
-                }
-                title="Sao chép mã tra cứu để xem lại đơn mà không cần đăng nhập"
-                className="mt-2 text-[11px] font-semibold text-gray-500 hover:text-primary-600 transition-colors"
-              >
-                Sao chép mã tra cứu
-              </button>
-            )}
-          </div>
-        </div>
+        <DemoClockNotice clock={booking.demo_clock} />
+        <Card style={{ marginBottom: 24 }}>
+          <Result status={cancelled ? "error" : paid ? "success" : "info"}
+            title={<Typography.Title level={1} style={{ fontSize: 26, margin: 0 }}>{headerTitle}</Typography.Title>} subTitle={headerDescription}
+            extra={<Flex justify="center" align="center" gap="middle" wrap>
+              {getStatusBadge(booking.status, remainingAmount)}
+              <Typography.Text strong>BK{booking.id}</Typography.Text>
+              {(booking.public_token || id) && <Typography.Text copyable={{ text: String(booking.public_token ?? id), tooltips: ["Sao chép mã tra cứu", "Đã sao chép"] }}>Mã tra cứu</Typography.Text>}
+            </Flex>} />
+        </Card>
 
         <div className="grid gap-8 lg:grid-cols-12 items-start">
           <div className="lg:col-span-8 space-y-8">
@@ -493,37 +426,48 @@ export default function BookingSuccess() {
                 <p className="text-sm text-amber-800 mb-4 whitespace-pre-line leading-relaxed">
                   {proposal.reason}
                 </p>
+                {proposal.schedule_snapshot && <p className="text-sm text-amber-900 mb-4">
+                  Chuyến đề xuất: {proposal.schedule_snapshot.to.tour_title} · Khởi hành {formatDateTime(proposal.schedule_snapshot.to.start_date)}.
+                  Kết thúc {formatDateTime(proposal.schedule_snapshot.to.end_date)}.
+                  Hạn trả nốt: {formatDateTime(proposal.schedule_snapshot.to.booking_deadline)}. Giá đơn giữ nguyên.
+                </p>}
+                {proposal.schedule_snapshot && <div className="text-sm mb-4">
+                  <p>Điểm đón: {proposal.schedule_snapshot.to.pickup_location || "Theo chương trình tour"}</p>
+                  <a className="underline" href={`/tours/${proposal.schedule_snapshot.to.tour_slug}`} target="_blank" rel="noreferrer">Xem chương trình tour đề xuất</a>
+                  {(proposal.schedule_snapshot.to.itineraries ?? []).map((day: { day_number: number; title: string; content?: string }) =>
+                    <p key={day.day_number}>Ngày {day.day_number}: {day.title} — {day.content?.replace(/<[^>]*>/g, " ")}</p>) }
+                </div>}
+                <p className="text-sm mb-4">Từ chối hoặc không phản hồi sẽ giữ chuyến ban đầu. Bạn vẫn cần thanh toán đủ trước hạn chốt của chuyến đang đặt.</p>
 
                 <div className="bg-white p-4 rounded-lg border border-amber-100 shadow-sm">
                   <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">
                     Vui lòng chọn 1 trong các phương án sau trước hạn chót: {formatDateTime(proposal.response_deadline)}
                   </p>
 
-                  {proposalError && respondingProposalId === proposal.id && (
-                    <div className="mb-3 p-2 bg-rose-50 text-rose-700 text-xs rounded border border-rose-100">
-                      {proposalError}
-                    </div>
+                  {proposalError && proposalErrorId === proposal.id && (
+                    <Alert type="error" showIcon title={proposalError} style={{ marginBottom: 12 }} />
                   )}
 
                   <div className="flex flex-col gap-3">
-                    <input
+                    <AntInput aria-label="Nhập email đặt tour của bạn để xác nhận..."
                       type="email"
                       value={proposalEmail}
                       onChange={(e) => setProposalEmail(e.target.value)}
                       placeholder="Nhập email đặt tour của bạn để xác nhận..."
-                      className="w-full text-sm px-3 py-2 border rounded-md outline-none focus:border-amber-400"
+
                     />
 
                     <div className="flex flex-wrap gap-2">
-                      {proposal.options.map((opt: any) => (
-                        <button
+                      {[{ id: "accept", label: "Đồng ý" }, { id: "reject", label: "Từ chối, giữ chuyến ban đầu" }].map((opt) => (
+                        <AntButton htmlType="button"
                           key={opt.id}
                           onClick={() => handleRespondProposal(proposal.id, opt.id)}
-                          disabled={respondingProposalId === proposal.id}
-                          className="flex-1 min-w-[200px] bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded-md text-sm transition-colors disabled:opacity-50"
+                          loading={respondingProposalId === proposal.id} disabled={respondingProposalId !== null}
+                          className="flex-1"
+                          style={{ whiteSpace: "normal", height: "auto", minHeight: 44 }}
                         >
                           {respondingProposalId === proposal.id ? "Đang xử lý..." : opt.label}
-                        </button>
+                        </AntButton>
                       ))}
                     </div>
                   </div>
@@ -538,45 +482,17 @@ export default function BookingSuccess() {
               <RefundPolicyCard publicToken={String(booking.public_token ?? id)} />
             )}
 
-            <div className="rounded-xl bg-white p-6 md:p-8 border border-gray-100 shadow-sm">
-              <h2 className="mb-6 text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta">
-                Thông tin liên lạc
-              </h2>
-              <div className="grid gap-6 sm:grid-cols-3 text-sm">
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-                    Họ và tên
-                  </p>
-                  <p className="mt-1.5 text-base font-bold text-gray-800">
-                    {booking.customer_name}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-                    Email liên hệ
-                  </p>
-                  <p className="mt-1.5 text-base font-semibold text-gray-800 break-all font-mono">
-                    {booking.customer_email}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-                    Số điện thoại
-                  </p>
-                  <p className="mt-1.5 text-base font-bold text-gray-800 font-mono">
-                    {booking.customer_phone || "Đang cập nhật"}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-8 pt-6 border-t border-gray-100">
-                <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
-                  Ghi chú yêu cầu
-                </p>
-                <p className="mt-1.5 text-sm text-gray-600 italic whitespace-pre-line leading-relaxed">
-                  {booking.note || "Không có ghi chú đặc biệt kèm theo."}
-                </p>
-              </div>
-            </div>
+            <Card title="Thông tin liên lạc">
+              <Descriptions column={{ xs: 1, sm: 2, md: 3 }} items={[
+                { key: "name", label: "Họ và tên", children: booking.customer_name },
+                { key: "email", label: "Email", children: <Typography.Text style={{ overflowWrap: "anywhere" }}>{booking.customer_email}</Typography.Text> },
+                { key: "phone", label: "Điện thoại", children: booking.customer_phone || "Chưa cung cấp" },
+              ]} />
+              <Typography.Paragraph strong style={{ marginTop: 16 }}>Ghi chú yêu cầu</Typography.Paragraph>
+              <Typography.Paragraph style={{ whiteSpace: "pre-line", marginBottom: 0 }}>
+                {booking.note || "Không có ghi chú đặc biệt kèm theo."}
+              </Typography.Paragraph>
+            </Card>
 
             <div className="rounded-xl bg-white p-6 md:p-8 border border-gray-100 shadow-sm">
               <h2 className="mb-6 text-xl md:text-2xl font-bold text-gray-900 font-plus-jakarta">
@@ -715,11 +631,10 @@ export default function BookingSuccess() {
                       */}
                       {!pending && booking.balance_due_at && (
                         <p
-                          className={`mt-1.5 text-xs font-semibold ${
-                            booking.balance_overdue
-                              ? "text-rose-700"
-                              : "text-emerald-800"
-                          }`}
+                          className={`mt-1.5 text-xs font-semibold ${booking.balance_overdue
+                            ? "text-rose-700"
+                            : "text-emerald-800"
+                            }`}
                         >
                           {booking.balance_overdue
                             ? `Đã quá hạn thanh toán ${formatDateTime(booking.balance_due_at)}. Vui lòng thanh toán ngay hoặc liên hệ tổng đài để đơn không bị hủy.`
@@ -744,16 +659,9 @@ export default function BookingSuccess() {
                       </span>
                     </div>
                   )}
-                  <a
-                    href={booking.payment_url}
-                    className="block w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 text-center rounded-xl shadow-md hover:shadow-lg transition-all duration-300 text-sm cursor-pointer"
-                  >
-                    {pending
-                      ? isDeposit
-                        ? `Đặt cọc ${formatCurrency(payNowAmount)} ngay`
-                        : `Thanh toán ${formatCurrency(payNowAmount)} ngay`
-                      : `Thanh toán nốt ${formatCurrency(payNowAmount)}`}
-                  </a>
+                  <AntButton type="primary" block size="large" href={booking.payment_url}>
+                    {pending ? isDeposit ? "Đặt cọc " + formatCurrency(payNowAmount) + " ngay" : "Thanh toán " + formatCurrency(payNowAmount) + " ngay" : "Thanh toán nốt " + formatCurrency(payNowAmount)}
+                  </AntButton>
                 </div>
               )}
 
@@ -776,44 +684,42 @@ export default function BookingSuccess() {
                   </p>
 
                   {refundSaved ? (
-                    <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-emerald-800">
-                      Đã ghi nhận tài khoản của Quý khách.
-                    </p>
+                    <Alert type="success" showIcon title="Đã ghi nhận tài khoản của bạn." style={{ marginTop: 12 }} />
                   ) : (
                     <div className="mt-3 space-y-2">
-                      <input
+                      <AntInput aria-label="Tên chủ tài khoản (như trên thẻ)"
                         value={refundForm.refund_account_holder}
                         onChange={(e) =>
                           setRefundForm((f) => ({ ...f, refund_account_holder: e.target.value }))
                         }
                         placeholder="Tên chủ tài khoản (như trên thẻ)"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2"
+
                       />
-                      <input
+                      <AntInput aria-label="Số tài khoản"
                         value={refundForm.refund_bank_account}
                         onChange={(e) =>
                           setRefundForm((f) => ({ ...f, refund_bank_account: e.target.value }))
                         }
                         placeholder="Số tài khoản"
                         inputMode="numeric"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2"
+
                       />
-                      <input
+                      <AntInput aria-label="Ngân hàng"
                         value={refundForm.refund_bank_name}
                         onChange={(e) =>
                           setRefundForm((f) => ({ ...f, refund_bank_name: e.target.value }))
                         }
                         placeholder="Ngân hàng"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2"
+
                       />
-                      <input
+                      <AntInput aria-label="Email bạn đã dùng khi đặt tour (để xác nhận)"
                         type="email"
                         value={refundForm.customer_email}
                         onChange={(e) =>
                           setRefundForm((f) => ({ ...f, customer_email: e.target.value }))
                         }
                         placeholder="Email bạn đã dùng khi đặt tour (để xác nhận)"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2"
+
                       />
                       <p className="text-xs text-gray-500">
                         Chúng tôi hỏi lại email để chắc chắn người nhập số tài khoản đúng là chủ
@@ -821,17 +727,17 @@ export default function BookingSuccess() {
                       </p>
 
                       {refundError && (
-                        <p className="text-rose-700">{refundError}</p>
+                        <Alert type="error" showIcon title={refundError} />
                       )}
 
-                      <button
-                        type="button"
-                        disabled={refundSaving || !refundForm.customer_email.trim()}
+                      <AntButton
+                        htmlType="button"
+                        loading={refundSaving} type="primary" disabled={refundSaving || !refundForm.customer_email.trim()}
                         onClick={luuTaiKhoanHoanTien}
-                        className="w-full rounded-lg bg-amber-600 py-3 font-bold text-white hover:bg-amber-700 disabled:opacity-50"
+                        block
                       >
                         {refundSaving ? "Đang lưu..." : "Gửi thông tin tài khoản"}
-                      </button>
+                      </AntButton>
                     </div>
                   )}
                 </div>

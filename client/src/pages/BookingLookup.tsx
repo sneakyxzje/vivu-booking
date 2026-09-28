@@ -1,3 +1,4 @@
+import { Form, Alert, Breadcrumb, Input as AntInput, Button as AntButton } from "antd";
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import bookingService from "@/services/bookingService";
@@ -60,7 +61,7 @@ export const BookingLookup: React.FC = () => {
 
       setResendSuccessMessage(
         response.data?.message ||
-          "Danh sách mã tra cứu đã được gửi về email của bạn. Vui lòng kiểm tra hộp thư!",
+        "Danh sách mã tra cứu đã được gửi về email của bạn. Vui lòng kiểm tra hộp thư!",
       );
       setResendEmail("");
       setResendPhone("");
@@ -76,13 +77,7 @@ export const BookingLookup: React.FC = () => {
   return (
     <div className="min-h-[70vh] bg-gray-50/60 py-10">
       <div className="mx-auto max-w-2xl px-4 sm:px-6">
-        <nav className="mb-6 flex items-center gap-2 text-xs font-medium text-gray-500 md:text-sm">
-          <Link to="/" className="transition-colors hover:text-primary-600">
-            Trang chủ
-          </Link>
-          <span className="text-gray-300">/</span>
-          <span className="text-gray-900">Tra cứu đơn đặt tour</span>
-        </nav>
+        <Breadcrumb style={{ marginBottom: 24 }} items={[{ title: <Link to="/">Trang chủ</Link> }, { title: "Tra cứu đơn đặt tour" }]} />
 
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm md:p-8 space-y-6">
           <div>
@@ -96,12 +91,10 @@ export const BookingLookup: React.FC = () => {
           </div>
 
           {/* Form Tra Cứu Đơn */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <label className="block space-y-1.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                Mã tra cứu đơn hàng
-              </span>
-              <input
+          <Form component={false} layout="vertical"><form onSubmit={handleSubmit} className="space-y-4">
+            <Form.Item label={<>Mã tra cứu đơn hàng
+            </>} htmlFor="bookinglookup-field-1" style={{ marginBottom: 0 }}>
+              <AntInput id="bookinglookup-field-1"
                 required
                 autoFocus
                 value={code}
@@ -110,49 +103,47 @@ export const BookingLookup: React.FC = () => {
                   if (error) setError("");
                 }}
                 placeholder="Dán mã tra cứu hoặc đường dẫn trong email"
-                className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3.5 font-mono text-sm text-gray-900 transition-all focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+
               />
-            </label>
+            </Form.Item>
 
             {error && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-                {error}
-              </div>
+              <Alert showIcon type="error" title={error} />
             )}
 
-            <button
-              type="submit"
-              disabled={checking || !code.trim()}
-              className="w-full rounded-xl bg-primary-600 py-3.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+            <AntButton
+              htmlType="submit"
+              loading={checking} disabled={checking || !code.trim()}
+              type="primary" block
             >
               {checking ? "Đang tra cứu..." : "Tra cứu đơn hàng"}
-            </button>
-          </form>
+            </AntButton>
+          </form></Form>
 
           {/* TASK X06b: Phần Khôi Phục / Gửi Lại Mã Tra Cứu Dành Cho Khách Vãng Lai */}
           <div className="rounded-md border border-blue-100 bg-blue-50/50 p-5 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-bold text-gray-800">
                   Quên hoặc không nhận được mã tra cứu?
                 </p>
               </div>
-              <button
-                type="button"
+              <AntButton
+                htmlType="button"
                 onClick={() => {
                   setShowResendForm(!showResendForm);
                   setResendSuccessMessage("");
                   setResendErrorMessage("");
                 }}
-                className="text-xs font-bold text-primary-600 hover:text-primary-700 underline"
+
               >
                 {showResendForm ? "Ẩn khung gửi lại" : "Gửi lại mã qua Email →"}
-              </button>
+              </AntButton>
             </div>
 
             {/* Form Gửi Lại Mã Tra Cứu */}
             {showResendForm && (
-              <form
+              <Form component={false} layout="vertical"><form
                 onSubmit={handleResendSubmit}
                 className="mt-3 pt-3 border-t border-blue-100 space-y-3.5 animate-fade-in"
               >
@@ -162,56 +153,47 @@ export const BookingLookup: React.FC = () => {
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
-                      Email nhận mã <span className="text-rose-500">*</span>
-                    </label>
-                    <input
+                  <Form.Item label={<>Email nhận mã <span className="text-rose-500">*</span></>} htmlFor="bookinglookup-field-2" style={{ marginBottom: 0 }}>
+                    <AntInput id="bookinglookup-field-2"
                       type="email"
                       required
                       value={resendEmail}
                       onChange={(e) => setResendEmail(e.target.value)}
                       placeholder="vidu@gmail.com"
-                      className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-gray-900 outline-none focus:border-primary-500 shadow-xs"
-                    />
-                  </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
-                      Số điện thoại đặt tour
-                    </label>
-                    <input
+                    />
+                  </Form.Item>
+
+                  <Form.Item label={<>Số điện thoại đặt tour
+                  </>} htmlFor="bookinglookup-field-3" style={{ marginBottom: 0 }}>
+                    <AntInput id="bookinglookup-field-3"
                       type="tel"
                       value={resendPhone}
                       onChange={(e) => setResendPhone(e.target.value)}
                       placeholder="0912345678"
-                      className="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-xs text-gray-900 outline-none focus:border-primary-500 shadow-xs"
+
                     />
-                  </div>
+                  </Form.Item>
                 </div>
 
                 {resendSuccessMessage && (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-800">
-                    ✅ {resendSuccessMessage}
-                  </div>
+                  <Alert showIcon type="success" title={resendSuccessMessage} />
                 )}
 
                 {resendErrorMessage && (
-                  <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">
-                    ⚠️ {resendErrorMessage}
-                  </div>
+                  <Alert showIcon type="error" title={resendErrorMessage} />
                 )}
 
-                <button
-                  type="submit"
-                  disabled={resending || !resendEmail.trim()}
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-md bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs shadow-xs disabled:opacity-50 transition-colors"
+                <AntButton
+                  htmlType="submit"
+                  loading={resending} disabled={resending || !resendEmail.trim()}
+                  type="primary" block
                 >
                   {resending
                     ? "Đang gửi email..."
                     : "Gửi danh sách mã về Email"}
-                </button>
-              </form>
+                </AntButton>
+              </form></Form>
             )}
           </div>
 

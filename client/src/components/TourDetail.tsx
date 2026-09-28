@@ -1,8 +1,9 @@
+import { Breadcrumb, Image } from "antd";
 import tourService from "@/services/tourService";
 import type { Tour, TourImage, TourSchedule } from "@/types";
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { StarIcon, ChevronRightIcon } from "@/components/Icons";
+import { StarIcon } from "@/components/Icons";
 import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 import { isScheduleBookable } from "@/utils/schedule";
 import { TourLeftDetails } from "./TourLeftDetails";
@@ -102,104 +103,25 @@ export default function TourDetail() {
     ...(tour.images?.map((img: TourImage) => img.image_path) || []),
   ].filter(Boolean) as string[];
 
-  const renderGallery = () => {
-    if (allImages.length === 0) return null;
-
-    if (allImages.length === 1) {
-      return (
-        <div className="relative h-[320px] md:h-[480px] rounded-xl overflow-hidden shadow-sm border border-gray-100 group">
-          <img
-            src={allImages[0]}
-            alt={tour.title}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-          />
-        </div>
-      );
-    }
-
-    if (allImages.length === 2) {
-      return (
-        <div className="grid grid-cols-2 gap-3 h-[240px] md:h-[380px] rounded-xl overflow-hidden shadow-sm border border-gray-100">
-          {allImages.map((img, idx) => (
-            <div key={idx} className="relative overflow-hidden group h-full">
-              <img
-                src={img}
-                alt=""
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    if (allImages.length === 3 || allImages.length === 4) {
-      return (
-        <div className="grid grid-cols-3 gap-3 h-[280px] md:h-[420px] rounded-xl overflow-hidden shadow-sm border border-gray-100">
-          <div className="col-span-2 relative overflow-hidden group h-full">
-            <img
-              src={allImages[0]}
-              alt=""
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            />
-          </div>
-          <div className="col-span-1 grid grid-rows-2 gap-3 h-full">
-            {allImages.slice(1, 3).map((img, idx) => (
-              <div key={idx} className="relative overflow-hidden group h-full">
-                <img
-                  src={img}
-                  alt=""
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="grid grid-cols-4 grid-rows-2 gap-3 h-[300px] md:h-[480px] rounded-xl overflow-hidden shadow-sm border border-gray-100">
-        <div className="col-span-2 row-span-2 relative overflow-hidden group h-full">
-          <img
-            src={allImages[0]}
-            alt={tour.title}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-          />
-        </div>
-        {allImages.slice(1, 5).map((img, idx) => (
-          <div
-            key={idx}
-            className="col-span-1 row-span-1 relative overflow-hidden group h-full"
-          >
-            <img
-              src={img}
-              alt=""
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            />
+  const renderGallery = () => allImages.length > 0 ? (
+    <Image.PreviewGroup items={allImages}>
+      <div className={allImages.length === 1 ? "grid grid-cols-2 gap-3 overflow-hidden rounded-xl" : "grid grid-cols-2 md:grid-cols-4 gap-3 overflow-hidden rounded-xl"}>
+        {allImages.slice(0, 5).map((src, index) => (
+          <div key={src + index} className={index === 0 ? "col-span-2 md:row-span-2 h-[260px] md:h-[420px]" : "h-[160px] md:h-[204px]"}>
+            <Image src={src} alt={tour.title + " — ảnh " + (index + 1)} width="100%" height="100%" styles={{ image: { objectFit: "cover" } }} />
           </div>
         ))}
       </div>
-    );
-  };
+    </Image.PreviewGroup>
+  ) : null;
 
   return (
     <div className="bg-gray-50 min-h-screen pb-16 font-inter">
       {/* Breadcrumb Navigation */}
       <div className="max-w-[1280px] mx-auto px-4 py-4 sm:px-6">
-        <nav className="flex items-center gap-2 text-xs md:text-sm text-gray-500 font-medium">
-          <Link to="/" className="hover:text-primary-600 transition-colors">
-            Trang chủ
-          </Link>
-          <ChevronRightIcon className="w-3.5 h-3.5 text-gray-300" />
-          <Link to="/tours" className="hover:text-primary-600 transition-colors">
-            Tour trọn gói
-          </Link>
-          <ChevronRightIcon className="w-3.5 h-3.5 text-gray-300" />
-          <span className="text-gray-900 truncate max-w-[200px] md:max-w-xs font-medium">
-            {tour.title}
-          </span>
-        </nav>
+        <Breadcrumb items={[
+          { title: <Link to="/">Trang chủ</Link> }, { title: <Link to="/tours">Tour trọn gói</Link> }, { title: tour.title },
+        ]} />
       </div>
 
       {/* Header Info */}
@@ -301,7 +223,7 @@ export default function TourDetail() {
       {/* Main Layout Grid */}
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
+
           {/* Left Details Component */}
           <TourLeftDetails
             tour={tour}

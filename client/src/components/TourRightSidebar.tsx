@@ -1,3 +1,4 @@
+import { Alert, Button as AntButton } from "antd";
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import type { Tour, TourSchedule } from "@/types";
@@ -78,13 +79,14 @@ export const TourRightSidebar: React.FC<TourRightSidebarProps> = ({
           Nút vẫn tự nói được tình trạng: không có chuyến nào chọn được thì `getUnavailableReason`
           trả "Tạm hết lịch", và nhãn nút thành đúng câu ấy kèm trạng thái vô hiệu.
         */}
-        <button
+        <AntButton htmlType="button"
           disabled={!selectedSchedule || Boolean(selectedUnavailableReason)}
           onClick={handleBooking}
-          className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-4 rounded-xl shadow-md hover:shadow-lg transform active:scale-97 transition-all duration-300 disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none text-center block text-sm cursor-pointer"
+          type="primary" block
         >
-          {selectedUnavailableReason ?? "Đặt tour ngay"}
-        </button>
+          {selectedUnavailableReason ? "Chưa thể đặt chuyến này" : "Đặt tour ngay"}
+        </AntButton>
+        {selectedUnavailableReason && <Alert type="warning" showIcon title={selectedUnavailableReason} />}
 
         <div className="border-t border-gray-100 pt-4 space-y-3.5 text-xs text-gray-500">
           <div className="flex items-center gap-2.5">

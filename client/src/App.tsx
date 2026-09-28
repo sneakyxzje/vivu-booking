@@ -13,26 +13,27 @@ import { ForgotPassword } from "@/pages/ForgotPassword";
 import { ResetPassword } from "@/pages/ResetPassword";
 import { NotFound } from "@/pages/NotFound";
 import { Home } from "@/pages/Home";
-import { Tours } from "@/pages/Tours";
-import { PaymentResult } from "@/pages/PaymentResult";
-import { GuideDashboard } from "@/pages/guide/GuideDashboard";
-import GuideAssignments from "@/pages/guide/GuideAssignments";
-import { GuideTours } from "@/pages/guide/GuideTours";
-import { GuideBookings } from "@/pages/guide/GuideBookings";
-import { GuideAttendance } from "@/pages/guide/GuideAttendance";
-import GuideIncidents from "@/pages/guide/GuideIncidents";
-import GuideHandovers from "@/pages/guide/GuideHandovers";
 import NotificationCenter from "@/pages/NotificationCenter";
 import PolicyPage from "@/pages/PolicyPage";
-import TourDetail from "@/components/TourDetail";
-import BookingTour from "@/pages/BookingTour";
-import BookingSuccess from "@/pages/BookingSuccess";
 import { Profile } from "@/pages/Profile";
 import InfoPage from "@/pages/InfoPage";
 import ContactPage from "@/pages/ContactPage";
-import { BookingLookup } from "@/pages/BookingLookup";
-import GroupBooking from "@/pages/GroupBooking";
 import PassengerDeclaration from "@/pages/PassengerDeclaration";
+
+const GuideDashboard = React.lazy(() => import("@/pages/guide/GuideDashboard"));
+const GuideAssignments = React.lazy(() => import("@/pages/guide/GuideAssignments"));
+const GuideTours = React.lazy(() => import("@/pages/guide/GuideTours"));
+const GuideBookings = React.lazy(() => import("@/pages/guide/GuideBookings"));
+const GuideAttendance = React.lazy(() => import("@/pages/guide/GuideAttendance"));
+const GuideIncidents = React.lazy(() => import("@/pages/guide/GuideIncidents"));
+const GuideHandovers = React.lazy(() => import("@/pages/guide/GuideHandovers"));
+const Tours = React.lazy(() => import("@/pages/Tours"));
+const PaymentResult = React.lazy(() => import("@/pages/PaymentResult"));
+const TourDetail = React.lazy(() => import("@/components/TourDetail"));
+const BookingTour = React.lazy(() => import("@/pages/BookingTour"));
+const BookingSuccess = React.lazy(() => import("@/pages/BookingSuccess"));
+const BookingLookup = React.lazy(() => import("@/pages/BookingLookup").then(module => ({ default: module.BookingLookup })));
+const GroupBooking = React.lazy(() => import("@/pages/GroupBooking"));
 
 const router = createBrowserRouter([
   // 1. NHÓM ROUTES CHO USER (Sử dụng Layout chung của User có Header/Footer)
@@ -332,6 +333,3 @@ const router = createBrowserRouter([
 export const App: React.FC = () => <RouterProvider router={router} />;
 
 export default App;
-
-
-
