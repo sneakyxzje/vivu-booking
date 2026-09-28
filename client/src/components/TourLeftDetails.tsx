@@ -12,6 +12,7 @@ import {
 } from "@/components/Icons";
 import { TourReviewsSection } from "@/components/TourReviewsSection";
 import { TourDepartures } from "@/components/TourDepartures";
+import { ItineraryGallery } from "@/components/ItineraryGallery";
 
 interface TourLeftDetailsProps {
   tour: Tour;
@@ -392,6 +393,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
                 ...(item.rest_stops ? [{ key: "rest", label: "Nghỉ chân", children: item.rest_stops }] : []),
               ]} />
               <Typography.Paragraph style={{ whiteSpace: "pre-line", marginTop: 16 }} ellipsis={{ rows: 6 }}>{item.content}</Typography.Paragraph>
+              <ItineraryGallery images={item.images} day={item.day_number} />
               <Button onClick={() => setNgayDangMo(item)}>Xem chi tiết ngày {item.day_number}</Button>
             </>,
           }))} /> : <Empty description="Lịch trình đang được xây dựng." />}
@@ -552,6 +554,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
           {ngayDangMo.route_points && <Typography.Paragraph>Chặng đi qua: {ngayDangMo.route_points}</Typography.Paragraph>}
           {ngayDangMo.rest_stops && <Typography.Paragraph>Nghỉ chân: {ngayDangMo.rest_stops}</Typography.Paragraph>}
           <Typography.Paragraph style={{ whiteSpace: "pre-line" }}>{ngayDangMo.content}</Typography.Paragraph>
+          <ItineraryGallery images={ngayDangMo.images} day={ngayDangMo.day_number} />
         </Modal>
       )}
     </div>
