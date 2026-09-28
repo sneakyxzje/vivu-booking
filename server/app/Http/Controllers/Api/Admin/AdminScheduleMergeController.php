@@ -101,9 +101,8 @@ class AdminScheduleMergeController extends Controller
         return $this->success(
             $ketQua + ['to_schedule_id' => $dich->id],
             sprintf(
-                'Đã ghép chuyến. Chuyển %d đơn sang chuyến mới, hủy %d đơn chưa thanh toán.',
-                $ketQua['transferred'],
-                $ketQua['cancelled'],
+                'Đã tạo %d đề xuất ghép chuyến. Chỉ chuyển khách khi họ đồng ý; từ chối hoặc hết hạn phản hồi thì giữ chuyến ban đầu.',
+                $ketQua['proposed'],
             ),
         );
     }

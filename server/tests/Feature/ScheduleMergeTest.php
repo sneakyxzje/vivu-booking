@@ -19,14 +19,7 @@ use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
-/**
- * L05 - Ghép hai chuyến của cùng một tour.
- *
- * Câu số 16 của hội đồng. Luật ở docs/nghiep-vu/04-luong-dieu-hanh.md mục 2.1.
- *
- * Tình huống: hai chuyến gần ngày nhau, mỗi chuyến bốn khách, không chuyến nào đủ mức tối thiểu.
- * Ghép thì cả hai đoàn được đi thay vì cả hai cùng bị hủy.
- */
+
 class ScheduleMergeTest extends TestCase
 {
     use RefreshDatabase;
@@ -104,6 +97,18 @@ class ScheduleMergeTest extends TestCase
         return app(ScheduleMergeService::class);
     }
 
+
+    private function mergeAndAccept(TourSchedule $from, TourSchedule $to, string $reason, User $actor): array
+    {
+        $result = $this->service()->merge($from, $to, $reason, $actor);
+        $count = 0;
+        foreach (\App\Models\BookingChangeProposal::query()->pending()->where('from_schedule_id', $from->id)->where('to_schedule_id', $to->id)->get() as $proposal) {
+            $this->service()->respond($proposal, 'accept', null);
+            $count++;
+        }
+        return ['transferred' => $count, 'cancelled' => 0, 'proposed' => $result['proposed']];
+    }
+
     // --- Luồng chính --------------------------------------------------------------------
 
     public function test_ghep_thi_don_da_thanh_toan_chuyen_sang_chuyen_dich(): void
@@ -112,7 +117,7 @@ class ScheduleMergeTest extends TestCase
         $donHai = $this->taoDon($this->nguon);
         $this->taoDon($this->dich);
 
-        $ketQua = $this->service()->merge($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
+        $ketQua = $this->mergeAndAccept($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
 
         $this->assertSame(2, $ketQua['transferred']);
         $this->assertSame($this->dich->id, (int) $donMot->fresh()->tour_schedule_id);
@@ -121,33 +126,20 @@ class ScheduleMergeTest extends TestCase
 
     // --- Nói cho khách biết -------------------------------------------------------------
 
-    /**
-     * Ghép chuyến đổi ngày đi của người đã trả tiền mà không hỏi họ.
-     *
-     * Đó là quyết định vận hành, chấp nhận được. Không báo lại mới là chỗ không chấp nhận được:
-     * khách biết chuyện khi ra bến vào đúng ngày cũ.
-     */
+
     public function test_ghep_thi_gui_thu_cho_ca_hai_nhom_khach(): void
     {
         Mail::fake();
-
         $daTra = $this->taoDon($this->nguon);
         $chuaTra = $this->taoDon($this->nguon, 'pending');
-
-        $this->service()->merge($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
-
-        Mail::assertQueued(
-            ScheduleMergedMail::class,
-            fn (ScheduleMergedMail $thu) => $thu->hasTo($daTra->customer_email),
-        );
-
-        Mail::assertQueued(
-            BookingCancelledMail::class,
-            fn (BookingCancelledMail $thu) => $thu->hasTo($chuaTra->customer_email),
-        );
+        $this->service()->merge($this->nguon, $this->dich, 'Đề xuất ghép hai chuyến.', $this->dieuHanh);
+        Mail::assertQueued(\App\Mail\BookingProposalMail::class,
+            fn ($thu) => $thu->hasTo($daTra->customer_email));
+        Mail::assertNotQueued(BookingCancelledMail::class);
+        $this->assertSame('pending', $chuaTra->fresh()->status);
     }
 
-    /** Thư phải dựng được thật, và phải nói rõ quyền từ chối — đó là phần quan trọng nhất của nó. */
+
     public function test_thu_bao_ghep_noi_ro_ngay_moi_va_quyen_hoan_du(): void
     {
         $don = $this->taoDon($this->nguon);
@@ -166,17 +158,12 @@ class ScheduleMergeTest extends TestCase
 
     // --- Quyền hoàn đủ ------------------------------------------------------------------
 
-    /**
-     * Khách bị công ty dời ngày, không chịu ngày mới thì hoàn ĐỦ, bảng phí không áp.
-     *
-     * Khách mua ngày 20 mà công ty giao ngày 21; họ từ chối thì đó không phải hủy tự nguyện. Cùng
-     * chuẩn với luồng hủy cả chuyến, nơi khách được chọn "hoàn đủ tiền".
-     */
+
     public function test_khach_bi_ghep_roi_huy_thi_duoc_hoan_du(): void
     {
         $don = $this->taoDon($this->nguon);
 
-        $this->service()->merge($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
+        $this->mergeAndAccept($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
 
         $bang = app(\App\Services\CancellationPolicyService::class)->quote($don->fresh());
 
@@ -186,12 +173,7 @@ class ScheduleMergeTest extends TestCase
         $this->assertEqualsWithDelta((float) $don->total_amount, $bang['refund_amount'], 0.01);
     }
 
-    /**
-     * Nhưng khách TỰ xin đổi chuyến thì vẫn theo bảng phí như thường.
-     *
-     * Bài đối chứng: luật trên chỉ nói về thay đổi do công ty gây ra. Nới nó ra thành "hễ từng
-     * chuyển chuyến là hoàn đủ" thì mở một đường lách - xin đổi ngày một lần rồi hủy, khỏi mất phí.
-     */
+
     public function test_khach_tu_xin_doi_chuyen_thi_khong_duoc_hoan_du(): void
     {
         $don = $this->taoDon($this->dich);
@@ -210,13 +192,7 @@ class ScheduleMergeTest extends TestCase
             'approved_at' => now(),
         ]);
 
-        /*
-         * Kéo ngày khởi hành về gần để bảng phí thật sự nói lên điều gì.
-         *
-         * Bậc cao nhất của bảng là hoàn đủ 100%, nên nếu chuyến còn xa thì khách tự xin đổi và
-         * khách bị công ty đổi ngày ra cùng một con số — bài đối chứng không chứng minh được gì.
-         * Ở mốc 10 ngày, bậc thường là 50%, khác hẳn mức 100% mà ngoại lệ kia cho.
-         */
+
         $this->dich->update([
             'start_date' => now()->addDays(10),
             'end_date' => now()->addDays(11),
@@ -228,13 +204,13 @@ class ScheduleMergeTest extends TestCase
         $this->assertSame(50, $bang['refund_percent']);
     }
 
-    /** Bài quan trọng nhất: số chỗ phải dồn đúng và chuyến nguồn về 0. */
+
     public function test_so_cho_don_dung_ve_chuyen_dich(): void
     {
         $this->taoDon($this->nguon, khach: 4);
         $this->taoDon($this->dich, khach: 3);
 
-        $this->service()->merge($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
+        $this->mergeAndAccept($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
 
         $this->assertSame(0, (int) $this->nguon->fresh()->booked_people);
         $this->assertSame(7, (int) $this->dich->fresh()->booked_people);
@@ -246,7 +222,7 @@ class ScheduleMergeTest extends TestCase
         $this->taoDon($this->dich, khach: 3);
         $this->taoDon($this->nguon, 'pending', 2);
 
-        $this->service()->merge($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
+        $this->mergeAndAccept($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
 
         $this->artisan('bookings:check-seat-consistency')->assertSuccessful();
     }
@@ -255,7 +231,7 @@ class ScheduleMergeTest extends TestCase
     {
         $this->taoDon($this->nguon);
 
-        $this->service()->merge($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
+        $this->mergeAndAccept($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
 
         $nguon = $this->nguon->fresh();
 
@@ -263,25 +239,15 @@ class ScheduleMergeTest extends TestCase
         $this->assertSame($this->dich->id, (int) $nguon->merged_into_schedule_id);
     }
 
-    /**
-     * Đơn chưa thanh toán thì hủy chứ không chuyển: khách chưa trả tiền nên chưa cam kết gì, và
-     * chuyển họ sang một ngày họ chưa từng đồng ý là tự quyết thay khách.
-     */
-    public function test_don_chua_thanh_toan_thi_bi_huy_chu_khong_chuyen(): void
+
+    public function test_don_chua_thanh_toan_giu_nguyen_cho_toi_han_giu_cho(): void
     {
-        $donChuaTra = $this->taoDon($this->nguon, 'pending');
-
-        $ketQua = $this->service()->merge($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
-
-        $this->assertSame(1, $ketQua['cancelled']);
-        $this->assertSame(0, $ketQua['transferred']);
-
-        $donChuaTra->refresh();
-
-        $this->assertSame('cancelled', $donChuaTra->status);
-        $this->assertSame($this->nguon->id, (int) $donChuaTra->tour_schedule_id, 'Đơn bị hủy thì ở nguyên chuyến cũ.');
-        $this->assertTrue((bool) $donChuaTra->seats_released);
-        $this->assertStringContainsString('đặt lại', $donChuaTra->cancel_reason);
+        $don = $this->taoDon($this->nguon, 'pending');
+        $result = $this->service()->merge($this->nguon, $this->dich, 'Đề xuất ghép hai chuyến.', $this->dieuHanh);
+        $this->assertSame(0, $result['cancelled']);
+        $this->assertSame(0, $result['proposed']);
+        $this->assertSame('pending', $don->fresh()->status);
+        $this->assertSame($this->nguon->id, $don->fresh()->tour_schedule_id);
     }
 
     // --- Điều kiện ----------------------------------------------------------------------
@@ -295,10 +261,10 @@ class ScheduleMergeTest extends TestCase
 
         $this->expectException(\App\Exceptions\BusinessRuleException::class);
 
-        $this->service()->merge($this->nguon, $chuyenKhacTour, 'Ghep sang tour khac.', $this->dieuHanh);
+        $this->mergeAndAccept($this->nguon, $chuyenKhacTour, 'Ghep sang tour khac.', $this->dieuHanh);
     }
 
-    /** Tour riêng không ghép được: khách đã trả tiền để đi trọn chuyến của riêng họ. */
+
     public function test_tour_rieng_khong_ghep_duoc(): void
     {
         $this->tour->update(['type' => TourType::Private->value]);
@@ -328,16 +294,10 @@ class ScheduleMergeTest extends TestCase
 
         $this->expectException(\App\Exceptions\BusinessRuleException::class);
 
-        $this->service()->merge($this->nguon->fresh(), $chuyenChat, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
+        $this->mergeAndAccept($this->nguon->fresh(), $chuyenChat, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
     }
 
-    /**
-     * Ghép phải xong trước hạn chốt của CẢ HAI chuyến.
-     *
-     * Mục đích của ghép là gửi một danh sách đúng thay vì hai danh sách sai. Ghép sau khi danh
-     * sách đã gửi thì phải gọi hủy chuyến nguồn và xin thêm suất cho chuyến đích - hai lần làm
-     * việc với nhà cung cấp, và có thể bị từ chối.
-     */
+
     public function test_chuyen_nguon_qua_han_chot_thi_khong_ghep_duoc(): void
     {
         $this->taoDon($this->nguon);
@@ -349,10 +309,7 @@ class ScheduleMergeTest extends TestCase
         $this->assertStringContainsString('hạn chốt', $duBao['blocked_reason']);
     }
 
-    /**
-     * Chuyến đích qua hạn chốt là trường hợp nghiêm trọng hơn: ghép thêm khách vào làm
-     * booked_people vượt quá số suất đã cam kết với nhà cung cấp.
-     */
+
     public function test_chuyen_dich_qua_han_chot_thi_khong_ghep_duoc(): void
     {
         $this->taoDon($this->nguon);
@@ -360,17 +317,17 @@ class ScheduleMergeTest extends TestCase
 
         $this->expectException(\App\Exceptions\BusinessRuleException::class);
 
-        $this->service()->merge($this->nguon->fresh(), $this->dich->fresh(), 'Hai chuyen deu thieu khach.', $this->dieuHanh);
+        $this->mergeAndAccept($this->nguon->fresh(), $this->dich->fresh(), 'Hai chuyen deu thieu khach.', $this->dieuHanh);
     }
 
-    /** Bị chặn vì hạn chốt thì hai chuyến phải giữ nguyên mọi thứ. */
+
     public function test_bi_chan_vi_han_chot_thi_hai_chuyen_giu_nguyen(): void
     {
         $don = $this->taoDon($this->nguon);
         $this->dich->update(['booking_deadline' => now()->subHour()]);
 
         try {
-            $this->service()->merge($this->nguon->fresh(), $this->dich->fresh(), 'Ghep thu.', $this->dieuHanh);
+            $this->mergeAndAccept($this->nguon->fresh(), $this->dich->fresh(), 'Ghep thu.', $this->dieuHanh);
         } catch (\App\Exceptions\BusinessRuleException) {
             // Bỏ qua, phần cần kiểm nằm bên dưới.
         }
@@ -381,7 +338,7 @@ class ScheduleMergeTest extends TestCase
         $this->assertNull($this->nguon->fresh()->merged_into_schedule_id);
     }
 
-    /** Chuyến qua hạn chốt không xuất hiện trong danh sách gợi ý ghép. */
+
     public function test_chuyen_qua_han_chot_khong_hien_trong_goi_y(): void
     {
         $this->taoDon($this->nguon);
@@ -410,14 +367,14 @@ class ScheduleMergeTest extends TestCase
         $this->assertFalse($duBao['can_merge']);
     }
 
-    /** Từ chối thì không được để lại dấu vết nào ở cả hai chuyến. */
+
     public function test_tu_choi_thi_hai_chuyen_giu_nguyen(): void
     {
         $chuyenChat = $this->taoChuyen(now()->addDays(21), null, ['max_people' => 3]);
         $don = $this->taoDon($this->nguon, khach: 5);
 
         try {
-            $this->service()->merge($this->nguon->fresh(), $chuyenChat, 'Ghep thu.', $this->dieuHanh);
+            $this->mergeAndAccept($this->nguon->fresh(), $chuyenChat, 'Ghep thu.', $this->dieuHanh);
         } catch (\App\Exceptions\BusinessRuleException) {
             // Bỏ qua, phần cần kiểm nằm bên dưới.
         }
@@ -430,18 +387,7 @@ class ScheduleMergeTest extends TestCase
 
     // --- Ghép dây chuyền ----------------------------------------------------------------
 
-    /**
-     * Ghép A vào B rồi B vào C thì khách của A phải nhìn thấy C, không phải B.
-     *
-     * Kiểm qua đúng cơ chế thật: mỗi lần ghép, `moveBooking()` trỏ lại `tour_schedule_id` của đơn
-     * sang chuyến đích, nên sau hai lần ghép đơn đã nằm ở C — khách tra cứu là thấy ngay ngày mới,
-     * không cần ai đi dò ngược chuỗi ghép.
-     *
-     * Bài này trước đây gọi `ScheduleMergeService::finalScheduleOf()`, một hàm đi theo chuỗi
-     * `merged_into_schedule_id` để tìm chuyến cuối. Hàm ấy **không có nơi nào trong ứng dụng gọi
-     * tới** — chỉ bài kiểm thử này gọi — nên nó chứng minh một đường đi mà khách chưa bao giờ đi
-     * qua, trong khi đường khách thật sự đi thì không bài nào kiểm. Nay đổi lại cho đúng.
-     */
+
     public function test_ghep_day_chuyen_thi_don_nam_o_chuyen_cuoi_cung(): void
     {
         $chuyenC = $this->taoChuyen(now()->addDays(22));
@@ -449,8 +395,8 @@ class ScheduleMergeTest extends TestCase
         $don = $this->taoDon($this->nguon);
         $this->taoDon($this->dich);
 
-        $this->service()->merge($this->nguon, $this->dich, 'Ghep A vao B vi thieu khach.', $this->dieuHanh);
-        $this->service()->merge($this->dich->fresh(), $chuyenC, 'Ghep B vao C vi van thieu khach.', $this->dieuHanh);
+        $this->mergeAndAccept($this->nguon, $this->dich, 'Ghep A vao B vi thieu khach.', $this->dieuHanh);
+        $this->mergeAndAccept($this->dich->fresh(), $chuyenC, 'Ghep B vao C vi van thieu khach.', $this->dieuHanh);
 
         $this->assertSame($chuyenC->id, (int) $don->fresh()->tour_schedule_id);
         $this->assertSame(
@@ -466,7 +412,7 @@ class ScheduleMergeTest extends TestCase
     {
         $don = $this->taoDon($this->nguon);
 
-        $this->service()->merge($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
+        $this->mergeAndAccept($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
 
         $banGhi = BookingTransfer::query()->where('booking_id', $don->id)->first();
 
@@ -506,14 +452,14 @@ class ScheduleMergeTest extends TestCase
         $this->assertSame(3, $duBao['transferring_guests']);
         $this->assertSame(2, $duBao['transferring_seats']);
         $this->assertSame(1, $duBao['transferring']);
-        $this->assertSame(1, $duBao['cancelling']);
+        $this->assertSame(0, $duBao['cancelling']);
         $this->assertSame(17, $duBao['remaining_seats']);
         $this->assertSame(15, $duBao['remaining_seats_after']);
         $this->assertSame($this->nguon->id, (int) $giaDinh->fresh()->tour_schedule_id);
         $this->assertSame('pending', $chuaTra->fresh()->getRawOriginal('status'));
         Mail::assertNothingQueued();
 
-        $this->service()->merge($this->nguon->fresh(), $this->dich->fresh(), 'Ghep hai chuyen vi chua du khach.', $this->dieuHanh);
+        $this->mergeAndAccept($this->nguon->fresh(), $this->dich->fresh(), 'Ghep hai chuyen vi chua du khach.', $this->dieuHanh);
         $dichSauGhep = $this->dich->fresh();
         $this->assertSame($duBao['remaining_seats_after'], (int) $dichSauGhep->max_people - (int) $dichSauGhep->booked_people);
     }
@@ -534,21 +480,21 @@ class ScheduleMergeTest extends TestCase
         $response = $this->getJson("/api/admin/schedules/{$this->nguon->id}/merge-candidates")->assertOk();
         $duBao = collect($response->json('data.candidates'))->firstWhere('schedule_id', $dich->id);
         $this->assertNotNull($duBao);
-        $this->assertSame(2, $duBao['transferring']);
-        $this->assertSame(7, $duBao['transferring_guests']);
-        $this->assertSame(6, $duBao['transferring_seats']);
+        $this->assertSame(1, $duBao['transferring']);
+        $this->assertSame(3, $duBao['transferring_guests']);
+        $this->assertSame(2, $duBao['transferring_seats']);
         $this->assertSame(0, $duBao['cancelling']);
-        $this->assertSame(11, $duBao['remaining_seats_after']);
+        $this->assertSame(15, $duBao['remaining_seats_after']);
 
-        $ketQua = $this->service()->merge($this->nguon->fresh(), $dich->fresh(), 'Ghep hai chuyen cung ngay vi chua du khach.', $this->dieuHanh);
-        $this->assertSame(2, $ketQua['transferred']);
+        $ketQua = $this->mergeAndAccept($this->nguon->fresh(), $dich->fresh(), 'Ghep hai chuyen cung ngay vi chua du khach.', $this->dieuHanh);
+        $this->assertSame(1, $ketQua['transferred']);
         $this->assertSame(0, $ketQua['cancelled']);
         $this->assertSame($dich->id, (int) $giaDinh->fresh()->tour_schedule_id);
-        $this->assertSame($dich->id, (int) $chuaTra->fresh()->tour_schedule_id);
+        $this->assertSame($this->nguon->id, (int) $chuaTra->fresh()->tour_schedule_id);
         $this->assertSame('pending', $chuaTra->fresh()->getRawOriginal('status'));
-        $this->assertSame($dich->id, (int) $this->nguon->fresh()->merged_into_schedule_id);
+        $this->assertNull($this->nguon->fresh()->merged_into_schedule_id);
         $this->assertSame($duBao['remaining_seats_after'], (int) $dich->fresh()->max_people - (int) $dich->fresh()->booked_people);
-        Mail::assertNothingQueued();
+        Mail::assertQueued(\App\Mail\BookingProposalMail::class);
     }
 
     public function test_api_ghep_chuyen_thanh_cong(): void
@@ -561,7 +507,7 @@ class ScheduleMergeTest extends TestCase
             'reason' => 'Hai chuyen deu thieu khach toi thieu nen don ve mot.',
         ])->assertOk();
 
-        $this->assertSame(ScheduleStatus::Cancelled->value, $this->nguon->fresh()->getRawOriginal('status'));
+        $this->assertSame(ScheduleStatus::Open->value, $this->nguon->fresh()->getRawOriginal('status'));
     }
 
     public function test_khach_khong_ghep_duoc_chuyen(): void

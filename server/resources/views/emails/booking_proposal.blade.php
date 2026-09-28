@@ -18,21 +18,27 @@
             {{ $proposal->reason }}
         </div>
 
-        @if($proposal->proposed_date)
-        <p style="font-size: 1.1em;"><strong>Đề xuất phương án:</strong> Chúng tôi đề xuất dời lịch khởi hành của quý khách sang ngày: <strong style="color: #0369a1;">{{ \Carbon\Carbon::parse($proposal->proposed_date)->format('d/m/Y H:i') }}</strong>.</p>
+        @if($proposal->schedule_snapshot)
+        <p><strong>Chuyến ban đầu:</strong> {{ $proposal->schedule_snapshot['from']['tour_title'] }} · {{ $proposal->schedule_snapshot['from']['start_date'] }}</p>
+        <p><strong>Chuyến đề xuất:</strong> {{ $proposal->schedule_snapshot['to']['tour_title'] }} · {{ $proposal->schedule_snapshot['to']['start_date'] }}</p>
+        <p><strong>Kết thúc:</strong> {{ $proposal->schedule_snapshot['to']['end_date'] }}</p>
+        <p><strong>Hạn trả nốt nếu đồng ý:</strong> {{ $proposal->schedule_snapshot['to']['booking_deadline'] }}. Giá đơn giữ nguyên.</p>
+        <p><strong>Điểm đón:</strong> {{ $proposal->schedule_snapshot['to']['pickup_location'] ?? '' }}</p>
+        @foreach($proposal->schedule_snapshot['to']['itineraries'] ?? [] as $day)
+        <p><strong>Ngày {{ $day['day_number'] }}: {{ $day['title'] }}</strong><br>{{ strip_tags($day['content'] ?? '') }}</p>
+        @endforeach
         @endif
-
-        <p>Để đảm bảo quyền lợi của quý khách, vui lòng xem chi tiết và phản hồi lại email này hoặc liên hệ hotline công ty để xác nhận đồng ý đổi ngày hoặc yêu cầu hủy chuyến. Hạn chót phản hồi: <strong>{{ $proposal->response_deadline->format('d/m/Y H:i') }}</strong>.</p>
+        <p>Vui lòng mở trang đơn hàng để chọn <strong>Đồng ý</strong> hoặc <strong>Từ chối</strong> trước {{ $proposal->response_deadline->format('H:i d/m/Y') }}.</p>
 
         <p style="text-align: center; margin: 30px 0;">
-            <a href="{{ env('CLIENT_URL', 'http://localhost:5173') }}/tra-cuu/{{ $booking->public_token }}?email={{ urlencode($booking->customer_email) }}"
+            <a href="{{ rtrim(config('app.frontend_url'), '/') }}/booking-success/{{ $booking->public_token }}?email={{ urlencode($booking->customer_email) }}"
                style="background-color: #0369a1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">
                 Xem Chi tiết Đơn hàng
             </a>
         </p>
 
         <p style="color: #dc2626; font-size: 0.9em; font-weight: bold;">
-            Lưu ý đặc biệt: Nếu quá thời hạn trên mà chúng tôi chưa nhận được phản hồi, công ty sẽ tiến hành HỦY ĐƠN HÀNG của quý khách khỏi chuyến đi này để đảm bảo chỗ trống cho các khách hàng khác, và sẽ xử lý hoàn tiền theo quy định.
+            Từ chối hoặc không phản hồi: giữ nguyên chuyến ban đầu. Chỉ chuyển khi Quý khách đồng ý. Quý khách vẫn cần thanh toán đủ trước hạn chốt của chuyến đang đặt.
         </p>
 
         <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">

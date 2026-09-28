@@ -6,13 +6,14 @@ use App\Enums\ProposalStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\BookingChangeProposal;
-use App\Services\BookingProposalService;
+use App\Services\ScheduleMergeService;
+use App\Services\DemoClock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class BookingProposalController extends Controller
 {
-    public function __construct(private BookingProposalService $proposalService)
+    public function __construct(private ScheduleMergeService $proposalService)
     {
     }
 
@@ -31,6 +32,10 @@ class BookingProposalController extends Controller
                 'message' => 'Không tìm thấy đơn hàng, hoặc email không khớp.',
             ], 404);
         }
+
+        BookingChangeProposal::where('booking_id', $booking->id)->pending()
+            ->where('response_deadline', '<=', DemoClock::booking($booking))
+            ->update(['status' => ProposalStatus::Expired->value]);
 
         $proposals = BookingChangeProposal::where('booking_id', $booking->id)
             ->orderBy('created_at', 'desc')
@@ -61,42 +66,17 @@ class BookingProposalController extends Controller
             ->where('id', $proposalId)
             ->firstOrFail();
 
-        if ($proposal->status !== ProposalStatus::Pending) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Đề xuất này đã được xử lý hoặc đã hết hạn.',
-            ], 400);
-        }
-
-        if (now()->isAfter($proposal->response_deadline)) {
-            $proposal->update(['status' => ProposalStatus::Expired->value]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Đề xuất này đã quá thời hạn phản hồi.',
-            ], 400);
-        }
-
         $validated = $request->validate([
             'action' => ['required', 'in:accept,reject'],
             'note' => ['nullable', 'string', 'max:1000'],
         ]);
-
-        if ($validated['action'] === 'accept') {
-            $proposal->update([
-                'status' => ProposalStatus::Accepted->value,
-                'customer_note' => $validated['note'] ?? null,
-                'responded_at' => now(),
-            ]);
-
-            $msg = 'Đã ghi nhận phản hồi đồng ý của bạn.';
-        } else {
-            $proposal->update([
-                'status' => ProposalStatus::Rejected->value,
-                'customer_note' => $validated['note'] ?? null,
-                'responded_at' => now(),
-            ]);
-            $msg = 'Đã ghi nhận phản hồi từ chối của bạn.';
+        $proposal = $this->proposalService->respond($proposal, $validated['action'], $validated['note'] ?? null);
+        if ($proposal->status === ProposalStatus::Expired) {
+            return response()->json(['success' => false, 'message' => 'Đề xuất đã hết hạn. Chuyến hiện tại được giữ nguyên.'], 422);
         }
+        $msg = $validated['action'] === 'accept'
+            ? 'Đã xác nhận đồng ý đề xuất.'
+            : 'Đã từ chối đề xuất. Chuyến hiện tại được giữ nguyên.';
 
         return response()->json([
             'success' => true,

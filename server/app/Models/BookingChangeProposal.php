@@ -13,6 +13,9 @@ class BookingChangeProposal extends Model
         'booking_id',
         'admin_id',
         'reason',
+        'from_schedule_id',
+        'to_schedule_id',
+        'schedule_snapshot',
 
         'response_deadline',
 
@@ -26,6 +29,7 @@ class BookingChangeProposal extends Model
     {
         return [
 
+            'schedule_snapshot' => 'array',
             'response_deadline' => 'datetime',
             'responded_at' => 'datetime',
             'status' => ProposalStatus::class,

@@ -289,11 +289,12 @@ const bookingService = {
     api.post<{ success: boolean; message: string }>("/bookings/resend-code", payload),
 
   // Customer Proposals API
-  getProposals: (publicToken: string) =>
-    api.get(`/bookings/${publicToken}/proposals`),
+  getProposals: (publicToken: string, email: string) =>
+    api.get(`/bookings/${publicToken}/proposals`, { params: { email } }),
 
   respondToProposal: (publicToken: string, payload: { proposal_id: number; choice_id: string; customer_email: string }) =>
-    api.post(`/bookings/${publicToken}/proposals/respond`, payload),
+    api.post(`/bookings/${publicToken}/proposals/${payload.proposal_id}/respond`,
+      { action: payload.choice_id }, { params: { email: payload.customer_email } }),
 };
 
 export default bookingService;

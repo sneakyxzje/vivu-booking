@@ -141,9 +141,9 @@ class BookingProposalTest extends TestCase
             $payload
         );
 
-        $response->assertStatus(400)
+        $response->assertStatus(422)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'Đề xuất này đã quá thời hạn phản hồi.');
+            ->assertJsonPath('message', 'Đề xuất đã hết hạn. Chuyến hiện tại được giữ nguyên.');
 
         $this->assertDatabaseHas('booking_change_proposals', [
             'id' => $proposal->id,

@@ -98,7 +98,8 @@ class BulkBookingProposalController extends Controller
         $bookingIds = $schedule->bookings->pluck('id');
 
         // Lấy tất cả proposals mới nhất của mỗi booking
-        $latestProposals = BookingChangeProposal::whereIn('booking_id', $bookingIds)
+        $latestProposals = BookingChangeProposal::where(fn ($query) => $query
+            ->where('from_schedule_id', $scheduleId)->orWhereIn('booking_id', $bookingIds))
             ->orderBy('created_at', 'desc')
             ->get()
             ->unique('booking_id');
@@ -107,10 +108,10 @@ class BulkBookingProposalController extends Controller
 
         $stats = [
             'total' => $latestProposals->count(),
-            'pending' => $latestProposals->where('status', ProposalStatus::Pending->value)->count(),
-            'accepted' => $latestProposals->where('status', ProposalStatus::Accepted->value)->count(),
-            'rejected' => $latestProposals->where('status', ProposalStatus::Rejected->value)->count(),
-            'expired' => $latestProposals->where('status', ProposalStatus::Expired->value)->count(),
+            'pending' => $latestProposals->filter(fn ($proposal) => $proposal->status === ProposalStatus::Pending)->count(),
+            'accepted' => $latestProposals->filter(fn ($proposal) => $proposal->status === ProposalStatus::Accepted)->count(),
+            'rejected' => $latestProposals->filter(fn ($proposal) => $proposal->status === ProposalStatus::Rejected)->count(),
+            'expired' => $latestProposals->filter(fn ($proposal) => $proposal->status === ProposalStatus::Expired)->count(),
             'proposals' => $latestProposals->values(),
         ];
 
