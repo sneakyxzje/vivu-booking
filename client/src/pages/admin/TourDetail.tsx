@@ -14,7 +14,7 @@ import adminService from "@/services/adminService";
 import type { Guide, Tour, TourSchedule } from "@/types";
 import { Toast } from "@/components/admin/CustomAlert";
 import { formatDateTime, getEndDate } from "@/utils/format";
-import { statusLabel, statusClasses, tourStatusLabel } from "@/utils/schedule";
+import { statusLabel, statusClasses, tourStatusLabel, getScheduleUnavailableReason } from "@/utils/schedule";
 
 export default function AdminTourDetail() {
   const { id } = useParams<{ id: string }>();
@@ -110,7 +110,7 @@ export default function AdminTourDetail() {
 
   const handleUpdateStatus = async (
     scheduleId: number,
-    nextStatus: "open" | "closed" | "confirmed" | "cancelled",
+    nextStatus: "open" | "confirmed" | "cancelled",
     reason?: string,
   ) => {
     try {
@@ -315,6 +315,7 @@ export default function AdminTourDetail() {
                           }`}
                         >
                           {statusLabel[status]}
+                          {status === "open" && ` · ${getScheduleUnavailableReason(schedule) || "Đang nhận đặt"}`}
                         </span>{status === "cancelled" &&
                           schedule.cancelled_reason && (
                             <span className="text-xs text-rose-600 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100">
@@ -368,7 +369,7 @@ export default function AdminTourDetail() {
                               {schedule.booked_people} / {schedule.max_people}{" "}
                               khách{" "}
                               <span className="text-gray-400 font-normal">
-                                (Tối thiểu: {minPeople})
+                                (Mục tiêu: {minPeople})
                               </span>
                             </p>
                           </div></UIFlex>
@@ -450,23 +451,12 @@ export default function AdminTourDetail() {
                         Vận hành chuyến
                       </p>
 
-                      <UIFlex   wrap   gap={6}>{/* Open/Close toggle */}{status === "open" && (
-                          <AntButton htmlType="button" onClick={() =>
-                              handleUpdateStatus(schedule.id, "closed")
-                            }>Đóng bán
-                          </AntButton>
-                        )}{status === "closed" && (
-                          <AntButton htmlType="button" onClick={() =>
-                              handleUpdateStatus(schedule.id, "open")
-                            }>Mở bán lại
-                          </AntButton>
-                        )}{/* Confirm action */}{(status === "open" || status === "closed") && (
+                      <UIFlex   wrap   gap={6}>{/* Confirm action */}{(status === "open") && (
                           <AntButton htmlType="button" onClick={() =>
                               handleUpdateStatus(schedule.id, "confirmed")
                             } type="primary">Chốt chuyến
                           </AntButton>
                         )}{/* Cancel action */}{(status === "open" ||
-                          status === "closed" ||
                           status === "confirmed") && (
                           <AntButton htmlType="button" onClick={() => openCancelDialog(schedule.id)} danger>Hủy chuyến
                           </AntButton>
@@ -546,7 +536,7 @@ export default function AdminTourDetail() {
               Vui lòng cung cấp lý do chi tiết hủy chuyến đi này. Chỗ ngồi sẽ
               được trả lại và không thể phục hồi.
             </p>
-            <AntInput.TextArea value={cancelReasonInput} onChange={(e) => setCancelReasonInput(e.target.value)} placeholder="Nhập lý do hủy (ví dụ: Không đủ khách tối thiểu, lý do thời tiết...)" rows={3} style={{ width: "100%" }} />
+            <AntInput.TextArea value={cancelReasonInput} onChange={(e) => setCancelReasonInput(e.target.value)} placeholder="Nhập lý do hủy (ví dụ: Thời tiết nguy hiểm, sự cố bất khả kháng...)" rows={3} style={{ width: "100%" }} />
             <div className="flex w-full gap-2">
               <AntButton htmlType="button" onClick={() => setIsCancelModalOpen(false)}>Hủy bỏ
               </AntButton>

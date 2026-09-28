@@ -477,6 +477,8 @@ export interface ChangeRequestDetail {
 
 /** Một chuyến có thể ghép vào, kèm tác động đã tính sẵn. */
 export interface MergeCandidate {
+  requires_consent: boolean;
+  response_deadline: string;
   schedule_id: number;
   start_date: string;
   booked_people: number;
@@ -777,8 +779,6 @@ export interface DeadlineImpact {
   /** Ghế chết: đơn đã hủy nhưng chỗ chưa trả về kho. Dời hạn chốt không làm nó sống lại. */
   held_seat_bookings: number;
   held_seats: number;
-  /** Chuyến đang đóng bán và sẽ không tự mở lại sau khi gia hạn. */
-  needs_manual_reopen: boolean;
   can_change: boolean;
   blocked_reason: string | null;
   warnings: string[];
@@ -1023,7 +1023,7 @@ const adminService = {
 
   updateScheduleStatus: async (
     scheduleId: number,
-    status: "open" | "closed" | "confirmed" | "cancelled",
+    status: "open" | "confirmed" | "cancelled",
     reason?: string,
   ): Promise<TourSchedule | null> => {
     const response = await api.patch(`/admin/schedules/${scheduleId}/status`, {
