@@ -46,8 +46,15 @@ export const Register: React.FC = () => {
       return;
     }
 
+    const phone = form.phone.trim();
+    if (phone.length > 20 || !/^\+?[0-9]{8,20}$/.test(phone.replace(/[\s-]/g, ""))) {
+      setError("Số điện thoại không hợp lệ. Nhập 8–20 chữ số, có thể bắt đầu bằng dấu +.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const res = await authService.register(form);
+      const res = await authService.register({ ...form, phone });
       const data = res.data as AuthResponse;
       login(data.token, data.user);
       navigate("/", { replace: true });
@@ -147,6 +154,7 @@ export const Register: React.FC = () => {
                   name="phone"
                   type="tel"
                   autoComplete="tel"
+                  maxLength={20}
                   required
                   value={form.phone}
                   onChange={handleChange}

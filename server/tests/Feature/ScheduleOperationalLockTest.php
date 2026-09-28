@@ -68,6 +68,9 @@ class ScheduleOperationalLockTest extends TestCase
             'start_location' => $this->tour->start_location,
             'end_location' => $this->tour->end_location,
             'status' => 'active',
+            'itineraries' => array_map(fn ($day) => [
+                'day_number' => $day, 'title' => "Ngày {$day}", 'content' => 'Tham quan và nghỉ ngơi.',
+            ], range(1, 3)),
             'schedules' => [array_merge([
                 'id' => $this->chuyen->id,
                 // Đúng định dạng ô ngày giờ của biểu mẫu gửi lên: "Y-m-d\TH:i", không có giây.

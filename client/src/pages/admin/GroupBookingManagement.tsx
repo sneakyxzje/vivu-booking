@@ -1,11 +1,12 @@
+import { Flex as AntFlex, Typography as AntTypography, Button as AntButton, Input as AntInput, Select as AntSelect } from "antd";
 import { useCallback, useEffect, useState } from "react";
 import type { BookingLedger, GroupBookingRequestRow } from "@/types";
 import adminService from "@/services/adminService";
 import { Toast } from "@/components/admin/CustomAlert";
 import { Modal } from "@/components/admin/Modal";
-import Pagination from "@/components/common/Pagination";
+import Pagination from "@/components/admin/AdminPagination";
 import { formatDateTime, formatPrice } from "@/utils/format";
-import { DateTimePicker } from "@/components/DateTimePicker";
+import { DateTimePicker } from "@/components/admin/AdminDateTimePicker";
 
 /**
  * Booking theo đoàn — bàn làm việc của điều hành cho điểm 14.
@@ -227,37 +228,20 @@ export default function GroupBookingManagement() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Booking theo đoàn</h1>
+    <AntFlex vertical gap="large" ><div>
+        <AntTypography.Title level={3} >Booking theo đoàn</AntTypography.Title>
         <p className="text-sm text-gray-500 mt-1">
           Yêu cầu → báo giá → chốt. Chỉ bước chốt mới chiếm chỗ của chuyến; trước đó là thương
           lượng, giá do bạn quyết — hệ thống không tính hộ.
         </p>
-      </div>
-
-      {/* Lọc theo chặng của đường ống */}
-      <div className="flex flex-wrap gap-2">
+      </div>{/* Lọc theo chặng của đường ống */}<div className="flex flex-wrap gap-2">
         {TRANG_THAI.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            onClick={() => {
+          <AntButton type={(statusFilter === item.value) ? "primary" : "default"} key={item.value} htmlType="button" onClick={() => {
               setStatusFilter(item.value);
               setPage(1);
-            }}
-            className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-              statusFilter === item.value
-                ? "border-primary-600 bg-primary-600 text-white"
-                : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            {item.label}
-          </button>
+            }}>{item.label}</AntButton>
         ))}
-      </div>
-
-      <div className="bg-white rounded-lg border border-gray-200 shadow-xs">
+      </div><div className="bg-white rounded-lg border border-gray-200 shadow-xs">
         {loading ? (
           <div className="p-12 text-center text-gray-500 font-medium">Đang tải...</div>
         ) : rows.length === 0 ? (
@@ -340,56 +324,35 @@ export default function GroupBookingManagement() {
                   <div className="flex flex-wrap items-center gap-2">
                     {(row.status === "pending_quote" || row.status === "quoted") && (
                       <>
-                        <button
-                          type="button"
-                          onClick={() => {
+                        <AntButton htmlType="button" onClick={() => {
                             setQuoting(row);
                             setQuotePrice(String(row.quote?.price_per_person ?? ""));
                             setQuoteFree(String(row.quote?.free_slots ?? 0));
                             setQuoteExpires("");
                             setQuoteNote(row.quote?.note ?? "");
                             setDialogError("");
-                          }}
-                          className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700"
-                        >
-                          {row.quote ? "Báo giá lại" : "Báo giá"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
+                          }} type="primary">{row.quote ? "Báo giá lại" : "Báo giá"}</AntButton>
+                        <AntButton htmlType="button" onClick={() => {
                             setRejecting(row);
                             setRejectReason("");
                             setDialogError("");
-                          }}
-                          className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                        >
-                          Từ chối
-                        </button>
+                          }} danger>Từ chối
+                        </AntButton>
                       </>
                     )}
 
                     {row.status === "quoted" && (
-                      <button
-                        type="button"
-                        onClick={() => {
+                      <AntButton htmlType="button" onClick={() => {
                           setConfirming(row);
                           setFinalGuests(String(row.estimated_guests));
                           setDialogError("");
-                        }}
-                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
-                      >
-                        Chốt thành đơn
-                      </button>
+                        }} type="primary">Chốt thành đơn
+                      </AntButton>
                     )}
 
                     {row.booking && (
-                      <button
-                        type="button"
-                        onClick={() => moSo(row)}
-                        className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                      >
-                        Sổ thu tiền
-                      </button>
+                      <AntButton htmlType="button" onClick={() => moSo(row)}>Sổ thu tiền
+                      </AntButton>
                     )}
                   </div>
                 </div>
@@ -408,10 +371,7 @@ export default function GroupBookingManagement() {
             itemLabel="yêu cầu"
           />
         )}
-      </div>
-
-      {/* Báo giá — giá là quyết định của con người, hộp thoại chỉ ghi lại */}
-      <Modal
+      </div>{/* Báo giá — giá là quyết định của con người, hộp thoại chỉ ghi lại */}<Modal
         isOpen={!!quoting}
         onClose={() => setQuoting(null)}
         title={`Báo giá cho ${quoting?.contact_name ?? ""}`}
@@ -423,12 +383,9 @@ export default function GroupBookingManagement() {
         size="lg"
         footer={
           <>
-            <button type="button" onClick={() => setQuoting(null)} className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-md text-gray-700 hover:bg-gray-50 cursor-pointer">
-              Đóng
-            </button>
-            <button type="submit" disabled={saving || !quotePrice || !quoteExpires} className="px-4 py-2 bg-primary-600 text-sm font-semibold rounded-md text-white hover:bg-primary-700 disabled:opacity-40 cursor-pointer">
-              {saving ? "Đang lưu..." : "Lưu báo giá"}
-            </button>
+            <AntButton htmlType="button" onClick={() => setQuoting(null)}>Đóng
+            </AntButton>
+            <AntButton htmlType="submit" disabled={saving || !quotePrice || !quoteExpires} type="primary">{saving ? "Đang lưu..." : "Lưu báo giá"}</AntButton>
           </>
         }
       >
@@ -438,25 +395,13 @@ export default function GroupBookingManagement() {
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                 Giá mỗi người (đ)
               </label>
-              <input
-                type="number"
-                min={1}
-                value={quotePrice}
-                onChange={(e) => setQuotePrice(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md bg-gray-50/50 focus:outline-none focus:border-primary-500"
-              />
+              <AntInput type="number" min={1} value={quotePrice} onChange={(e) => setQuotePrice(e.target.value)} style={{ width: "100%" }} />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                 Suất miễn phí
               </label>
-              <input
-                type="number"
-                min={0}
-                value={quoteFree}
-                onChange={(e) => setQuoteFree(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md bg-gray-50/50 focus:outline-none focus:border-primary-500"
-              />
+              <AntInput type="number" min={0} value={quoteFree} onChange={(e) => setQuoteFree(e.target.value)} style={{ width: "100%" }} />
               <span className="text-[10px] text-gray-400 mt-1 block">
                 Thông lệ: trưởng đoàn đi không tính tiền. Miễn tiền nhưng vẫn chiếm ghế.
               </span>
@@ -484,23 +429,14 @@ export default function GroupBookingManagement() {
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
               Ghi chú gửi khách
             </label>
-            <textarea
-              rows={2}
-              value={quoteNote}
-              onChange={(e) => setQuoteNote(e.target.value)}
-              placeholder="VD: Giá đã gồm gala tối theo yêu cầu."
-              className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md bg-gray-50/50 focus:outline-none focus:border-primary-500"
-            />
+            <AntInput.TextArea rows={2} value={quoteNote} onChange={(e) => setQuoteNote(e.target.value)} placeholder="VD: Giá đã gồm gala tối theo yêu cầu." style={{ width: "100%" }} />
           </div>
 
           {dialogError && (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">{dialogError}</p>
           )}
         </div>
-      </Modal>
-
-      {/* Chốt — bước duy nhất chiếm chỗ */}
-      <Modal
+      </Modal>{/* Chốt — bước duy nhất chiếm chỗ */}<Modal
         isOpen={!!confirming}
         onClose={() => setConfirming(null)}
         title={`Chốt đoàn của ${confirming?.contact_name ?? ""}`}
@@ -512,12 +448,9 @@ export default function GroupBookingManagement() {
         size="md"
         footer={
           <>
-            <button type="button" onClick={() => setConfirming(null)} className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-md text-gray-700 hover:bg-gray-50 cursor-pointer">
-              Đóng
-            </button>
-            <button type="submit" disabled={saving || !finalGuests} className="px-4 py-2 bg-emerald-600 text-sm font-semibold rounded-md text-white hover:bg-emerald-700 disabled:opacity-40 cursor-pointer">
-              {saving ? "Đang chốt..." : "Chốt và tạo đơn"}
-            </button>
+            <AntButton htmlType="button" onClick={() => setConfirming(null)}>Đóng
+            </AntButton>
+            <AntButton htmlType="submit" disabled={saving || !finalGuests} type="primary">{saving ? "Đang chốt..." : "Chốt và tạo đơn"}</AntButton>
           </>
         }
       >
@@ -526,13 +459,7 @@ export default function GroupBookingManagement() {
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
               Số khách chốt
             </label>
-            <input
-              type="number"
-              min={1}
-              value={finalGuests}
-              onChange={(e) => setFinalGuests(e.target.value)}
-              className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md bg-gray-50/50 focus:outline-none focus:border-primary-500"
-            />
+            <AntInput type="number" min={1} value={finalGuests} onChange={(e) => setFinalGuests(e.target.value)} style={{ width: "100%" }} />
             {confirming?.remaining_seats !== null && confirming?.remaining_seats !== undefined && (
               <span className="text-[10px] text-gray-400 mt-1 block">
                 Chuyến còn {confirming.remaining_seats} chỗ. Thiếu chỗ thì máy chủ từ chối — đoàn
@@ -554,10 +481,7 @@ export default function GroupBookingManagement() {
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">{dialogError}</p>
           )}
         </div>
-      </Modal>
-
-      {/* Từ chối */}
-      <Modal
+      </Modal>{/* Từ chối */}<Modal
         isOpen={!!rejecting}
         onClose={() => setRejecting(null)}
         title={`Từ chối yêu cầu của ${rejecting?.contact_name ?? ""}`}
@@ -569,41 +493,28 @@ export default function GroupBookingManagement() {
         size="md"
         footer={
           <>
-            <button type="button" onClick={() => setRejecting(null)} className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-md text-gray-700 hover:bg-gray-50 cursor-pointer">
-              Đóng
-            </button>
-            <button type="submit" disabled={saving || rejectReason.trim().length < 10} className="px-4 py-2 bg-rose-600 text-sm font-semibold rounded-md text-white hover:bg-rose-700 disabled:opacity-40 cursor-pointer">
-              {saving ? "Đang gửi..." : "Từ chối"}
-            </button>
+            <AntButton htmlType="button" onClick={() => setRejecting(null)}>Đóng
+            </AntButton>
+            <AntButton htmlType="submit" disabled={saving || rejectReason.trim().length < 10} type="primary" danger>{saving ? "Đang gửi..." : "Từ chối"}</AntButton>
           </>
         }
       >
         <div className="space-y-3">
-          <textarea
-            rows={3}
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="VD: Chuyến này chỉ còn 8 chỗ, không nhận thêm đoàn 40 người được. Gợi ý chuyển sang chuyến 25/09."
-            className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md bg-gray-50/50 focus:outline-none focus:border-rose-400"
-          />
+          <AntInput.TextArea rows={3} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="VD: Chuyến này chỉ còn 8 chỗ, không nhận thêm đoàn 40 người được. Gợi ý chuyển sang chuyến 25/09." style={{ width: "100%" }} />
           <p className="text-[11px] text-gray-400">Ít nhất 10 ký tự.</p>
           {dialogError && (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">{dialogError}</p>
           )}
         </div>
-      </Modal>
-
-      {/* Sổ giao dịch + giảm số khách của đơn đã chốt */}
-      <Modal
+      </Modal>{/* Sổ giao dịch + giảm số khách của đơn đã chốt */}<Modal
         isOpen={!!ledgerFor}
         onClose={() => setLedgerFor(null)}
         title={`Sổ thu tiền — đơn #${ledgerFor?.booking?.id ?? ""}`}
         subtitle="Chỉ thêm dòng, không sửa dòng cũ. Ghi nhầm thì ghi một dòng hoàn điều chỉnh lại."
         size="2xl"
         footer={
-          <button type="button" onClick={() => setLedgerFor(null)} className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-md text-gray-700 hover:bg-gray-50 cursor-pointer">
-            Đóng
-          </button>
+          <AntButton htmlType="button" onClick={() => setLedgerFor(null)}>Đóng
+          </AntButton>
         }
       >
         {!ledger ? (
@@ -658,49 +569,13 @@ export default function GroupBookingManagement() {
             <div className="rounded-lg border border-gray-200 p-3 space-y-3">
               <p className="text-xs font-bold text-gray-900">Ghi khoản mới</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <select
-                  value={payKind}
-                  onChange={(e) => setPayKind(e.target.value)}
-                  className="px-3 py-2 text-sm border border-gray-200 rounded-md bg-white cursor-pointer"
-                >
-                  <option value="deposit">Tiền cọc</option>
-                  <option value="balance">Thanh toán phần còn lại</option>
-                  <option value="refund">Hoàn tiền</option>
-                </select>
-                <input
-                  type="number"
-                  min={1}
-                  placeholder="Số tiền (đ)"
-                  value={payAmount}
-                  onChange={(e) => setPayAmount(e.target.value)}
-                  className="px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50/50 focus:outline-none focus:border-primary-500"
-                />
-                <select
-                  value={payMethod}
-                  onChange={(e) => setPayMethod(e.target.value)}
-                  className="px-3 py-2 text-sm border border-gray-200 rounded-md bg-white cursor-pointer"
-                >
-                  <option value="bank_transfer">Chuyển khoản</option>
-                  <option value="cash">Tiền mặt</option>
-                  <option value="gateway">Qua cổng</option>
-                </select>
+                <AntSelect showSearch={{ optionFilterProp: "label" }} value={String((payKind) ?? "")} onChange={(e) => setPayKind(e)} style={{ width: "100%" }} options={[{ value: String("deposit"), label: "Tiền cọc", disabled: false },{ value: String("balance"), label: "Thanh toán phần còn lại", disabled: false },{ value: String("refund"), label: "Hoàn tiền", disabled: false }].flat().filter((option) => !!option)} />
+                <AntInput type="number" min={1} placeholder="Số tiền (đ)" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} style={{ width: "100%" }} />
+                <AntSelect showSearch={{ optionFilterProp: "label" }} value={String((payMethod) ?? "")} onChange={(e) => setPayMethod(e)} style={{ width: "100%" }} options={[{ value: String("bank_transfer"), label: "Chuyển khoản", disabled: false },{ value: String("cash"), label: "Tiền mặt", disabled: false },{ value: String("gateway"), label: "Qua cổng", disabled: false }].flat().filter((option) => !!option)} />
               </div>
-              <input
-                type="text"
-                placeholder="Ghi chú (VD: Cọc 30% theo hợp đồng)"
-                value={payNote}
-                onChange={(e) => setPayNote(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-gray-50/50 focus:outline-none focus:border-primary-500"
-              />
+              <AntInput type="text" placeholder="Ghi chú (VD: Cọc 30% theo hợp đồng)" value={payNote} onChange={(e) => setPayNote(e.target.value)} style={{ width: "100%" }} />
               <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={ghiSo}
-                  disabled={saving || !payAmount}
-                  className="rounded-lg bg-primary-600 px-4 py-2 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-40"
-                >
-                  {saving ? "Đang ghi..." : "Ghi vào sổ"}
-                </button>
+                <AntButton htmlType="button" onClick={ghiSo} disabled={saving || !payAmount} type="primary">{saving ? "Đang ghi..." : "Ghi vào sổ"}</AntButton>
               </div>
             </div>
 
@@ -717,31 +592,11 @@ export default function GroupBookingManagement() {
                 sau đó phòng và suất ăn đã đặt, bớt người không bớt được chi phí.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  type="number"
-                  min={1}
-                  placeholder="Số khách mới"
-                  value={reduceTo}
-                  onChange={(e) => setReduceTo(e.target.value)}
-                  className="px-3 py-2 text-sm border border-gray-200 rounded-md bg-white focus:outline-none focus:border-amber-500"
-                />
-                <input
-                  type="text"
-                  placeholder="Lý do"
-                  value={reduceReason}
-                  onChange={(e) => setReduceReason(e.target.value)}
-                  className="px-3 py-2 text-sm border border-gray-200 rounded-md bg-white focus:outline-none focus:border-amber-500"
-                />
+                <AntInput type="number" min={1} placeholder="Số khách mới" value={reduceTo} onChange={(e) => setReduceTo(e.target.value)} style={{ width: "100%" }} />
+                <AntInput type="text" placeholder="Lý do" value={reduceReason} onChange={(e) => setReduceReason(e.target.value)} style={{ width: "100%" }} />
               </div>
               <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={giamKhach}
-                  disabled={saving || !reduceTo}
-                  className="rounded-lg border border-amber-300 bg-white px-4 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-40"
-                >
-                  {saving ? "Đang xử lý..." : "Giảm số khách"}
-                </button>
+                <AntButton htmlType="button" onClick={giamKhach} disabled={saving || !reduceTo}>{saving ? "Đang xử lý..." : "Giảm số khách"}</AntButton>
               </div>
             </div>
 
@@ -750,14 +605,11 @@ export default function GroupBookingManagement() {
             )}
           </div>
         )}
-      </Modal>
-
-      <Toast
+      </Modal><Toast
         message={toast.message}
         type={toast.type}
         isOpen={toast.isOpen}
         onClose={() => setToast((prev) => ({ ...prev, isOpen: false }))}
-      />
-    </div>
+      /></AntFlex>
   );
 }

@@ -23,7 +23,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'vehicle_info',
     'pickup_location',
     'is_featured',
-    'is_sandbox',
     'status',
     'type',
 ])]
@@ -43,9 +42,6 @@ class Tour extends Model
     {
         return [
             'is_featured' => 'boolean',
-            // Cờ sân thử nghiệm. Ép kiểu ở đây để mọi phép kiểm quyền đọc ra `true`/`false` thật,
-            // không đọc ra chuỗi "0" — thứ mà PHP coi là sai nhưng JSON lại gửi đi thành số.
-            'is_sandbox' => 'boolean',
         ];
     }
 

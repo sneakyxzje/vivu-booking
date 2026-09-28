@@ -18,6 +18,8 @@ use Tests\TestCase;
 
 class PaymentLedgerAndRefundTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private User $admin;
@@ -80,7 +82,7 @@ class PaymentLedgerAndRefundTest extends TestCase
 
     private function datTour(int $nguoiLon = 1): Booking
     {
-        $this->postJson('/api/bookings', [
+        $this->postVerifiedBooking([
             'tour_id' => $this->tour->id,
             'tour_schedule_id' => $this->chuyen->id,
             'customer_name' => $this->khach->name,

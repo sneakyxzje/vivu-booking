@@ -65,7 +65,7 @@
                                     <tr>
                                         <td style="padding:12px 14px;background:#f9fafb;font-size:13px;color:#6b7280;">Hạn thanh toán</td>
                                         <td style="padding:12px 14px;font-size:15px;font-weight:700;">
-                                            {{ $hanTraNot->format('d/m/Y') }}
+                                            {{ $hanTraNot->format('H:i d/m/Y') }}
                                         </td>
                                     </tr>
                                 @endif
@@ -82,28 +82,11 @@
                             {{-- Hậu quả nói thẳng, và chỉ nói ở lá cuối. Đặt nó ở cả hai lá thì lá đầu
                                  thành lời đe dọa với người mới vừa đặt cọc xong. --}}
                             @if ($daQuaHan)
-                                <p style="margin:14px 0 0;font-size:14px;color:#7f1d1d;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 16px;line-height:1.6;">
-                                    Quý khách vui lòng thanh toán trong <strong>{{ $soNgayAnHan }} ngày</strong>
-                                    kể từ thư này. Quá thời hạn đó mà chúng tôi chưa nhận được, đơn sẽ được hủy
-                                    và khoản đã thanh toán được xử lý theo bảng phí hủy.
-                                </p>
-                                @if ($congTyDoiNgay)
-                                    <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:#4b5563;">
-                                        Ngày khởi hành của đơn này do chúng tôi sắp xếp lại. Nếu ngày mới không
-                                        phù hợp, Quý khách gọi tổng đài <strong>1900 1234</strong> để
-                                        <strong>chọn chuyến khác hoặc hoàn lại toàn bộ số đã thanh toán</strong>,
-                                        không chịu phí hủy.
-                                    </p>
-                                @else
-                                    <p style="margin:12px 0 0;font-size:14px;line-height:1.6;color:#4b5563;">
-                                        Nếu có khó khăn về thanh toán, Quý khách gọi tổng đài
-                                        <strong>1900 1234</strong> để chúng tôi cùng tìm cách xử lý.
-                                    </p>
-                                @endif
+                                <p>Đã tới hạn chốt danh sách. Đơn chưa thanh toán đủ sẽ bị hủy và mất khoản cọc 50%.</p>
                             @elseif ($laCanhBaoCuoi)
                                 <p style="margin:14px 0 0;font-size:14px;color:#7f1d1d;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 16px;line-height:1.6;">
                                     <strong>Nếu quá hạn trên mà chúng tôi chưa nhận được thanh toán</strong>, đơn của
-                                    Quý khách sẽ được hủy để nhường chỗ cho khách khác, và
+                                    Quý khách sẽ bị hủy tại hạn chốt danh sách, và
                                     <strong>khoản đã đặt cọc không được hoàn lại</strong> theo điều khoản Quý khách
                                     đã đồng ý khi đặt tour.
                                 </p>

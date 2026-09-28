@@ -1,3 +1,4 @@
+import { Flex as UIFlex, Card as UICard } from "antd";
 import React from "react";
 import { AlertCircle, CalendarDays, CheckCircle2, ImageIcon, MapPin } from "lucide-react";
 import type { SelectOption } from "./types";
@@ -60,41 +61,29 @@ export const TourFormSidebar: React.FC<Props> = ({
       </div>
 
       <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <h2 className="line-clamp-2 text-base font-bold text-gray-950">
+        <UIFlex    align="start" justify="space-between" gap={12}><h2 className="line-clamp-2 text-base font-bold text-gray-950">
             {title || "Tên tour sẽ hiện ở đây"}
-          </h2>
-          <span className="shrink-0 rounded-lg bg-primary-50 px-2 py-1 text-[11px] font-bold text-primary-700">
+          </h2><span className="shrink-0 rounded-lg bg-primary-50 px-2 py-1 text-[11px] font-bold text-primary-700">
             {numberOfDays || 1}N{Number(numberOfNights) > 0 ? `${numberOfNights}Đ` : ""}
-          </span>
-        </div>
+          </span></UIFlex>
 
         <p className="mt-2 text-lg font-bold text-primary-600">{previewPrice}</p>
 
         <div className="mt-3 space-y-1.5 text-xs text-gray-600">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-            <span className="truncate">
+          <UIFlex    align="center"  gap={8}><MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" /><span className="truncate">
               {startLocation || "Điểm khởi hành"}
               {endLocation ? ` → ${endLocation}` : ""}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-            <span>
+            </span></UIFlex>
+          <UIFlex    align="center"  gap={8}><CalendarDays className="h-3.5 w-3.5 shrink-0 text-gray-400" /><span>
               {soChuyen > 0 ? `${soChuyen} ngày khởi hành đang mở` : "Chưa mở ngày khởi hành"}
-            </span>
-          </div>
+            </span></UIFlex>
         </div>
       </div>
     </div>
 
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <h3 className="text-xs font-bold uppercase tracking-wide text-gray-500">
+    <UICard  ><UIFlex vertical gap="middle"><h3 className="text-xs font-bold uppercase tracking-wide text-gray-500">
         Còn thiếu để lưu tour
-      </h3>
-
-      {thieu.length === 0 ? (
+      </h3>{thieu.length === 0 ? (
         <p className="mt-3 flex items-start gap-2 text-sm font-semibold text-emerald-700">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
           Đã đủ thông tin, lưu được rồi.
@@ -108,12 +97,9 @@ export const TourFormSidebar: React.FC<Props> = ({
             </li>
           ))}
         </ul>
-      )}
-    </div>
+      )}</UIFlex></UICard>
 
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <h3 className="text-xs font-bold uppercase tracking-wide text-gray-500">Đã chọn</h3>
-      <div className="mt-3 space-y-3">
+    <UICard  ><UIFlex vertical gap="middle"><h3 className="text-xs font-bold uppercase tracking-wide text-gray-500">Đã chọn</h3><div className="mt-3 space-y-3">
         <div>
           <p className="text-[11px] font-semibold text-gray-400">Bộ ảnh</p>
           <p className="mt-1 text-xs text-gray-600">
@@ -154,7 +140,6 @@ export const TourFormSidebar: React.FC<Props> = ({
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </div></UIFlex></UICard>
   </aside>
 );

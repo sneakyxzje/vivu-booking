@@ -12,6 +12,7 @@ use App\Models\DiscountCode;
 use App\Models\PaymentLog;
 use App\Models\TourSchedule;
 use App\Services\BookingAuditLogger;
+use App\Services\BookingCheckoutVerification;
 use App\Services\BookingContactService;
 use App\Services\BookingHoldService;
 use App\Services\BookingPaymentService;
@@ -19,7 +20,6 @@ use App\Services\BookingPolicyService;
 use App\Services\CancellationPolicyService;
 use App\Services\PassengerPolicyService;
 use App\Services\RefundAccountService;
-use App\Services\ScheduleLifecycleService;
 use App\Services\VNPayCallbackService;
 use App\Services\VNPayService;
 use Illuminate\Support\Facades\Log;
@@ -43,10 +43,10 @@ class BookingController extends Controller
     private const DUPLICATE_WINDOW_SECONDS = 60;
 
     public function __construct(
+        private BookingCheckoutVerification $checkoutVerification,
         private VNPayService $vnpayService,
         private BookingHoldService $holdService,
         private BookingPolicyService $bookingPolicy,
-        private ScheduleLifecycleService $scheduleLifecycle,
         private CancellationPolicyService $cancellationPolicy,
         private PassengerPolicyService $passengerPolicy,
         private BookingAuditLogger $auditLogger,
@@ -61,8 +61,8 @@ class BookingController extends Controller
             'tour_id' => 'required|exists:tours,id',
             'tour_schedule_id' => 'required|exists:tour_schedules,id',
             'customer_name' => 'required|string|max:255',
-            'customer_email' => 'required|email|max:255',
-            'customer_phone' => 'nullable|string|max:20',
+            'customer_email' => ['required', new \App\Rules\ValidEmail(), 'max:255'],
+            'customer_phone' => ['nullable', new \App\Rules\ValidPhone(), 'max:20'],
             'adult_count' => 'required|integer|min:1',
             'child_count' => 'nullable|integer|min:0',
             /*
@@ -98,7 +98,7 @@ class BookingController extends Controller
             'passengers.*.identity_number' => 'nullable|string|max:50',
             'passengers.*.id_type' => 'nullable|in:cccd,cmnd,passport,birth_certificate',
             'passengers.*.nationality' => 'nullable|string|max:60',
-            'passengers.*.phone' => 'nullable|string|max:20',
+            'passengers.*.phone' => ['nullable', new \App\Rules\ValidPhone(), 'max:20'],
             'passengers.*.special_request' => 'nullable|string|max:500',
             'passengers.*.is_contact' => 'nullable|boolean',
             'passengers.*.note' => 'nullable|string|max:255',
@@ -108,6 +108,8 @@ class BookingController extends Controller
             'infant_count.lte' => 'Mỗi em bé phải có một người lớn đi kèm, nên số em bé không được '
                 . 'nhiều hơn số người lớn.',
         ]);
+
+        $data['customer_email'] = strtolower(trim($data['customer_email']));
 
         $user = auth('sanctum')->user();
 
@@ -158,19 +160,17 @@ class BookingController extends Controller
             }
         }
 
-        // Nhả chỗ của các đơn quá hạn thanh toán trước khi kiểm tra chỗ trống,
-        // để khách mới dùng được ngay slot vừa được trả lại.
-        $this->holdService->releaseOverdueForSchedule((int) $data['tour_schedule_id']);
-
         // Đặt ngoài giao dịch để biết được kết quả sau khi giao dịch đóng: đơn trùng thì không
-        // gửi lại thư và không tạo lại liên kết thanh toán.
+        // gửi lại thư.
         $laDonTrung = false;
 
         // Mã giảm giá vừa hết lượt trong lúc khách điền thông tin. Đơn vẫn tạo theo giá gốc,
         // nhưng phải nói cho khách biết vì họ đang chờ thấy con số đã giảm.
         $thongBaoMaGiam = null;
 
-        $booking = DB::transaction(function () use ($data, $user, $guestId, &$laDonTrung, &$thongBaoMaGiam) {
+        $booking = $this->checkoutVerification->create($request, $data, function () use ($data, $user, $guestId, &$laDonTrung, &$thongBaoMaGiam) {
+            // Nhả chỗ hết hạn sau khi kiểm tra xác thực và trước khi kiểm tra chỗ trống.
+            $this->holdService->releaseOverdueForSchedule((int) $data['tour_schedule_id']);
             $schedule = TourSchedule::query()
                 ->where('id', $data['tour_schedule_id'])
                 ->where('tour_id', $data['tour_id'])
@@ -273,7 +273,7 @@ class BookingController extends Controller
                 'discount_code' => $discount['model']?->code,
                 'discount_amount' => $discount['amount'],
                 'status' => 'pending',
-                'expires_at' => now()->addMinutes($this->holdService->holdMinutes()),
+                'expires_at' => \App\Services\DemoClock::schedule($schedule)->addMinutes($this->holdService->holdMinutes())->min($schedule->booking_deadline ?? $schedule->defaultBookingDeadline()),
                 'note' => $data['note'] ?? null,
                 /*
                  * Chép chính sách hủy vào đơn ngay lúc đặt.
@@ -303,27 +303,22 @@ class BookingController extends Controller
             $schedule->increment('booked_people', $soGhe);
             $schedule->refresh();
 
-            if ($schedule->booked_people >= $schedule->max_people) {
-                $this->scheduleLifecycle->transitionTo(
-                    $schedule,
-                    ScheduleStatus::Closed,
-                    'Tự động đóng bán do booking vừa lấp đầy số chỗ.',
-                );
-            }
 
             $this->holdService->refreshTourAvailability($schedule);
 
             return $booking->load(['tour', 'schedule']);
-        });
+        }, $laDonTrung);
 
-        /*
-         * Lần trả tiền đầu tiên là TIỀN CỌC, không phải cả giá tour.
-         *
-         * Phần còn lại thu trước ngày khởi hành, xem `Booking::balanceDueAt()`. Đặt
-         * `booking.deposit_percent` bằng 100 thì câu này thu đủ như lối cũ, không cần sửa gì thêm.
-         */
+        // Khôi phục cookie nếu phản hồi đầu tiên bị mất trước khi trình duyệt nhận được nó.
+        if ($guestCookie && $booking->guest_id) {
+            $guestCookie = $guestCookie->withValue($booking->guest_id);
+        }
+
         $soTienCoc = $this->paymentService->nextPaymentAmount($booking);
-        $paymentUrl = $this->vnpayService->createPayment($booking, $soTienCoc);
+        $canPay = in_array($booking->status, ['pending', 'confirmed'], true)
+            && $soTienCoc > 0 && !$booking->isOverdue()
+            && (!$booking->balanceDueAt() || $booking->balanceDueAt()->gt(\App\Services\DemoClock::booking($booking)));
+        $paymentUrl = $canPay ? $this->vnpayService->createPayment($booking, $soTienCoc) : null;
 
         // Đơn trùng thì không gửi thư lần hai. Nhận hai thư xác nhận cho một lần đặt làm khách
         // tưởng mình vừa đặt hai chuyến và gọi lên hỏi, đúng thứ mà luật chống trùng sinh ra để
@@ -362,6 +357,10 @@ class BookingController extends Controller
                 $this->holdService->holdMinutes(),
             );
 
+        if ($laDonTrung && !$canPay) {
+            $thongBao = 'Đơn đặt tour của bạn đã được ghi nhận trước đó. Vui lòng xem trạng thái hiện tại của đơn.';
+        }
+
         if ($thongBaoMaGiam) {
             $thongBao = $thongBaoMaGiam . ' ' . $thongBao;
         }
@@ -391,7 +390,6 @@ class BookingController extends Controller
             ->where('customer_id', $request->user()->id)
             ->where('status', 'pending')
             ->whereNotNull('expires_at')
-            ->where('expires_at', '<=', now())
             ->get()
             ->each(fn (Booking $booking) => $this->holdService->releaseIfOverdue($booking));
 
@@ -443,10 +441,11 @@ class BookingController extends Controller
             $hanTraNot = $conThieu > 0 ? $booking->balanceDueAt() : null;
 
             $booking->setAttribute('balance_due_at', $hanTraNot?->toDateTimeString());
-            $booking->setAttribute('balance_overdue', $hanTraNot !== null && now()->gte($hanTraNot));
+            $booking->setAttribute('balance_overdue', $hanTraNot !== null && \App\Services\DemoClock::booking($booking)->gte($hanTraNot));
 
             if ($traLanNay > 0
                 && !$booking->isGroup()
+                && !$booking->balanceDueAt()?->lte(\App\Services\DemoClock::booking($booking))
                 && in_array($booking->status, ['pending', 'confirmed'], true)) {
                 $booking->setAttribute(
                     'payment_url',
@@ -504,6 +503,7 @@ class BookingController extends Controller
          */
         if ($traLanNay > 0
             && !$booking->isGroup()
+                && !$booking->balanceDueAt()?->lte(\App\Services\DemoClock::booking($booking))
             && in_array($booking->status, ['pending', 'confirmed'], true)) {
             $booking->setAttribute('payment_url', $this->vnpayService->createPayment($booking, $traLanNay));
         }
@@ -526,16 +526,16 @@ class BookingController extends Controller
         $hanTraNot = $conThieu > 0 ? $booking->balanceDueAt() : null;
 
         $booking->setAttribute('balance_due_at', $hanTraNot?->toDateTimeString());
-        $booking->setAttribute('balance_overdue', $hanTraNot !== null && now()->gte($hanTraNot));
+        $booking->setAttribute('balance_overdue', $hanTraNot !== null && \App\Services\DemoClock::booking($booking)->gte($hanTraNot));
 
         /*
-         * Che số giấy tờ của cả đoàn, trừ khi người xem nhập đúng địa chỉ thư đã đặt.
+         * Che số giấy tờ của cả đoàn, trừ chủ đơn đăng nhập hoặc phiên OTP của đúng đơn.
          *
          * Mã tra cứu là chuỗi ngẫu nhiên khó đoán, nhưng nó nằm trong thư — và thư thì được chuyển
          * tiếp, mở trên máy dùng chung, còn lại trong lịch sử trình duyệt. Nó đủ để trả lời "đơn
          * này thế nào", không đủ để đọc căn cước và ngày sinh của từng người trong đoàn.
          */
-        $hienDayDu = $booking->khopEmail($request->query('email'));
+        $hienDayDu = app(\App\Services\PassengerAccessService::class)->canAccess($booking, $request);
 
         if (!$hienDayDu && $booking->relationLoaded('passengers')) {
             $booking->passengers->each(function ($nguoi) {
@@ -726,7 +726,7 @@ class BookingController extends Controller
                 'status' => 'cancelled',
                 'cancel_reason' => $validated['cancel_reason'],
                 'cancel_type' => 'by_customer',
-                'cancelled_at' => now(),
+                'cancelled_at' => \App\Services\DemoClock::schedule($schedule),
                 'cancelled_by' => $fresh->customer_id,
             ]);
 
@@ -957,8 +957,8 @@ class BookingController extends Controller
     {
         // 1. Validate dữ liệu đầu vào từ phía khách hàng
         $validated = $request->validate([
-            'email' => ['required', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:20'],
+            'email' => ['required', new \App\Rules\ValidEmail(), 'max:255'],
+            'phone' => ['nullable', new \App\Rules\ValidPhone(), 'max:20'],
         ]);
 
         $email = trim($validated['email']);
@@ -968,7 +968,7 @@ class BookingController extends Controller
         $query = Booking::query()
             ->where('customer_email', $email)
             ->where('status', '!=', 'cancelled')
-            ->with(['tour:id,title', 'schedule:id,start_date'])
+            ->with(['tour:id,title', 'schedule:id,start_date,booking_deadline'])
             ->latest();
 
         if ($phone) {
@@ -996,7 +996,6 @@ class BookingController extends Controller
         ]);
     }
 }
-
 
 
 

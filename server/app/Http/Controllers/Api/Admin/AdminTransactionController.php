@@ -165,9 +165,19 @@ class AdminTransactionController extends Controller
             ->when($filters['q'] ?? null, function ($q, string $keyword) {
                 $keyword = trim($keyword);
 
+                if (preg_match('/^BK-(\d+)$/i', $keyword, $match)) {
+                    $q->where('booking_id', (int) $match[1]);
+                    return;
+                }
+                if (preg_match('/^GD-(\d+)$/i', $keyword, $match)) {
+                    $q->whereKey((int) $match[1]);
+                    return;
+                }
+
                 $q->where(function ($sub) use ($keyword) {
                     $sub->where('reference', 'like', "%{$keyword}%")
-                        ->orWhereHas('booking', fn ($b) => $b->where('customer_name', 'like', "%{$keyword}%"));
+                        ->orWhereHas('booking', fn ($b) => $b->where('customer_name', 'like', "%{$keyword}%")
+                            ->orWhere('customer_email', 'like', "%{$keyword}%"));
                 });
             });
     }

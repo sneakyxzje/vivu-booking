@@ -38,7 +38,7 @@ class PasswordResetController extends Controller
     public function forgot(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'email' => ['required', 'email', 'max:255'],
+            'email' => ['required', new \App\Rules\ValidEmail(), 'max:255'],
         ]);
 
         $user = User::query()->where('email', $data['email'])->first();
@@ -63,7 +63,7 @@ class PasswordResetController extends Controller
     {
         $data = $request->validate([
             'token' => ['required', 'string'],
-            'email' => ['required', 'email', 'max:255'],
+            'email' => ['required', new \App\Rules\ValidEmail(), 'max:255'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
         ], [
             'password.confirmed' => 'Hai lần nhập mật khẩu chưa khớp nhau.',

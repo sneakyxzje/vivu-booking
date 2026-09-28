@@ -1,13 +1,14 @@
 import React from "react";
+import { Tag } from "antd";
 import type { Tour } from "@/types";
 import type { BookingStatus } from "@/types/guide";
 
 type TourStatus = Tour["status"];
 
 const tourStyles: Record<TourStatus, string> = {
-  active: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  inactive: "bg-gray-100 text-gray-600 border-gray-200",
-  full: "bg-red-50 text-red-700 border-red-200",
+  active: "success",
+  inactive: "default",
+  full: "error",
 };
 
 const tourLabels: Record<TourStatus, string> = {
@@ -17,9 +18,9 @@ const tourLabels: Record<TourStatus, string> = {
 };
 
 const bookingStyles: Record<BookingStatus, string> = {
-  pending: "bg-amber-50 text-amber-700 border-amber-200",
-  confirmed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  cancelled: "bg-red-50 text-red-600 border-red-200",
+  pending: "warning",
+  confirmed: "success",
+  cancelled: "error",
 };
 
 const bookingLabels: Record<BookingStatus, string> = {
@@ -31,19 +32,15 @@ const bookingLabels: Record<BookingStatus, string> = {
 export const TourStatusBadge: React.FC<{ status: TourStatus }> = ({
   status,
 }) => (
-  <span
-    className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${tourStyles[status]}`}
-  >
+  <Tag color={tourStyles[status]}>
     {tourLabels[status]}
-  </span>
+  </Tag>
 );
 
 export const BookingStatusBadge: React.FC<{ status: BookingStatus }> = ({
   status,
 }) => (
-  <span
-    className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border ${bookingStyles[status]}`}
-  >
+  <Tag color={bookingStyles[status]}>
     {bookingLabels[status]}
-  </span>
+  </Tag>
 );

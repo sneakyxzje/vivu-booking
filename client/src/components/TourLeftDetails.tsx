@@ -1,3 +1,4 @@
+import { Button, Collapse, Descriptions, Empty, Modal, Typography } from "antd";
 import React, { useEffect, useState } from "react";
 import type { Tour, Service, TourItinerary, TourSchedule } from "@/types";
 import policyService from "@/services/policyService";
@@ -11,6 +12,7 @@ import {
 } from "@/components/Icons";
 import { TourReviewsSection } from "@/components/TourReviewsSection";
 import { TourDepartures } from "@/components/TourDepartures";
+import { ItineraryGallery } from "@/components/ItineraryGallery";
 
 interface TourLeftDetailsProps {
   tour: Tour;
@@ -115,23 +117,8 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
   selectedSchedule,
   onScheduleChange,
 }) => {
-  const [expandedDay, setExpandedDay] = useState<number | null>(1);
-  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   /** Ngày đang mở trong hộp thoại chi tiết. Null là đang đóng. */
   const [ngayDangMo, setNgayDangMo] = useState<TourItinerary | null>(null);
-
-  /* Esc đóng hộp thoại. Gắn khi mở và gỡ khi đóng, để trang không giữ một trình nghe phím thừa. */
-  useEffect(() => {
-    if (!ngayDangMo) return;
-
-    const dongKhiEsc = (su: KeyboardEvent) => {
-      if (su.key === "Escape") setNgayDangMo(null);
-    };
-
-    window.addEventListener("keydown", dongKhiEsc);
-
-    return () => window.removeEventListener("keydown", dongKhiEsc);
-  }, [ngayDangMo]);
 
   /*
    * Chính sách hủy đọc từ máy chủ, không viết cứng trong giao diện.
@@ -164,14 +151,6 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
 
   const bacHoan = policy?.cancellation.rules ?? [];
 
-  const toggleDay = (dayNum: number) => {
-    setExpandedDay(expandedDay === dayNum ? null : dayNum);
-  };
-
-  const toggleFaq = (idx: number) => {
-    setExpandedFaq(expandedFaq === idx ? null : idx);
-  };
-
   const faqs = [
     {
       q: "Giá tour hiển thị đã bao gồm những chi phí gì?",
@@ -184,8 +163,8 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
        */
       a: tour.services && tour.services.length > 0
         ? "Giá tour đã bao gồm: " +
-          tour.services.map((dv: Service) => dv.name).join(", ") +
-          ". Các chi phí cá nhân ngoài chương trình do Quý khách tự chi trả."
+        tour.services.map((dv: Service) => dv.name).join(", ") +
+        ". Các chi phí cá nhân ngoài chương trình do Quý khách tự chi trả."
         : "Danh sách dịch vụ đi kèm của tour này đang được cập nhật. Vui lòng liên hệ tổng đài để được tư vấn chi tiết trước khi đặt.",
     },
     {
@@ -199,8 +178,8 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
        */
       a: bacHoan.length > 0
         ? "Mức hoàn phụ thuộc thời điểm hủy: " +
-          bacHoan.map((bac) => `${bac.window} hoàn ${bac.refund_percent}%`).join("; ") +
-          ". Phí hủy tính trên giá trị đơn, tiền hoàn trừ trên số tiền đã thanh toán."
+        bacHoan.map((bac) => `${bac.window} hoàn ${bac.refund_percent}%`).join("; ") +
+        ". Phí hủy tính trên giá trị đơn, tiền hoàn trừ trên số tiền đã thanh toán."
         : "Mức hoàn phụ thuộc thời điểm hủy, xem bảng chi tiết ở mục Chính sách hoàn hủy bên dưới.",
     },
     {
@@ -403,150 +382,21 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
           </span>
         </div>
 
-        <div className="relative border-l-2 border-primary-100 ml-4 pl-6 md:pl-8 space-y-6">
-          {tour.itineraries?.length ? (
-            tour.itineraries.map((item: TourItinerary) => {
-              const isExpanded = expandedDay === item.day_number;
-              return (
-                <div key={item.id} className="relative">
-                  {/* Timeline Point */}
-                  <div
-                    onClick={() => toggleDay(item.day_number)}
-                    className={`absolute -left-[41px] md:-left-[49px] top-1.5 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs md:text-sm cursor-pointer shadow-md transition-all duration-305 ${
-                      isExpanded
-                        ? "bg-primary-600 text-white ring-4 ring-primary-100"
-                        : "bg-white text-primary-600 border-2 border-primary-200 hover:bg-primary-50"
-                    }`}
-                  >
-                    {item.day_number}
-                  </div>
-
-                  {/* Accordion Card */}
-                  <div className="border border-gray-100 bg-gray-50/50 rounded-lg overflow-hidden transition-all duration-300">
-                    <button
-                      type="button"
-                      onClick={() => toggleDay(item.day_number)}
-                      className="w-full px-5 py-4 flex items-center justify-between text-left focus:outline-none hover:bg-gray-55 transition-colors"
-                    >
-                      <h3 className="font-bold text-sm md:text-base text-gray-900 pr-4">
-                        Ngày {item.day_number}: {item.title}
-                      </h3>
-                      <svg
-                        className={`w-4 h-4 text-gray-400 shrink-0 transform transition-transform duration-300 ${
-                          isExpanded ? "rotate-180" : ""
-                        }`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2.5}
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </button>
-
-                    {/* Content Section */}
-                    <div
-                      className={`transition-all duration-500 overflow-hidden ${
-                        isExpanded
-                          ? "max-h-[720px] opacity-100 border-t border-gray-100"
-                          : "max-h-0 opacity-0"
-                      }`}
-                    >
-                      <div className="space-y-4 p-5 text-sm md:text-base">
-                        {(item.start_point || item.end_point || item.route_points || item.rest_stops) && (
-                          <div className="grid grid-cols-1 gap-3 rounded-lg border border-gray-100 bg-white p-4 text-sm sm:grid-cols-2">
-                            {item.start_point && (
-                              <div>
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                  Điểm đầu
-                                </p>
-                                <p className="mt-1 font-semibold text-gray-800">{item.start_point}</p>
-                              </div>
-                            )}
-                            {item.end_point && (
-                              <div>
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                  Điểm đến
-                                </p>
-                                <p className="mt-1 font-semibold text-gray-800">{item.end_point}</p>
-                              </div>
-                            )}
-                            {item.route_points && (
-                              <div className="sm:col-span-2">
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                  Chặng đi qua
-                                </p>
-                                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                                  {item.route_points
-                                    .split(/[,\n]/)
-                                    .map((point) => point.trim())
-                                    .filter(Boolean)
-                                    .map((point, pointIndex, points) => (
-                                      <React.Fragment key={pointIndex}>
-                                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700">
-                                          {point}
-                                        </span>
-                                        {pointIndex < points.length - 1 && (
-                                          <svg
-                                            className="h-3.5 w-3.5 shrink-0 text-gray-400"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                          >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              strokeWidth={2.5}
-                                              d="M9 5l7 7-7 7"
-                                            />
-                                          </svg>
-                                        )}
-                                      </React.Fragment>
-                                    ))}
-                                </div>
-                              </div>
-                            )}
-                            {item.rest_stops && (
-                              <div>
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                  Nghỉ chân
-                                </p>
-                                <p className="mt-1 whitespace-pre-line text-gray-600">{item.rest_stops}</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        <div className="text-gray-600 leading-relaxed whitespace-pre-line line-clamp-[12]">
-                          {item.content}
-                        </div>
-
-                        {/*
-                          Khối mở ra ở trên bị chặn chiều cao ở 720px, nên ngày nào viết dài là bị
-                          cắt cụt mà không có đường xem tiếp — chữ mất hẳn chứ không phải cuộn được.
-                          Nút này mở đúng nội dung ấy trong một hộp thoại không giới hạn chiều cao.
-                        */}
-                        <button
-                          type="button"
-                          onClick={() => setNgayDangMo(item)}
-                          className="rounded-full border border-primary-200 bg-white px-4 py-2 text-xs font-semibold text-primary-600 transition-colors hover:bg-primary-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-                        >
-                          Xem chi tiết ngày {item.day_number}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <p className="text-gray-400 text-sm">
-              Lịch trình đang được xây dựng.
-            </p>
-          )}
+        <div>
+          {tour.itineraries?.length ? <Collapse defaultActiveKey={[String(tour.itineraries[0].id)]} items={tour.itineraries.map(item => ({
+            key: String(item.id), label: "Ngày " + item.day_number + ": " + item.title,
+            children: <>
+              <Descriptions size="small" column={1} items={[
+                ...(item.start_point ? [{ key: "start", label: "Điểm đầu", children: item.start_point }] : []),
+                ...(item.end_point ? [{ key: "end", label: "Điểm đến", children: item.end_point }] : []),
+                ...(item.route_points ? [{ key: "route", label: "Chặng đi qua", children: item.route_points }] : []),
+                ...(item.rest_stops ? [{ key: "rest", label: "Nghỉ chân", children: item.rest_stops }] : []),
+              ]} />
+              <Typography.Paragraph style={{ whiteSpace: "pre-line", marginTop: 16 }} ellipsis={{ rows: 6 }}>{item.content}</Typography.Paragraph>
+              <ItineraryGallery images={item.images} day={item.day_number} />
+              <Button onClick={() => setNgayDangMo(item)}>Xem chi tiết ngày {item.day_number}</Button>
+            </>,
+          }))} /> : <Empty description="Lịch trình đang được xây dựng." />}
         </div>
       </div>
 
@@ -556,53 +406,7 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
           Các câu hỏi thường gặp (FAQs)
         </h2>
 
-        <div className="space-y-3">
-          {faqs.map((faq, idx) => {
-            const isExpanded = expandedFaq === idx;
-            return (
-              <div
-                key={idx}
-                className="border border-gray-100 rounded-lg overflow-hidden bg-white"
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleFaq(idx)}
-                  className="w-full px-5 py-4 flex items-center justify-between text-left focus:outline-none hover:bg-gray-50 transition-colors"
-                >
-                  <span className="font-bold text-sm text-gray-800 pr-4">
-                    {faq.q}
-                  </span>
-                  <svg
-                    className={`w-4 h-4 text-gray-400 shrink-0 transform transition-transform duration-300 ${
-                      isExpanded ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
-                <div
-                  className={`transition-all duration-300 overflow-hidden ${
-                    isExpanded
-                      ? "max-h-40 opacity-100 border-t border-gray-100"
-                      : "max-h-0 opacity-0"
-                  }`}
-                >
-                  <p className="p-5 text-sm text-gray-600 leading-relaxed bg-gray-50">
-                    {faq.a}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <Collapse items={faqs.map((faq, index) => ({ key: String(index), label: faq.q, children: <Typography.Paragraph style={{ marginBottom: 0 }}>{faq.a}</Typography.Paragraph> }))} />
       </div>
 
       {/* Vị trí và điểm đón khách */}
@@ -730,9 +534,9 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
 
       {/* Đánh giá và bình luận tour công khai */}
       <TourReviewsSection
-      tourId={tour.id}
-      tourTitle={tour.title}
-    />
+        tourId={tour.id}
+        tourTitle={tour.title}
+      />
 
       {/*
         Hộp thoại chi tiết một ngày.
@@ -745,59 +549,14 @@ export const TourLeftDetails: React.FC<TourLeftDetailsProps> = ({
         hộp thoại này tồn tại: ngày nào viết dài thì trong danh sách bị cắt cụt, còn ở đây đọc hết.
       */}
       {ngayDangMo && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-900/50 p-4 py-10"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Lịch trình ngày ${ngayDangMo.day_number}`}
-          onClick={() => setNgayDangMo(null)}
-        >
-          <div
-            className="w-full max-w-2xl rounded-2xl bg-white shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
-              <h3 className="font-plus-jakarta text-xl font-bold text-gray-900">Lịch trình</h3>
-              <button
-                type="button"
-                onClick={() => setNgayDangMo(null)}
-                aria-label="Đóng"
-                className="rounded-full border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="px-6 py-5">
-              <div className="rounded-xl bg-primary-50 px-5 py-4">
-                <p className="font-plus-jakarta text-lg font-bold text-primary-700">
-                  Ngày {ngayDangMo.day_number}
-                </p>
-                <p className="mt-1 text-base font-semibold text-gray-900">{ngayDangMo.title}</p>
-                {(ngayDangMo.start_point || ngayDangMo.end_point) && (
-                  <p className="mt-1.5 text-sm text-gray-600">
-                    {[ngayDangMo.start_point, ngayDangMo.end_point].filter(Boolean).join(" → ")}
-                  </p>
-                )}
-              </div>
-
-              {ngayDangMo.rest_stops && (
-                <p className="mt-4 text-sm text-gray-600">
-                  <span className="font-semibold text-gray-800">Nghỉ chân:</span>{" "}
-                  {ngayDangMo.rest_stops}
-                </p>
-              )}
-
-              <div className="mt-4 whitespace-pre-line leading-relaxed text-gray-700">
-                {ngayDangMo.content}
-              </div>
-            </div>
-          </div>
-        </div>
+        <Modal open title={"Ngày " + ngayDangMo.day_number + ": " + ngayDangMo.title} width={760} onCancel={() => setNgayDangMo(null)} footer={<Button onClick={() => setNgayDangMo(null)}>Đóng</Button>}>
+          <Typography.Paragraph strong>{[ngayDangMo.start_point, ngayDangMo.end_point].filter(Boolean).join(" → ")}</Typography.Paragraph>
+          {ngayDangMo.route_points && <Typography.Paragraph>Chặng đi qua: {ngayDangMo.route_points}</Typography.Paragraph>}
+          {ngayDangMo.rest_stops && <Typography.Paragraph>Nghỉ chân: {ngayDangMo.rest_stops}</Typography.Paragraph>}
+          <Typography.Paragraph style={{ whiteSpace: "pre-line" }}>{ngayDangMo.content}</Typography.Paragraph>
+          <ItineraryGallery images={ngayDangMo.images} day={ngayDangMo.day_number} />
+        </Modal>
       )}
     </div>
   );
 };
-

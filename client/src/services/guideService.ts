@@ -99,6 +99,8 @@ export const buildTourPayload = (form: unknown) => {
           route_points?: string[];
           rest_stops?: string;
           content: string;
+          images?: string[];
+          image_files?: File[];
           checkpoints?: {
             id?: number;
             name: string;
@@ -124,6 +126,12 @@ export const buildTourPayload = (form: unknown) => {
     );
     data.append(`itineraries[${index}][rest_stops]`, item.rest_stops ?? "");
     data.append(`itineraries[${index}][content]`, item.content);
+    if (item.images !== undefined) {
+      data.append(`itineraries[${index}][replace_images]`, "1");
+      item.images.forEach(url => data.append(`itineraries[${index}][images][]`, url));
+    }
+    item.image_files?.forEach(file => data.append(`itineraries[${index}][image_files][]`, file));
+
 
     /*
      * Điểm dừng. Trước đây payload bỏ qua hẳn phần này, nên mọi điểm dừng khai ở biểu mẫu tạo
@@ -401,19 +409,15 @@ const guideService = {
   },
 
   /**
-   * Ảnh check-in phải kèm tọa độ nơi chụp. Máy chủ so với tọa độ điểm dừng và cảnh báo khi
-   * cách quá 200m; thiếu tọa độ thì bị từ chối chứ không lưu suông.
+   * Gửi ảnh gắn với chuyến và điểm dừng; không thu thập vị trí thiết bị.
    */
   uploadCheckinPhoto: async (
     scheduleId: number,
     checkpointId: number,
     photo: File,
-    coords: { latitude: number; longitude: number },
   ): Promise<UploadCheckinPhotoResult | null> => {
     const data = new FormData();
     data.append("photo", photo);
-    data.append("latitude", String(coords.latitude));
-    data.append("longitude", String(coords.longitude));
 
     const response = await api.post(
       `/guide/schedules/${scheduleId}/checkpoints/${checkpointId}/checkin-photo`,

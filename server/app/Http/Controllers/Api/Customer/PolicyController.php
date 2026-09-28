@@ -55,8 +55,8 @@ class PolicyController extends Controller
              * số cũ là nói sai với khách về một điều khoản họ sẽ bị áp.
              */
             'payment' => [
-                'deposit_percent' => max(1, min(100, (int) config('booking.deposit_percent', 50))),
-                'balance_due_days' => (int) config('booking.balance_due_days', 10),
+                'deposit_percent' => 50,
+                'balance_due_rule' => 'booking_deadline',
                 'reminder_days' => (int) config('booking.balance_reminder_days', 7),
                 'final_notice_days' => (int) config('booking.balance_final_notice_days', 2),
             ],

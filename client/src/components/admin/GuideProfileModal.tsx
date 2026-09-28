@@ -1,3 +1,4 @@
+import { Button as AntButton, Input as AntInput } from "antd";
 import React, { useEffect, useState } from "react";
 import type { Category, Guide, GuideProfilePayload } from "@/types";
 import adminService from "@/services/adminService";
@@ -91,20 +92,9 @@ export const GuideProfileModal: React.FC<Props> = ({ guide, onClose, onSaved, on
       size="xl"
       footer={
         <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold rounded-md text-gray-700 hover:bg-gray-50 cursor-pointer"
-          >
-            Đóng
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-4 py-2 bg-primary-600 text-sm font-semibold rounded-md text-white hover:bg-primary-700 disabled:opacity-40 cursor-pointer"
-          >
-            {saving ? "Đang lưu..." : "Lưu hồ sơ"}
-          </button>
+          <AntButton htmlType="button" onClick={onClose}>Đóng
+          </AntButton>
+          <AntButton htmlType="submit" disabled={saving} type="primary">{saving ? "Đang lưu..." : "Lưu hồ sơ"}</AntButton>
         </>
       }
     >
@@ -132,24 +122,13 @@ export const GuideProfileModal: React.FC<Props> = ({ guide, onClose, onSaved, on
               const daChon = categoryIds.includes(item.id);
 
               return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() =>
+                <AntButton type={(daChon) ? "primary" : "default"} key={item.id} htmlType="button" onClick={() =>
                     setCategoryIds((truoc) =>
                       truoc.includes(item.id)
                         ? truoc.filter((id) => id !== item.id)
                         : [...truoc, item.id],
                     )
-                  }
-                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-                    daChon
-                      ? "border-primary-600 bg-primary-600 text-white"
-                      : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  {item.name}
-                </button>
+                  }>{item.name}</AntButton>
               );
             })}
           </div>
@@ -163,13 +142,7 @@ export const GuideProfileModal: React.FC<Props> = ({ guide, onClose, onSaved, on
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
               Tuyến quen
             </label>
-            <input
-              type="text"
-              value={regions}
-              onChange={(e) => setRegions(e.target.value)}
-              placeholder="Hạ Long, Ninh Bình, Cát Bà"
-              className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md bg-gray-50/50 focus:outline-none focus:border-primary-500"
-            />
+            <AntInput type="text" value={regions} onChange={(e) => setRegions(e.target.value)} placeholder="Hạ Long, Ninh Bình, Cát Bà" style={{ width: "100%" }} />
             <span className="text-[10px] text-gray-400 mt-1 block">
               Cách nhau bằng dấu phẩy. Khớp với điểm đến của tour thì được cộng điểm.
             </span>
@@ -179,13 +152,7 @@ export const GuideProfileModal: React.FC<Props> = ({ guide, onClose, onSaved, on
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
               Ngôn ngữ
             </label>
-            <input
-              type="text"
-              value={languages}
-              onChange={(e) => setLanguages(e.target.value)}
-              placeholder="Tiếng Việt, Tiếng Anh"
-              className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md bg-gray-50/50 focus:outline-none focus:border-primary-500"
-            />
+            <AntInput type="text" value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder="Tiếng Việt, Tiếng Anh" style={{ width: "100%" }} />
             {/*
               Nói thật là hiện chưa chấm điểm được: tour không có ô khai đoàn cần tiếng gì nên
               không có gì để so. Hiện ra để người xếp tự cân, hơn là bịa ra một tiêu chí.
@@ -200,15 +167,7 @@ export const GuideProfileModal: React.FC<Props> = ({ guide, onClose, onSaved, on
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
             Sức dẫn tối đa (khách)
           </label>
-          <input
-            type="number"
-            min={1}
-            max={500}
-            value={maxGroupSize}
-            onChange={(e) => setMaxGroupSize(e.target.value)}
-            placeholder="35"
-            className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md bg-gray-50/50 focus:outline-none focus:border-primary-500"
-          />
+          <AntInput type="number" min={1} max={500} value={maxGroupSize} onChange={(e) => setMaxGroupSize(e.target.value)} placeholder="35" style={{ width: "100%" }} />
           <span className="text-[10px] text-gray-400 mt-1 block">
             Chỉ để nhắc khi đoàn đông hơn con số này. Không chặn — đoàn đông thì bạn xếp thêm
             người, hệ thống không quyết hộ.
@@ -219,13 +178,7 @@ export const GuideProfileModal: React.FC<Props> = ({ guide, onClose, onSaved, on
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
             Ghi chú
           </label>
-          <textarea
-            rows={2}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Dẫn tuyến vịnh Bắc Bộ từ 2019."
-            className="w-full px-3.5 py-2 text-sm border border-gray-200 rounded-md bg-gray-50/50 focus:outline-none focus:border-primary-500"
-          />
+          <AntInput.TextArea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Dẫn tuyến vịnh Bắc Bộ từ 2019." style={{ width: "100%" }} />
         </div>
       </div>
     </Modal>

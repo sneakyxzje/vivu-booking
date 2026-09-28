@@ -4,315 +4,206 @@ namespace App\Services;
 
 use App\Enums\BookingAuditAction;
 use App\Enums\BookingStatus;
+use App\Enums\ProposalStatus;
 use App\Enums\ScheduleStatus;
 use App\Enums\TourType;
 use App\Exceptions\BusinessRuleException;
-use App\Mail\BookingCancelledMail;
-use App\Mail\ScheduleMergedMail;
+use App\Mail\BookingProposalMail;
+use App\Mail\BookingTransferredMail;
 use App\Models\Booking;
+use App\Models\BookingChangeProposal;
 use App\Models\BookingTransfer;
 use App\Models\TourSchedule;
 use App\Models\User;
-use App\Notifications\Alert;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Throwable;
 
-/**
- * L01, L02 - Ghép hai chuyến của cùng một tour.
- *
- * Câu số 16 của hội đồng. Luật ở docs/nghiep-vu/04-luong-dieu-hanh.md mục 2.1.
- *
- * Tình huống: hai chuyến khởi hành gần nhau, mỗi chuyến 4 khách, không chuyến nào đủ mức tối
- * thiểu để chạy. Dồn về một chuyến thì cả hai đoàn đều được đi thay vì cả hai cùng bị hủy.
- *
- * Đây là chuyển chuyến hàng loạt, nên dùng lại đúng cách khóa hai chuyến của nhóm I: sắp id
- * tăng dần trước khi khóa.
- */
+
 class ScheduleMergeService
 {
-    /** Chênh lệch ngày khởi hành tối đa giữa hai chuyến được ghép. */
     public const MAX_DAY_GAP = 2;
 
     public function __construct(
         private ScheduleLifecycleService $lifecycle,
-        private BookingHoldService $holdService,
         private BookingAuditLogger $auditLogger,
-        private BookingPaymentService $payments,
-        private Notifier $notifier,
-    ) {
-    }
+    ) {}
 
-    /**
-     * Đơn nào vừa ghép sang mà còn nợ tiền, lại quá sát ngày để tự động thu nốt, thì gọi người.
-     *
-     * Ghép chuyến là đường duy nhất trong hệ thống dời ngày đi của khách mà KHÔNG hỏi họ. Khách đã
-     * cọc cho chuyến ngày 20, giờ ngồi trên chuyến ngày 8 — hạn trả nốt của chuyến mới đã trôi qua
-     * từ lâu, và cả dây chuyền nhắc rồi hủy không còn đủ thời gian để chạy hết.
-     *
-     * Trước đây chỗ này im lặng, nên đơn ấy trôi tới ngày khởi hành mà không ai biết nó còn thiếu
-     * tiền. Bây giờ điều hành nhận thông báo ngay lúc vừa bấm ghép, tức lúc còn kịp gọi khách.
-     *
-     * Luật "thế nào là quá sát" dùng chung với luồng chuyển chuyến — xem
-     * `BookingPaymentService::tuDongThuNotKhongKip()`.
-     *
-     * @param  array<int, int>  $ids
-     */
-    private function canhBaoDonConNoSatNgay(array $ids): void
-    {
-        if ($ids === []) {
-            return;
-        }
-
-        $don = Booking::query()
-            ->whereIn('id', $ids)
-            // `booking_deadline` phải nằm trong danh sách cột: `tuDongThuNotKhongKip()` đo tới hạn
-            // chốt, và cột thiếu thì nó đọc null rồi lặng lẽ lùi về mặc định ngày-đi-trừ-ba. Chuyến
-            // có hạn chốt thương lượng riêng — đúng nhóm mà mốc này quan trọng nhất — bị đo sai về
-            // phía muộn hơn, nên cảnh báo bắn trễ hoặc không bắn.
-            ->with(['schedule:id,start_date,booking_deadline', 'tour:id,title'])
-            ->get();
-
-        foreach ($don as $booking) {
-            if (!$this->payments->tuDongThuNotKhongKip($booking)) {
-                continue;
-            }
-
-            $this->notifier->toiDieuHanh(
-                Alert::CON_NO_SAT_NGAY,
-                sprintf(
-                    'Đơn #%d còn thiếu %s đ mà chuyến khởi hành %s',
-                    $booking->id,
-                    number_format($this->payments->balanceDue($booking), 0, ',', '.'),
-                    $booking->schedule?->start_date?->format('d/m') ?? 'rất gần',
-                ),
-                sprintf(
-                    '%s · đơn vừa được ghép sang chuyến này nên quy trình nhắc và hủy tự động không '
-                        . 'còn kịp chạy. Gọi khách thu nốt, hoặc duyệt cho đi rồi thu sau.',
-                    $booking->tour?->title ?? 'Tour',
-                ),
-                '/admin/bookings',
-            );
-        }
-    }
-
-    /**
-     * Xem trước tác động: bao nhiêu đơn chuyển, bao nhiêu đơn bị hủy, còn đủ chỗ không.
-     *
-     * @return array{can_merge: bool, blocked_reason: string|null, transferring: int, transferring_guests: int, cancelling: int, remaining_seats: int}
-     */
     public function preview(TourSchedule $from, TourSchedule $to): array
     {
-        $coThe = true;
-        $lyDo = null;
-
+        $reason = null;
         try {
             $this->assertCanMerge($from, $to);
         } catch (BusinessRuleException $e) {
-            $coThe = false;
-            $lyDo = $e->getMessage();
+            $reason = $e->getMessage();
         }
-
-        $chuyenDi = $this->bookingsToTransfer($from);
-        $huyDi = $this->bookingsToCancel($from);
-
+        $bookings = $this->bookingsToTransfer($from);
+        $seats = (int) $bookings->sum(fn (Booking $booking) => $booking->seatsTaken());
         return [
-            'can_merge' => $coThe,
-            'blocked_reason' => $lyDo,
-            'transferring' => $chuyenDi->count(),
-            // Số NGƯỜI cho màn hình đọc; số ghế dùng để kiểm sức chứa ở `assertCanMerge`.
-            'transferring_guests' => (int) $chuyenDi->sum('guests'),
-            'cancelling' => $huyDi->count(),
-            'remaining_seats' => (int) $to->max_people - (int) $to->booked_people,
+            'can_merge' => $reason === null, 'blocked_reason' => $reason,
+            'transferring' => $bookings->count(),
+            'transferring_guests' => (int) $bookings->sum('guests'),
+            'transferring_seats' => $seats, 'cancelling' => 0,
+            'requires_consent' => true,
+            'response_deadline' => $this->responseDeadline($from, $to)->toDateTimeString(),
+            'remaining_seats' => $to->remainingSeats(),
+            'remaining_seats_after' => $to->remainingSeats() - $seats,
         ];
     }
 
-    /**
-     * Ghép chuyến nguồn vào chuyến đích.
-     *
-     * @return array{transferred: int, cancelled: int}
-     */
-    public function merge(
-        TourSchedule $from,
-        TourSchedule $to,
-        string $reason,
-        ?User $actor = null,
-    ): array {
+    private function responseDeadline(TourSchedule $from, TourSchedule $to): Carbon
+    {
+        return DemoClock::schedule($from)->addDays(2)
+            ->min($from->booking_deadline ?? $from->defaultBookingDeadline())
+            ->min($to->booking_deadline ?? $to->defaultBookingDeadline());
+    }
+
+    private function snapshot(TourSchedule $schedule): array
+    {
+        return [
+            'tour_id' => $schedule->tour_id, 'tour_title' => $schedule->tour?->title,
+            'tour_slug' => $schedule->tour?->slug,
+            'pickup_location' => $schedule->tour?->pickup_location,
+            'vehicle_info' => $schedule->tour?->vehicle_info,
+            'itineraries' => $schedule->tour?->itineraries()->orderBy('day_number')
+                ->get(['day_number', 'title', 'start_point', 'end_point', 'route_points', 'rest_stops', 'content'])->toArray() ?? [],
+            'start_date' => $schedule->start_date?->toDateTimeString(),
+            'end_date' => $schedule->end_date?->toDateTimeString(),
+            'arrival_at' => $schedule->arrival_at?->toDateTimeString(),
+            'return_departure_at' => $schedule->return_departure_at?->toDateTimeString(),
+            'booking_deadline' => ($schedule->booking_deadline ?? $schedule->defaultBookingDeadline())?->toDateTimeString(),
+        ];
+    }
+
+    public function merge(TourSchedule $from, TourSchedule $to, string $reason, ?User $actor = null): array
+    {
+        if (!$actor) {
+            throw new BusinessRuleException('Cần người điều hành tạo đề xuất ghép chuyến.');
+        }
         return DB::transaction(function () use ($from, $to, $reason, $actor) {
-            // Cùng thứ tự khóa với BookingTransferService: id tăng dần, để hai thao tác ghép
-            // chéo nhau không chờ nhau vô hạn.
-            $ids = collect([$from->getKey(), $to->getKey()])->unique()->sort()->values();
-
-            $schedules = TourSchedule::query()
-                ->whereIn('id', $ids)
-                ->orderBy('id')
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('id');
-
-            $nguon = $schedules->get($from->getKey());
-            $dich = $schedules->get($to->getKey());
-
-            if (!$nguon || !$dich) {
-                throw new BusinessRuleException('Không tìm thấy chuyến khởi hành.', 404);
+            $schedules = TourSchedule::query()->whereIn('id', [$from->id, $to->id])
+                ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $source = $schedules->get($from->id);
+            $target = $schedules->get($to->id);
+            if (!$source || !$target) {
+                throw new BusinessRuleException('Không tìm thấy chuyến.', 404);
             }
-
-            $this->assertCanMerge($nguon, $dich);
-
-            $chuyenDi = $this->bookingsToTransfer($nguon);
-            $huyDi = $this->bookingsToCancel($nguon);
-
-            $tongKhachChuyen = (int) $chuyenDi->sum(fn (Booking $don) => $don->seatsTaken());
-
-            // Kiểm lại số chỗ trên bản ghi vừa khóa. Giữa lúc xem trước và lúc bấm, chuyến đích
-            // hoàn toàn có thể vừa nhận thêm khách.
-            if ((int) $dich->max_people - (int) $dich->booked_people < $tongKhachChuyen) {
-                throw new BusinessRuleException(sprintf(
-                    'Chuyến đích chỉ còn %d chỗ, không đủ cho %d khách của chuyến nguồn.',
-                    max(0, (int) $dich->max_people - (int) $dich->booked_people),
-                    $tongKhachChuyen,
-                ));
+            $this->assertCanMerge($source, $target);
+            $count = 0;
+            foreach ($this->bookingsToTransfer($source) as $row) {
+                $booking = Booking::query()->whereKey($row->id)->lockForUpdate()->firstOrFail();
+                $email = $booking->customer_email ?: $booking->customer?->email;
+                if (!$email) {
+                    throw new BusinessRuleException("Đơn #{$booking->id} chưa có email nhận đề xuất.");
+                }
+                $snapshot = ['from' => $this->snapshot($source), 'to' => $this->snapshot($target)];
+                $existing = $booking->proposals()->pending()->where('to_schedule_id', $target->id)
+                    ->where('response_deadline', '>', DemoClock::booking($booking))->first();
+                if ($existing && $existing->schedule_snapshot == $snapshot) {
+                    continue;
+                }
+                $booking->proposals()->pending()->update(['status' => ProposalStatus::Expired->value]);
+                $proposal = BookingChangeProposal::create([
+                    'booking_id' => $booking->id, 'admin_id' => $actor->id,
+                    'from_schedule_id' => $source->id, 'to_schedule_id' => $target->id,
+                    'schedule_snapshot' => $snapshot, 'reason' => $reason,
+                    'response_deadline' => $this->responseDeadline($source, $target),
+                    'status' => ProposalStatus::Pending->value,
+                ]);
+                Mail::to($email)->queue((new BookingProposalMail($booking, $proposal))->afterCommit());
+                $count++;
             }
-
-            foreach ($chuyenDi as $booking) {
-                $this->moveBooking($booking, $nguon, $dich, $reason, $actor);
-            }
-
-            /*
-             * Đơn chưa thanh toán thì hủy thay vì chuyển.
-             *
-             * Khách chưa trả tiền nên chưa có cam kết nào; chuyển họ sang một ngày khác mà họ
-             * chưa từng đồng ý là tự quyết thay khách. Hủy và mời đặt lại đúng hơn.
-             */
-            foreach ($huyDi as $booking) {
-                $this->cancelUnpaid($booking, $nguon, $reason);
-            }
-
-            $dich->increment('booked_people', $tongKhachChuyen);
-            $dich->refresh();
-
-            if ($dich->booked_people >= $dich->max_people
-                && $this->lifecycle->currentStatus($dich) === ScheduleStatus::Open) {
-                $this->lifecycle->transitionTo(
-                    $dich,
-                    ScheduleStatus::Closed,
-                    'Tự động đóng bán do vừa nhận khách từ chuyến được ghép vào.',
-                    $actor?->getKey(),
-                );
-            }
-
-            // Chuyến nguồn không còn khách nào. Đặt về 0 thay vì trừ dần, vì mọi đơn của nó đều
-            // vừa được xử lý ở trên.
-            $nguon->forceFill([
-                'booked_people' => 0,
-                'merged_into_schedule_id' => $dich->getKey(),
-            ])->save();
-
-            $this->lifecycle->transitionTo(
-                $nguon,
-                ScheduleStatus::Cancelled,
-                $reason,
-                $actor?->getKey(),
-            );
-
-            /*
-             * Báo cho khách, sau khi giao dịch đã chốt.
-             *
-             * Ghép chuyến đổi ngày đi của người đã trả tiền mà không hỏi họ - đó là quyết định vận
-             * hành, và chấp nhận được. Không báo lại mới là chỗ không chấp nhận được: khách biết
-             * chuyện khi ra bến vào đúng ngày cũ.
-             *
-             * Ngày cũ phải chụp lại ở đây. Sau khi ghép, đơn đã trỏ sang chuyến đích nên không còn
-             * đường nào đọc ngược ra ngày khách từng đặt.
-             */
-            $ngayCu = $nguon->start_date->copy();
-            $ngayMoi = $dich->start_date->copy();
-            $idDaDoi = $chuyenDi->pluck('id')->all();
-            $idDaHuy = $huyDi->pluck('id')->all();
-
-            DB::afterCommit(fn () => $this->baoChoKhach($idDaDoi, $idDaHuy, $ngayCu, $ngayMoi, $reason));
-            DB::afterCommit(fn () => $this->canhBaoDonConNoSatNgay($idDaDoi));
-
-            return [
-                'transferred' => $chuyenDi->count(),
-                'cancelled' => $huyDi->count(),
-            ];
+            return ['proposed' => $count, 'transferred' => 0, 'cancelled' => 0];
         });
     }
 
-    /**
-     * Thư cho hai nhóm khách của chuyến vừa bị ghép đi.
-     *
-     * Hai nội dung khác hẳn nhau nên không dùng chung một mẫu: người đã trả tiền cần biết ngày mới
-     * và quyền từ chối; người chưa trả tiền thì đơn đã hủy, họ cần lời mời đặt lại.
-     *
-     * Thư hỏng thì ghi log rồi đi tiếp - việc ghép đã xong và đã có vết trong nhật ký, một máy chủ
-     * thư trục trặc không được phép làm hỏng thứ đã làm xong.
-     *
-     * @param  array<int, int>  $idDaDoi
-     * @param  array<int, int>  $idDaHuy
-     */
-    private function baoChoKhach(
-        array $idDaDoi,
-        array $idDaHuy,
-        Carbon $ngayCu,
-        Carbon $ngayMoi,
-        string $lyDo,
-    ): void {
-        foreach ($this->donTheoId($idDaDoi) as $don) {
-            $this->gui($don, new ScheduleMergedMail($don, $ngayCu, $ngayMoi, $lyDo));
-        }
-
-        foreach ($this->donTheoId($idDaHuy) as $don) {
-            $this->gui($don, new BookingCancelledMail($don));
-        }
-    }
-
-    /** @param  array<int, int>  $ids */
-    private function donTheoId(array $ids)
+    public function respond(BookingChangeProposal $proposal, string $action, ?string $note): BookingChangeProposal
     {
-        if ($ids === []) {
-            return collect();
-        }
-
-        return Booking::query()
-            ->whereIn('id', $ids)
-            ->with(['customer:id,email', 'tour:id,title', 'schedule'])
-            ->get();
-    }
-
-    private function gui(Booking $don, $thu): void
-    {
-        $email = $don->customer?->email ?: $don->customer_email;
-
-        if (!$email) {
-            return;
-        }
-
-        try {
-            Mail::to($email)->send($thu);
-        } catch (Throwable $e) {
-            Log::warning('Không gửi được thư báo ghép chuyến.', [
-                'booking_id' => $don->getKey(),
-                'error' => $e->getMessage(),
+        return DB::transaction(function () use ($proposal, $action, $note) {
+            $schedules = TourSchedule::query()->whereIn('id', array_filter([$proposal->from_schedule_id, $proposal->to_schedule_id]))
+                ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $booking = Booking::query()->whereKey($proposal->booking_id)->lockForUpdate()->firstOrFail();
+            $locked = BookingChangeProposal::query()->whereKey($proposal->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status !== ProposalStatus::Pending) {
+                throw new BusinessRuleException('Đề xuất đã được xử lý hoặc hết hạn.');
+            }
+            if (DemoClock::booking($booking)->gte($locked->response_deadline)) {
+                $locked->update(['status' => ProposalStatus::Expired->value]);
+                return $locked;
+            }
+            if ($action === 'accept' && $locked->schedule_snapshot) {
+                $source = $schedules->get($locked->from_schedule_id);
+                $target = $schedules->get($locked->to_schedule_id);
+                if (!$source || !$target || (int) $booking->tour_schedule_id !== (int) $source->id
+                    || !in_array($booking->status, BookingStatus::paidValues(), true)) {
+                    throw new BusinessRuleException('Đơn hoặc chuyến đã thay đổi; cần đề xuất mới. Chuyến hiện tại được giữ nguyên.');
+                }
+                // MySQL JSON có thể đổi thứ tự khóa object; so nội dung, không so thứ tự khóa.
+                if ($locked->schedule_snapshot != ['from' => $this->snapshot($source), 'to' => $this->snapshot($target)]) {
+                    throw new BusinessRuleException('Lịch trình hoặc hạn thanh toán đã thay đổi; cần đề xuất mới.');
+                }
+                $this->assertCanMerge($source, $target, $booking->seatsTaken());
+                $seats = $booking->seatsTaken();
+                $booking->forceFill([
+                    'tour_id' => $target->tour_id, 'tour_schedule_id' => $target->id,
+                    'departure_date' => $target->start_date,
+                    'transfer_count' => (int) $booking->transfer_count + 1,
+                    'balance_reminder_sent_at' => null, 'balance_final_notice_at' => null,
+                ])->save();
+                $source->decrement('booked_people', min($seats, (int) $source->booked_people));
+                $target->increment('booked_people', $seats);
+                $transfer = BookingTransfer::create([
+                    'booking_id' => $booking->id,
+                    'from_schedule_id' => $source->id, 'to_schedule_id' => $target->id,
+                    'from_tour_id' => $source->tour_id, 'to_tour_id' => $target->tour_id,
+                    'initiated_by' => 'company', 'price_difference' => 0, 'fee' => 0,
+                    'reason' => $locked->reason, 'approved_by' => $locked->admin_id,
+                    'approved_at' => DemoClock::schedule($source),
+                ]);
+                $this->auditLogger->log($booking, BookingAuditAction::Transferred,
+                    ['tour_schedule_id' => $source->id],
+                    ['tour_schedule_id' => $target->id, 'proposal_id' => $locked->id, 'customer_accepted' => true], $locked->reason);
+                if (!$source->bookings()->whereIn('status', [...BookingStatus::paidValues(), BookingStatus::Pending->value])->exists()) {
+                    $source->forceFill(['merged_into_schedule_id' => $target->id])->save();
+                    $this->lifecycle->transitionTo($source, ScheduleStatus::Cancelled,
+                        'Mọi khách đã đồng ý chuyển chuyến; chuyến nguồn không còn đơn đang hoạt động.', $locked->admin_id);
+                }
+                $email = $booking->customer_email ?: $booking->customer?->email;
+                if ($email) {
+                    Mail::to($email)->queue((new BookingTransferredMail($transfer))->afterCommit());
+                }
+            }
+            $locked->update([
+                'status' => $action === 'accept' ? ProposalStatus::Accepted->value : ProposalStatus::Rejected->value,
+                'customer_note' => $note, 'responded_at' => DemoClock::booking($booking),
             ]);
-        }
+            return $locked;
+        });
     }
 
-    /**
-     * Bốn điều kiện theo tài liệu 04 mục 2.1.
-     */
-    public function assertCanMerge(TourSchedule $from, TourSchedule $to): void
+    private function bookingsToTransfer(TourSchedule $from)
+    {
+        return $from->bookings()->whereIn('status', BookingStatus::paidValues())->get();
+    }
+
+    public function assertCanMerge(TourSchedule $from, TourSchedule $to, ?int $seats = null): void
     {
         if ((int) $from->getKey() === (int) $to->getKey()) {
             throw new BusinessRuleException('Chuyến nguồn và chuyến đích trùng nhau.');
         }
 
         // 1. Cùng tour. Ghép hai tour khác nhau là đổi hẳn sản phẩm khách đã mua.
+        // Ngoại lệ: Nếu 2 chuyến KHÁC tour nhưng khởi hành CÙNG NGÀY CÙNG GIỜ, hệ thống cho phép ghép.
+        // Điều hành sẽ tự chịu trách nhiệm tổ chức và giữ nguyên dịch vụ đã cam kết.
         if ((int) $from->tour_id !== (int) $to->tour_id) {
-            throw new BusinessRuleException('Chỉ ghép được hai chuyến của cùng một tour.');
+            $cungGio = $from->start_date && $to->start_date && $from->start_date->equalTo($to->start_date);
+            if (!$cungGio) {
+                throw new BusinessRuleException('Chỉ ghép được hai chuyến của cùng một tour, hoặc hai chuyến khác tour nhưng phải khởi hành cùng ngày và cùng giờ.');
+            }
+        }
+
+        if ($from->is_private || $to->is_private || $to->tour?->type === 'private' || $to->tour?->status !== 'active') {
+            throw new BusinessRuleException('Tour riêng hoặc tour không hoạt động không ghép được.');
         }
 
         $loai = TourType::tryFrom((string) ($from->tour?->type ?? TourType::Shared->value));
@@ -323,41 +214,27 @@ class ScheduleMergeService
             );
         }
 
-        // 2. Cả hai chưa khởi hành.
+        // 2. Cả hai phải đang mở bán. Chuyến đã đóng bán hoặc chốt chạy không được xáo trộn.
         foreach ([$from, $to] as $schedule) {
             $trangThai = $this->lifecycle->effectiveStatus($schedule);
 
-            if (!in_array($trangThai, [ScheduleStatus::Open, ScheduleStatus::Closed, ScheduleStatus::Confirmed], true)) {
+            if ($trangThai !== ScheduleStatus::Open) {
                 throw new BusinessRuleException(sprintf(
-                    'Chuyến #%d đang ở trạng thái "%s" nên không ghép được.',
+                    'Chuyến #%d đang ở trạng thái "%s" (không phải Đang mở bán) nên không ghép được.',
                     $schedule->getKey(),
                     $trangThai->label(),
                 ));
             }
         }
 
-        /*
-         * Cả hai chuyến phải còn trước hạn chốt danh sách.
-         *
-         * Mục đích của ghép là gửi MỘT danh sách đúng thay vì hai danh sách sai. Ghép sau khi
-         * danh sách đã gửi đi thì không còn là ghép nữa, mà là đi vá: phải gọi hủy chuyến nguồn
-         * và xin thêm suất cho chuyến đích, hai lần làm việc với nhà cung cấp và có thể bị từ chối.
-         *
-         * Về dữ liệu còn nghiêm trọng hơn. Ghép vào chuyến đích đã qua hạn chốt làm booked_people
-         * của nó vượt quá số suất đã cam kết - phá đúng bất biến mà cả hệ thống dựa vào. Con số
-         * chỉ đúng trở lại nếu điều hành thực sự xin được thêm suất, mà hệ thống không kiểm chứng
-         * được điều đó.
-         *
-         * Chuyến nào tụt dưới mức tối thiểu sau hạn chốt thì chỉ còn hai đường: vẫn chạy, hoặc
-         * hủy chuyến và đền bù. Ghép không còn là lựa chọn.
-         */
+
         foreach ([['chuyến nguồn', $from], ['chuyến đích', $to]] as [$ten, $schedule]) {
             $hanChot = $schedule->booking_deadline ?? $schedule->defaultBookingDeadline();
 
-            if ($hanChot && now()->gte($hanChot)) {
+            if ($hanChot && DemoClock::schedule($schedule)->gte($hanChot)) {
                 throw new BusinessRuleException(sprintf(
                     'Đã qua hạn chốt danh sách của %s (#%d) ngày %s. Danh sách đã gửi nhà cung cấp '
-                        . 'nên không ghép được nữa; nếu chuyến không đủ khách, xử lý theo luồng hủy chuyến.',
+                        . 'nên không ghép được nữa; chuyến chưa đạt mục tiêu vẫn phải tổ chức cho khách.',
                     $ten,
                     $schedule->getKey(),
                     Carbon::parse($hanChot)->format('d/m/Y H:i'),
@@ -366,7 +243,7 @@ class ScheduleMergeService
         }
 
         // 3. Chuyến đích còn đủ chỗ cho toàn bộ khách của chuyến nguồn.
-        $canChuyen = (int) $this->bookingsToTransfer($from)->sum(fn (Booking $don) => $don->seatsTaken());
+        $canChuyen = $seats ?? (int) $this->bookingsToTransfer($from)->sum(fn (Booking $don) => $don->seatsTaken());
         $conTrong = (int) $to->max_people - (int) $to->booked_people;
 
         if ($conTrong < $canChuyen) {
@@ -378,7 +255,7 @@ class ScheduleMergeService
         }
 
         // 4. Ngày khởi hành không lệch quá xa. Đổi ngày xa hơn ảnh hưởng lớn tới kế hoạch của
-        // khách, và họ không có quyền từ chối vì đây là thay đổi do hãng.
+        // khách, khách được quyền từ chối phương án ghép.
         if ($from->start_date && $to->start_date) {
             $lech = abs(Carbon::parse($from->start_date)->diffInDays(Carbon::parse($to->start_date)));
 
@@ -392,105 +269,4 @@ class ScheduleMergeService
         }
     }
 
-    /** Đơn đã thanh toán, sẽ được chuyển sang chuyến đích. */
-    private function bookingsToTransfer(TourSchedule $from)
-    {
-        return Booking::query()
-            ->where('tour_schedule_id', $from->getKey())
-            ->whereIn('status', BookingStatus::paidValues())
-            ->get();
-    }
-
-    /** Đơn chưa thanh toán, sẽ bị hủy và mời đặt lại. */
-    private function bookingsToCancel(TourSchedule $from)
-    {
-        return Booking::query()
-            ->where('tour_schedule_id', $from->getKey())
-            ->where('status', BookingStatus::Pending->value)
-            ->get();
-    }
-
-    private function moveBooking(
-        Booking $booking,
-        TourSchedule $from,
-        TourSchedule $to,
-        string $reason,
-        ?User $actor,
-    ): void {
-        $booking->forceFill([
-            'tour_schedule_id' => $to->getKey(),
-            'departure_date' => $to->start_date,
-            'transfer_count' => (int) $booking->transfer_count + 1,
-        ])->save();
-
-        // Giá giữ nguyên: cùng tour nên cùng bảng giá, và đây là thay đổi do hãng nên không có
-        // lý do gì thu thêm của khách.
-        BookingTransfer::query()->create([
-            'booking_id' => $booking->getKey(),
-            'from_schedule_id' => $from->getKey(),
-            'to_schedule_id' => $to->getKey(),
-            'from_tour_id' => $from->tour_id,
-            'to_tour_id' => $to->tour_id,
-            'initiated_by' => 'company',
-            'price_difference' => 0,
-            'fee' => 0,
-            'reason' => $reason,
-            'approved_by' => $actor?->getKey(),
-            'approved_at' => now(),
-        ]);
-
-        $this->auditLogger->log(
-            $booking,
-            BookingAuditAction::Transferred,
-            ['tour_schedule_id' => $from->getKey()],
-            [
-                'tour_schedule_id' => $to->getKey(),
-                'merged' => true,
-                'initiated_by' => 'company',
-            ],
-            $reason,
-        );
-    }
-
-    private function cancelUnpaid(Booking $booking, TourSchedule $from, string $reason): void
-    {
-        $lyDo = 'Chuyến đã được ghép sang chuyến khác. ' . $reason
-            . ' Đơn chưa thanh toán nên được hủy, mời quý khách đặt lại chuyến mới.';
-
-        $booking->forceFill([
-            'status' => BookingStatus::Cancelled->value,
-            'cancel_type' => 'by_company',
-            'cancel_reason' => $lyDo,
-            'cancelled_at' => now(),
-            // Chỗ về kho: đơn chưa trả tiền nên chưa có cam kết nào với nhà cung cấp.
-            'seats_released' => true,
-            'seats_released_at' => now(),
-        ])->save();
-
-        $this->holdService->releaseDiscountUsage($booking);
-
-        $this->auditLogger->logStatusChange(
-            $booking,
-            BookingAuditAction::Cancelled,
-            BookingStatus::Pending->value,
-            BookingStatus::Cancelled->value,
-            $lyDo,
-            ['seats_released' => true, 'merged_from_schedule_id' => $from->getKey()],
-        );
-    }
-
-    /*
-     * ĐÃ GỠ: `finalScheduleOf()`.
-     *
-     * Nó đi theo chuỗi `merged_into_schedule_id` để tìm chuyến cuối của một dây chuyền ghép, với
-     * lý lẽ "khách của A phải nhìn thấy C, không phải B". Lý lẽ đúng — nhưng điều ấy đã được bảo
-     * đảm bởi chính `moveBooking()`: mỗi lần ghép, đơn được trỏ thẳng sang chuyến đích, nên sau
-     * A→B→C đơn đã nằm ở C. Không dòng nào trong ứng dụng gọi tới hàm này.
-     *
-     * Nguy hiểm của một hàm như vậy không phải ở chỗ nó thừa, mà ở chỗ nó **trông như một luật
-     * đang chạy**. Bài kiểm thử của nó cũng xanh, nên nhìn vào càng tin — trong khi đường khách
-     * thật sự đi thì không bài nào kiểm. `ScheduleMergeTest` nay kiểm đúng đường đó.
-     *
-     * Cột `merged_into_schedule_id` vẫn giữ: nó là dấu vết chuyến này đã bị ghép đi đâu.
-     */
 }

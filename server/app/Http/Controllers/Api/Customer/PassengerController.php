@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Services\PassengerAccessService;
 use App\Services\PassengerPolicyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,6 +39,7 @@ class PassengerController extends Controller
 {
     public function __construct(
         private PassengerPolicyService $passengerPolicy,
+        private PassengerAccessService $passengerAccess,
     ) {
     }
 
@@ -78,7 +80,7 @@ class PassengerController extends Controller
     /**
      * Xem danh sách bằng mã tra cứu.
      *
-     * Số giấy tờ trả về dạng che, trừ khi người xem nhập đúng địa chỉ thư đã dùng khi đặt. Mã tra
+     * Chủ đơn đã đăng nhập được xem đầy đủ; khách vãng lai cần xác thực OTP. Mã tra
      * cứu đi trong thư, mà thư thì được chuyển tiếp và mở trên máy dùng chung — nó đủ để hỏi "đơn
      * này thế nào", không đủ để đọc căn cước của cả đoàn.
      */
@@ -90,14 +92,16 @@ class PassengerController extends Controller
             return $this->error('Không tìm thấy đơn với mã tra cứu này.', 404);
         }
 
+        $authorized = $this->passengerAccess->canAccess($booking, $request);
+
         return $this->success(
-            $this->danhSach($booking, $booking->khopEmail($request->query('email'))),
+            $this->danhSach($booking, $authorized, !$authorized),
             'Lấy danh sách hành khách thành công',
-        );
+        )->header('Cache-Control', 'no-store');
     }
 
     /**
-     * Sửa danh sách bằng mã tra cứu — phải kèm đúng địa chỉ thư đã đặt.
+     * Sửa danh sách bằng mã tra cứu: chủ đơn đã đăng nhập không phải nhập lại email.
      *
      * Sửa danh sách là đổi tên và giấy tờ của những người sẽ lên xe. Ai nhặt được đường dẫn trong
      * một thư chuyển tiếp cũng làm được việc đó là quá rộng, nên đây là chỗ mã tra cứu cần thêm một
@@ -105,30 +109,56 @@ class PassengerController extends Controller
      */
     public function publicUpdate(Request $request, string $publicToken): JsonResponse
     {
-        $validated = $request->validate(
-            PassengerPolicyService::validationRules() + [
-                'customer_email' => ['required', 'email'],
-            ],
-            ['customer_email.required' => 'Nhập địa chỉ email bạn đã dùng khi đặt tour để xác nhận.'],
-        );
-
         $booking = $this->timTheoMa($publicToken);
 
         if (!$booking) {
             return $this->error('Không tìm thấy đơn với mã tra cứu này.', 404);
         }
 
-        if (!$booking->khopEmail($validated['customer_email'])) {
-            return $this->error(
-                'Email không khớp với đơn này. Vui lòng nhập đúng địa chỉ đã dùng khi đặt tour.',
-                403,
-            );
+        if (!$this->passengerAccess->canAccess($booking, $request)) {
+            return response()->json([
+                'success' => false,
+                'code' => 'passenger_verification_required',
+                'message' => 'Vui lòng xác thực OTP qua email trước khi lưu danh sách.',
+            ], 403);
         }
+        $validated = $request->validate(PassengerPolicyService::validationRules());
 
         return $this->success(
             $this->ghiDanhSach($booking, $validated['passengers']),
             'Đã lưu danh sách hành khách.',
+        )->header('Cache-Control', 'no-store');
+    }
+
+    public function sendOtp(Request $request, string $publicToken): JsonResponse
+    {
+        $booking = $this->timTheoMa($publicToken);
+        if (!$booking) {
+            return $this->error('Không tìm thấy đơn với mã tra cứu này.', 404);
+        }
+        $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
+
+        return $this->success(
+            $this->passengerAccess->send($booking, $validated['email'], $request),
+            'Mã OTP đã được gửi đến email đặt tour.',
         );
+    }
+
+    public function verifyOtp(Request $request, string $publicToken): JsonResponse
+    {
+        $booking = $this->timTheoMa($publicToken);
+        if (!$booking) {
+            return $this->error('Không tìm thấy đơn với mã tra cứu này.', 404);
+        }
+        $validated = $request->validate([
+            'challenge_id' => ['required', 'string', 'size:64'],
+            'otp' => ['required', 'string', 'regex:/^[0-9]{6}$/'],
+        ]);
+
+        return $this->success(
+            $this->passengerAccess->verify($booking, $validated['challenge_id'], $validated['otp'], $request),
+            'Đã xác thực email.',
+        )->header('Cache-Control', 'no-store');
     }
 
     // --- Phần dùng chung -------------------------------------------------------------------
@@ -138,7 +168,7 @@ class PassengerController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function danhSach(Booking $booking, bool $hienDayDu = true): array
+    private function danhSach(Booking $booking, bool $hienDayDu = true, bool $requiresEmail = false): array
     {
         $quyen = $this->passengerPolicy->editability($booking);
         $hanChot = $booking->schedule?->booking_deadline
@@ -164,8 +194,10 @@ class PassengerController extends Controller
                 'status' => $booking->status,
             ],
             'passengers' => $hanhKhach,
-            // Để giao diện biết mà mời người xem nhập email nếu họ cần đọc đầy đủ.
+            // Email khớp chưa đủ: cần OTP hoặc phiên đăng nhập của chủ đơn.
             'identity_masked' => !$hienDayDu,
+            'requires_email' => $requiresEmail,
+            'requires_otp' => $requiresEmail,
             'guests' => (int) $booking->guests,
             'adult_count' => (int) $booking->adult_count,
             'child_count' => (int) $booking->child_count,
@@ -187,23 +219,24 @@ class PassengerController extends Controller
      * @param  array<int, array<string, mixed>>  $passengers
      * @return array<string, mixed>
      */
-    private function ghiDanhSach(Booking $booking, array $passengers): array
+    private function ghiDanhSach(Booking $booking, array $passengers, bool $requiresEmail = false): array
     {
-        $this->passengerPolicy->assertCustomerCanEdit($booking);
-        $this->passengerPolicy->validateList($booking, $passengers);
-
         DB::transaction(function () use ($booking, $passengers) {
+            \App\Models\TourSchedule::whereKey($booking->tour_schedule_id)->lockForUpdate()->first();
+            $booking = Booking::with('schedule')->whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            $this->passengerPolicy->assertCustomerCanEdit($booking);
+            $this->passengerPolicy->validateList($booking, $passengers);
             $this->passengerPolicy->replaceList($booking, $passengers);
         });
 
-        return $this->danhSach($booking->fresh(['schedule', 'tour']));
+        return $this->danhSach($booking->fresh(['schedule', 'tour']), true, $requiresEmail);
     }
 
     /**
      * Đơn tra theo mã tra cứu.
      *
-     * Mã là chuỗi ngẫu nhiên, ai giữ mã thì xem và sửa được - cùng hợp đồng với màn tra cứu đơn
-     * của khách vãng lai. Đơn đã hủy vẫn tra ra để khách thấy trạng thái, nhưng luật quyền sửa
+     * Mã cho xem bản che giấy tờ. Sửa cần chủ đơn đăng nhập hoặc OTP của đúng đơn.
+     * Đơn đã hủy vẫn tra ra để khách thấy trạng thái, nhưng luật quyền sửa
      * ở tầng dịch vụ mới là thứ quyết định có ghi được hay không.
      */
     private function timTheoMa(string $publicToken): ?Booking

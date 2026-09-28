@@ -276,9 +276,9 @@ class BusinessScenarioSeederTest extends TestCase
         );
 
         $this->assertSame(
-            ScheduleStatus::Closed->value,
+            ScheduleStatus::Confirmed->value,
             $this->chuyen(4)->fresh()->getRawOriginal('status'),
-            'S4 thiếu khách nên phải giữ nguyên trạng thái.',
+            'S4 vẫn chạy dù chưa đạt số khách mục tiêu.',
         );
     }
 

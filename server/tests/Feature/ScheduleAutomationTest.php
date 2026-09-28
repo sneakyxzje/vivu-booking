@@ -17,21 +17,23 @@ use Tests\TestCase;
  */
 class ScheduleAutomationTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
-    public function test_khong_dat_duoc_chuyen_da_dong_ban(): void
+    public function test_khong_dat_duoc_chuyen_qua_han_du_chua_chot(): void
     {
         $tour = Tour::factory()->create(['status' => 'active']);
         $schedule = TourSchedule::factory()->create([
             'tour_id' => $tour->id,
-            'status' => ScheduleStatus::Closed->value,
+            'status' => ScheduleStatus::Open->value,
             'start_date' => now()->addDays(10),
-            'booking_deadline' => now()->addDays(7),
+            'booking_deadline' => now()->subMinute(),
             'max_people' => 10,
             'booked_people' => 0,
         ]);
 
-        $response = $this->postJson('/api/bookings', [
+        $response = $this->postVerifiedBooking([
             'tour_id' => $tour->id,
             'tour_schedule_id' => $schedule->id,
             'customer_name' => 'Khach Test',
@@ -44,7 +46,7 @@ class ScheduleAutomationTest extends TestCase
             ->assertJsonValidationErrors(['tour_schedule_id']);
     }
 
-    public function test_lenh_dong_ban_chuyen_qua_han(): void
+    public function test_qua_han_khong_doi_trang_thai_nhung_chan_dat(): void
     {
         $schedule = TourSchedule::factory()->create([
             'status' => ScheduleStatus::Open->value,
@@ -53,11 +55,11 @@ class ScheduleAutomationTest extends TestCase
             'max_people' => 10,
         ]);
 
-        $this->artisan('schedules:close-expired')->assertSuccessful();
+        $this->assertFalse($schedule->fresh()->isBookable());
 
         $this->assertDatabaseHas('tour_schedules', [
             'id' => $schedule->id,
-            'status' => ScheduleStatus::Closed->value,
+            'status' => ScheduleStatus::Open->value,
         ]);
     }
 
@@ -68,7 +70,7 @@ class ScheduleAutomationTest extends TestCase
         $tour = Tour::factory()->create();
         $schedule = TourSchedule::factory()->create([
             'tour_id' => $tour->id,
-            'status' => ScheduleStatus::Closed->value,
+            'status' => ScheduleStatus::Open->value,
             'start_date' => now()->addDays(10),
             /*
              * Hạn chốt đã TRÔI QUA.
@@ -98,6 +100,7 @@ class ScheduleAutomationTest extends TestCase
             'total_amount' => 2_000_000,
             'status' => 'confirmed',
             'confirmed_at' => now(),
+            'paid_at' => now()->subHour(),
         ]);
 
         $this->artisan('schedules:confirm-ready')->assertSuccessful();
@@ -196,7 +199,7 @@ class ScheduleAutomationTest extends TestCase
         $tour = Tour::factory()->create();
         $schedule = TourSchedule::factory()->create([
             'tour_id' => $tour->id,
-            'status' => ScheduleStatus::Closed->value,
+            'status' => ScheduleStatus::Open->value,
             'start_date' => now()->addDays(4),
             'booking_deadline' => now()->addHours(2),
             'min_people' => 4,
@@ -209,7 +212,7 @@ class ScheduleAutomationTest extends TestCase
 
         $this->artisan('schedules:confirm-ready')->assertSuccessful();
 
-        $this->assertSame(ScheduleStatus::Closed, $schedule->fresh()->status);
+        $this->assertSame(ScheduleStatus::Open, $schedule->fresh()->status);
         Mail::assertNothingQueued();
     }
 

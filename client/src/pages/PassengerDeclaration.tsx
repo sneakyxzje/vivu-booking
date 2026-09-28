@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { AlertTriangle, CalendarClock, Check, Users } from "lucide-react";
+import { ArrowLeft, Check, LockKeyhole } from "lucide-react";
+import { Alert, Button, Collapse, DatePicker, Form, Input, Radio, Select, Skeleton, Tooltip } from "antd";
+import dayjs from "dayjs";
+import FieldHelp from "@/components/booking/FieldHelp";
 import api from "@/services/api";
+import { useAuth } from "@/hooks/useAuth";
 import { formatDateTime } from "@/utils/format";
-import { DateTimePicker } from "@/components/DateTimePicker";
+import PassengerEmailVerification from "@/components/booking/PassengerEmailVerification";
+import { emptyPassenger, fillPassengerSlots } from "@/utils/passengerImport";
+import type { PassengerRow as Row } from "@/utils/passengerImport";
+
+const PassengerImport = lazy(() => import("@/components/booking/PassengerImport"));
 
 /**
  * Khai danh sách hành khách sau khi đã đặt chỗ.
@@ -15,18 +23,6 @@ import { DateTimePicker } from "@/components/DateTimePicker";
  * Trang này tồn tại vì lúc bấm đặt, người đại diện thường chưa có số căn cước và ngày sinh của
  * cả nhóm. Bắt điền đủ trước khi thanh toán là bắt họ bỏ dở giỏ hàng đi hỏi từng người.
  */
-
-type Row = {
-  name: string;
-  type: "adult" | "child" | "infant";
-  gender: string;
-  date_of_birth: string;
-  id_type: string;
-  identity_number: string;
-  phone: string;
-  special_request: string;
-  is_contact: boolean;
-};
 
 type ServerPassenger = Partial<Row> & { name?: string };
 
@@ -48,23 +44,21 @@ interface DeclarationData {
   locked_reason: string | null;
   deadline: string | null;
   warnings: string[];
-  /** Số giấy tờ đang bị che vì người xem chưa xác nhận email đã đặt. */
+  /** Số giấy tờ đang bị che vì người xem chưa xác thực OTP qua email đã đặt. */
   identity_masked: boolean;
+  requires_otp: boolean;
 }
 
-const dongTrong = (type: Row["type"]): Row => ({
-  name: "",
-  type,
-  gender: "",
-  date_of_birth: "",
-  id_type: "cccd",
-  identity_number: "",
-  phone: "",
-  special_request: "",
-  is_contact: false,
-});
+const dongTrong = emptyPassenger;
 
 export default function PassengerDeclaration() {
+  const { user, isAuthenticated } = useAuth();
+  const { publicToken } = useParams();
+  // Đổi tài khoản/đăng xuất thì bỏ dữ liệu và quyền của phiên trước khỏi biểu mẫu.
+  return <PassengerDeclarationForm key={`${publicToken}:${isAuthenticated ? user?.id : "guest"}`} />;
+}
+
+function PassengerDeclarationForm() {
   const { publicToken = "" } = useParams();
 
   const [data, setData] = useState<DeclarationData | null>(null);
@@ -72,31 +66,43 @@ export default function PassengerDeclaration() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  /*
-   * Email đã dùng khi đặt tour.
-   *
-   * Sửa danh sách là đổi tên và giấy tờ của những người sẽ lên xe, nên mã tra cứu thôi là chưa đủ:
-   * nó đi trong thư, và thư thì được chuyển tiếp. Người thật luôn có sẵn địa chỉ này.
-   */
-  const [email, setEmail] = useState("");
+  const accessToken = useRef("");
+  const [accessExpiresAt, setAccessExpiresAt] = useState(0);
+  const draftDirty = useRef(false);
+  const [imported, setImported] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [activePassenger, setActivePassenger] = useState("0");
+  const loadRequest = useRef(0);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const requireVerification = useCallback(() => {
+    accessToken.current = "";
+    setAccessExpiresAt(0);
+    setData(previous => previous ? { ...previous, requires_otp: true, identity_masked: true } : previous);
+    setError("Phiên xác thực đã hết hạn. Xác thực lại OTP để tiếp tục; nội dung đang nhập vẫn được giữ.");
+  }, []);
 
-    try {
-      /*
-       * Gửi kèm email nếu người xem đã nhập.
-       *
-       * Mã tra cứu thôi thì máy chủ trả số giấy tờ dạng che: mã đi trong thư, mà thư được chuyển
-       * tiếp và mở trên máy dùng chung. Nhập đúng địa chỉ đã đặt mới đọc được đầy đủ.
-       */
-      const res = await api.get(`/bookings/${publicToken}/passengers`, {
-        params: email.trim() ? { email: email.trim() } : undefined,
-      });
+  useEffect(() => { draftDirty.current = dirty; }, [dirty]);
+
+  useEffect(() => {
+    if (!accessExpiresAt) return;
+    const timer = window.setTimeout(requireVerification, Math.max(0, accessExpiresAt - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [accessExpiresAt, requireVerification]);
+
+  const loadData = useCallback((signal?: AbortSignal, preserveDraft = false) => {
+    const requestId = ++loadRequest.current;
+
+    return api.get(`/bookings/${publicToken}/passengers`, {
+      headers: accessToken.current ? { "X-Passenger-Access": accessToken.current } : undefined,
+      signal,
+    }).then(res => {
       const payload: DeclarationData = res.data?.data;
+      if (requestId !== loadRequest.current || signal?.aborted) return;
       setData(payload);
+      if (preserveDraft && draftDirty.current) return;
+      setImported(false);
+      setDirty(false);
 
       /*
        * Dựng đúng số dòng theo số khách đã đặt, giữ lại những gì đã khai.
@@ -113,13 +119,13 @@ export default function PassengerDeclaration() {
         ),
       ];
 
+      const used = { adult: 0, child: 0, infant: 0 };
       setRows(
         khung.map((type, i) => {
-          const daKhai = payload.passengers[i];
+          const daKhai = payload.passengers.filter(p => p.type === type)[used[type]++];
 
           return {
             ...dongTrong(type),
-            ...(daKhai ?? {}),
             type,
             // Chưa khai ai thì điền sẵn người đại diện vào dòng đầu — họ vừa khai tên lúc đặt,
             // bắt gõ lại là vô lý. Vẫn sửa được.
@@ -127,25 +133,35 @@ export default function PassengerDeclaration() {
             phone:
               daKhai?.phone ??
               (i === 0 ? (payload.booking.contact_phone ?? "") : ""),
+            gender: daKhai?.gender ?? "",
+            date_of_birth: daKhai?.date_of_birth?.slice(0, 10) ?? "",
+            id_type: daKhai?.id_type ?? "cccd",
+            identity_number: daKhai?.identity_number ?? "",
+            special_request: daKhai?.special_request ?? "",
             is_contact: daKhai?.is_contact ?? i === 0,
           } as Row;
         }),
       );
-    } catch {
+    }).catch(() => {
+      if (requestId !== loadRequest.current || signal?.aborted) return;
+      setData(null);
       setError(
         "Không tìm thấy đơn với mã này. Kiểm tra lại liên kết trong thư xác nhận.",
       );
-    } finally {
-      setLoading(false);
-    }
-  }, [publicToken, email]);
+    }).finally(() => {
+      if (requestId === loadRequest.current && !signal?.aborted) setLoading(false);
+    });
+  }, [publicToken]);
 
   useEffect(() => {
-    loadData();
+    const controller = new AbortController();
+    void loadData(controller.signal);
+    return () => controller.abort();
   }, [loadData]);
 
   const sua = (index: number, field: keyof Row, value: string | boolean) => {
     setSaved(false);
+    setDirty(true);
     setRows((truoc) =>
       truoc.map((row, i) => {
         // Chỉ một người là đầu mối liên hệ; chọn người mới thì bỏ người cũ.
@@ -160,10 +176,17 @@ export default function PassengerDeclaration() {
   };
 
   const luu = async () => {
-    if (!email.trim()) {
-      setError(
-        "Nhập địa chỉ email bạn đã dùng khi đặt tour để xác nhận đây là đơn của bạn.",
-      );
+    if (!data?.can_edit || saving) return;
+    if (data.identity_masked || data.requires_otp !== false) {
+      setError("Xác thực OTP qua email trước khi lưu danh sách.");
+      return;
+    }
+
+    const invalidPhoneRow = rows.find(
+      (row) => row.phone && row.phone.trim() && !/^\+?[0-9]{8,20}$/.test(row.phone.replace(/[\s-]/g, "")),
+    );
+    if (invalidPhoneRow) {
+      setError(`Số điện thoại của ${invalidPhoneRow.name || "hành khách"} không hợp lệ (8–20 chữ số, có thể bắt đầu bằng +).`);
       return;
     }
 
@@ -172,7 +195,6 @@ export default function PassengerDeclaration() {
 
     try {
       await api.put(`/bookings/${publicToken}/passengers`, {
-        customer_email: email.trim(),
         passengers: rows
           .filter((row) => row.name.trim())
           .map((row) => ({
@@ -195,18 +217,23 @@ export default function PassengerDeclaration() {
             special_request: row.special_request.trim() || null,
             is_contact: row.is_contact,
           })),
-      });
+      }, { headers: accessToken.current ? { "X-Passenger-Access": accessToken.current } : undefined });
 
       setSaved(true);
-      loadData();
+      setLoading(true);
+      await loadData();
     } catch (err) {
       const response = (
         err as {
           response?: {
-            data?: { message?: string; errors?: Record<string, string[]> };
+            data?: { message?: string; code?: string; errors?: Record<string, string[]> };
           };
         }
       )?.response?.data;
+      if (response?.code === "passenger_verification_required") {
+        requireVerification();
+        return;
+      }
       const loiDauTien = response?.errors
         ? Object.values(response.errors)[0]?.[0]
         : null;
@@ -222,290 +249,136 @@ export default function PassengerDeclaration() {
     infant: "Em bé",
   };
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-16 text-body-sm text-muted">
-        Đang tải...
-      </div>
-    );
-  }
+  if (loading || (data && data.booking.public_token !== publicToken)) return <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6"><Skeleton active paragraph={{ rows: 8 }} /></div>;
+  if (!data) return <div className="mx-auto max-w-3xl px-4 py-12">
+    <Alert type="error" showIcon title={error || "Không tải được thông tin đặt tour."} />
+    <Link to="/booking-lookup" className="mt-5 inline-flex items-center gap-2 text-sm text-primary-700"><ArrowLeft size={16} /> Tra cứu đơn</Link>
+  </div>;
 
-  if (!data) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-16">
-        <p className="rounded-lg bg-rose-50 px-4 py-3 text-body-sm text-rose-800">
-          {error}
-        </p>
-        <Link
-          to="/booking-lookup"
-          className="mt-4 inline-block text-body-sm text-primary-600 hover:underline"
-        >
-          Tra cứu đơn bằng mã →
-        </Link>
-      </div>
-    );
-  }
-
-  const daKhaiDu = rows.filter((r) => r.name.trim()).length;
+  const namedCount = rows.filter(row => row.name.trim()).length;
+  const identityVerified = data.requires_otp === false && !data.identity_masked;
+  const readOnly = !data.can_edit || !identityVerified || saving;
+  const onVerified = async (token: string, expiresIn: number) => {
+    accessToken.current = token;
+    setAccessExpiresAt(Date.now() + expiresIn * 1000);
+    setError("");
+    await loadData(undefined, true);
+  };
+  const inputId = (index: number, field: string) => `passenger-${index}-${field}`;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 space-y-6">
-      <div>
-        <h1 className="text-display-lg text-ink">Khai thông tin hành khách</h1>
-        <p className="text-body-sm text-muted mt-1">
-          {data.booking.tour_title} · khởi hành{" "}
-          {formatDateTime(data.booking.departure_date ?? "")} · {data.guests}{" "}
-          khách
-        </p>
-      </div>
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+      <header className="mb-8">
+        <Link to={`/booking-lookup?code=${data.booking.public_token}`} className="mb-5 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900">
+          <ArrowLeft size={16} aria-hidden="true" /> Đơn đặt tour
+        </Link>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Thông tin hành khách</h1>
+        <p className="mt-2 text-sm text-slate-500">{data.booking.tour_title}</p>
+      </header>
 
-      {/*
-        Hạn chốt đặt lên đầu, không giấu ở cuối. Đây là mốc khách mất quyền tự sửa — sau đó phải
-        gọi điều hành — nên nó là thông tin quan trọng nhất trên trang này.
-      */}
-      {data.deadline && data.can_edit && (
-        <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <CalendarClock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-body-sm text-amber-900">
-            Vui lòng hoàn thiện hồ sơ trước{" "}
-            <b>{formatDateTime(data.deadline)}</b>. Sau khoảng thời gian này,
-            chúng tôi sẽ chốt danh sách
-          </p>
-        </div>
-      )}
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <aside className="order-1 space-y-6 lg:order-2 lg:sticky lg:top-24" aria-label="Thông tin đặt tour">
+          <section className="border-t-2 border-slate-900 pt-5">
+            <h2 className="mb-5 text-sm font-semibold text-slate-900">Chuyến đi của bạn</h2>
+            <dl className="space-y-4 text-sm">
+              <div><dt className="mb-1 text-slate-500">Khởi hành</dt><dd className="font-medium text-slate-900">{formatDateTime(data.booking.departure_date ?? "")}</dd></div>
+              <div><dt className="mb-1 text-slate-500">Số hành khách</dt><dd className="text-slate-900">{data.adult_count} người lớn{data.child_count > 0 && ` · ${data.child_count} trẻ em`}{data.infant_count > 0 && ` · ${data.infant_count} em bé`}</dd></div>
+              {data.deadline && <div>
+                <dt className="flex items-center gap-1 text-slate-500">Hạn khai thông tin<FieldHelp label="Về hạn khai thông tin">Sau mốc này, vui lòng liên hệ điều hành nếu cần sửa danh sách.</FieldHelp></dt>
+                <dd className="font-medium text-slate-900">{formatDateTime(data.deadline)}</dd>
+              </div>}
+            </dl>
+          </section>
 
-      {!data.can_edit && (
-        <div className="flex gap-3 rounded-xl border border-gray-200 bg-surface-soft px-4 py-3">
-          <AlertTriangle className="w-5 h-5 text-muted shrink-0 mt-0.5" />
-          <p className="text-body-sm text-body">{data.locked_reason}</p>
-        </div>
-      )}
+          {data.requires_otp !== false
+            ? <PassengerEmailVerification publicToken={publicToken} onVerified={onVerified} />
+            : accessExpiresAt > 0 && <p className="flex items-center gap-2 text-sm text-teal-700"><Check size={16} aria-hidden="true" /> Đã xác thực email</p>}
 
-      {/*
-        Xác nhận danh tính bằng email đã đặt.
+        </aside>
 
-        Liên kết này nằm trong thư, và thư thì được chuyển tiếp, mở trên máy dùng chung, còn lại
-        trong lịch sử trình duyệt. Đủ để xem đơn, không đủ để đọc căn cước của cả đoàn hay đổi tên
-        người sẽ lên xe — nên số giấy tờ hiện dạng che cho tới khi nhập đúng địa chỉ đã đặt.
-      */}
-      {data.can_edit && (
-        <div className="rounded-xl border border-gray-200 bg-surface-soft px-4 py-4">
-          <label
-            htmlFor="xac-nhan-email"
-            className="block text-body-sm font-medium text-ink"
-          >
-            Email bạn đã dùng khi đặt tour
-          </label>
-          <input
-            id="xac-nhan-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onBlur={() => email.trim() && loadData()}
-            placeholder="ban@example.com"
-            autoComplete="email"
-            className="mt-2 w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-body-sm"
-          />
-          <p className="mt-2 text-caption text-muted">
-            {data.identity_masked
-              ? "Nhập đúng email đã đặt để xem đầy đủ số giấy tờ và lưu được thay đổi."
-              : "Đã xác nhận. Bạn xem và sửa được đầy đủ thông tin của đoàn."}
-          </p>
-        </div>
-      )}
-
-      {saved && (
-        <p className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-body-sm text-emerald-900">
-          <Check className="w-4 h-4" />
-          Đã lưu danh sách. Bạn quay lại sửa bất cứ lúc nào trước hạn chốt.
-        </p>
-      )}
-
-      {data.warnings.length > 0 && data.can_edit && (
-        <ul className="space-y-1.5">
-          {data.warnings.map((w) => (
-            <li key={w} className="text-body-sm text-amber-800">
-              {w}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <p className="flex items-center gap-2 text-caption text-muted">
-        <Users className="w-4 h-4" />
-        {daKhaiDu} / {data.guests} người
-      </p>
-
-      <div className="space-y-4">
-        {rows.map((row, index) => (
-          <div key={index} className="card-surface p-5 space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-primary-600 text-white text-badge flex items-center justify-center">
-                {index + 1}
-              </span>
-              <span className="text-title-sm text-ink">
-                {nhanLoai[row.type]}
-              </span>
-
-              <label className="ml-auto flex items-center gap-2 text-body-sm text-body cursor-pointer">
-                <input
-                  type="radio"
-                  name="contact"
-                  checked={row.is_contact}
-                  disabled={!data.can_edit}
-                  onChange={() => sua(index, "is_contact", true)}
-                  className="h-4 w-4"
-                />
-                Người đại diện
-              </label>
+        <section className="order-2 min-w-0 lg:order-1" aria-label="Danh sách hành khách">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900">Danh sách hành khách <span className="ml-1 font-normal text-slate-400">({data.guests})</span></h2>
+              <p className="mt-1 text-xs text-slate-500">Đã có tên {namedCount}/{data.guests} người</p>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="field-label">Họ và tên</label>
-                <input
-                  type="text"
-                  value={row.name}
-                  disabled={!data.can_edit}
-                  onChange={(e) => sua(index, "name", e.target.value)}
-                  placeholder="Như trên giấy tờ tùy thân"
-                  className="input-field disabled:bg-surface-soft"
-                />
-              </div>
-
-              <div>
-                <label className="field-label">Ngày sinh</label>
-                {/* Chế độ ngày sinh: chọn năm và tháng bằng ô danh sách, không bấm lùi từng tháng. */}
-                <DateTimePicker
-                  mode="birthday"
-                  value={row.date_of_birth}
-                  disabled={!data.can_edit}
-                  onChange={(giaTri) => sua(index, "date_of_birth", giaTri)}
-                  placeholder="Chọn ngày sinh"
-                  buttonClassName="input-field flex w-full items-center gap-2 text-left disabled:bg-surface-soft disabled:cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="field-label">Giới tính</label>
-                <select
-                  value={row.gender}
-                  disabled={!data.can_edit}
-                  onChange={(e) => sua(index, "gender", e.target.value)}
-                  className="input-field disabled:bg-surface-soft cursor-pointer"
-                >
-                  <option value="">— Chọn —</option>
-                  <option value="male">Nam</option>
-                  <option value="female">Nữ</option>
-                  <option value="other">Khác</option>
-                </select>
-              </div>
-
-              {/*
-                Em bé không có số điện thoại riêng — hỏi là bắt người ta điền số của bố mẹ vào ô
-                mang tên đứa bé, rồi hướng dẫn viên gọi vào đó và không biết mình đang gọi cho ai.
-              */}
-              {row.type !== "infant" && (
-                <div>
-                  <label className="field-label">
-                    Điện thoại
-                    {row.type === "child" && (
-                      <span className="ml-1 font-normal text-muted">
-                        (nếu có)
-                      </span>
-                    )}
-                  </label>
-                  <input
-                    type="tel"
-                    value={row.phone}
-                    disabled={!data.can_edit}
-                    onChange={(e) => sua(index, "phone", e.target.value)}
-                    className="input-field disabled:bg-surface-soft"
-                  />
-                </div>
-              )}
-
-              {/*
-                Giấy tờ chỉ hỏi người lớn.
-
-                Trẻ em và em bé phần lớn chưa có giấy tờ riêng, và khai báo lưu trú thì các cháu
-                đi theo người lớn cùng phòng. Hỏi thứ người ta không có là bắt họ để trống rồi tự
-                hỏi mình có làm sai bước nào không.
-              */}
-              {row.type === "adult" && (
-                <>
-                  <div>
-                    <label className="field-label">Loại giấy tờ</label>
-                    <select
-                      value={row.id_type}
-                      disabled={!data.can_edit}
-                      onChange={(e) => sua(index, "id_type", e.target.value)}
-                      className="input-field disabled:bg-surface-soft cursor-pointer"
-                    >
-                      <option value="cccd">Căn cước công dân</option>
-                      <option value="passport">Hộ chiếu</option>
-                      <option value="birth_certificate">Giấy khai sinh</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="field-label">Số giấy tờ</label>
-                    <input
-                      type="text"
-                      value={row.identity_number}
-                      disabled={!data.can_edit}
-                      onChange={(e) =>
-                        sua(index, "identity_number", e.target.value)
-                      }
-                      className="input-field disabled:bg-surface-soft"
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className="sm:col-span-2">
-                <label className="field-label">Yêu cầu riêng</label>
-                <input
-                  type="text"
-                  value={row.special_request}
-                  disabled={!data.can_edit}
-                  onChange={(e) =>
-                    sua(index, "special_request", e.target.value)
-                  }
-                  placeholder="Ăn chay, dị ứng hải sản, cần hỗ trợ di chuyển..."
-                  className="input-field disabled:bg-surface-soft"
-                />
-              </div>
-            </div>
+            {data.can_edit && <Suspense fallback={<span className="text-sm text-slate-400">Đang tải...</span>}><PassengerImport
+              key={`${publicToken}:${identityVerified}`}
+              context={{ adult_count: data.adult_count, child_count: data.child_count, infant_count: data.infant_count, departure_date: data.booking.departure_date }}
+              disabled={readOnly}
+              onApply={passengers => {
+                if (readOnly) return;
+                setRows(fillPassengerSlots(passengers, { ...data, departure_date: data.booking.departure_date }));
+                setSaved(false);
+                setError("");
+                setImported(true);
+                setDirty(true);
+                setActivePassenger("0");
+              }}
+            /></Suspense>}
           </div>
-        ))}
+
+          {!data.can_edit && <div className="mb-5"><Alert type="info" showIcon title="Danh sách chỉ đọc" description={data.locked_reason} /></div>}
+          {data.can_edit && !identityVerified && <p className="mb-4 flex items-center gap-2 text-sm text-slate-500"><LockKeyhole size={15} aria-hidden="true" /> Xác thực OTP qua email để chỉnh sửa.</p>}
+
+          <Collapse accordion activeKey={activePassenger} onChange={keys => setActivePassenger(Array.isArray(keys) ? keys[0] ?? "" : keys)} expandIconPlacement="end" style={{ background: "white", borderColor: "#e2e8f0" }} items={rows.map((row, index) => ({
+            key: String(index),
+            label: <div className="flex min-w-0 items-center gap-3 py-1">
+              <span className="w-5 shrink-0 text-xs tabular-nums text-slate-400">{String(index + 1).padStart(2, "0")}</span>
+              <div className="min-w-0 flex-1">
+                <span className={`block truncate text-sm ${row.name.trim() ? "font-medium text-slate-900" : "text-slate-500"}`}>{row.name.trim() || `Hành khách ${index + 1}`}</span>
+                <span className="text-xs text-slate-500">{nhanLoai[row.type]}{row.is_contact && " · Người đại diện"}</span>
+              </div>
+            </div>,
+            children: <Form layout="vertical" disabled={readOnly} requiredMark={false}>
+              <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2 xl:grid-cols-4">
+                <Form.Item htmlFor={inputId(index, "name")} label={<span className="inline-flex items-center">Họ và tên<FieldHelp label="Cách nhập họ tên">Nhập họ tên đúng như trên giấy tờ tùy thân.</FieldHelp></span>} className="sm:col-span-2">
+                  <Input id={inputId(index, "name")} value={row.name} maxLength={255} autoComplete="off" placeholder="Họ và tên hành khách" onChange={event => sua(index, "name", event.target.value)} />
+                </Form.Item>
+                <Form.Item htmlFor={inputId(index, "dob")} label="Ngày sinh">
+                  <DatePicker id={inputId(index, "dob")} value={row.date_of_birth ? dayjs(row.date_of_birth) : null} format="DD/MM/YYYY" maxDate={dayjs()} placeholder="Ngày / tháng / năm" style={{ width: "100%" }} onChange={date => sua(index, "date_of_birth", date?.format("YYYY-MM-DD") ?? "")} />
+                </Form.Item>
+                <Form.Item htmlFor={inputId(index, "gender")} label="Giới tính">
+                  <Select id={inputId(index, "gender")} value={row.gender || undefined} allowClear placeholder="Chọn" options={[{ value: "male", label: "Nam" }, { value: "female", label: "Nữ" }, { value: "other", label: "Khác" }]} onChange={value => sua(index, "gender", value ?? "")} />
+                </Form.Item>
+                {row.type === "adult" && <>
+                  <Form.Item htmlFor={inputId(index, "id-type")} label="Loại giấy tờ">
+                    <Select id={inputId(index, "id-type")} value={row.id_type} options={[{ value: "cccd", label: "CCCD" }, { value: "cmnd", label: "CMND" }, { value: "passport", label: "Hộ chiếu" }, { value: "birth_certificate", label: "Giấy khai sinh" }]} onChange={value => sua(index, "id_type", value)} />
+                  </Form.Item>
+                  <Form.Item htmlFor={inputId(index, "identity")} label="Số giấy tờ" className="xl:col-span-2">
+                    <Input id={inputId(index, "identity")} value={row.identity_number} maxLength={50} autoComplete="off" onChange={event => sua(index, "identity_number", event.target.value)} />
+                  </Form.Item>
+                </>}
+                {row.type !== "infant" && <Form.Item htmlFor={inputId(index, "phone")} label="Điện thoại" className={row.type === "child" ? "sm:col-span-2" : ""}>
+                  <Input id={inputId(index, "phone")} type="tel" value={row.phone} maxLength={20} onChange={event => sua(index, "phone", event.target.value)} />
+                </Form.Item>}
+                <Form.Item htmlFor={inputId(index, "request")} label={<span className="inline-flex items-center">Yêu cầu riêng<FieldHelp label="Thông tin yêu cầu riêng">Ăn chay, dị ứng thực phẩm hoặc cần hỗ trợ di chuyển. Có thể để trống.</FieldHelp></span>} className="sm:col-span-2 xl:col-span-4">
+                  <Input id={inputId(index, "request")} value={row.special_request} maxLength={500} placeholder="Nếu có" onChange={event => sua(index, "special_request", event.target.value)} />
+                </Form.Item>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                <div className="flex items-center gap-1"><Radio name="passenger-contact" checked={row.is_contact} onChange={() => sua(index, "is_contact", true)}>Người đại diện</Radio><FieldHelp label="Vai trò người đại diện">Người liên hệ chính của nhóm. Chỉ chọn một người trong danh sách.</FieldHelp></div>
+                {index < rows.length - 1 && <Button type="text" onClick={() => setActivePassenger(String(index + 1))} disabled={false}>Hành khách tiếp theo →</Button>}
+              </div>
+            </Form>,
+          }))} />
+
+          {data.warnings.length > 0 && data.can_edit && <details className="mt-5 text-sm text-slate-600">
+            <summary className="cursor-pointer font-medium">Hồ sơ đã lưu có {data.warnings.length} lưu ý</summary>
+            <ul className="mt-3 list-disc space-y-2 pl-5">{data.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
+          </details>}
+          {error && <div className="mt-5" role="alert"><Alert type="error" showIcon title={error} /></div>}
+
+          {data.can_edit && <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white py-4 lg:sticky lg:bottom-0 lg:z-10">
+            <p role="status" aria-live="polite" className={`text-sm ${saved ? "text-teal-700" : "text-slate-500"}`}>
+              {saving ? "Đang lưu..." : saved ? "Đã lưu danh sách" : imported ? "Đã nhập từ file · Chưa lưu" : dirty ? "Có thay đổi chưa lưu" : `${namedCount}/${data.guests} người đã có tên`}
+            </p>
+            <Tooltip title={!identityVerified ? "Xác thực OTP qua email để lưu danh sách" : undefined}>
+              <span><Button type="primary" loading={saving} disabled={!identityVerified || namedCount === 0} onClick={luu}>Lưu danh sách</Button></span>
+            </Tooltip>
+          </div>}
+        </section>
       </div>
-
-      {error && (
-        <p className="rounded-lg bg-rose-50 px-4 py-3 text-body-sm font-medium text-rose-800">
-          {error}
-        </p>
-      )}
-
-      {data.can_edit && (
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={luu}
-            disabled={saving}
-            className="btn-primary disabled:opacity-40"
-          >
-            {saving ? "Đang lưu..." : "Lưu danh sách"}
-          </button>
-        </div>
-      )}
-
-      <Link
-        to={`/booking-lookup?code=${data.booking.public_token}`}
-        className="inline-block text-body-sm text-primary-600 hover:underline"
-      >
-        ← Xem lại đơn đặt tour
-      </Link>
     </div>
   );
 }

@@ -40,7 +40,7 @@ class PassengerPolicyService
     public function editability(Booking $booking, ?TourSchedule $schedule = null, ?Carbon $now = null): array
     {
         $schedule ??= $booking->schedule;
-        $now ??= now();
+        $now ??= DemoClock::schedule($schedule);
 
         if (!$schedule) {
             // Đơn không gắn chuyến thì không có mốc thời gian nào để dựa vào, cứ cho sửa.
@@ -55,7 +55,9 @@ class PassengerPolicyService
             return [
                 'customer' => false,
                 'admin' => false,
-                'reason' => sprintf(
+                'reason' => $trangThai->isRunning()
+                    ? 'Chuyến đã khởi hành nên không sửa danh sách đã có. Nếu còn thiếu khách, vui lòng báo HDV hoặc điều hành để bổ sung.'
+                    : sprintf(
                     'Chuyến đang ở trạng thái "%s" nên không sửa được danh sách hành khách nữa, chỉ ghi chú bổ sung.',
                     $trangThai->label(),
                 ),
@@ -377,7 +379,7 @@ class PassengerPolicyService
             "{$prefix}.*.identity_number" => ['nullable', 'string', 'max:50'],
             "{$prefix}.*.id_type" => ['nullable', 'in:cccd,cmnd,passport,birth_certificate'],
             "{$prefix}.*.nationality" => ['nullable', 'string', 'max:60'],
-            "{$prefix}.*.phone" => ['nullable', 'string', 'max:20'],
+            "{$prefix}.*.phone" => ['nullable', new \App\Rules\ValidPhone(), 'max:20'],
             "{$prefix}.*.special_request" => ['nullable', 'string', 'max:500'],
             "{$prefix}.*.is_contact" => ['nullable', 'boolean'],
             "{$prefix}.*.note" => ['nullable', 'string', 'max:255'],

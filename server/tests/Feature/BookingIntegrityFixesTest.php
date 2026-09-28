@@ -29,6 +29,8 @@ use Tests\TestCase;
  */
 class BookingIntegrityFixesTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private User $dieuHanh;
@@ -263,13 +265,13 @@ class BookingIntegrityFixesTest extends TestCase
             'adult_count' => 1,
         ];
 
-        $this->postJson('/api/bookings', $payload)
+        $this->postVerifiedBooking($payload)
             ->assertStatus(422)
             ->assertJsonValidationErrors('accept_terms');
 
         $this->assertSame(0, Booking::query()->count());
 
-        $this->postJson('/api/bookings', $payload + ['accept_terms' => true])->assertStatus(201);
+        $this->postVerifiedBooking($payload + ['accept_terms' => true])->assertStatus(201);
 
         $this->assertNotNull(Booking::query()->firstOrFail()->terms_accepted_at);
     }

@@ -14,7 +14,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->scoped(\App\Services\DemoClock::class);
     }
 
     public function boot(): void
@@ -33,7 +33,7 @@ class AppServiceProvider extends ServiceProvider
      */
     private function dangKyHanMuc(): void
     {
-        foreach (['api', 'login', 'register', 'email', 'reset', 'discount'] as $nhom) {
+        foreach (['api', 'login', 'register', 'email', 'reset', 'discount', 'chat'] as $nhom) {
             RateLimiter::for($nhom, fn (Request $request) => $this->hanMuc($nhom, $request));
         }
     }

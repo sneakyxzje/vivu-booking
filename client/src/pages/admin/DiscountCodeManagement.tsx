@@ -1,9 +1,20 @@
+import {
+  App as AntApp,
+  Button as AntButton,
+  Card as UICard,
+  Checkbox as AntCheckbox,
+  Flex as UIFlex,
+  Input as AntInput,
+  Select as AntSelect,
+  Table as AntTable,
+  Typography as AntTypography,
+} from "antd";
 import React, { useEffect, useMemo, useState } from "react";
 import adminService from "@/services/adminService";
 import { TableActions } from "@/components/admin/TableActions";
 import { Pencil, Trash2 } from "lucide-react";
 import type { DiscountCode, DiscountCodePayload } from "@/types/discount";
-import { DateTimePicker } from "@/components/DateTimePicker";
+import { DateTimePicker } from "@/components/admin/AdminDateTimePicker";
 import { doiSangNgay } from "@/components/date/dateHelpers";
 
 const emptyForm: DiscountCodePayload = {
@@ -25,6 +36,7 @@ const formatCurrency = (value: number | null) =>
 const formatDateInput = (value: string | null) => value?.slice(0, 10) ?? "";
 
 export default function DiscountCodeManagement() {
+  const { modal } = AntApp.useApp();
   const [codes, setCodes] = useState<DiscountCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -128,76 +140,59 @@ export default function DiscountCodeManagement() {
   };
 
   const removeCode = async (id: number) => {
-    if (!window.confirm("Xóa mã giảm giá này?")) return;
+    if (!(await modal.confirm({ title: "Xác nhận xóa", content: "Xóa mã giảm giá này?", okText: "Xóa", cancelText: "Giữ lại", okButtonProps: { danger: true }, mask: { closable: false } }))) return;
     await adminService.deleteDiscountCode(id);
     await loadCodes();
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <UIFlex vertical gap="large" ><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-950">Quản lý mã giảm giá</h1>
+          <AntTypography.Title level={3} >Quản lý mã giảm giá</AntTypography.Title>
           <p className="mt-1 text-sm text-gray-500">Tạo và theo dõi mã giảm giá khách hàng có thể áp dụng khi đặt tour.</p>
         </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-400">Tổng mã</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{codes.length}</p>
-        </div>
-        <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-400">Đang hoạt động</p>
-          <p className="mt-2 text-2xl font-bold text-emerald-600">{activeCount}</p>
-        </div>
-        <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-400">Lượt đã dùng</p>
-          <p className="mt-2 text-2xl font-bold text-primary-600">{usedCount}</p>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit} className="rounded-lg border border-gray-100 bg-white p-5 shadow-sm">
+      </div><div className="grid gap-4 md:grid-cols-3">
+        <UICard  ><UIFlex vertical gap="middle"><p className="text-xs font-semibold uppercase text-gray-400">Tổng mã</p><p className="mt-2 text-2xl font-bold text-gray-900">{codes.length}</p></UIFlex></UICard>
+        <UICard  ><UIFlex vertical gap="middle"><p className="text-xs font-semibold uppercase text-gray-400">Đang hoạt động</p><p className="mt-2 text-2xl font-bold text-emerald-600">{activeCount}</p></UIFlex></UICard>
+        <UICard  ><UIFlex vertical gap="middle"><p className="text-xs font-semibold uppercase text-gray-400">Lượt đã dùng</p><p className="mt-2 text-2xl font-bold text-primary-600">{usedCount}</p></UIFlex></UICard>
+      </div><form onSubmit={handleSubmit} className="rounded-lg border border-gray-100 bg-white p-5 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-bold text-gray-950">{editingId ? "Cập nhật mã" : "Tạo mã mới"}</h2>
           {editingId && (
-            <button type="button" onClick={resetForm} className="text-sm font-semibold text-gray-500 hover:text-gray-800">Hủy sửa</button>
+            <AntButton htmlType="button" onClick={resetForm}>Hủy sửa</AntButton>
           )}
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
           <label className="space-y-1.5">
             <span className="text-xs font-semibold uppercase text-gray-500">Mã giảm giá</span>
-            <input required placeholder="VD: SUMMER20" value={form.code} onChange={(e) => updateForm("code", e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500" />
+            <AntInput required placeholder="VD: SUMMER20" value={form.code} onChange={(e) => updateForm("code", e.target.value)} style={{ width: "100%" }} />
           </label>
           <label className="space-y-1.5 md:col-span-2">
             <span className="text-xs font-semibold uppercase text-gray-500">Tên chương trình</span>
-            <input required placeholder="VD: Ưu đãi hè" value={form.name} onChange={(e) => updateForm("name", e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500" />
+            <AntInput required placeholder="VD: Ưu đãi hè" value={form.name} onChange={(e) => updateForm("name", e.target.value)} style={{ width: "100%" }} />
           </label>
           <label className="space-y-1.5">
             <span className="text-xs font-semibold uppercase text-gray-500">Loại giảm</span>
-            <select value={form.type} onChange={(e) => updateDiscountType(e.target.value as DiscountCodePayload["type"])} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500">
-              <option value="percent">Giảm theo %</option>
-              <option value="fixed">Giảm số tiền</option>
-            </select>
+            <AntSelect showSearch={{ optionFilterProp: "label" }} value={String((form.type) ?? "")} onChange={(e) => updateDiscountType(e as DiscountCodePayload["type"])} style={{ width: "100%" }} options={[{ value: String("percent"), label: "Giảm theo %", disabled: false },{ value: String("fixed"), label: "Giảm số tiền", disabled: false }].flat().filter((option) => !!option)} />
           </label>
           <label className="space-y-1.5">
             <span className="text-xs font-semibold uppercase text-gray-500">{form.type === "percent" ? "Phần trăm giảm" : "Số tiền giảm"}</span>
-            <input required type="number" min="0" step="0.01" placeholder={form.type === "percent" ? "VD: 10" : "VD: 50000"} value={form.value} onChange={(e) => updateForm("value", Number(e.target.value))} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500" />
+            <AntInput required type="number" min="0" step="0.01" placeholder={form.type === "percent" ? "VD: 10" : "VD: 50000"} value={form.value} onChange={(e) => updateForm("value", Number(e.target.value))} style={{ width: "100%" }} />
           </label>
           <label className="space-y-1.5">
             <span className="text-xs font-semibold uppercase text-gray-500">Đơn tối thiểu</span>
-            <input type="number" min="0" placeholder="VD: 1000000" value={form.minimum_order_amount} onChange={(e) => updateForm("minimum_order_amount", Number(e.target.value))} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500" />
+            <AntInput type="number" min="0" placeholder="VD: 1000000" value={form.minimum_order_amount} onChange={(e) => updateForm("minimum_order_amount", Number(e.target.value))} style={{ width: "100%" }} />
           </label>
           {form.type === "percent" && (
             <label className="space-y-1.5">
               <span className="text-xs font-semibold uppercase text-gray-500">Giảm tối đa</span>
-              <input type="number" min="0" placeholder="VD: 200000" value={form.max_discount_amount ?? ""} onChange={(e) => updateForm("max_discount_amount", e.target.value ? Number(e.target.value) : null)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500" />
+              <AntInput type="number" min="0" placeholder="VD: 200000" value={form.max_discount_amount ?? ""} onChange={(e) => updateForm("max_discount_amount", e.target.value ? Number(e.target.value) : null)} style={{ width: "100%" }} />
             </label>
           )}
           <label className="space-y-1.5">
             <span className="text-xs font-semibold uppercase text-gray-500">Giới hạn lượt dùng</span>
-            <input type="number" min="1" placeholder="VD: 100" value={form.usage_limit ?? ""} onChange={(e) => updateForm("usage_limit", e.target.value ? Number(e.target.value) : null)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500" />
+            <AntInput type="number" min="1" placeholder="VD: 100" value={form.usage_limit ?? ""} onChange={(e) => updateForm("usage_limit", e.target.value ? Number(e.target.value) : null)} style={{ width: "100%" }} />
           </label>
           {/*
             Hai mốc hiệu lực của mã, không phải một bộ lọc — nên dùng bộ chọn một ngày, không dùng
@@ -227,53 +222,28 @@ export default function DiscountCodeManagement() {
             />
           </div>
           <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700">
-            <input type="checkbox" checked={form.is_active} onChange={(e) => updateForm("is_active", e.target.checked)} />
+            <AntCheckbox checked={form.is_active} onChange={(e) => updateForm("is_active", e.target.checked)} />
             Kích hoạt
           </label>
         </div>
 
         {message && <p className="mt-4 rounded-lg bg-primary-50 px-3 py-2 text-sm font-medium text-primary-700">{message}</p>}
 
-        <button disabled={submitting} className="mt-4 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-60">
-          {submitting ? "Đang lưu..." : editingId ? "Cập nhật mã" : "Tạo mã giảm giá"}
-        </button>
-      </form>
-
-      <div className="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-100 text-sm">
-          <thead className="bg-gray-50 text-left text-xs font-bold uppercase text-gray-500">
-            <tr>
-              <th className="px-4 py-3">Mã</th>
-              <th className="px-4 py-3">Giá trị</th>
-              <th className="px-4 py-3">Điều kiện</th>
-              <th className="px-4 py-3">Lượt dùng</th>
-              <th className="px-4 py-3">Trạng thái</th>
-              <th className="px-4 py-3 text-right">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {loading ? (
-              <tr><td className="px-4 py-6 text-center text-gray-500" colSpan={6}>Đang tải...</td></tr>
-            ) : codes.length === 0 ? (
-              <tr><td className="px-4 py-6 text-center text-gray-500" colSpan={6}>Chưa có mã giảm giá.</td></tr>
-            ) : codes.map((item) => (
-              <tr key={item.id}>
-                <td className="px-4 py-3">
+        <AntButton disabled={submitting} type="primary" htmlType="button">{submitting ? "Đang lưu..." : editingId ? "Cập nhật mã" : "Tạo mã giảm giá"}</AntButton>
+      </form><div className="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
+        <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }} loading={loading}
+    dataSource={loading ? [] : codes.map((item) => (
+              {key: item.id, cells: [<>
                   <p className="font-bold text-gray-900">{item.code}</p>
                   <p className="text-xs text-gray-500">{item.name}</p>
-                </td>
-                <td className="px-4 py-3 font-semibold text-gray-800">
+                </>,<>
                   {item.type === "percent" ? `${item.value}%` : formatCurrency(item.value)}
                   {item.max_discount_amount !== null && <p className="text-xs font-normal text-gray-500">Tối đa {formatCurrency(item.max_discount_amount)}</p>}
-                </td>
-                <td className="px-4 py-3 text-gray-600">Từ {formatCurrency(item.minimum_order_amount)}</td>
-                <td className="px-4 py-3 text-gray-600">{item.used_count}{item.usage_limit ? ` / ${item.usage_limit}` : ""}</td>
-                <td className="px-4 py-3">
+                </>,<>Từ {formatCurrency(item.minimum_order_amount)}</>,<>{item.used_count}{item.usage_limit ? ` / ${item.usage_limit}` : ""}</>,<>
                   <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${item.is_active ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
                     {item.is_active ? "Hoạt động" : "Tạm tắt"}
                   </span>
-                </td>
-                <td className="px-4 py-3 text-right">
+                </>,<>
                   <TableActions
                     id={item.id}
                     label="Thao tác mã giảm giá"
@@ -291,13 +261,12 @@ export default function DiscountCodeManagement() {
                       },
                     ]}
                   />
-                </td>
-              </tr>
+                </>], rowProps: {}}
             ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    columns={[{ key: "0", title: <>Mã</>, align: "left", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Giá trị</>, align: "left", render: (_value, record) => record.cells[1] },{ key: "2", title: <>Điều kiện</>, align: "left", render: (_value, record) => record.cells[2] },{ key: "3", title: <>Lượt dùng</>, align: "left", render: (_value, record) => record.cells[3] },{ key: "4", title: <>Trạng thái</>, align: "left", render: (_value, record) => record.cells[4] },{ key: "5", title: <>Thao tác</>, align: "right", render: (_value, record) => record.cells[5] }]}
+    onRow={(record) => record.rowProps}
+    locale={{ emptyText: <>Chưa có mã giảm giá.</> }} />
+      </div></UIFlex>
   );
 }
 

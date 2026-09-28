@@ -51,9 +51,7 @@ class AdminBookingActionsTest extends TestCase
             'start_date' => now()->addDays(7),
             'max_people' => $maxPeople,
             'booked_people' => $guests,
-            'status' => $guests >= $maxPeople
-                ? \App\Enums\ScheduleStatus::Closed->value
-                : \App\Enums\ScheduleStatus::Open->value,
+            'status' => \App\Enums\ScheduleStatus::Open->value,
         ]);
 
         return Booking::create([
@@ -144,4 +142,3 @@ class AdminBookingActionsTest extends TestCase
         $this->putJson("/api/admin/bookings/{$don->id}/confirm")->assertStatus(403);
     }
 }
-

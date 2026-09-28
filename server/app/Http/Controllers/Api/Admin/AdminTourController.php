@@ -18,6 +18,7 @@ use App\Enums\ScheduleStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Notifications\Alert;
 use App\Services\CloudinaryService;
+use App\Services\DemoClock;
 use App\Services\Notifier;
 use App\Services\GuideSuitabilityService;
 use App\Services\ScheduleDeadlineService;
@@ -148,7 +149,23 @@ class AdminTourController extends Controller
             ->latest()
             ->get();
 
+        foreach ($tours as $tour) {
+            $this->appendScheduleTimeline($tour);
+        }
+
         return $this->success(TourResource::collection($tours), 'Lấy danh sách tour thành công');
+    }
+
+    /** Cùng trạng thái theo đồng hồ với màn HDV, không đổi trạng thái đã lưu khi đọc. */
+    private function appendScheduleTimeline(Tour $tour): void
+    {
+        foreach ($tour->schedules as $schedule) {
+            $schedule->setRelation('tour', $tour);
+            $now = DemoClock::schedule($schedule);
+            $schedule->setAttribute('server_now', $now->toIso8601String());
+            $schedule->setAttribute('effective_status', $this->scheduleLifecycle->effectiveStatus($schedule, $now)->value);
+            $schedule->unsetRelation('tour');
+        }
     }
 
     /**
@@ -192,6 +209,7 @@ class AdminTourController extends Controller
             return $this->error('Không tìm thấy tour', 404);
         }
 
+        $this->appendScheduleTimeline($tour);
         return $this->success(new TourResource($tour), 'Lấy chi tiết tour thành công');
     }
     /**
@@ -364,13 +382,18 @@ class AdminTourController extends Controller
              * không đường nào ghi vào nó nữa - xem AdminCancellationPolicyController.
              */
             'itineraries' => ['nullable', 'array'],
-            'itineraries.*.day_number' => ['required_with:itineraries', 'integer', 'min:1'],
+            'itineraries.*.day_number' => ['required_with:itineraries', 'integer', 'min:1', 'distinct'],
             'itineraries.*.title' => ['required_with:itineraries', 'string', 'max:255'],
             'itineraries.*.start_point' => ['nullable', 'string', 'max:255'],
             'itineraries.*.end_point' => ['nullable', 'string', 'max:255'],
             'itineraries.*.route_points' => ['nullable', 'string'],
             'itineraries.*.rest_stops' => ['nullable', 'string'],
             'itineraries.*.content' => ['required_with:itineraries', 'string'],
+            'itineraries.*.images' => ['nullable', 'array', 'max:8'],
+            'itineraries.*.images.*' => ['required', 'url', 'max:2048'],
+            'itineraries.*.replace_images' => ['nullable', 'boolean'],
+            'itineraries.*.image_files' => ['nullable', 'array', 'max:8'],
+            'itineraries.*.image_files.*' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'itineraries.*.checkpoints' => ['nullable', 'array'],
             'itineraries.*.checkpoints.*.name' => ['required_with:itineraries.*.checkpoints', 'string', 'max:255'],
             'itineraries.*.checkpoints.*.description' => ['nullable', 'string'],
@@ -393,10 +416,14 @@ class AdminTourController extends Controller
             'schedules.*.max_people' => ['required_with:schedules', 'integer', 'min:1'],
             'schedules.*.min_people' => ['nullable', 'integer', 'min:1'],
             'schedules.*.booking_deadline' => ['nullable', 'date'],
-            'schedules.*.status' => ['nullable', 'string', 'in:open,closed'],
+            'schedules.*.status' => ['nullable', 'string', 'in:open'],
             // Nhiều hướng dẫn viên cho một chuyến. Bao nhiêu người là đủ thì điều hành quyết.
             'schedules.*.guide_ids' => ['nullable', 'array'],
             'schedules.*.guide_ids.*' => ['integer', 'exists:users,id'],
+        ], [
+            'itineraries.*.day_number.distinct' => 'Các ngày trong lịch trình không được trùng nhau.',
+            'itineraries.*.title.required_with' => 'Ngày :position chưa có tiêu đề.',
+            'itineraries.*.content.required_with' => 'Ngày :position chưa có hoạt động.',
         ]);
 
         $numberOfDay = (int) $validated['number_of_days'];
@@ -413,14 +440,8 @@ class AdminTourController extends Controller
             return $this->error($scheduleError, 422);
         }
 
-        if (count($itineraries) > $numberOfDay) {
-            return $this->error("Lịch trình chỉ được tối đa {$numberOfDay} ngày", 422);
-        }
-
-        foreach ($itineraries as $itinerary) {
-            if ((int) $itinerary['day_number'] > $numberOfDay) {
-                return $this->error("Ngày trong lịch trình không được vượt quá {$numberOfDay}", 422);
-            }
+        if ($itineraryError = $this->validateItineraryDays($itineraries, $numberOfDay)) {
+            return $this->error($itineraryError, 422);
         }
 
         /** @var array<int, array<int, int>> khóa là id chuyến, giá trị là id những người mới */
@@ -464,6 +485,7 @@ class AdminTourController extends Controller
                     'route_points' => $item['route_points'] ?? null,
                     'rest_stops' => $item['rest_stops'] ?? null,
                     'content' => $item['content'],
+                    'images' => $this->itineraryImages($item),
                 ]);
 
                 foreach ($item['checkpoints'] ?? [] as $checkpoint) {
@@ -577,13 +599,18 @@ class AdminTourController extends Controller
              */
             'itineraries' => ['nullable', 'array'],
             'itineraries.*.id' => ['nullable', 'exists:tour_itineraries,id'],
-            'itineraries.*.day_number' => ['required_with:itineraries', 'integer', 'min:1'],
+            'itineraries.*.day_number' => ['required_with:itineraries', 'integer', 'min:1', 'distinct'],
             'itineraries.*.title' => ['required_with:itineraries', 'string', 'max:255'],
             'itineraries.*.start_point' => ['nullable', 'string', 'max:255'],
             'itineraries.*.end_point' => ['nullable', 'string', 'max:255'],
             'itineraries.*.route_points' => ['nullable', 'string'],
             'itineraries.*.rest_stops' => ['nullable', 'string'],
             'itineraries.*.content' => ['required_with:itineraries', 'string'],
+            'itineraries.*.images' => ['nullable', 'array', 'max:8'],
+            'itineraries.*.images.*' => ['required', 'url', 'max:2048'],
+            'itineraries.*.replace_images' => ['nullable', 'boolean'],
+            'itineraries.*.image_files' => ['nullable', 'array', 'max:8'],
+            'itineraries.*.image_files.*' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'itineraries.*.checkpoints' => ['nullable', 'array'],
             'itineraries.*.checkpoints.*.id' => ['nullable', 'exists:itinerary_checkpoints,id'],
             'itineraries.*.checkpoints.*.name' => ['required_with:itineraries.*.checkpoints', 'string', 'max:255'],
@@ -611,19 +638,22 @@ class AdminTourController extends Controller
             // Lý do dời hạn chốt, không bắt buộc. Có thì được ghi vào nhật ký chuyến.
             'schedules.*.booking_deadline_reason' => ['nullable', 'string', 'max:500'],
             /*
-             * Nhận cả sáu trạng thái, không riêng open/closed.
+             * Nhận cả năm trạng thái để biểu mẫu có thể gửi lại các chuyến cũ.
              *
              * Biểu mẫu gửi lại nguyên trạng thái nó đọc được lúc mở form. Tour nào có một chuyến đã
              * chốt hoặc đã đi xong thì lần lưu nào cũng chết ở đây với "The selected
              * schedules.0.status is invalid" — một câu không nói cho người dùng biết họ vừa làm sai
              * cái gì, mà thật ra họ có làm gì đâu.
              *
-             * Nhận vào không có nghĩa là ghi xuống: chỗ áp trạng thái bên dưới chỉ lấy open/closed,
-             * và chỉ cho chuyến còn đang bán.
+             * Lưu biểu mẫu không thay đổi trạng thái của chuyến đã tồn tại.
              */
             'schedules.*.status' => ['nullable', 'string', Rule::in(ScheduleStatus::values())],
             'schedules.*.guide_ids' => ['nullable', 'array'],
             'schedules.*.guide_ids.*' => ['integer', 'exists:users,id'],
+        ], [
+            'itineraries.*.day_number.distinct' => 'Các ngày trong lịch trình không được trùng nhau.',
+            'itineraries.*.title.required_with' => 'Ngày :position chưa có tiêu đề.',
+            'itineraries.*.content.required_with' => 'Ngày :position chưa có hoạt động.',
         ]);
 
         $numberOfDay = (int) $validated['number_of_days'];
@@ -642,14 +672,8 @@ class AdminTourController extends Controller
             return $this->error($scheduleError, 422);
         }
 
-        if (count($itineraries) > $numberOfDay) {
-            return $this->error("Lịch trình chỉ được tối đa {$numberOfDay} ngày", 422);
-        }
-
-        foreach ($itineraries as $itinerary) {
-            if ((int) $itinerary['day_number'] > $numberOfDay) {
-                return $this->error("Ngày trong lịch trình không được vượt quá {$numberOfDay}", 422);
-            }
+        if ($itineraryError = $this->validateItineraryDays($itineraries, $numberOfDay)) {
+            return $this->error($itineraryError, 422);
         }
 
         /*
@@ -795,13 +819,6 @@ class AdminTourController extends Controller
                      * Sau khi chốt, vòng đời do nơi khác điều khiển: lệnh nền, nút đổi trạng thái ở
                      * màn quản lý chuyến, và luồng hủy chuyến.
                      */
-                    $trangThaiMoi = $item['status'] ?? null;
-
-                    if ($this->conDangBan($schedule) && in_array($trangThaiMoi, ['open', 'closed'], true)) {
-                        $payload['status'] = $schedule->booked_people >= (int) $item['max_people']
-                            ? 'closed'
-                            : $trangThaiMoi;
-                    }
 
                     /*
                      * Hạn chốt không nằm trong payload và đi qua service riêng.
@@ -956,7 +973,7 @@ class AdminTourController extends Controller
     /**
      * Đổi trạng thái chuyến thủ công (A10).
      *
-     * Admin được phép chuyển: open ↔ closed, open/closed → confirmed, open/closed/confirmed → cancelled.
+     * Admin chốt chuyến từ open sang confirmed; hủy đi qua luồng xử lý riêng.
      * Không cho admin chuyển sang in_progress hoặc completed — các trạng thái đó do hệ thống/HDV.
      *
      * PATCH /admin/schedules/{id}/status
@@ -1002,6 +1019,8 @@ class AdminTourController extends Controller
                 ? $tour->itineraries()->whereKey($item['id'])->first()
                 : $tour->itineraries()->where('day_number', $item['day_number'])->first();
 
+            $payload['images'] = $this->itineraryImages($item, $itinerary);
+
             if ($itinerary) {
                 $itinerary->update($payload);
             } else {
@@ -1015,6 +1034,30 @@ class AdminTourController extends Controller
 
         // Chỉ xóa ngày nào không còn trong payload.
         $tour->itineraries()->whereKeyNot($keptIds)->delete();
+    }
+
+    private function itineraryImages(array $item, ?TourItinerary $itinerary = null): array
+    {
+        $saved = $itinerary?->images ?? [];
+        $replace = ($item['replace_images'] ?? false) || array_key_exists('images', $item);
+        $kept = $replace ? ($item['images'] ?? []) : $saved;
+        $files = $item['image_files'] ?? [];
+        $day = $item['day_number'];
+
+        if (array_diff($kept, $saved)) {
+            throw ValidationException::withMessages([
+                'itineraries' => "Ảnh giữ lại của ngày {$day} không thuộc lịch trình này.",
+            ]);
+        }
+        if (count($kept) + count($files) > 8) {
+            throw ValidationException::withMessages([
+                'itineraries' => "Ngày {$day} chỉ được thêm tối đa 8 ảnh.",
+            ]);
+        }
+        foreach ($files as $file) {
+            $kept[] = $this->cloudinaryService->uploadImage($file, 'vivu-booking/itineraries');
+        }
+        return array_values($kept);
     }
 
     /**
@@ -1054,7 +1097,7 @@ class AdminTourController extends Controller
     /** Chuyến còn ở giai đoạn bán, tức trạng thái của nó do biểu mẫu tour quyết được. */
     private function conDangBan(TourSchedule $schedule): bool
     {
-        return in_array($schedule->status, [ScheduleStatus::Open, ScheduleStatus::Closed], true);
+        return in_array($schedule->status, [ScheduleStatus::Open], true);
     }
 
     /**
@@ -1132,6 +1175,21 @@ class AdminTourController extends Controller
         return ! $cu->equalTo($mocMoi);
     }
 
+    private function validateItineraryDays(array $itineraries, int $days): ?string
+    {
+        if (count($itineraries) > $days) {
+            return "Tour {$days} ngày đang có " . count($itineraries) . ' ngày lịch trình. Xóa ngày thừa hoặc sửa thời lượng tour.';
+        }
+
+        $numbers = array_map(fn (array $item) => (int) $item['day_number'], $itineraries);
+        $missing = array_diff(range(1, $days), $numbers);
+        if ($missing) {
+            return 'Chưa có lịch trình ngày ' . implode(', ', $missing) . '.';
+        }
+
+        return null;
+    }
+
     private function validateScheduleRules(array $schedules): ?string
     {
         foreach ($schedules as $index => $item) {
@@ -1140,7 +1198,7 @@ class AdminTourController extends Controller
             $minPeople = (int) ($item['min_people'] ?? 1);
 
             if ($maxPeople > 0 && $minPeople > $maxPeople) {
-                return "Lịch khởi hành thứ {$position}: số khách tối thiểu ({$minPeople}) "
+                return "Lịch khởi hành thứ {$position}: số khách mục tiêu ({$minPeople}) "
                     . "không được lớn hơn sức chứa ({$maxPeople}).";
             }
 
@@ -1155,18 +1213,8 @@ class AdminTourController extends Controller
                 return "Lịch khởi hành thứ {$position}: hạn chốt danh sách phải trước ngày khởi hành.";
             }
 
-            /*
-             * Và không được sớm hơn hạn trả nốt.
-             *
-             * Cùng luật với đường dời hạn chốt riêng — xem `ScheduleDeadlineService::lyDoDaoNguocHaiHan()`
-             * để biết vì sao thứ tự hai mốc không được đảo. Gọi lại đúng hàm ấy thay vì chép công
-             * thức về đây: hai bản của một luật là chỗ dự án này đã vấp nhiều lần.
-             */
-            $daoNguoc = ScheduleDeadlineService::lyDoDaoNguocHaiHan($startDate, $deadline);
 
-            if ($daoNguoc !== null) {
-                return "Lịch khởi hành thứ {$position}: " . $daoNguoc;
-            }
+
         }
 
         return null;
@@ -1189,7 +1237,6 @@ class AdminTourController extends Controller
          */
         $allowedForAdmin = [
             ScheduleStatus::Open->value,
-            ScheduleStatus::Closed->value,
             ScheduleStatus::Confirmed->value,
         ];
 
@@ -1395,6 +1442,5 @@ class AdminTourController extends Controller
         return $slug;
     }
 }
-
 
 

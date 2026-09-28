@@ -28,7 +28,7 @@ class BookingController extends Controller
         $guideId = $request->user()->id;
 
         $bookings = Booking::query()
-            ->with(['tour:id,title', 'schedule:id,start_date'])
+            ->with(['tour:id,title', 'schedule:id,start_date,booking_deadline'])
             ->whereHas('schedule', fn ($query) => $query
                 ->whereHas('guides', fn ($q) => $q->whereKey($guideId)))
             ->latest()
@@ -115,7 +115,7 @@ class BookingController extends Controller
 
             $locked->update([
                 'status' => 'confirmed',
-                'confirmed_at' => now(),
+                'confirmed_at' => \App\Services\DemoClock::booking($booking),
                 'expires_at' => null,
             ]);
 

@@ -1,3 +1,4 @@
+import { Button, Tabs } from "antd";
 import { useMemo, useState } from "react";
 import type { Tour, TourSchedule } from "@/types/tour";
 import { formatPrice } from "@/utils/format";
@@ -244,33 +245,10 @@ export const TourDepartures = ({
       </h2>
 
       {/* Tab tháng. Chỉ hiện tháng thật sự có chuyến — tab rỗng chỉ tổ làm người ta bấm hụt. */}
-      <div className="mt-5 flex flex-wrap gap-3">
-        {thangCoChuyen.map((khoa) => {
-          const { thang, nam } = nhanThang(khoa);
-          const dangXem = khoa === thangDangXem;
-
-          return (
-            <button
-              key={khoa}
-              type="button"
-              onClick={() => setThangDaChon(khoa)}
-              aria-pressed={dangXem}
-              className={`min-w-[104px] rounded-xl border px-5 py-2.5 text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 ${
-                dangXem
-                  ? "border-primary-600 bg-primary-600 text-white shadow-sm"
-                  : "border-gray-200 bg-white text-gray-400 hover:border-primary-200 hover:text-primary-600"
-              }`}
-            >
-              <span className="block text-sm font-bold leading-tight">
-                {thang}
-              </span>
-              <span className="block text-xs leading-tight opacity-80">
-                {nam}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      <Tabs activeKey={thangDangXem ?? undefined} onChange={setThangDaChon} style={{ marginTop: 16 }} items={thangCoChuyen.map(key => {
+        const { thang, nam } = nhanThang(key);
+        return { key, label: thang + " " + nam };
+      })} />
 
       <div className="mt-5 space-y-4">
         {dangHien.map((schedule) => {
@@ -299,20 +277,18 @@ export const TourDepartures = ({
           return (
             <div
               key={schedule.id}
-              className={`overflow-hidden rounded-2xl border transition-colors ${
-                dangChon
-                  ? "border-primary-500 bg-white shadow-sm"
-                  : "border-gray-200 bg-white hover:border-primary-200"
-              } ${lyDoChan && !dangChon ? "opacity-60" : ""}`}
+              className={`overflow-hidden rounded-2xl border transition-colors ${dangChon
+                ? "border-primary-500 bg-white shadow-sm"
+                : "border-gray-200 bg-white hover:border-primary-200"
+                } ${lyDoChan && !dangChon ? "opacity-60" : ""}`}
             >
               {/* Hàng đầu: ngày, mã chuyến, giá, nút chọn. Luôn hiện, kể cả khi chưa mở rộng. */}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
                 <span
-                  className={`rounded-lg px-3.5 py-1.5 text-sm font-bold ${
-                    dangChon
-                      ? "bg-primary-50 text-primary-700"
-                      : "bg-gray-100 text-gray-700"
-                  }`}
+                  className={`rounded-lg px-3.5 py-1.5 text-sm font-bold ${dangChon
+                    ? "bg-primary-50 text-primary-700"
+                    : "bg-gray-100 text-gray-700"
+                    }`}
                 >
                   {thuTrongTuan(ngayDi)}, {dinhDangNgay(ngayDi)}
                 </span>
@@ -333,18 +309,9 @@ export const TourDepartures = ({
                       {lyDoChan}
                     </span>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => onScheduleChange(schedule)}
-                      aria-pressed={dangChon}
-                      className={`rounded-full px-6 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 ${
-                        dangChon
-                          ? "bg-primary-600 text-white"
-                          : "border border-gray-200 bg-white text-gray-600 hover:border-primary-300 hover:text-primary-600"
-                      }`}
-                    >
-                      {dangChon ? "Đang chọn" : "Chọn"}
-                    </button>
+                    <Button onClick={() => onScheduleChange(schedule)} type={dangChon ? "primary" : "default"} aria-pressed={dangChon}>
+                      {dangChon ? "Đang chọn" : "Chọn chuyến"}
+                    </Button>
                   )}
                 </div>
               </div>

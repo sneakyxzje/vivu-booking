@@ -1,10 +1,19 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Flex as UIFlex,
+  Input as AntInput,
+  Select as AntSelect,
+  Table as AntTable,
+  Typography as AntTypography,
+} from "antd";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import adminService from "@/services/adminService";
 import { formatDateTime } from "@/utils/format";
 import { statusClasses, statusLabel } from "@/utils/schedule";
-import Pagination from "@/components/common/Pagination";
-import { DateRangePicker } from "@/components/DateRangePicker";
+import Pagination from "@/components/admin/AdminPagination";
+import { DateRangePicker } from "@/components/admin/AdminDateRangePicker";
 import type { AttendanceReportData } from "@/services/adminService";
 
 /*
@@ -84,13 +93,8 @@ export default function AttendanceReport() {
       <div className="max-w-xl mx-auto py-12">
         <div className="rounded-2xl bg-rose-50 border border-rose-200 p-6 text-center text-rose-700 space-y-3">
           <p className="font-semibold text-base">{error || "Không thể tải báo cáo."}</p>
-          <button
-            type="button"
-            onClick={() => fetchReport(1, perPage)}
-            className="px-4 py-2.5 bg-rose-600 text-white font-bold text-sm rounded-xl shadow-sm hover:bg-rose-700"
-          >
-            Tải lại trang
-          </button>
+          <AntButton htmlType="button" onClick={() => fetchReport(1, perPage)} type="primary" danger>Tải lại trang
+          </AntButton>
         </div>
       </div>
     );
@@ -103,23 +107,15 @@ export default function AttendanceReport() {
       {/* Header */}
       <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-gray-900 font-jakarta">
-            Báo cáo Điểm danh & Điều hành
-          </h1>
+          <AntTypography.Title level={3} >Báo cáo Điểm danh & Điều hành
+          </AntTypography.Title>
           <p className="text-xs text-gray-500 mt-0.5">
             Thống kê tiến độ điểm danh, tỷ lệ có mặt và nhật ký vi phạm/vắng mặt trên toàn bộ các chuyến đi
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => fetchReport(page, perPage)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-colors"
-          >
-            Cập nhật số liệu
-          </button>
-        </div>
+        <UIFlex    align="center"  gap={8}><AntButton htmlType="button" onClick={() => fetchReport(page, perPage)}>Cập nhật số liệu
+          </AntButton></UIFlex>
       </div>
 
       {/* KPI Cards Grid */}
@@ -178,37 +174,15 @@ export default function AttendanceReport() {
       </div>
 
       {/* Main Container */}
-      <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-5">
-        {/* Nav Tabs & Advanced Filters */}
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+      <UICard  ><UIFlex vertical gap="middle">{/* Nav Tabs & Advanced Filters */}<UIFlex  vertical    gap={16}><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
             {/* Tabs */}
             <div className="flex items-center gap-2 bg-gray-100 p-1.5 rounded-2xl w-fit">
-              <button
-                type="button"
-                onClick={() => setActiveTab("schedules")}
-                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "schedules"
-                    ? "bg-white text-primary-700 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                  }`}
-              >
-                Thống kê theo Chuyến ({schedules.total})
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("logs")}
-                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "logs"
-                    ? "bg-white text-primary-700 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                  }`}
-              >
-                Nhật ký Vắng mặt ({absence_logs.length})
-              </button>
+              <AntButton htmlType="button" onClick={() => setActiveTab("schedules")}>Thống kê theo Chuyến ({schedules.total})
+              </AntButton>
+              <AntButton htmlType="button" onClick={() => setActiveTab("logs")}>Nhật ký Vắng mặt ({absence_logs.length})
+              </AntButton>
             </div>
-          </div>
-
-          {/* Bộ Lọc Nâng Cao (Từ ngày -> Đến ngày, Trạng thái, Tìm kiếm) */}
-          {activeTab === "schedules" && (
+          </div>{/* Bộ Lọc Nâng Cao (Từ ngày -> Đến ngày, Trạng thái, Tìm kiếm) */}{activeTab === "schedules" && (
             <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3 items-end bg-gray-50/70 p-4 rounded-2xl border border-gray-100">
               {/*
                 Không chọn giờ ở đây: lọc theo NGÀY KHỞI HÀNH của chuyến, và một chuyến khởi hành
@@ -231,117 +205,57 @@ export default function AttendanceReport() {
                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1">
                   Trạng thái chuyến
                 </label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:border-primary-500 shadow-xs"
-                >
-                  <option value="all">Tất cả trạng thái</option>
-                  <option value="open">Mở bán</option>
-                  <option value="confirmed">Đã xác nhận</option>
-                  <option value="in_progress">Đang di chuyển</option>
-                  <option value="completed">Hoàn tất</option>
-                  <option value="cancelled">Đã hủy</option>
-                </select>
+                <AntSelect showSearch={{ optionFilterProp: "label" }} value={String((statusFilter) ?? "")} onChange={(e) => setStatusFilter(e)} style={{ width: "100%" }} options={[{ value: String("all"), label: "Tất cả trạng thái", disabled: false },{ value: String("open"), label: "Mở bán", disabled: false },{ value: String("confirmed"), label: "Đã xác nhận", disabled: false },{ value: String("in_progress"), label: "Đang di chuyển", disabled: false },{ value: String("completed"), label: "Hoàn tất", disabled: false },{ value: String("cancelled"), label: "Đã hủy", disabled: false }].flat().filter((option) => !!option)} />
               </div>
 
               {/* Ô tìm kiếm & Nút Lọc */}
               <div className="md:col-span-3 flex items-center gap-2">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Tour hoặc HDV..."
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm bg-white outline-none focus:border-primary-500 shadow-xs"
-                />
-                <button
-                  type="submit"
-                  className="px-4.5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm rounded-xl shadow-xs shrink-0 transition-colors"
-                >
-                  Lọc
-                </button>
+                <AntInput type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Tour hoặc HDV..." style={{ width: "100%" }} />
+                <AntButton htmlType="submit" type="primary">Lọc
+                </AntButton>
                 {(fromDate || toDate || searchTerm || statusFilter !== "all") && (
-                  <button
-                    type="button"
-                    onClick={handleResetFilters}
-                    className="px-3 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-sm rounded-xl shrink-0 whitespace-nowrap transition-colors"
-                  >
-                    Bỏ lọc
-                  </button>
+                  <AntButton htmlType="button" onClick={handleResetFilters}>Bỏ lọc
+                  </AntButton>
                 )}
               </div>
             </form>
-          )}
-        </div>
-
-        {/* Tab 1: Thống kê theo Chuyến */}
-        {activeTab === "schedules" && (
-          <div className="space-y-4">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/50 text-xs font-extrabold uppercase tracking-wider text-gray-600">
-                    <th className="py-4 px-4">Chuyến / Tour</th>
-                    <th className="py-4 px-4">Khởi hành</th>
-                    <th className="py-4 px-4">HDV Phụ trách</th>
-                    <th className="py-4 px-4">Tiến độ điểm danh</th>
-                    <th className="py-4 px-4 text-center">Ảnh đoàn</th>
-                    <th className="py-4 px-4 text-center">Trạng thái</th>
-                    <th className="py-4 px-4 text-right">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 text-base">
-                  {schedules.data.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="py-12 text-center text-gray-500 text-sm">
-                        Không tìm thấy chuyến đi nào trong khoảng thời gian / bộ lọc đã chọn.
-                      </td>
-                    </tr>
-                  ) : (
-                    schedules.data.map((sch) => (
-                      <tr key={sch.id} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="py-4 px-4">
+          )}</UIFlex>{/* Tab 1: Thống kê theo Chuyến */}{activeTab === "schedules" && (
+          <UIFlex vertical gap={16} ><div className="overflow-x-auto">
+              <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }}
+    dataSource={schedules.data.map((sch) => (
+                      {key: sch.id, cells: [<>
                           <p className="font-bold text-gray-900 text-base">{sch.tour_title}</p>
                           <p className="text-sm text-gray-500">
                             Mã chuyến #{sch.id} · {sch.number_of_days} ngày · {sch.booked_people} khách
                           </p>
-                        </td>
-                        <td className="py-4 px-4 whitespace-nowrap text-sm text-gray-700 font-medium">
+                        </>,<>
                           {formatDateTime(sch.start_date)}
-                        </td>
-                        <td className="py-4 px-4 whitespace-nowrap text-sm">
+                        </>,<>
                           {sch.guides.length > 0 ? (
-                            <div className="space-y-1">
-                              {sch.guides.map((guide) => (
+                            <UIFlex vertical gap={4} >{sch.guides.map((guide) => (
                                 <div key={guide.id}>
                                   <span className="font-bold text-gray-900">{guide.name}</span>
                                   <p className="text-xs text-gray-400">
                                     {guide.phone || "Không có SĐT"}
                                   </p>
                                 </div>
-                              ))}
-                            </div>
+                              ))}</UIFlex>
                           ) : (
                             <span className="text-rose-600 font-semibold italic">Chưa phân công</span>
                           )}
-                        </td>
-                        <td className="py-4 px-4 min-w-[150px]">
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between text-sm">
+                        </>,<>
+                          <UIFlex vertical gap={4} ><div className="flex items-center justify-between text-sm">
                               <span className="font-bold text-emerald-600">{sch.presence_rate}%</span>
                               <span className="text-xs text-gray-400">
                                 ({sch.present_count}/{sch.total_checkins})
                               </span>
-                            </div>
-                            <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                            </div><div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-emerald-500 transition-all duration-300"
                                 style={{ width: `${sch.presence_rate}%` }}
                               />
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 text-center whitespace-nowrap">
+                            </div></UIFlex>
+                        </>,<>
                           {sch.photo_count > 0 ? (
                             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
                               {sch.photo_count} ảnh
@@ -351,32 +265,28 @@ export default function AttendanceReport() {
                               Chưa có ảnh
                             </span>
                           )}
-                        </td>
-                        <td className="py-4 px-4 text-center whitespace-nowrap">
+                        </>,<>
                           <span
                             className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${statusClasses[sch.status] || "bg-gray-50 text-gray-600 border-gray-200"
                               }`}
                           >
                             {statusLabel[sch.status] || sch.status}
                           </span>
-                        </td>
-                        <td className="py-4 px-4 text-right whitespace-nowrap">
+                        </>,<>
                           <Link
                             to={`/admin/tour-schedules/${sch.id}/attendance`}
                             className="inline-flex items-center gap-1 px-3.5 py-2 rounded-xl bg-primary-50 text-primary-700 text-xs font-bold hover:bg-primary-100 transition-colors"
                           >
                             Chi tiết
                           </Link>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Phân Trang bằng Common Component Pagination */}
-            <Pagination
+                        </>], rowProps: {}}
+                    ))}
+    columns={[{ key: "0", title: <>Chuyến / Tour</>, align: "left", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Khởi hành</>, align: "left", render: (_value, record) => record.cells[1] },{ key: "2", title: <>HDV Phụ trách</>, align: "left", render: (_value, record) => record.cells[2] },{ key: "3", title: <>Tiến độ điểm danh</>, align: "left", render: (_value, record) => record.cells[3] },{ key: "4", title: <>Ảnh đoàn</>, align: "center", render: (_value, record) => record.cells[4] },{ key: "5", title: <>Trạng thái</>, align: "center", render: (_value, record) => record.cells[5] },{ key: "6", title: <>Thao tác</>, align: "right", render: (_value, record) => record.cells[6] }]}
+    onRow={(record) => record.rowProps}
+    locale={{ emptyText: <>
+                        Không tìm thấy chuyến đi nào trong khoảng thời gian / bộ lọc đã chọn.
+                      </> }} />
+            </div>{/* Phân Trang bằng Common Component Pagination */}<Pagination
               currentPage={schedules.current_page}
               lastPage={schedules.last_page}
               total={schedules.total}
@@ -387,34 +297,12 @@ export default function AttendanceReport() {
                 setPerPage(newPerPage);
                 fetchReport(1, newPerPage);
               }}
-            />
-          </div>
-        )}
-
-        {/* Tab 2: Nhật ký Khách vắng mặt */}
-        {activeTab === "logs" && (
+            /></UIFlex>
+        )}{/* Tab 2: Nhật ký Khách vắng mặt */}{activeTab === "logs" && (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/50 text-xs font-extrabold uppercase tracking-wider text-gray-600">
-                  <th className="py-4 px-4">Hành khách</th>
-                  <th className="py-4 px-4">Mã đơn</th>
-                  <th className="py-4 px-4">Chặng vắng mặt</th>
-                  <th className="py-4 px-4">HDV Ghi nhận</th>
-                  <th className="py-4 px-4 text-right">Thời điểm điểm danh</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 text-base">
-                {absence_logs.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-gray-500 text-sm">
-                      Không có trường hợp vắng mặt nào được ghi nhận.
-                    </td>
-                  </tr>
-                ) : (
-                  absence_logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="py-4 px-4">
+            <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }}
+    dataSource={absence_logs.map((log) => (
+                    {key: log.id, cells: [<>
                         {/* Điểm danh theo từng người, nên tên hành khách mới là chủ thể ở đây.
                             Người đứng đơn chỉ là đầu mối liên hệ. */}
                         <p className="font-bold text-gray-900 text-base">{log.passenger_name}</p>
@@ -424,32 +312,28 @@ export default function AttendanceReport() {
                         <span className="inline-flex mt-1 px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold">
                           {log.status_label}
                         </span>
-                      </td>
-                      <td className="py-4 px-4 whitespace-nowrap">
+                      </>,<>
                         <span className="font-mono text-xs font-bold bg-gray-100 text-gray-700 px-2.5 py-1.5 rounded-md">
                           BK-{log.booking_id}
                         </span>
-                      </td>
-                      <td className="py-4 px-4">
+                      </>,<>
                         <p className="font-semibold text-gray-800 text-sm">
                           Ngày {log.day_number}: {log.checkpoint_name || log.itinerary_title}
                         </p>
                         {log.note && <p className="text-xs text-gray-500 mt-0.5">“{log.note}”</p>}
-                      </td>
-                      <td className="py-4 px-4 whitespace-nowrap text-sm font-medium text-gray-700">
+                      </>,<>
                         {log.guide_name}
-                      </td>
-                      <td className="py-4 px-4 text-right whitespace-nowrap text-xs text-gray-500">
+                      </>,<>
                         {log.checked_at ? formatDateTime(log.checked_at) : "Chưa ghi nhận"}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                      </>], rowProps: {}}
+                  ))}
+    columns={[{ key: "0", title: <>Hành khách</>, align: "left", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Mã đơn</>, align: "left", render: (_value, record) => record.cells[1] },{ key: "2", title: <>Chặng vắng mặt</>, align: "left", render: (_value, record) => record.cells[2] },{ key: "3", title: <>HDV Ghi nhận</>, align: "left", render: (_value, record) => record.cells[3] },{ key: "4", title: <>Thời điểm điểm danh</>, align: "right", render: (_value, record) => record.cells[4] }]}
+    onRow={(record) => record.rowProps}
+    locale={{ emptyText: <>
+                      Không có trường hợp vắng mặt nào được ghi nhận.
+                    </> }} />
           </div>
-        )}
-      </div>
+        )}</UIFlex></UICard>
     </div>
   );
 }

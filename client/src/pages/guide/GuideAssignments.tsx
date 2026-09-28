@@ -1,248 +1,137 @@
+import { useGuideFeedback } from "@/hooks/useGuideFeedback";
+import { Typography, Button, Card, Collapse, Empty, Flex, Form, Input, Modal, Pagination, Skeleton, Tabs, Tag } from "antd";
 import { useCallback, useEffect, useState } from "react";
-import { Calendar, Check, Clock, Users } from "lucide-react";
-import guideService from "@/services/guideService";
-import type { GuideAssignment } from "@/services/guideService";
+import { Link, useSearchParams } from "react-router-dom";
+import guideService, { type GuideAssignment } from "@/services/guideService";
 import { formatDateTime, getEndDate } from "@/utils/format";
+import { assignmentView, filterAssignments, type AssignmentView } from "@/utils/guideAssignments";
 
-/**
- * Chuyến được phân công — hộp việc của hướng dẫn viên.
- *
- * Trước đây điều hành gán xong là coi như xong; hướng dẫn viên chỉ phát hiện khi tự mở danh sách
- * tour của mình, và muốn nói "hôm đó tôi bận" thì phải gọi điện.
- *
- * Điểm dễ hiểu nhầm, nên màn hình nói thẳng ra: **chưa xác nhận vẫn là đã được phân công.** Điều
- * hành đang trông vào bạn. Xác nhận chỉ là bằng chứng bạn đã biết; muốn không đi thì phải từ chối,
- * và từ chối thì phải nêu lý do.
- */
 export default function GuideAssignments() {
+  const feedback = useGuideFeedback();
+  const [params, setParams] = useSearchParams();
+  const view: AssignmentView = params.get("view") === "accepted" ? "accepted" : params.get("view") === "history" ? "history" : "pending";
   const [items, setItems] = useState<GuideAssignment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notice, setNotice] = useState("");
-
-  const [decliningId, setDecliningId] = useState<number | null>(null);
+  const [pageError, setPageError] = useState(false);
+  const [acceptingId, setAcceptingId] = useState<number | null>(null);
+  const [declining, setDeclining] = useState<GuideAssignment | null>(null);
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const busy = saving || acceptingId !== null;
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(() => {
+    feedback.clearLoadError("Chưa tải được chuyến được giao");
+    return guideService.getMyAssignments()
+      .then(result => { setItems(result); setPageError(false); })
+      .catch(err => { setPageError(true); feedback.loadError(err, "Chưa tải được chuyến được giao"); })
+      .finally(() => setLoading(false));
+  }, [feedback]);
 
+  useEffect(() => { void loadData(); }, [loadData]);
+
+  const accept = async (scheduleId: number) => {
+    if (busy) return;
+    setAcceptingId(scheduleId);
     try {
-      setItems(await guideService.getMyAssignments());
+      const message = await guideService.acceptAssignment(scheduleId);
+      feedback.success(message);
+      await loadData();
     } catch (err) {
-      console.error("Lỗi tải chuyến được phân công:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const xacNhan = async (scheduleId: number) => {
-    try {
-      setNotice(await guideService.acceptAssignment(scheduleId));
-      loadData();
-    } catch (err) {
-      console.error("Lỗi xác nhận:", err);
-    }
+      feedback.error(err, "Chưa nhận được chuyến. Vui lòng thử lại.");
+    } finally { setAcceptingId(null); }
   };
 
-  const tuChoi = async () => {
-    if (!decliningId || reason.trim().length < 10) return;
-
+  const decline = async () => {
+    if (busy || !declining || reason.trim().length < 10) return;
     setSaving(true);
-    setError("");
-
     try {
-      setNotice(await guideService.declineAssignment(decliningId, reason.trim()));
-      setDecliningId(null);
+      feedback.success(await guideService.declineAssignment(declining.schedule_id, reason.trim()));
+      setItems(previous => previous.filter(item => item.schedule_id !== declining.schedule_id));
+      setDeclining(null);
       setReason("");
-      loadData();
+      await loadData();
     } catch (err) {
-      const response = (err as { response?: { data?: { message?: string } } })?.response?.data;
-      setError(response?.message || "Không từ chối được.");
-    } finally {
-      setSaving(false);
-    }
+      feedback.error(err, "Chưa từ chối được chuyến. Vui lòng thử lại.");
+    } finally { setSaving(false); }
   };
 
-  const chuaXacNhan = items.filter((item) => !item.accepted_at);
-  const daXacNhan = items.filter((item) => item.accepted_at);
+  const filtered = filterAssignments(items, view, query);
+  const currentPage = Math.min(page, Math.max(1, Math.ceil(filtered.length / 8)));
+  const counts = { pending: 0, accepted: 0, history: 0 };
+  items.forEach(item => counts[assignmentView(item)]++);
 
-  const the = (item: GuideAssignment) => (
-    <div
-      key={item.schedule_id}
-      className={`rounded-xl border p-4 space-y-2 ${
-        item.accepted_at ? "border-gray-200 bg-white" : "border-primary-300 bg-primary-50/40"
-      }`}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-bold text-gray-900">{item.tour_title}</span>
-        <span className="text-xs text-gray-500">chuyến #{item.schedule_id}</span>
-        <span className="ml-auto rounded bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-700">
-          {item.status_label}
-        </span>
-      </div>
-
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
-        <span className="flex items-center gap-1">
-          <Calendar className="h-3 w-3" />
-          {/*
-            Ngày về đọc từ `end_date` của chuyến, chỉ suy từ số ngày tour khi cột ấy rỗng.
-
-            Suy trọn gói là sai kể từ khi điều hành đặt được mốc kết thúc: chuyến xe đêm khởi hành
-            22h và trả khách 5h sáng thì kết thúc vào ngày thứ tư của một tour ba ngày, còn phép
-            suy vẫn nói ngày thứ ba. Người dẫn đoàn là người cuối cùng nên đọc sai ngày về.
-          */}
-          {formatDateTime(item.start_date)} —{" "}
-          {item.end_date
-            ? formatDateTime(item.end_date)
-            : getEndDate(item.start_date, item.number_of_days)}
-        </span>
-
-        {/* Giờ áng chừng do điều hành điền. Chỉ hiện khi có — không đoán hộ. */}
-        {item.arrival_at && (
-          <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            Tới nơi: {formatDateTime(item.arrival_at)}
-          </span>
-        )}
-
-        {item.return_departure_at && (
-          <span className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            Rời điểm đến: {formatDateTime(item.return_departure_at)}
-          </span>
-        )}
-
-        {item.co_guides.length > 0 && (
-          <span className="flex items-center gap-1">
-            <Users className="h-3 w-3" />
-            Cùng dẫn: {item.co_guides.join(", ")}
-          </span>
-        )}
-      </p>
-
-      {item.accepted_at ? (
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
-          <Check className="h-3.5 w-3.5" />
-          Đã xác nhận lúc {formatDateTime(item.accepted_at)}
-        </p>
-      ) : decliningId === item.schedule_id ? (
-        <div className="space-y-2">
-          <textarea
-            rows={2}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="VD: Tuần đó tôi đã có lịch gia đình, không đi được..."
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
-          />
-          <p className="text-[11px] text-gray-400">
-            Ít nhất 10 ký tự. Điều hành cần lý do để xếp người khác.
-          </p>
-
-          {error && (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
-              {error}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setDecliningId(null);
-                setError("");
-              }}
-              disabled={saving}
-              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              Bỏ qua
-            </button>
-            <button
-              type="button"
-              onClick={tuChoi}
-              disabled={saving || reason.trim().length < 10}
-              className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-40"
-            >
-              {saving ? "Đang gửi..." : "Xác nhận từ chối"}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => xacNhan(item.schedule_id)}
-            className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-primary-700"
-          >
-            Xác nhận nhận chuyến
-          </button>
-
-          {item.can_decline ? (
-            <button
-              type="button"
-              onClick={() => {
-                setDecliningId(item.schedule_id);
-                setReason("");
-                setError("");
-              }}
-              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-            >
-              Từ chối
-            </button>
-          ) : (
-            <span className="text-[11px] text-gray-500">
-              Đoàn đã lên đường nên không từ chối được nữa. Không dẫn tiếp được thì gửi yêu cầu
-              bàn giao.
-            </span>
-          )}
-        </div>
-      )}
+  return <Flex vertical gap="large">
+    <div>
+      <Typography.Title level={3} style={{ margin: 0 }}>Chuyến được giao</Typography.Title>
+      <Typography.Text type="secondary">Xác nhận các chuyến điều hành đã phân công cho bạn.</Typography.Text>
     </div>
-  );
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Chuyến được giao</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Chưa xác nhận vẫn là đã được phân công — điều hành đang trông vào bạn. Không đi được thì
-          phải từ chối kèm lý do, đừng để im.
-        </p>
-      </div>
-
-      {notice && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-          {notice}
-        </div>
-      )}
-
-      {loading && <p className="text-sm text-gray-500">Đang tải...</p>}
-
-      {!loading && items.length === 0 && (
-        <p className="rounded-xl border border-gray-100 bg-white p-6 text-sm text-gray-500">
-          Bạn chưa được phân công chuyến nào.
-        </p>
-      )}
-
-      {chuaXacNhan.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-bold text-gray-900">
-            Chờ bạn trả lời ({chuaXacNhan.length})
-          </h2>
-          {chuaXacNhan.map(the)}
-        </div>
-      )}
-
-      {daXacNhan.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-bold text-gray-900">Đã xác nhận ({daXacNhan.length})</h2>
-          {daXacNhan.map(the)}
-        </div>
-      )}
-    </div>
-  );
+    <Card styles={{ body: { paddingTop: 0 } }}>
+      <Tabs activeKey={view} onChange={key => { setParams({ view: key }); setPage(1); }} items={[
+        { key: "pending", label: `Chờ trả lời (${counts.pending})` },
+        { key: "accepted", label: `Đã nhận (${counts.accepted})` },
+        { key: "history", label: `Chuyến cũ (${counts.history})` },
+      ]} />
+      <Input.Search aria-label="Tìm chuyến được giao" placeholder="Tên tour, mã chuyến hoặc HDV cùng dẫn" allowClear value={query}
+        onChange={event => { setQuery(event.target.value); setPage(1); }} style={{ maxWidth: 480 }} />
+    </Card>
+    {pageError && <Flex><Button loading={loading} disabled={busy} onClick={() => { setLoading(true); void loadData(); }}>Tải lại danh sách</Button></Flex>}
+    {loading ? <Skeleton active paragraph={{ rows: 8 }} /> : <>
+      {filtered.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description={pageError ? "Chưa tải được danh sách" : query ? "Không tìm thấy chuyến phù hợp" : view === "pending" ? "Không có chuyến chờ trả lời" : view === "accepted" ? "Chưa có chuyến đã nhận" : "Chưa có chuyến cũ"}>
+        {query ? <Button onClick={() => { setQuery(""); setPage(1); }}>Xóa tìm kiếm</Button> : view === "pending" && counts.accepted > 0 ? <Button onClick={() => { setParams({ view: "accepted" }); setPage(1); }}>Xem chuyến đã nhận</Button> : null}
+      </Empty> : filtered.slice((currentPage - 1) * 8, currentPage * 8).map(item => {
+        const history = assignmentView(item) === "history";
+        const running = item.status === "in_progress";
+        return <Card key={item.schedule_id}>
+          <Flex vertical gap="middle">
+            <Flex justify="space-between" gap="small" wrap align="start">
+              <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+                <Typography.Text type="secondary">Chuyến #{item.schedule_id}</Typography.Text>
+                <Typography.Title level={4} style={{ margin: "4px 0 0", overflowWrap: "anywhere" }}>{item.tour_title ?? "Tour"}</Typography.Title>
+              </div>
+              <Tag color={running ? "processing" : item.status === "cancelled" ? "error" : "default"}>
+                {running ? "Đang đi" : item.status === "completed" ? "Đã kết thúc" : item.status === "cancelled" ? "Đã hủy" : "Sắp đi"}
+              </Tag>
+            </Flex>
+            <Flex gap="large" wrap>
+              <Flex vertical style={{ flex: "1 1 200px" }}><Typography.Text type="secondary">Khởi hành</Typography.Text><Typography.Text strong>{formatDateTime(item.start_date)}</Typography.Text></Flex>
+              <Flex vertical style={{ flex: "1 1 200px" }}><Typography.Text type="secondary">Về tới nơi</Typography.Text><Typography.Text strong>{item.end_date ? formatDateTime(item.end_date) : getEndDate(item.start_date, item.number_of_days)}</Typography.Text></Flex>
+            </Flex>
+            {(item.co_guides.length > 0 || item.arrival_at || item.return_departure_at || item.accepted_at) && <Collapse ghost size="small" items={[{
+              key: "details", label: "Thông tin thêm", children: <Flex vertical gap="small">
+                {item.co_guides.length > 0 && <Typography.Text>Cùng dẫn: {item.co_guides.join(", ")}</Typography.Text>}
+                {item.arrival_at && <Typography.Text>Tới điểm đến: {formatDateTime(item.arrival_at)}</Typography.Text>}
+                {item.return_departure_at && <Typography.Text>Rời điểm đến: {formatDateTime(item.return_departure_at)}</Typography.Text>}
+                {item.accepted_at && <Typography.Text type="secondary">Đã nhận lúc {formatDateTime(item.accepted_at)}</Typography.Text>}
+              </Flex>,
+            }]} />}
+            <Flex justify="space-between" gap="middle" wrap align="center">
+              <Flex gap="small" wrap>
+                {!history && !item.accepted_at && <>
+                  <Button type="primary" loading={acceptingId === item.schedule_id} disabled={busy || pageError} onClick={() => void accept(item.schedule_id)}>Nhận chuyến</Button>
+                  {item.can_decline && <Button danger disabled={busy || pageError} onClick={() => { setDeclining(item); setReason(""); }}>Từ chối</Button>}
+                </>}
+                <Link to={`/guide/attendance/${item.schedule_id}`}><Button disabled={busy} type={item.accepted_at && running ? "primary" : "default"}>{history ? "Xem lại chuyến" : running ? "Điểm danh" : "Xem chuyến"}</Button></Link>
+              </Flex>
+              {running && <Link to="/guide/handovers">Cần bàn giao đoàn</Link>}
+              {!running && !history && item.accepted_at && <Tag color="success">Đã nhận chuyến</Tag>}
+            </Flex>
+          </Flex>
+        </Card>;
+      })}
+      {filtered.length > 8 && <Pagination current={currentPage} pageSize={8} total={filtered.length} onChange={setPage} showSizeChanger={false} />}
+    </>}
+    <Modal open={declining !== null} title="Từ chối chuyến" okText="Từ chối chuyến" cancelText="Quay lại" confirmLoading={saving}
+      okButtonProps={{ danger: true, disabled: reason.trim().length < 10 || busy }} cancelButtonProps={{ disabled: saving }}
+      closable={!saving} mask={{ closable: false }} onCancel={() => { if (!saving) setDeclining(null); }} onOk={() => void decline()}>
+      <Typography.Paragraph><strong>{declining?.tour_title}</strong><br />Chuyến #{declining?.schedule_id} · {declining ? formatDateTime(declining.start_date) : ""}</Typography.Paragraph>
+      <Form layout="vertical" disabled={saving}>
+        <Form.Item label="Lý do từ chối" htmlFor="assignment-reason" required extra="Tối thiểu 10 ký tự.">
+          <Input.TextArea id="assignment-reason" autoFocus rows={4} maxLength={500} showCount value={reason} onChange={event => setReason(event.target.value)} placeholder="Ví dụ: Tôi có lịch cá nhân vào ngày khởi hành." />
+        </Form.Item>
+      </Form>
+    </Modal>
+  </Flex>;
 }

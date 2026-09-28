@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 
 // Controllers
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\UserController;
@@ -19,6 +20,7 @@ use App\Models\Service;
 
 // Customer
 use App\Http\Controllers\Api\Customer\BookingController as CustomerBookingController;
+use App\Http\Controllers\Api\Customer\OtpController;
 use App\Http\Controllers\Api\Customer\ChangeRequestController as CustomerChangeRequestController;
 use App\Http\Controllers\Api\Customer\PassengerController as CustomerPassengerController;
 use App\Http\Controllers\Api\Customer\GroupBookingController as CustomerGroupBookingController;
@@ -49,7 +51,6 @@ use App\Http\Controllers\Api\Guide\AssignmentController as GuideAssignmentContro
 use App\Http\Controllers\Api\Guide\IncidentController as GuideIncidentController;
 use App\Http\Controllers\Api\Admin\AdminScheduleCancellationController;
 use App\Http\Controllers\Api\Admin\AdminScheduleDeadlineController;
-use App\Http\Controllers\Api\Admin\AdminSandboxController;
 use App\Http\Controllers\Api\Admin\AdminScheduleMergeController;
 use App\Http\Controllers\Api\Customer\PolicyController as CustomerPolicyController;
 use App\Http\Controllers\Api\Admin\AdminContactLogController;
@@ -94,6 +95,8 @@ Route::get('/services', fn() => response()->json([
     // Chỉ trả về dịch vụ đang hoạt động (is_active = true) cho phía khách hàng xem
     'data' => Service::where('is_active', true)->orderBy('name')->get(),
 ]));
+Route::post('/bookings/send-otp', [OtpController::class, 'sendOtp']);
+Route::post('/bookings/verify-otp', [OtpController::class, 'verifyOtp']);
 Route::post('/bookings', [CustomerBookingController::class, 'store']);
 // 14 - Booking theo đoàn: gửi yêu cầu, tra cứu bằng mã, rút yêu cầu. Không cần tài khoản,
 // cùng cơ chế mã tra cứu ngẫu nhiên với đơn lẻ.
@@ -114,6 +117,8 @@ Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']
  */
 Route::get('/bookings/{publicToken}/passengers', [CustomerPassengerController::class, 'publicIndex']);
 Route::put('/bookings/{publicToken}/passengers', [CustomerPassengerController::class, 'publicUpdate']);
+Route::post('/bookings/{publicToken}/passengers/send-otp', [CustomerPassengerController::class, 'sendOtp']);
+Route::post('/bookings/{publicToken}/passengers/verify-otp', [CustomerPassengerController::class, 'verifyOtp']);
 // Mức hoàn dự kiến nếu hủy ngay bây giờ. Khách vãng lai cũng xem được bằng mã tra cứu.
 Route::get('/bookings/{publicToken}/refund-quote', [CustomerBookingController::class, 'refundQuote']);
 /*
@@ -123,6 +128,11 @@ Route::get('/bookings/{publicToken}/refund-quote', [CustomerBookingController::c
  * phải nhận lại được tiền. Chỉ mở khi đơn thật sự còn nợ khách, xem RefundAccountService.
  */
 Route::put('/bookings/{publicToken}/refund-account', [CustomerBookingController::class, 'updateRefundAccount']);
+
+// Khách hàng vãng lai xem và phản hồi Đề xuất thay đổi (Admin gửi)
+Route::get('/bookings/{publicToken}/proposals', [\App\Http\Controllers\Api\Customer\BookingProposalController::class, 'index']);
+Route::post('/bookings/{publicToken}/proposals/{proposalId}/respond', [\App\Http\Controllers\Api\Customer\BookingProposalController::class, 'respond']);
+
 /*
  * Kiểm mã giảm giá trước khi đặt.
  *
@@ -164,6 +174,10 @@ Route::get('/reviews/{tour}', [ReviewController::class, 'index']);
  * gửi thư rác hàng loạt vào hộp thư của điều hành.
  */
 Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:email');
+
+// Trợ lý ảo tư vấn tour. Không đòi đăng nhập, nhưng có hạn mức riêng vì đây là tuyến duy
+// nhất mà mỗi lượt gọi tốn tiền thật trả cho bên thứ ba.
+Route::post('/chat', [ChatController::class, 'store'])->middleware('throttle:chat');
 
 Route::post('/newsletter', function (\Illuminate\Http\Request $request) {
     $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
@@ -325,7 +339,14 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         Route::get('/schedules/{id}/attendance-report', [AdminAttendanceController::class, 'scheduleReport']);
 
 
-        // A10 — Đổi trạng thái chuyến thủ công (open ↔ closed, → confirmed, → cancelled).
+        Route::get('/demo-availability', [\App\Http\Controllers\Api\Admin\AdminScheduleDemoController::class, 'availability']);
+        Route::get('/tour-schedules/{id}/demo', [\App\Http\Controllers\Api\Admin\AdminScheduleDemoController::class, 'show']);
+        Route::post('/tour-schedules/{id}/demo/enable', [\App\Http\Controllers\Api\Admin\AdminScheduleDemoController::class, 'enable']);
+        Route::post('/tour-schedules/{id}/demo/advance', [\App\Http\Controllers\Api\Admin\AdminScheduleDemoController::class, 'advance']);
+        Route::post('/tour-schedules/{id}/demo/status', [\App\Http\Controllers\Api\Admin\AdminScheduleDemoController::class, 'status']);
+        Route::post('/tour-schedules/{id}/demo/milestone', [\App\Http\Controllers\Api\Admin\AdminScheduleDemoController::class, 'milestone']);
+
+        // A10 — Chốt chuyến thủ công; hủy chuyến đi qua luồng xử lý đơn riêng.
         Route::patch('/schedules/{id}/status', [AdminTourController::class, 'updateScheduleStatus']);
 
         // Đổi hướng dẫn viên giữa chừng. Tách khỏi phân công thường vì bắt buộc kèm biên bản.
@@ -394,6 +415,10 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         Route::get('/schedules/{id}/cancel-preview', [AdminScheduleCancellationController::class, 'preview']);
         Route::post('/schedules/{id}/cancel', [AdminScheduleCancellationController::class, 'store']);
 
+        // Gửi đề xuất thay đổi hàng loạt cho toàn bộ đơn hàng trong chuyến đi (Automated Bulk Proposal)
+        Route::post('/schedules/{id}/bulk-proposals', [\App\Http\Controllers\Api\Admin\BulkBookingProposalController::class, 'store']);
+        Route::get('/schedules/{id}/proposals/stats', [\App\Http\Controllers\Api\Admin\BulkBookingProposalController::class, 'stats']);
+
         // Dời hạn chốt danh sách, kèm xem trước tác động trước khi lưu.
         Route::get('/schedules/{id}/deadline-impact', [AdminScheduleDeadlineController::class, 'preview']);
         Route::patch('/schedules/{id}/deadline', [AdminScheduleDeadlineController::class, 'update']);
@@ -413,9 +438,19 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         Route::put('/change-requests/{id}/approve', [AdminChangeRequestController::class, 'approve']);
         Route::put('/change-requests/{id}/reject', [AdminChangeRequestController::class, 'reject']);
 
+        // Gửi đề xuất thay đổi (Admin -> Khách hàng)
+        Route::get('/bookings/{id}/proposals', [\App\Http\Controllers\Api\Admin\BookingProposalController::class, 'index']);
+        Route::post('/bookings/{id}/proposals', [\App\Http\Controllers\Api\Admin\BookingProposalController::class, 'store']);
+        Route::delete('/bookings/{id}/proposals/{proposalId}', [\App\Http\Controllers\Api\Admin\BookingProposalController::class, 'destroy']);
+
+
         // G03, G05 - Danh sách hành khách. Điều hành sửa được cả sau hạn chốt.
         Route::get('/bookings/{id}/passengers', [AdminPassengerController::class, 'index']);
         Route::put('/bookings/{id}/passengers', [AdminPassengerController::class, 'update']);
+        Route::get('/bookings/{id}/passenger-supplements', [\App\Http\Controllers\Api\Admin\PassengerSupplementController::class, 'index']);
+        Route::post('/bookings/{id}/passenger-supplements', [\App\Http\Controllers\Api\Admin\PassengerSupplementController::class, 'store']);
+        Route::post('/bookings/{id}/passenger-supplements/{supplementId}/sent', [\App\Http\Controllers\Api\Admin\PassengerSupplementController::class, 'sent']);
+        Route::get('/bookings/{id}/passenger-supplements/{supplementId}/export', [\App\Http\Controllers\Api\Admin\PassengerSupplementController::class, 'export']);
         Route::put('/bookings/{id}/contact', [AdminBookingController::class, 'updateContact']);
         // Danh sách đoàn chia theo nhóm: mỗi đơn là một nhóm do người đại diện đăng ký.
         Route::get('/schedules/{id}/manifest', [AdminPassengerController::class, 'manifest']);
@@ -437,26 +472,7 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         // E04 - Dòng thời gian thay đổi của một đơn.
         Route::get('/bookings/{id}/history', [AdminBookingController::class, 'history']);
 
-        /*
-         * Sân thử nghiệm nghiệp vụ.
-         *
-         * Mọi luật tiền bạc của hệ thống treo vào một mốc tính từ ngày khởi hành, nên muốn xem hệ
-         * thống xử lý một tình huống ra sao thì phải chờ tới đúng ngày — với hạn trả nốt là chờ
-         * hàng tuần. Nhóm này kéo đồng hồ tới nơi rồi chạy đúng lệnh nền thật.
-         *
-         * `fast-forward` chỉ chạy được trong tour có cờ sandbox; `send-mail` dùng cho mọi đơn, kể
-         * cả tour thật — gửi lại thư cho khách gọi lên nói chưa nhận được là việc hằng ngày.
-         */
-        Route::get('/sandbox/scenarios', [AdminSandboxController::class, 'scenarios']);
-        Route::post('/sandbox/scenarios/run', [AdminSandboxController::class, 'runScenario']);
-        Route::get('/sandbox/options', [AdminSandboxController::class, 'options']);
-        Route::get('/sandbox/tours', [AdminSandboxController::class, 'tours']);
-        Route::get('/sandbox/schedules/{id}/snapshot', [AdminSandboxController::class, 'snapshot']);
-        Route::post('/sandbox/schedules/{id}/fast-forward', [AdminSandboxController::class, 'fastForward']);
-        Route::post('/sandbox/run-command', [AdminSandboxController::class, 'runCommand']);
-        Route::post('/sandbox/schedules/{id}/merge', [AdminSandboxController::class, 'merge']);
-        Route::post('/sandbox/bookings/{id}/transfer', [AdminSandboxController::class, 'transfer']);
-        Route::post('/bookings/{id}/send-mail', [AdminSandboxController::class, 'sendMail']);
+        Route::post('/bookings/{id}/send-mail', [AdminBookingController::class, 'sendMail']);
 
         // Nhật ký hệ thống: gộp nhật ký đơn và nhật ký chuyến thành một dòng thời gian.
         Route::get('/audit-logs', [AdminAuditLogController::class, 'index']);
@@ -531,7 +547,6 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         Route::put('reviews/{id}/reply', [AdminReviewController::class, 'reply']);
     });
 });
-
 
 
 

@@ -73,7 +73,7 @@ class ScheduleCancellationService
             'blocked_reason' => $canTro,
             'start_date' => $schedule->start_date,
             'hours_until_departure' => $schedule->start_date
-                ? (int) now()->diffInHours($schedule->start_date, false)
+                ? (int) DemoClock::schedule($schedule)->diffInHours($schedule->start_date, false)
                 : null,
 
             // Nhóm bắt buộc phải có phương án.
@@ -325,12 +325,12 @@ class ScheduleCancellationService
             'status' => BookingStatus::Cancelled->value,
             'cancel_type' => 'by_company',
             'cancel_reason' => $lyDo,
-            'cancelled_at' => now(),
+            'cancelled_at' => DemoClock::schedule($schedule),
             // Số này là thứ thư báo cho khách đọc, và là thứ kế toán đối chiếu. Trước đây nó chỉ
             // nằm trong nhật ký, tức phải mở bảng khác mới biết đơn được hoàn bao nhiêu.
             'refund_amount' => $soTien,
             'seats_released' => true,
-            'seats_released_at' => now(),
+            'seats_released_at' => DemoClock::schedule($schedule),
         ])->save();
 
         $this->holdService->releaseDiscountUsage($don);
@@ -398,9 +398,9 @@ class ScheduleCancellationService
             'status' => BookingStatus::Cancelled->value,
             'cancel_type' => 'by_company',
             'cancel_reason' => $lyDo,
-            'cancelled_at' => now(),
+            'cancelled_at' => DemoClock::schedule($schedule),
             'seats_released' => true,
-            'seats_released_at' => now(),
+            'seats_released_at' => DemoClock::schedule($schedule),
         ])->save();
 
         $this->holdService->releaseDiscountUsage($don);

@@ -83,7 +83,7 @@ class ScheduleLifecycleTest extends TestCase
         );
 
         $this->assertSame(
-            ScheduleStatus::Closed,
+            ScheduleStatus::Open,
             $this->service->currentStatus($this->scheduleWithLegacyStatus('full')),
         );
 

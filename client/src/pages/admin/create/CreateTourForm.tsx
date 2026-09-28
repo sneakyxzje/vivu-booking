@@ -1,3 +1,8 @@
+import {
+  Button as AntButton,
+  Flex as UIFlex,
+  Typography as AntTypography,
+} from "antd";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
@@ -8,6 +13,8 @@ import { TourFormItinerarySection } from "@/components/guide/tour-form/TourFormI
 import { TourFormScheduleSection } from "@/components/guide/tour-form/TourFormScheduleSection";
 import { daDoiHanChot, khoaChuyenMoi, ngayRong } from "@/components/guide/tour-form/formHelpers";
 import { LY_DO_DOI_HAN_TOI_THIEU } from "@/utils/schedule";
+import { fillItineraryDays, itineraryErrors } from "@/components/guide/tour-form/itineraryValidation";
+import { scheduleErrors } from "@/components/guide/tour-form/scheduleValidation";
 import { TourFormTaxonomySection } from "@/components/guide/tour-form/TourFormTaxonomySection";
 import { TourFormSidebar } from "@/components/guide/tour-form/TourFormSidebar";
 import {
@@ -117,7 +124,12 @@ export const CreateTourForm: React.FC = () => {
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [guidesByUid, setGuidesByUid] = useState<Record<string, Guide[]>>({});
+  const [guideAvailability, setGuideAvailability] = useState<{ key: string; guides: Record<string, Guide[]> }>({ key: "", guides: {} });
+  const availabilityKey = JSON.stringify({
+    days: form.number_of_days,
+    schedules: form.schedules.map(({ uid, start_date }) => ({ uid, start_date })),
+  });
+  const guidesByUid = guideAvailability.key === availabilityKey ? guideAvailability.guides : {};
 
   /**
    * Đang hỏi máy chủ ai rảnh hay chưa — suy ra, không giữ thành state riêng.
@@ -165,7 +177,8 @@ export const CreateTourForm: React.FC = () => {
    * danh sách chuyến được sắp lại theo ngày, nên vị trí không đứng yên.
    */
   useEffect(() => {
-    const numberOfDays = Number(form.number_of_days);
+    const source: { days: string; schedules: Pick<ScheduleFormItem, "uid" | "start_date">[] } = JSON.parse(availabilityKey);
+    const numberOfDays = Number(source.days);
     const soNgayHopLe = Number.isInteger(numberOfDays) && numberOfDays >= 1;
 
     let cancelled = false;
@@ -175,7 +188,7 @@ export const CreateTourForm: React.FC = () => {
       // mỗi chuyến, nếu không màn hình đứng mãi ở "đang tìm hướng dẫn viên".
       const entries = soNgayHopLe
         ? await Promise.all(
-            form.schedules.map(async (schedule) => {
+            source.schedules.map(async (schedule) => {
               if (!schedule.start_date) return [schedule.uid, []] as const;
 
               try {
@@ -189,9 +202,9 @@ export const CreateTourForm: React.FC = () => {
               }
             }),
           )
-        : form.schedules.map((schedule) => [schedule.uid, []] as const);
+        : source.schedules.map((schedule) => [schedule.uid, []] as const);
 
-      if (!cancelled) setGuidesByUid(Object.fromEntries(entries));
+      if (!cancelled) setGuideAvailability({ key: availabilityKey, guides: Object.fromEntries(entries) });
     };
 
     loadAvailableGuides();
@@ -199,7 +212,7 @@ export const CreateTourForm: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [form.number_of_days, form.schedules]);
+  }, [availabilityKey]);
 
   useEffect(() => {
     // Tạo mới thì không có gì để tải: `loading` đã khởi tạo bằng `isEdit` nên vốn đang là false.
@@ -229,8 +242,10 @@ export const CreateTourForm: React.FC = () => {
           thumbnail_preview: "",
           images: [],
           image_previews: [],
-          itineraries:
+          itineraries: fillItineraryDays(
             tour.itineraries?.map((item) => ({
+              images: item.images ?? [],
+              image_files: [],
               id: item.id,
               day_number: String(item.day_number),
               title: item.title,
@@ -249,7 +264,7 @@ export const CreateTourForm: React.FC = () => {
                   description: cp.description ?? "",
                   is_required_photo: Boolean(cp.is_required_photo),
                 })),
-            })) ?? emptyForm.itineraries,
+            })) ?? [], tour.number_of_days),
           schedules:
             tour.schedules?.map((item) => ({
               id: item.id,
@@ -291,17 +306,22 @@ export const CreateTourForm: React.FC = () => {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({
+      ...prev, [name]: value,
+      itineraries: name === "number_of_days" ? fillItineraryDays(prev.itineraries, Number(value)) : prev.itineraries,
+    }));
     if (error) setError("");
   };
 
   const datTruong = (name: string, value: string) => {
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({
+      ...prev, [name]: value,
+      itineraries: name === "number_of_days" ? fillItineraryDays(prev.itineraries, Number(value)) : prev.itineraries,
+    }));
     if (error) setError("");
   };
 
-  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
+  const handleThumbnailChange = (file: File) => {
 
     setForm((prev) => {
       if (prev.thumbnail_preview) URL.revokeObjectURL(prev.thumbnail_preview);
@@ -327,8 +347,7 @@ export const CreateTourForm: React.FC = () => {
   };
 
   /** Chọn ảnh lần nữa là THÊM vào bộ ảnh, không thay thế bộ đang có. */
-  const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
+  const handleGalleryChange = (files: File[]) => {
     if (files.length === 0) return;
 
     setForm((prev) => ({
@@ -340,8 +359,6 @@ export const CreateTourForm: React.FC = () => {
       ],
     }));
 
-    // Cho phép chọn lại đúng tệp vừa chọn: không xóa thì sự kiện change không bắn lần thứ hai.
-    e.target.value = "";
     if (error) setError("");
   };
 
@@ -374,7 +391,7 @@ export const CreateTourForm: React.FC = () => {
    * phải, và cái chặn lúc bấm Lưu. Ba chỗ nói cùng một điều vì chỉ có một chỗ định nghĩa nó.
    *
    * Luật ở đây khớp với luật máy chủ áp trong `AdminTourController` — số đêm không quá số ngày,
-   * lịch trình không quá số ngày, khách tối thiểu không quá sức chứa, hạn chốt phải TRƯỚC giờ
+   * lịch trình đủ từng ngày, khách mục tiêu không quá sức chứa, hạn chốt phải TRƯỚC giờ
    * khởi hành.
    */
   const loiTheoBuoc = useMemo<string[][]>(() => {
@@ -389,17 +406,18 @@ export const CreateTourForm: React.FC = () => {
     if (!Number.isInteger(soNgay) || soNgay < 1) buoc1.push("Số ngày phải từ 1 trở lên");
     if (Number(form.number_of_nights) > soNgay) buoc1.push("Số đêm đang lớn hơn số ngày");
 
-    const buoc2: string[] = [];
-    if (form.itineraries.length === 0) buoc2.push("Lịch trình chưa có ngày nào");
-    if (Number.isInteger(soNgay) && form.itineraries.length > soNgay) {
-      buoc2.push(`Lịch trình đang nhiều hơn ${soNgay} ngày của tour`);
-    }
-    const ngayThieu = form.itineraries.filter(
-      (item) => !item.title.trim() || !item.content.trim(),
-    ).length;
-    if (ngayThieu > 0) buoc2.push(`${ngayThieu} ngày chưa có tiêu đề hoặc nội dung`);
+    const buoc2 = itineraryErrors(form.itineraries, soNgay);
+    const ngayThieuTenDiemDanh = form.itineraries
+      .map((item, index) => item.checkpoints?.some(point => !point.name.trim()) ? index + 1 : null)
+      .filter((day): day is number => day !== null);
+    if (ngayThieuTenDiemDanh.length) buoc2.push(`Ngày ${ngayThieuTenDiemDanh.join(", ")} có điểm danh chưa đặt tên`);
 
     const buoc3: string[] = [];
+    const invalidTimes = form.schedules.some(item =>
+      !["in_progress", "completed", "cancelled"].includes(item.status)
+      && ["start_date", "end_date", "arrival_at", "return_departure_at"].some(field =>
+        scheduleErrors(item)[field as keyof ScheduleFormItem]));
+    if (invalidTimes) buoc3.push("Có chuyến cần kiểm tra ngày giờ. Mở chuyến để xem lỗi tại ô nhập.");
     if (form.schedules.length === 0) buoc3.push("Chưa mở ngày khởi hành nào");
     if (form.schedules.some((item) => !item.start_date)) {
       buoc3.push("Có chuyến chưa chọn ngày khởi hành");
@@ -409,7 +427,7 @@ export const CreateTourForm: React.FC = () => {
         (item) => Number(item.min_people) > Number(item.max_people),
       )
     ) {
-      buoc3.push("Có chuyến đặt khách tối thiểu lớn hơn sức chứa");
+      buoc3.push("Có chuyến đặt khách mục tiêu lớn hơn sức chứa");
     }
     if (
       form.schedules.some(
@@ -519,8 +537,8 @@ export const CreateTourForm: React.FC = () => {
   }
 
   const laBuocCuoi = buoc === BUOC.length - 1;
-  // Bước lịch khởi hành cần cả bề ngang cho lịch tháng, nên cột xem trước lui ra.
-  const anCotPhai = buoc === 2;
+  // Hai bước nhập lịch cần đủ bề ngang để soạn nội dung và xem ngày giờ.
+  const anCotPhai = buoc === 1 || buoc === 2;
 
   return (
     <div className="w-full animate-fade-in pb-4">
@@ -532,9 +550,7 @@ export const CreateTourForm: React.FC = () => {
           <ArrowLeft className="h-4 w-4" />
           Danh sách tour
         </Link>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-gray-950">
-          {isEdit ? "Sửa tour" : "Tạo tour mới"}
-        </h1>
+        <AntTypography.Title level={3} >{isEdit ? "Sửa tour" : "Tạo tour mới"}</AntTypography.Title>
         <p className="mt-1 text-sm text-gray-500">
           {isEdit
             ? "Bấm thẳng vào bước cần sửa, không phải đi lại từ đầu."
@@ -616,8 +632,7 @@ export const CreateTourForm: React.FC = () => {
           )}
 
           {buoc === 3 && (
-            <div className="space-y-5">
-              <TourFormMediaSection
+            <UIFlex vertical gap={20} ><TourFormMediaSection
                 labelClass={labelClass}
                 thumbnailName={form.thumbnail_file?.name ?? null}
                 thumbnailPreview={form.thumbnail_preview}
@@ -627,9 +642,7 @@ export const CreateTourForm: React.FC = () => {
                 onThumbnailRemove={boAnhBia}
                 onGalleryChange={handleGalleryChange}
                 onRemoveGalleryImage={removeGalleryImage}
-              />
-
-              <TourFormTaxonomySection
+              /><TourFormTaxonomySection
                 labelClass={labelClass}
                 categories={categories}
                 services={services}
@@ -638,8 +651,7 @@ export const CreateTourForm: React.FC = () => {
                 onToggleCategory={(cid) => toggleId("category_ids", cid)}
                 onToggleService={(sid) => toggleId("service_ids", sid)}
                 optionsLoading={optionsLoading}
-              />
-            </div>
+              /></UIFlex>
           )}
         </form>
 
@@ -680,25 +692,13 @@ export const CreateTourForm: React.FC = () => {
           </Link>
 
           {buoc > 0 && (
-            <button
-              type="button"
-              onClick={() => doiBuoc(buoc - 1)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Quay lại
-            </button>
+            <AntButton htmlType="button" onClick={() => doiBuoc(buoc - 1)}><ArrowLeft className="h-4 w-4" />Quay lại
+            </AntButton>
           )}
 
           {!laBuocCuoi && (
-            <button
-              type="button"
-              onClick={() => doiBuoc(buoc + 1)}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700"
-            >
-              Tiếp theo
-              <ArrowRight className="h-4 w-4" />
-            </button>
+            <AntButton htmlType="button" onClick={() => doiBuoc(buoc + 1)} type="primary">Tiếp theo
+              <ArrowRight className="h-4 w-4" /></AntButton>
           )}
 
           {/*
@@ -706,19 +706,7 @@ export const CreateTourForm: React.FC = () => {
             họ bấm "Tiếp theo" cho hết bốn bước rồi mới được lưu là vô cớ.
           */}
           {(laBuocCuoi || isEdit) && (
-            <button
-              type="submit"
-              form="tour-form"
-              disabled={submitting}
-              className={`inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                laBuocCuoi
-                  ? "bg-primary-600 text-white hover:bg-primary-700"
-                  : "border border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100"
-              }`}
-            >
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {submitting ? "Đang lưu..." : isEdit ? "Cập nhật tour" : "Tạo tour"}
-            </button>
+            <AntButton type={"primary"} htmlType="submit" form="tour-form" disabled={submitting}>{submitting && <Loader2 className="h-4 w-4 animate-spin" />}{submitting ? "Đang lưu..." : isEdit ? "Cập nhật tour" : "Tạo tour"}</AntButton>
           )}
         </div>
       </div>

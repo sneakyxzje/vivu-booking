@@ -14,7 +14,7 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:20'],
+            'phone' => ['nullable', new \App\Rules\ValidPhone(), 'max:20'],
             'address' => ['nullable', 'string', 'max:255'],
         ], [
             'name.required' => 'Vui lòng nhập họ và tên.',

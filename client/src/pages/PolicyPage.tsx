@@ -6,57 +6,7 @@ import type { PolicyResponse } from "@/services/policyService";
 import { formatPrice } from "@/utils/format";
 import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 
-/**
- * Điều khoản thỏa thuận sử dụng dịch vụ — bản khách đọc.
- *
- * ## Vì sao trang này gọi API thay vì viết cứng
- *
- * Bảng phí hủy nằm trong cơ sở dữ liệu và điều hành sửa được. Chép nó thành chữ ở đây thì có hai
- * bản: bản khách đọc và bản hệ thống tính. Hai bản giống nhau đúng tới lần sửa đầu tiên, và từ đó
- * trang này hứa một đằng còn lúc hủy đơn trừ tiền một nẻo.
- *
- * Mấy con số khác cũng vậy — hạn báo trước, số lần đổi miễn phí, phí đổi lịch, thời gian giữ chỗ,
- * hạn chốt danh sách — đều là hằng số hoặc cấu hình có thật trong mã máy chủ, lấy về chứ không gõ lại.
- *
- * ## Khung văn bản mượn của ngành, nội dung thì không
- *
- * Bố cục hai phần và danh sách mục ở Phần I đi theo khuôn quen thuộc của điều khoản lữ hành nội
- * địa: giá, giá trẻ em, thanh toán, hủy và phí hủy, bất khả kháng, lưu trú, vận chuyển, hành lý,
- * bảo hiểm, sức khỏe, tranh chấp, hiệu lực. Khuôn ấy không phải trang trí — mỗi mục trả lời một
- * câu mà người đọc kỹ sẽ hỏi, và thiếu mục nào thì đó là câu bỏ ngỏ.
- *
- * Nhưng **từng câu bên trong viết theo đúng thứ hệ thống này làm**. Chép nội dung của công ty khác
- * là chép mô tả hệ thống của họ: trang sẽ hứa những luật mã ở đây không thi hành, và chỗ lệch ấy
- * chỉ lộ ra khi có người thật đòi quyền lợi. Vài chỗ dễ vấp nếu chép nguyên:
- *
- *   - Đặt cọc giữ chỗ. Nay có, và mục 4 nói theo đúng cách hệ thống làm: cọc `deposit_percent`%
- *     trong `payment_ttl_minutes` phút, trả nốt trước khởi hành `balance_due_days` ngày, quá hạn
- *     thì đơn tự hủy. Con số lấy từ cấu hình máy chủ chứ không gõ lại — sửa tỷ lệ cọc mà trang này
- *     vẫn ghi số cũ là nói sai với khách về một điều khoản họ sẽ bị áp.
- *   - Giá trẻ em. Hệ thống chia **ba** hạng theo `adult_price` / `child_price` / `infant_price`,
- *     không phải bốn hạng với tỉ lệ 50% và 75% cố định.
- *   - Bảo hiểm. Công ty không bán gói bảo hiểm riêng và không cam kết mức đền bù nào; bảo hiểm chỉ
- *     có khi tour cụ thể liệt kê nó trong dịch vụ bao gồm.
- *   - Phụ thu phòng đơn. Không có bảng phụ thu trong hệ thống.
- *
- * ## Mục 7 nói thật về ghép chuyến
- *
- * Bản trước viết "công ty **không đơn phương** chuyển khách sang chuyến khác" — đúng với chuyển
- * chuyến (`BookingTransfer` bắt buộc có bản ghi khách đồng ý) nhưng **sai với ghép chuyến**, vốn
- * dồn khách của hai chuyến gần nhau mà không hỏi ai. Nay mục 7 tách hai việc, và kèm quyền từ chối
- * ngày mới để nhận hoàn 100%.
- *
- * Quyền ấy hiện thực hiện bằng tay: điều hành hủy đơn với `cancel_type = by_company`, nhánh hoàn
- * đủ đã có sẵn. Tự động hóa nó — mở một cửa cho khách bấm từ chối trong hạn — là việc còn lại.
- *
- * ## Về bố cục: đây là văn bản, không phải bảng điều khiển
- *
- * Một trang điều khoản đọc từ trên xuống. Cắt nó thành các thẻ có viền là chia một mạch văn thành
- * những ô rời rạc, và mắt phải nhảy giữa các ô thay vì trôi theo dòng.
- *
- * Hai neo `#dieu-khoan` và `#bao-mat` phải giữ nguyên: `/terms` và `/privacy` chuyển hướng vào
- * chúng, và hai đường dẫn ấy đã nằm trong thư gửi khách lẫn ô đồng ý ở trang đăng ký.
- */
+
 
 /**
  * Một câu hỏi, gập lại được.
@@ -213,8 +163,8 @@ export default function PolicyPage() {
                 <dt className="text-ink font-semibold">Chuyến khởi hành</dt>
                 <dd className="text-body">
                   Một lần tổ chức cụ thể của một chương trình tour, có ngày giờ
-                  khởi hành, ngày giờ kết thúc, số chỗ tối đa và số khách tối
-                  thiểu riêng. Cùng một tour có thể có nhiều chuyến khởi hành
+                  khởi hành, ngày giờ kết thúc, số chỗ tối đa và số khách mục
+                  tiêu riêng. Cùng một tour có thể có nhiều chuyến khởi hành
                   khác nhau.
                 </dd>
               </div>
@@ -237,11 +187,10 @@ export default function PolicyPage() {
                 </dd>
               </div>
               <div>
-                <dt className="text-ink font-semibold">Số khách tối thiểu</dt>
+                <dt className="text-ink font-semibold">Số khách mục tiêu</dt>
                 <dd className="text-body">
-                  Số khách thấp nhất để một chuyến đủ điều kiện khởi hành. Chuyến
-                  không đạt số này tới hạn chốt danh sách sẽ được ghép hoặc hủy
-                  theo mục 6 và mục 7.
+                  Mốc tham khảo để điều hành cân đối chuyến. Công ty vẫn tổ chức
+                  cho khách đã thanh toán đủ đúng hạn dù chưa đạt số khách mục tiêu.
                 </dd>
               </div>
               <div>
@@ -331,19 +280,18 @@ export default function PolicyPage() {
 
             <Doan>
               <Manh>4.1.</Manh> Khách hàng đăng ký trực tiếp trên trang web,
-              không bắt buộc phải tạo tài khoản. Sau khi đặt, hệ thống cấp một{" "}
+              khi chuyến còn chỗ và chưa tới hạn chốt danh sách, không bắt buộc
+              phải tạo tài khoản. Sau khi đặt, hệ thống cấp một{" "}
               <Manh>mã tra cứu</Manh> gửi tới địa chỉ thư điện tử đã đăng ký; mã
               này dùng để xem đơn, khai danh sách hành khách và theo dõi tình
               trạng thanh toán.
             </Doan>
 
             <Doan>
-              <Manh>4.2.</Manh> Đơn hàng được giữ chỗ trong{" "}
+              <Manh>4.2.</Manh> Đơn hàng được giữ chỗ tối đa{" "}
               <Manh>{data.booking.payment_ttl_minutes} phút</Manh> kể từ khi khởi
-              tạo để khách hàng hoàn tất khoản đặt cọc. Quá thời hạn mà chưa
-              thanh toán, hệ thống tự hủy đơn và trả chỗ lại cho khách hàng khác.
-              Việc chậm trễ thanh toán dẫn tới mất chỗ không thuộc trách nhiệm
-              của công ty.
+              tạo và không quá hạn chốt danh sách. Khách hàng cần hoàn tất khoản
+              đặt cọc trong thời gian này; quá hạn chưa thanh toán thì đơn tự hủy.
             </Doan>
 
             <Doan>
@@ -351,21 +299,18 @@ export default function PolicyPage() {
               <Manh>hai đợt</Manh>. Đợt một là khoản đặt cọc bằng{" "}
               <Manh>{data.payment.deposit_percent}% giá trị đơn hàng</Manh>, nộp
               trong thời hạn giữ chỗ nêu tại mục 4.2 và là điều kiện để chỗ được
-              giữ chắc chắn. Đợt hai là phần còn lại, nộp chậm nhất{" "}
-              <Manh>{data.payment.balance_due_days} ngày trước ngày khởi hành</Manh>.
-              {" "}Đơn hàng đăng ký khi ngày khởi hành còn cách dưới thời hạn này{" "}
-              <Manh>không chia đợt</Manh>: hạn nộp đợt hai đã qua nên toàn bộ giá
-              trị đơn hàng được thu ngay khi đăng ký. Mức đặt cọc là ưu đãi dành
-              cho khách hàng đăng ký sớm.
+              giữ chắc chắn. Đợt hai là phần còn lại, nộp{" "}
+              <Manh>trước hạn chốt danh sách của chuyến</Manh>.
+              Quy tắc này áp dụng cả khi đặt sát ngày đi.
             </Doan>
 
             <Doan>
               <Manh>4.4.</Manh> Công ty gửi thư nhắc thanh toán đợt hai{" "}
-              <Manh>hai lần</Manh> trước hạn nêu trên — lần đầu trước{" "}
-              {data.payment.reminder_days} ngày và lần cuối trước{" "}
-              {data.payment.final_notice_days} ngày — tới địa chỉ thư điện tử
-              khách hàng đã đăng ký, kèm liên kết thanh toán trực tuyến cho đúng
-              số tiền còn lại.
+              tới địa chỉ đã đăng ký, kèm số tiền còn lại và liên kết thanh toán.
+              Các mốc nhắc là {data.payment.reminder_days} ngày và{" "}
+              {data.payment.final_notice_days} ngày trước hạn chốt; đơn đặt sát
+              hạn có thể chỉ nhận lần nhắc cuối. Hạn thanh toán hiển thị trên đơn
+              không thay đổi theo thời điểm nhận thư nhắc.
             </Doan>
 
             {/*
@@ -375,14 +320,9 @@ export default function PolicyPage() {
               cọc xuống mục 5 nghĩa là họ chỉ gặp nó sau khi đã trả tiền.
             */}
             <Doan>
-              <Manh>4.5.</Manh> Quá hạn thanh toán đợt hai mà công ty chưa nhận
-              được tiền, đơn hàng{" "}
-              <Manh>được hủy và chỗ trả lại cho khách hàng khác</Manh>. Khoản đã
-              thanh toán được xử lý theo biểu phí hủy tại mục 5, tính theo thời
-              điểm hủy; với mức cọc và thời hạn nêu trên, khoản đặt cọc thông
-              thường{" "}
-              <Manh>không được hoàn lại</Manh>. Khách hàng gặp khó khăn về thanh
-              toán vui lòng liên hệ công ty trước hạn để cùng tìm hướng xử lý.
+              <Manh>4.5.</Manh> Không thanh toán đủ trước hạn chốt danh sách thì
+              <Manh> đơn bị hủy và mất khoản cọc {data.payment.deposit_percent}%</Manh>.
+              Khoản đã trả vượt tiền cọc nhưng chưa đủ giá trị đơn được ghi nhận để hoàn lại.
             </Doan>
 
             <Doan>
@@ -409,7 +349,7 @@ export default function PolicyPage() {
             </div>
 
             <Doan>
-              <Manh>4.5.</Manh> Khách hàng chịu trách nhiệm về tính chính xác của
+              <Manh>4.7.</Manh> Khách hàng chịu trách nhiệm về tính chính xác của
               thông tin đã cung cấp. Công ty sử dụng thông tin này để làm thủ tục
               với các nhà cung cấp dịch vụ; nếu sai lệch dẫn tới phải điều chỉnh,
               khách hàng thanh toán các chi phí phát sinh (nếu có).
@@ -528,12 +468,11 @@ export default function PolicyPage() {
             <Muc>6. Công ty hủy chuyến khởi hành</Muc>
 
             <Doan>
-              <Manh>6.1.</Manh> Công ty có quyền hủy một chuyến khởi hành trong
-              các trường hợp sau: số lượng khách đăng ký không đạt số khách tối
-              thiểu tính đến hạn chốt danh sách; xảy ra sự kiện bất khả kháng
-              theo định nghĩa tại mục 1; hoặc nhà cung cấp dịch vụ không thực
-              hiện được nghĩa vụ và công ty không thu xếp được phương án thay thế
-              phù hợp.
+              <Manh>6.1.</Manh> Công ty <Manh>không hủy chuyến chỉ vì chưa đạt số
+              khách mục tiêu</Manh>; vẫn tổ chức cho khách đã thanh toán đủ đúng hạn.
+              Công ty có thể hủy khi xảy ra sự kiện bất khả kháng theo mục 1,
+              hoặc nhà cung cấp không thực hiện được dịch vụ và không thu xếp
+              được phương án thay thế phù hợp.
             </Doan>
 
             <Doan>
@@ -546,7 +485,8 @@ export default function PolicyPage() {
             <Doan>
               <Manh>6.3.</Manh> Khách hàng được lựa chọn giữa việc nhận lại toàn
               bộ số tiền đã thanh toán hoặc chuyển sang một chuyến khởi hành
-              khác. Việc chuyển chuyến trong trường hợp này không thu phí đổi
+              khác. Công ty chỉ chuyển sau khi khách hàng đồng ý với phương án mới.
+              Việc chuyển chuyến trong trường hợp này không thu phí đổi
               lịch và không bị giới hạn bởi hạn chốt danh sách của chuyến đã hủy.
               Trường hợp chuyến khởi hành mới có giá khác với chuyến ban đầu,
               phần chênh lệch được thu thêm hoặc hoàn lại tương ứng theo quy định
@@ -612,40 +552,17 @@ export default function PolicyPage() {
             </p>
 
             <Doan>
-              Khi một chuyến không đạt số khách tối thiểu, thay vì hủy chuyến,
-              công ty có thể <Manh>ghép chuyến đó với một chuyến khác</Manh> của
-              cùng chương trình tour để đủ điều kiện khởi hành. Việc ghép chỉ
-              thực hiện khi thỏa mãn đồng thời các điều kiện sau:
+              Công ty ưu tiên đề xuất ghép các chuyến chưa đạt số khách mục tiêu.
+              Nếu không có chuyến phù hợp hoặc ghép xong vẫn dưới mục tiêu,
+              công ty vẫn tổ chức cho khách đã thanh toán đủ đúng hạn.
+              Chuyến nhận phải còn đủ sức chứa và cả hai chuyến chưa tới hạn chốt danh sách.
             </Doan>
-
-            <DanhSach>
-              <li>Hai chuyến thuộc cùng một chương trình tour.</li>
-              <li>
-                Ngày khởi hành của hai chuyến chênh nhau{" "}
-                <Manh>không quá 2 ngày</Manh>.
-              </li>
-              <li>
-                Cả hai chuyến đều chưa tới hạn chốt danh sách, và chuyến tiếp
-                nhận còn đủ chỗ cho toàn bộ khách được chuyển sang.
-              </li>
-              <li>
-                Chương trình tổ chức riêng theo đoàn không áp dụng, vì khách hàng
-                đã thanh toán để đi trọn chuyến của riêng mình.
-              </li>
-            </DanhSach>
-
             <Doan>
-              Khác với khoản 7.1, đây là <Manh>quyết định của công ty</Manh> và
-              không cần sự đồng ý trước của từng khách hàng. Công ty thông báo
-              bằng thư điện tử ngay khi hoàn tất, nêu rõ ngày khởi hành cũ, ngày
-              khởi hành mới và lý do.
-            </Doan>
-
-            <Doan>
-              Khách hàng <Manh>không chấp nhận ngày khởi hành mới</Manh> có quyền
-              yêu cầu hủy đơn và được <Manh>hoàn 100%</Manh> số tiền đã thanh
-              toán, không áp dụng biểu phí tại mục 5. Vui lòng liên hệ tổng đài
-              trong vòng 3 ngày làm việc kể từ khi nhận thông báo.
+              Công ty gửi email nêu lịch trình đề xuất, hạn thanh toán phần còn lại
+              và hạn phản hồi. <Manh>Chỉ chuyển khách sau khi khách đồng ý</Manh>;
+              giá đơn giữ nguyên và không thu phí ghép chuyến.
+              Nếu từ chối hoặc không phản hồi trong thời hạn đề xuất, khách giữ
+              chuyến ban đầu và vẫn phải thanh toán đủ trước hạn chốt của chuyến đó.
             </Doan>
 
             {/* --- 8. Bất khả kháng và thay đổi lộ trình --- */}
@@ -947,34 +864,40 @@ export default function PolicyPage() {
 
               <CauHoi hoi="Công ty hủy chuyến thì tôi có mất phí không?">
                 <p>
-                  Không. Chuyến bị hủy vì phía công ty — thời tiết, không đủ số
-                  khách tối thiểu, sự cố nhà cung cấp — thì bạn được{" "}
+                  Không. Nếu công ty hủy chuyến theo mục 6, bạn được{" "}
                   <strong>hoàn 100% số đã trả</strong>, không trừ bất kỳ khoản
                   nào, bất kể còn mấy ngày tới ngày đi. Bảng phí ở mục 5 chỉ áp
                   khi chính bạn là người hủy.
                 </p>
               </CauHoi>
 
-              <CauHoi hoi="Chuyến của tôi bị ghép sang ngày khác, tôi có phải đi không?">
+              <CauHoi hoi="Chuyến ít khách thì có bị hủy không?">
                 <p>
-                  Không bắt buộc. Ghép chuyến là quyết định của công ty khi một
-                  chuyến không đủ khách tối thiểu, và ngày mới chênh không quá 2
-                  ngày so với ngày bạn đặt.
+                  Không hủy chỉ vì ít khách. Dù không ghép được chuyến hoặc ghép
+                  xong vẫn chưa đạt số khách mục tiêu, công ty vẫn tổ chức cho
+                  khách đã thanh toán đủ trước hạn chốt danh sách.
                 </p>
+              </CauHoi>
+
+              <CauHoi hoi="Chuyến của tôi được đề xuất ghép, tôi có phải đồng ý không?">
                 <p>
-                  Nếu ngày mới không tiện, bạn{" "}
-                  <strong>yêu cầu hủy và được hoàn 100%</strong> — liên hệ tổng
-                  đài trong vòng 3 ngày làm việc kể từ khi nhận thư thông báo. Xem
-                  khoản 7.2.
+                  Không. Bạn nhận email và chọn đồng ý hoặc từ chối trên trang đơn
+                  hàng. Từ chối hoặc không phản hồi trong thời hạn đề xuất thì
+                  giữ chuyến ban đầu. Bạn vẫn cần thanh toán đủ trước hạn chốt
+                  của chuyến đó để tham gia.
                 </p>
               </CauHoi>
 
               <CauHoi hoi="Tôi đặt tour mà chưa có tài khoản thì tra cứu thế nào?">
                 <p>
                   Sau khi đặt, hệ thống gửi <strong>mã tra cứu</strong> về email
-                  bạn đã điền. Mở trang tra cứu đơn, dán mã vào là xem được đơn,
-                  khai danh sách hành khách và theo dõi thanh toán — không cần
-                  đăng nhập.
+                  bạn đã điền. Mở trang tra cứu đơn, nhập mã để xem đơn và theo
+                  dõi thanh toán, không cần đăng nhập.
+                </p>
+                <p>
+                  Để khai hoặc sửa thông tin hành khách, bạn xác thực bằng OTP
+                  gửi tới email của đơn. Nếu đã đăng nhập đúng tài khoản sở hữu
+                  đơn, bạn không cần xác thực OTP cho thao tác này.
                 </p>
                 <p>
                   Mất mã thì dùng chức năng gửi lại mã về email. Riêng việc đổi
@@ -994,9 +917,10 @@ export default function PolicyPage() {
 
               <CauHoi hoi="Tôi khai thiếu thông tin hành khách thì sao?">
                 <p>
-                  Khai dần được, không bắt điền đủ mới cho lưu. Nhưng phải xong
-                  trước <strong>hạn chốt danh sách</strong>: sau mốc đó danh sách
-                  đã gửi cho khách sạn và nhà xe nên không sửa được nữa.
+                  Bạn có thể lưu phần đã khai và bổ sung trước <strong>hạn chốt danh sách</strong>.
+                  Sau hạn này, vui lòng liên hệ điều hành. Nếu chuyến đã khởi hành,
+                  báo HDV để điều hành bổ sung khách còn thiếu trong số suất đã đặt
+                  và gửi bản cập nhật cho các nhà cung cấp liên quan.
                 </p>
               </CauHoi>
             </div>

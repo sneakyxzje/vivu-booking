@@ -1,3 +1,4 @@
+import { Form, Select, Flex, Button as AntButton, Input as AntInput } from "antd";
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import tourService from "@/services/tourService";
@@ -9,7 +10,6 @@ import { useDocumentMeta } from "@/hooks/useDocumentMeta";
 import {
   MapPinIcon,
   PlaneIcon,
-  ClockIcon,
   CompassIcon,
   BeachWavesIcon,
   MountainIcon,
@@ -130,12 +130,12 @@ const TourGridError: React.FC<TourGridErrorProps> = ({ message, onRetry }) => (
     <ExclamationTriangleIcon className="w-12 h-12 text-red-400 mb-4" />
     <h3 className="text-lg font-bold text-gray-800">Tải dữ liệu thất bại</h3>
     <p className="text-sm text-gray-500 mt-2">{message}</p>
-    <button
+    <AntButton htmlType="button"
       onClick={onRetry}
-      className="mt-6 inline-flex items-center gap-2 bg-primary-600 text-white font-semibold text-sm px-5 py-2.5 rounded-full hover:bg-primary-700 transition-colors cursor-pointer"
+      className="mt-6" type="primary"
     >
       Thử lại
-    </button>
+    </AntButton>
   </div>
 );
 
@@ -185,14 +185,12 @@ export const Home: React.FC = () => {
       reviewedTours.map(async (tour) => {
         try {
           const res = await tourService.getReviews(tour.id);
-          return (res.data ?? [])
-            .slice(0, 2)
-            .map((item) => ({
-              name: item.user?.name ?? "Khách hàng Vivu",
-              role: `Đã tham gia ${tour.title}`,
-              stars: Number(item.rating) || 5,
-              comment: item.comment,
-            }));
+          return (res.data ?? []).slice(0, 2).map((item) => ({
+            name: item.user?.name ?? "Khách hàng Vivu",
+            role: `Đã tham gia ${tour.title}`,
+            stars: Number(item.rating) || 5,
+            comment: item.comment,
+          }));
         } catch {
           return [];
         }
@@ -300,7 +298,10 @@ export const Home: React.FC = () => {
    * Nên các chip giờ đi cùng một đường với ô tìm kiếm. Một kiểu lọc, chạy trên toàn bộ danh mục,
    * và không có bản sao nào để lệch nhau về sau.
    */
-  const chuyenSangDanhMuc = (ghiDe?: { category?: string; duration?: string }) => {
+  const chuyenSangDanhMuc = (ghiDe?: {
+    category?: string;
+    duration?: string;
+  }) => {
     const category = ghiDe?.category ?? selectedCategory;
     const duration = ghiDe?.duration ?? selectedDuration;
 
@@ -317,19 +318,9 @@ export const Home: React.FC = () => {
     navigate(queryString ? `/tours?${queryString}` : "/tours");
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    chuyenSangDanhMuc();
-  };
-
   const handleCategoryChange = (id: string) => {
     setSelectedCategory(id);
     chuyenSangDanhMuc({ category: id });
-  };
-
-  const handleDurationChange = (val: string) => {
-    setSelectedDuration(val);
-    chuyenSangDanhMuc({ duration: val });
   };
 
   // ── RENDER ───────────────────────────────────────────────────────────────────
@@ -348,14 +339,9 @@ export const Home: React.FC = () => {
         </div>
 
         <div className="relative z-10 max-w-5xl mx-auto px-4 text-center">
-          <span className="inline-block px-4 py-1.5 rounded-full bg-primary-500/20 text-blue-200 text-xs font-semibold tracking-wider uppercase mb-4 border border-blue-400/20 backdrop-blur-md">
-            Mạng bán tour trực tuyến hàng đầu
-          </span>
           <h1 className="text-4xl md:text-6xl font-bold text-white tracking-tight leading-none mb-6">
             Khám phá Việt Nam <br className="hidden md:inline" />
-            <span className="text-blue-100">
-              Cùng Vivu Booking
-            </span>
+            <span className="text-blue-100">Cùng Vivu Booking</span>
           </h1>
           <p className="text-base md:text-lg text-gray-200 max-w-2xl mx-auto mb-10 leading-relaxed font-light">
             Tìm kiếm tour du lịch trọn gói, du thuyền cao cấp và trải nghiệm
@@ -364,73 +350,23 @@ export const Home: React.FC = () => {
 
           {/* Search Panel */}
           <div className="w-full max-w-4xl mx-auto bg-white/95 hover:bg-white rounded-xl shadow-2xl p-4 md:p-6 backdrop-blur-lg border border-white/20 transition-all duration-300">
-            <form
-              onSubmit={handleSearchSubmit}
-              className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end"
-            >
-              {/* Điểm đến */}
-              <div className="text-left">
-                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">
-                  Điểm đến
-                </label>
-                <div className="flex items-center bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100 focus-within:border-primary-500 focus-within:bg-white transition-all">
-                  <MapPinIcon className="w-5 h-5 mr-2 text-gray-400 shrink-0" />
-                  <input
-                    type="text"
-                    value={searchDest}
-                    onChange={(e) => setSearchDest(e.target.value)}
-                    placeholder="Vịnh Hạ Long, Sapa..."
-                    className="w-full bg-transparent border-none text-sm text-gray-800 focus:outline-none placeholder-gray-400 font-medium"
-                  />
-                </div>
+            <Form layout="vertical" onFinish={() => chuyenSangDanhMuc()}>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end text-left">
+                <Form.Item label="Điểm đến" style={{ marginBottom: 0 }}>
+                  <AntInput aria-label="Điểm đến" prefix={<MapPinIcon className="w-4 h-4" />} value={searchDest} onChange={e => setSearchDest(e.target.value)} placeholder="Vịnh Hạ Long, Sapa…" allowClear />
+                </Form.Item>
+                <Form.Item label="Khởi hành từ" style={{ marginBottom: 0 }}>
+                  <AntInput aria-label="Khởi hành từ" prefix={<PlaneIcon className="w-4 h-4" />} value={searchStart} onChange={e => setSearchStart(e.target.value)} placeholder="Hà Nội, TP.HCM…" allowClear />
+                </Form.Item>
+                <Form.Item label="Thời gian" style={{ marginBottom: 0 }}>
+                  <Select aria-label="Thời gian tour" value={selectedDuration} onChange={setSelectedDuration} options={[
+                    { value: "all", label: "Tất cả thời gian" }, { value: "1", label: "Trong ngày" },
+                    { value: "2-3", label: "2–3 ngày" }, { value: "4+", label: "Từ 4 ngày trở lên" },
+                  ]} />
+                </Form.Item>
+                <AntButton htmlType="submit" type="primary" block icon={<MagnifyingGlassIcon className="w-4 h-4" />}>Tìm kiếm</AntButton>
               </div>
-
-              {/* Khởi hành từ */}
-              <div className="text-left">
-                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">
-                  Khởi hành từ
-                </label>
-                <div className="flex items-center bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100 focus-within:border-primary-500 focus-within:bg-white transition-all">
-                  <PlaneIcon className="w-5 h-5 mr-2 text-gray-400 shrink-0" />
-                  <input
-                    type="text"
-                    value={searchStart}
-                    onChange={(e) => setSearchStart(e.target.value)}
-                    placeholder="Hà Nội, TP.HCM..."
-                    className="w-full bg-transparent border-none text-sm text-gray-800 focus:outline-none placeholder-gray-400 font-medium"
-                  />
-                </div>
-              </div>
-
-              {/* Thời gian */}
-              <div className="text-left">
-                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">
-                  Thời gian
-                </label>
-                <div className="flex items-center bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100 focus-within:border-primary-500 focus-within:bg-white transition-all">
-                  <ClockIcon className="w-5 h-5 mr-2 text-gray-400 shrink-0" />
-                  <select
-                    value={selectedDuration}
-                    onChange={(e) => handleDurationChange(e.target.value)}
-                    className="w-full bg-transparent border-none text-sm text-gray-800 focus:outline-none font-medium cursor-pointer"
-                  >
-                    <option value="all">Tất cả thời gian</option>
-                    <option value="1">Trong ngày</option>
-                    <option value="2-3">2 – 3 ngày</option>
-                    <option value="4+">Từ 4 ngày trở lên</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Submit */}
-              <button
-                type="submit"
-                className="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-lg py-3 px-6 shadow-lg shadow-primary-600/20 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer"
-              >
-                <MagnifyingGlassIcon className="w-5 h-5 text-white" />
-                Tìm kiếm
-              </button>
-            </form>
+            </Form>
           </div>
         </div>
       </section>
@@ -447,38 +383,11 @@ export const Home: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-none">
-            {QUICK_CATEGORIES.map((cat) => {
-              const active = selectedCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => handleCategoryChange(cat.id)}
-                  className={`group flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                    active
-                      ? "bg-primary-600 text-white shadow-lg shadow-primary-600/15 scale-105"
-                      : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:text-primary-600"
-                  }`}
-                >
-                  <span
-                    className={
-                      active
-                        ? "text-white"
-                        : "text-gray-400 group-hover:text-primary-600 transition-colors"
-                    }
-                  >
-                    {React.cloneElement(
-                      cat.icon as React.ReactElement<{ className?: string }>,
-                      {
-                        className: "w-4 h-4",
-                      },
-                    )}
-                  </span>
-                  {cat.label}
-                </button>
-              );
-            })}
-          </div>
+          <Flex gap="small" wrap>
+            {QUICK_CATEGORIES.map(cat => <AntButton key={cat.id} type={selectedCategory === cat.id ? "primary" : "default"}
+              shape="round" onClick={() => handleCategoryChange(cat.id)}
+              icon={React.cloneElement(cat.icon as React.ReactElement<{ className?: string }>, { className: "w-4 h-4" })}>{cat.label}</AntButton>)}
+          </Flex>
         </div>
       </section>
 
@@ -515,7 +424,8 @@ export const Home: React.FC = () => {
               <div className="mt-10 text-center">
                 <p className="text-sm text-gray-500">
                   Đang hiển thị {tours.length} trong tổng số{" "}
-                  <span className="font-bold text-gray-900">{tongSoTour}</span> tour
+                  <span className="font-bold text-gray-900">{tongSoTour}</span>{" "}
+                  tour
                 </p>
                 <Link
                   to="/tours"
@@ -572,8 +482,10 @@ export const Home: React.FC = () => {
               cho lần đặt tour đầu tiên!
             </h2>
             <p className="text-blue-100 text-sm md:text-base font-light">
-              Nhập mã <strong className="font-bold text-white">WELCOME15</strong> khi
-              đặt tour để được giảm 15% (tối đa 1.000.000đ cho đơn từ 1.000.000đ).
+              Nhập mã{" "}
+              <strong className="font-bold text-white">WELCOME15</strong> khi
+              đặt tour để được giảm 15% (tối đa 1.000.000đ cho đơn từ
+              1.000.000đ).
             </p>
           </div>
 
@@ -626,7 +538,9 @@ export const Home: React.FC = () => {
                     {t.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 text-sm">{t.name}</h4>
+                    <h4 className="font-bold text-gray-900 text-sm">
+                      {t.name}
+                    </h4>
                     <p className="text-gray-400 text-xs">{t.role}</p>
                   </div>
                 </div>
@@ -658,21 +572,21 @@ export const Home: React.FC = () => {
               onSubmit={handleNewsletterSubmit}
               className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto w-full"
             >
-              <input
+              <AntInput aria-label="Nhập địa chỉ email của bạn..."
                 type="email"
                 required
                 value={newsletterEmail}
                 onChange={(e) => setNewsletterEmail(e.target.value)}
                 placeholder="Nhập địa chỉ email của bạn..."
-                className="bg-gray-50 border border-gray-200 px-5 py-3 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white w-full text-gray-800 placeholder-gray-400 font-medium"
+
               />
-              <button
-                type="submit"
-                disabled={newsletterSubmitting}
-                className="bg-primary-600 hover:bg-primary-700 text-white font-bold text-sm px-6 py-3 rounded-lg whitespace-nowrap shadow-md transition-all cursor-pointer disabled:opacity-50"
+              <AntButton
+                htmlType="submit"
+                loading={newsletterSubmitting} disabled={newsletterSubmitting}
+                type="primary"
               >
                 {newsletterSubmitting ? "Đang đăng ký..." : "Đăng ký ngay"}
-              </button>
+              </AntButton>
             </form>
           )}
         </div>

@@ -1,12 +1,12 @@
+import { businessNow } from "./demoClock";
 import type { Tour, TourSchedule } from "@/types/tour";
 
 type ScheduleStatus = TourSchedule["status"];
 
-// Sáu trạng thái của vòng đời chuyến khởi hành, khớp với App\Enums\ScheduleStatus phía máy chủ.
+// Năm trạng thái của vòng đời chuyến khởi hành, khớp với App\Enums\ScheduleStatus phía máy chủ.
 // Không còn active / inactive / full: đó là giá trị của cột tours.status, không phải của chuyến.
 export const statusLabel: Record<ScheduleStatus, string> = {
-  open: "Đang mở bán",
-  closed: "Đã đóng bán",
+  open: "Chờ chốt",
   confirmed: "Đã chốt chạy",
   in_progress: "Đang di chuyển",
   completed: "Đã hoàn thành",
@@ -15,7 +15,6 @@ export const statusLabel: Record<ScheduleStatus, string> = {
 
 export const statusClasses: Record<ScheduleStatus, string> = {
   open: "bg-emerald-50 border-emerald-200 border text-emerald-800",
-  closed: "bg-gray-100 border-gray-200 border text-gray-700",
   confirmed: "bg-blue-50 border-blue-200 border text-blue-800",
   in_progress: "bg-amber-50 border-amber-200 border text-amber-800",
   completed: "bg-indigo-50 border-indigo-200 border text-indigo-800",
@@ -72,25 +71,26 @@ export const HAN_CHOT_MAC_DINH_NGAY = 3;
  * chốt rỗng, tức giao diện coi chuyến ấy còn bán mãi — khách điền xong cả form rồi bị máy chủ từ
  * chối bằng một câu chung chung.
  *
- * Cửa sổ lệch thường chỉ tính bằng giây vì lệnh nền đóng bán mỗi phút, nhưng nó là cùng một lỗi
- * đã lặp lại nhiều lần ở dự án này: hai bản của một luật, và bản ở giao diện thiếu một nhánh.
+ * Hết hạn chặn nhận đặt ngay cả khi tác vụ chốt chuyến chưa chạy.
  */
+export const getScheduleDeadline = (
+  schedule?: TourSchedule | null,
+  deadlineDays: number = HAN_CHOT_MAC_DINH_NGAY,
+): Date | null => {
+  if (!schedule) return null;
+  if (schedule.booking_deadline) return new Date(schedule.booking_deadline);
+  if (!schedule.start_date) return null;
+  const deadline = new Date(schedule.start_date);
+  deadline.setDate(deadline.getDate() - deadlineDays);
+  return deadline;
+};
+
 export const isDeadlineOverdue = (
   schedule?: TourSchedule | null,
   deadlineDays: number = HAN_CHOT_MAC_DINH_NGAY,
 ): boolean => {
-  if (!schedule) return false;
-
-  if (schedule.booking_deadline) {
-    return new Date(schedule.booking_deadline) < new Date();
-  }
-
-  if (!schedule.start_date) return false;
-
-  const hanMacDinh = new Date(schedule.start_date);
-  hanMacDinh.setDate(hanMacDinh.getDate() - deadlineDays);
-
-  return hanMacDinh < new Date();
+  const deadline = getScheduleDeadline(schedule, deadlineDays);
+  return deadline !== null && deadline.getTime() <= businessNow(schedule);
 };
 
 /**
@@ -100,10 +100,7 @@ export const isDeadlineOverdue = (
  * ở ba chỗ (thanh bên trang chi tiết, trang đặt tour, bộ lọc tự chọn chuyến), nên sửa một chỗ
  * thì hai chỗ kia vẫn sai.
  *
- * Điểm quan trọng: phải nói rõ LÝ DO, không gộp mọi trạng thái khác open thành một câu chung.
- * Trong luồng bình thường, tác vụ nền đóng bán chuyến khi tới hạn chốt nên trạng thái thành
- * 'closed'. Nếu chỉ báo "hiện không khả dụng" thì khách không bao giờ biết là hết chỗ hay là
- * đã quá hạn đăng ký, trong khi hai chuyện đó dẫn tới hai hành động khác nhau.
+ * Hết chỗ và quá hạn là điều kiện nhận đặt, không phải trạng thái vòng đời.
  */
 export const getScheduleUnavailableReason = (
   schedule: TourSchedule | null | undefined,
@@ -114,10 +111,6 @@ export const getScheduleUnavailableReason = (
   if (tourStatus === "inactive") return "Tour đang tạm ngừng";
 
   switch (schedule.status) {
-    case "closed":
-      // Chuyến đóng bán vì một trong hai lý do. Phân biệt để khách biết còn cơ hội hay không:
-      // hết chỗ thì chờ người hủy, quá hạn thì chuyến này coi như chốt sổ.
-      return getAvailableSlots(schedule) <= 0 ? "Đã hết chỗ" : "Đã quá hạn đăng ký";
     case "confirmed":
       return "Đã chốt danh sách, ngừng nhận khách";
     case "in_progress":
@@ -135,7 +128,7 @@ export const getScheduleUnavailableReason = (
     }
   }
 
-  // Chuyến vẫn đang mở bán nhưng tác vụ nền chưa kịp đóng.
+  // Chuyến chưa chốt chỉ nhận đặt khi còn hạn và còn chỗ.
   if (isDeadlineOverdue(schedule, deadlineDays)) return "Đã quá hạn đăng ký";
   if (getAvailableSlots(schedule) <= 0) return "Đã hết chỗ";
 
@@ -147,30 +140,3 @@ export const isScheduleBookable = (
   tourStatus?: Tour["status"],
   deadlineDays: number = HAN_CHOT_MAC_DINH_NGAY,
 ): boolean => getScheduleUnavailableReason(schedule, tourStatus, deadlineDays) === null;
-
-/**
- * Chuyến này đã qua hạn trả nốt chưa — tức đặt vào đây thì KHÔNG còn được cọc.
- *
- * Hạn trả nốt là ngày khởi hành trừ `balanceDueDays`. Chuyến khởi hành trong tuần tới có cái hạn ấy
- * nằm ở quá khứ: không còn đợt hai nào để chia, nên máy chủ thu đủ ngay
- * (`BookingPaymentService::nextPaymentAmount`).
- *
- * Đây là bản sao thứ hai của luật ấy, và nó tồn tại vì bản gốc chạy quá muộn. Máy chủ chỉ tính con
- * số này lúc dựng liên kết thanh toán, tức sau khi khách đã điền xong form và bấm đặt. Nếu giao
- * diện không biết luật, nó mời khách cọc một nửa rồi cổng thanh toán đòi đủ tiền — khách đọc được
- * hai con số khác nhau cho cùng một đơn, và con số họ tin là con số họ nhìn thấy trước.
- *
- * Hai hạn, đừng lẫn: `isDeadlineOverdue` là hạn CHỐT DANH SÁCH, quá đi thì chuyến ngừng bán. Hạn ở
- * đây quá đi thì chuyến vẫn bán bình thường, chỉ là phải trả đủ tiền.
- */
-export const isBalanceDeadlinePassed = (
-  schedule: TourSchedule | null | undefined,
-  balanceDueDays: number,
-): boolean => {
-  if (!schedule?.start_date || balanceDueDays <= 0) return false;
-
-  const hanTraNot = new Date(schedule.start_date);
-  hanTraNot.setDate(hanTraNot.getDate() - balanceDueDays);
-
-  return hanTraNot <= new Date();
-};

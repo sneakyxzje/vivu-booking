@@ -1,3 +1,4 @@
+import { Pagination, Select, Input as AntInput, Button as AntButton } from "antd";
 import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import tourService from "@/services/tourService";
@@ -202,30 +203,17 @@ export const Tours: React.FC = () => {
 
           <main className="flex-1">
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
-              <div className="relative w-full md:w-[400px]">
-                <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm điểm đến, tên tour..."
-                  value={searchKeyword}
-                  onChange={(e) => setSearchKeyword(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400"
-                />
+              <div className="w-full md:w-[400px]">
+                <AntInput aria-label="Tìm kiếm tour" prefix={<MagnifyingGlassIcon className="w-4 h-4" />} placeholder="Tìm kiếm điểm đến, tên tour…"
+                  value={searchKeyword} onChange={e => setSearchKeyword(e.target.value)} allowClear />
               </div>
 
               <div className="flex items-center gap-3 w-full md:w-auto">
                 <span className="text-sm text-gray-500 font-medium whitespace-nowrap">Sắp xếp:</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                  className="bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-4 text-sm font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer"
-                >
-                  <option value="featured">Phổ biến nhất</option>
-                  <option value="newest">Mới nhất</option>
-                  <option value="rating">Đánh giá cao nhất</option>
-                  <option value="price_asc">Giá tăng dần</option>
-                  <option value="price_desc">Giá giảm dần</option>
-                </select>
+                <Select aria-label="Sắp xếp tour" style={{ minWidth: 190 }} value={sortBy} onChange={setSortBy} options={[
+                  { value: "featured", label: "Phổ biến nhất" }, { value: "newest", label: "Mới nhất" },
+                  { value: "rating", label: "Đánh giá cao nhất" }, { value: "price_asc", label: "Giá tăng dần" }, { value: "price_desc", label: "Giá giảm dần" },
+                ]} />
               </div>
             </div>
 
@@ -258,18 +246,18 @@ export const Tours: React.FC = () => {
                 <ExclamationTriangleIcon className="w-12 h-12 text-red-400 mb-4" />
                 <h3 className="text-lg font-bold text-gray-800">Lỗi dữ liệu</h3>
                 <p className="text-sm text-gray-500 mt-2">{error}</p>
-                <button onClick={() => fetchTours(filterParams)} className="mt-6 bg-primary-600 text-white font-semibold text-sm px-5 py-2.5 rounded-full hover:bg-primary-700 transition-colors">
+                <AntButton htmlType="button" onClick={() => fetchTours(filterParams)} className="mt-6" type="primary">
                   Thử lại
-                </button>
+                </AntButton>
               </div>
             ) : tours.length === 0 ? (
               <div className="text-center py-20 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col items-center">
                 <InboxIcon className="w-12 h-12 text-gray-300 mb-4" />
                 <h3 className="text-lg font-bold text-gray-800">Không có Tour phù hợp</h3>
                 <p className="text-sm text-gray-500 mt-2">Thử nới lỏng bộ lọc hoặc thay đổi từ khóa tìm kiếm nhé.</p>
-                <button onClick={resetFilters} className="mt-6 bg-primary-50 text-primary-600 font-semibold text-sm px-5 py-2.5 rounded-full hover:bg-primary-100 transition-colors">
+                <AntButton htmlType="button" onClick={resetFilters} className="mt-6">
                   Xóa toàn bộ lọc
-                </button>
+                </AntButton>
               </div>
             ) : (
               <>
@@ -278,57 +266,8 @@ export const Tours: React.FC = () => {
                 </div>
 
                 {meta.last_page > 1 && (
-                  <nav
-                    aria-label="Phân trang danh sách tour"
-                    className="mt-10 flex flex-wrap items-center justify-center gap-2"
-                  >
-                    <button
-                      onClick={() => goToPage(meta.current_page - 1)}
-                      disabled={meta.current_page <= 1}
-                      className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Trước
-                    </button>
-
-                    {Array.from({ length: meta.last_page }, (_, i) => i + 1)
-                      /*
-                       * Chỉ hiện trang đầu, trang cuối và hai trang quanh trang đang xem.
-                       * Danh sách 40 trang mà in hết 40 nút thì thanh phân trang dài hơn cả
-                       * lưới kết quả nó phục vụ.
-                       */
-                      .filter(
-                        (n) =>
-                          n === 1 ||
-                          n === meta.last_page ||
-                          Math.abs(n - meta.current_page) <= 1,
-                      )
-                      .map((n, idx, arr) => (
-                        <React.Fragment key={n}>
-                          {idx > 0 && arr[idx - 1] !== n - 1 && (
-                            <span className="px-1 text-sm text-gray-400">…</span>
-                          )}
-                          <button
-                            onClick={() => goToPage(n)}
-                            aria-current={n === meta.current_page ? "page" : undefined}
-                            className={`min-w-[40px] rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
-                              n === meta.current_page
-                                ? "border-primary-600 bg-primary-600 text-white"
-                                : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                            }`}
-                          >
-                            {n}
-                          </button>
-                        </React.Fragment>
-                      ))}
-
-                    <button
-                      onClick={() => goToPage(meta.current_page + 1)}
-                      disabled={meta.current_page >= meta.last_page}
-                      className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      Sau
-                    </button>
-                  </nav>
+                  <Pagination aria-label="Phân trang danh sách tour" align="center" style={{ marginTop: 32 }} responsive
+                    current={meta.current_page} pageSize={meta.per_page} total={meta.total} showSizeChanger={false} onChange={goToPage} />
                 )}
               </>
             )}

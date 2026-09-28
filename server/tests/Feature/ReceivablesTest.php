@@ -289,7 +289,7 @@ class ReceivablesTest extends TestCase
     {
         $chuyenGap = TourSchedule::create([
             'tour_id' => $this->tour->id,
-            'status' => ScheduleStatus::Closed->value,
+            'status' => ScheduleStatus::Open->value,
             'start_date' => now()->addDay(),
             'end_date' => now()->addDays(2),
             'booking_deadline' => now()->subHours(2),

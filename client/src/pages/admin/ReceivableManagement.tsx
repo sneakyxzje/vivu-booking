@@ -1,3 +1,10 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Flex as UIFlex,
+  Input as AntInput,
+  Table as AntTable,
+} from "antd";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, Loader2, Search, Wallet } from "lucide-react";
@@ -56,14 +63,10 @@ export default function ReceivableManagement() {
   const soDonQuaHan = rows.filter((r) => r.overdue).length;
 
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-gray-500">
+    <UIFlex vertical gap="large" ><p className="text-sm text-gray-500">
         Đơn đã vào danh sách đoàn nhưng khách chưa trả đủ. Đơn đang giữ chỗ không tính — nó tự hủy
         sau ít phút nếu không thanh toán.
-      </p>
-
-      {/* Hai con số đầu trang: tổng tiền, và số đơn đã quá hạn thu. */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      </p>{/* Hai con số đầu trang: tổng tiền, và số đơn đã quá hạn thu. */}<div className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-5">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
             <Wallet className="h-4 w-4" />
@@ -75,20 +78,13 @@ export default function ReceivableManagement() {
           </p>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <UICard  ><UIFlex vertical gap="middle"><div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
             <AlertTriangle className="h-4 w-4" />
             Đã quá hạn thu
-          </div>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{soDonQuaHan} đơn</p>
-          <p className="mt-1 text-xs text-gray-500">
+          </div><p className="mt-2 text-2xl font-bold text-gray-900">{soDonQuaHan} đơn</p><p className="mt-1 text-xs text-gray-500">
             Quá hạn chốt danh sách — mốc công ty phải trả tiền cho khách sạn và nhà xe
-          </p>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <form
+          </p></UIFlex></UICard>
+      </div><UIFlex   wrap align="center"  gap={12}><form
           onSubmit={(e) => {
             e.preventDefault();
             setTuKhoa(q.trim());
@@ -96,62 +92,23 @@ export default function ReceivableManagement() {
           className="relative flex-1 min-w-[220px]"
         >
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Tên khách, email, số điện thoại, hoặc BK-12"
-            className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm"
-          />
-        </form>
-
-        <div className="flex gap-1.5">
-          {KHOANG_NGAY.map((muc) => (
-            <button
-              key={muc.value}
-              type="button"
-              onClick={() => setWithinDays(muc.value)}
-              className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-                withinDays === muc.value
-                  ? "bg-primary-600 text-white"
-                  : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              {muc.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {loading ? (
+          <AntInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tên khách, email, số điện thoại, hoặc BK-12" style={{ width: "100%" }} />
+        </form><UIFlex      gap={6}>{KHOANG_NGAY.map((muc) => (
+            <AntButton type={(withinDays === muc.value) ? "primary" : "default"} key={muc.value} htmlType="button" onClick={() => setWithinDays(muc.value)}>{muc.label}</AntButton>
+          ))}</UIFlex></UIFlex>{loading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-500">
           <Loader2 className="h-4 w-4 animate-spin" />
           Đang tải...
         </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
-          <p className="text-sm font-semibold text-gray-700">Không có đơn nào còn nợ</p>
-          <p className="mt-1 text-sm text-gray-500">
+        <UICard  ><UIFlex vertical gap="middle"><p className="text-sm font-semibold text-gray-700">Không có đơn nào còn nợ</p><p className="mt-1 text-sm text-gray-500">
             Mọi đơn trong bộ lọc này đều đã thu đủ tiền.
-          </p>
-        </div>
+          </p></UIFlex></UICard>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-          <table className="w-full min-w-[860px] text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                <th className="px-4 py-3">Đơn</th>
-                <th className="px-4 py-3">Khách hàng</th>
-                <th className="px-4 py-3">Khởi hành</th>
-                <th className="px-4 py-3 text-right">Giá trị đơn</th>
-                <th className="px-4 py-3 text-right">Đã thu</th>
-                <th className="px-4 py-3 text-right">Còn thiếu</th>
-                <th className="px-4 py-3">Hạn thu</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60">
-                  <td className="px-4 py-3">
+          <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }}
+    dataSource={rows.map((row) => (
+                {key: row.id, cells: [<>
                     <Link
                       to={`/admin/bookings?q=BK-${row.id}`}
                       className="font-mono text-xs font-semibold text-primary-600 hover:underline"
@@ -161,30 +118,18 @@ export default function ReceivableManagement() {
                     <p className="mt-0.5 max-w-[200px] truncate text-xs text-gray-500">
                       {row.tour_title ?? "Tour đã xóa"}
                     </p>
-                  </td>
-
-                  <td className="px-4 py-3">
+                  </>,<>
                     <p className="font-medium text-gray-900">{row.customer_name}</p>
                     <p className="text-xs text-gray-500">{row.customer_phone ?? row.customer_email}</p>
-                  </td>
-
-                  <td className="px-4 py-3 text-gray-600">
+                  </>,<>
                     {row.start_date ? formatDateTime(row.start_date) : "—"}
-                  </td>
-
-                  <td className="px-4 py-3 text-right tabular-nums text-gray-600">
+                  </>,<>
                     {formatPrice(row.total_amount)}
-                  </td>
-
-                  <td className="px-4 py-3 text-right tabular-nums text-gray-600">
+                  </>,<>
                     {formatPrice(row.net_paid)}
-                  </td>
-
-                  <td className="px-4 py-3 text-right tabular-nums font-bold text-amber-700">
+                  </>,<>
                     {formatPrice(row.balance_due)}
-                  </td>
-
-                  <td className="px-4 py-3">
+                  </>,<>
                     {row.due_by ? (
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
@@ -199,13 +144,12 @@ export default function ReceivableManagement() {
                     ) : (
                       <span className="text-xs text-gray-400">—</span>
                     )}
-                  </td>
-                </tr>
+                  </>], rowProps: {}}
               ))}
-            </tbody>
-          </table>
+    columns={[{ key: "0", title: <>Đơn</>, align: "left", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Khách hàng</>, align: "left", render: (_value, record) => record.cells[1] },{ key: "2", title: <>Khởi hành</>, align: "left", render: (_value, record) => record.cells[2] },{ key: "3", title: <>Giá trị đơn</>, align: "right", render: (_value, record) => record.cells[3] },{ key: "4", title: <>Đã thu</>, align: "right", render: (_value, record) => record.cells[4] },{ key: "5", title: <>Còn thiếu</>, align: "right", render: (_value, record) => record.cells[5] },{ key: "6", title: <>Hạn thu</>, align: "left", render: (_value, record) => record.cells[6] }]}
+    onRow={(record) => record.rowProps}
+     />
         </div>
-      )}
-    </div>
+      )}</UIFlex>
   );
 }

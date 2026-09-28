@@ -356,6 +356,9 @@ class AdminScheduleManagementTest extends TestCase
             'number_of_days'  => $this->tour->number_of_days,
             'number_of_nights' => $this->tour->number_of_nights,
             'start_location'  => $this->tour->start_location ?? 'Hà Nội',
+            'itineraries' => array_map(fn ($day) => [
+                'day_number' => $day, 'title' => "Ngày {$day}", 'content' => 'Tham quan và nghỉ ngơi.',
+            ], range(1, $this->tour->number_of_days)),
         ];
     }
 }

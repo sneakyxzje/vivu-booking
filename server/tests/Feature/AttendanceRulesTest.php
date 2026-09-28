@@ -40,6 +40,7 @@ class AttendanceRulesTest extends TestCase
     {
         parent::setUp();
 
+        $this->travelTo(now()->startOfDay()->addHours(12));
         $this->service = app(AttendanceService::class);
         $this->guide = $this->taoUser('guide');
 
@@ -48,7 +49,7 @@ class AttendanceRulesTest extends TestCase
         $this->schedule = TourSchedule::create([
             'tour_id' => $this->tour->id,
             'status' => ScheduleStatus::InProgress->value,
-            'start_date' => now()->subDay(),
+            'start_date' => now()->startOfDay(),
             'end_date' => now()->addDay(),
             'max_people' => 20,
             'booked_people' => 2,
@@ -189,16 +190,18 @@ class AttendanceRulesTest extends TestCase
         $this->service->assertCanRecord($this->guide, $this->schedule, $diemDungNgay3);
     }
 
-    // --- Quy tắc 5: ghi bù muộn thì đánh dấu ---
+    // --- Không được ghi bù cho ngày đã qua ---
 
-    public function test_ghi_bu_qua_hai_muoi_tu_gio_thi_danh_dau_la_ghi_muon(): void
+    public function test_khong_duoc_ghi_bu_cho_ngay_da_qua(): void
     {
         $this->schedule->update([
             'start_date' => now()->subDays(3),
             'end_date' => now()->addDay(),
         ]);
 
-        $checkin = $this->service->record(
+        $this->expectException(BusinessRuleException::class);
+        $this->expectExceptionMessage("đã qua, chỉ được xem");
+        $this->service->record(
             $this->guide,
             $this->schedule->fresh(),
             $this->checkpoint,
@@ -206,7 +209,6 @@ class AttendanceRulesTest extends TestCase
             PassengerCheckinStatus::Present,
         );
 
-        $this->assertTrue($checkin->is_late_entry);
     }
 
     public function test_ghi_dung_ngay_thi_khong_bi_danh_dau(): void

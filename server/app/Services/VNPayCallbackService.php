@@ -53,7 +53,6 @@ class VNPayCallbackService
     public function __construct(
         private readonly VNPayService $vnpay,
         private readonly BookingHoldService $holdService,
-        private readonly ScheduleLifecycleService $scheduleLifecycle,
         private readonly BookingPaymentService $paymentService,
     ) {
     }
@@ -111,8 +110,24 @@ class VNPayCallbackService
                 ? TourSchedule::query()->whereKey($booking->tour_schedule_id)->lockForUpdate()->first()
                 : null;
 
+            // Không xác nhận đơn bằng một khoản tiền về sau hạn chốt. Nhật ký cổng ở trên
+            // vẫn lưu tiền thực nhận để điều hành đối chiếu và hoàn; IPN không được tạo
+            // một đơn confirmed không có bút toán khi sổ từ chối thu muộn.
+            if ($thanhCong && !$booking->isGroup()
+                && $booking->balanceDueAt()?->lte(DemoClock::booking($booking))) {
+                if ($booking->status === 'pending') {
+                    $this->holdService->expireStaleHold($booking, 'Đã tới hạn chốt danh sách, không nhận thanh toán mới.');
+                } else {
+                    app(BookingBalanceDeadlineService::class)->cancel($booking);
+                }
+                Log::warning('Tiền VNPay về sau hạn chốt — cần đối chiếu và hoàn khoản thu muộn.', [
+                    'booking_id' => $booking->id, 'transaction_no' => $maGiaoDich, 'amount' => $soTien,
+                ]);
+                return $this->ketQua(null, false, self::RSP_THANH_CONG, $booking->id);
+            }
+
             if ($booking->status === 'pending') {
-                return $this->xuLyDonChoThanhToan($booking, $thanhCong, $soTien, $maGiaoDich);
+                return $this->xuLyDonChoThanhToan($booking, $thanhCong, $soTien, $maGiaoDich, $query['vnp_ResponseCode'] ?? null);
             }
 
             /*
@@ -169,10 +184,8 @@ class VNPayCallbackService
     }
 
     /**
-     * Đơn đang chờ thanh toán: trả tiền thành công thì xác nhận, thất bại thì để nguyên.
-     *
-     * Không nhận `$schedule` nữa — từ khi lần trả tiền hỏng thôi không hủy đơn, nhánh này không
-     * còn chạm tới kho chỗ của chuyến nữa.
+     * Đơn đang chờ thanh toán: thành công thì xác nhận; khách chủ động hủy thì hủy đơn ngay.
+     * Các lỗi thanh toán khác giữ đơn tới hết hạn để khách thử lại.
      *
      * @return array{booking: Booking|null, booking_id: int|null, successful: bool, rsp_code: string}
      */
@@ -181,28 +194,21 @@ class VNPayCallbackService
         bool $thanhCong,
         float $soTien,
         ?string $maGiaoDich,
+        ?string $rspCode = null,
     ): array {
-        /*
-         * Trả tiền THẤT BẠI thì đơn giữ nguyên `pending`, không hủy.
-         *
-         * Trước đây nhánh này hủy đơn và nhả chỗ ngay lập tức. Nhưng "thất bại" ở cổng thanh toán
-         * phần lớn là những chuyện khách sửa được trong một phút: gõ sai OTP, thẻ không đủ số dư,
-         * chọn nhầm ngân hàng, hoặc bấm nút Hủy trên trang ngân hàng để quay ra đổi thẻ khác. Hủy
-         * đơn ngay nghĩa là họ quay lại thì chỗ đã mất, và phải đặt lại từ đầu — có khi chỗ ấy vừa
-         * bị người khác lấy trong đúng khoảng thời gian đó.
-         *
-         * Thời hạn giữ chỗ sinh ra chính là để đựng khoảng này. Đơn ở lại `pending` tới `expires_at`
-         * rồi `BookingHoldService` tự dọn nếu khách thật sự bỏ cuộc — không cần một đường hủy thứ
-         * hai chạy sớm hơn hạn mà cả hệ thống đang cam kết với khách.
-         */
         if (!$thanhCong) {
+            if ($rspCode === '24') {
+                $this->holdService->expireStaleHold($booking, 'Khách hàng từ chối thanh toán tại cổng VNPay');
+                $booking->refresh();
+            }
+
             return $this->ketQua(null, false, self::RSP_THANH_CONG, $booking->id);
         }
 
         $booking->update([
             'status' => 'confirmed',
             'vnpay_transaction_no' => $maGiaoDich,
-            'confirmed_at' => now(),
+            'confirmed_at' => DemoClock::booking($booking),
             // Hết mười phút giữ chỗ: đơn đã xác nhận, tác vụ nhả chỗ không được đụng tới.
             'expires_at' => null,
         ]);
@@ -261,13 +267,6 @@ class VNPayCallbackService
         $schedule->increment('booked_people', $booking->seatsTaken());
         $schedule->refresh();
 
-        if ($schedule->booked_people >= $schedule->max_people) {
-            $this->scheduleLifecycle->transitionTo(
-                $schedule,
-                ScheduleStatus::Closed,
-                'Tự động đóng bán do booking vừa lấp đầy số chỗ.',
-            );
-        }
 
         $this->holdService->refreshTourAvailability($schedule);
 
@@ -279,7 +278,7 @@ class VNPayCallbackService
             'status' => 'confirmed',
             'cancel_reason' => null,
             'vnpay_transaction_no' => $maGiaoDich,
-            'confirmed_at' => now(),
+            'confirmed_at' => DemoClock::booking($booking),
             'expires_at' => null,
         ]);
 

@@ -147,8 +147,10 @@ export interface GroupBookingPayload {
 }
 
 const bookingService = {
-  create: (payload: CreateBookingPayload) =>
-    api.post<CreateBookingResponse>("/bookings", payload),
+  create: (payload: CreateBookingPayload, proof: { token: string; requestKey: string }) =>
+    api.post<CreateBookingResponse>("/bookings", payload, { headers: {
+      "X-Booking-Verification": proof.token, "Idempotency-Key": proof.requestKey,
+    } }),
 
   createGroupRequest: (payload: GroupBookingPayload) =>
     api.post<{ success: boolean; message: string; data: { public_token: string } }>(
@@ -287,6 +289,14 @@ const bookingService = {
   // Task X06b - Gửi lại mã tra cứu về email cho khách vãng lai (Edge Case A16)
   resendLookupCode: (payload: { email: string; phone?: string }) =>
     api.post<{ success: boolean; message: string }>("/bookings/resend-code", payload),
+
+  // Customer Proposals API
+  getProposals: (publicToken: string, email: string) =>
+    api.get(`/bookings/${publicToken}/proposals`, { params: { email } }),
+
+  respondToProposal: (publicToken: string, payload: { proposal_id: number; choice_id: string; customer_email: string }) =>
+    api.post(`/bookings/${publicToken}/proposals/${payload.proposal_id}/respond`,
+      { action: payload.choice_id }, { params: { email: payload.customer_email } }),
 };
 
 export default bookingService;

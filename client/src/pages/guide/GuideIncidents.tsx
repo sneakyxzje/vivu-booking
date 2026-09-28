@@ -1,3 +1,5 @@
+import { useGuideFeedback } from "@/hooks/useGuideFeedback";
+import { Typography, Alert, Button, Card, Col, DatePicker, Form, Image, Input, Modal, Row, Select, Skeleton, Tag, Upload } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Camera, Clock, Plus } from "lucide-react";
 import guideService, {
@@ -7,7 +9,7 @@ import guideService, {
 import type { GuideIncident } from "@/services/guideService";
 import type { Tour } from "@/types";
 import { formatDateTime } from "@/utils/format";
-import { DateTimePicker } from "@/components/DateTimePicker";
+import dayjs from "dayjs";
 
 /**
  * O - Hướng dẫn viên báo cáo sự cố tại hiện trường.
@@ -24,21 +26,18 @@ const toDateTimeLocal = (d: Date) => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
-const severityClass: Record<string, string> = {
-  low: "bg-gray-100 text-gray-700",
-  medium: "bg-amber-50 text-amber-700",
-  high: "bg-rose-50 text-rose-700",
-};
+const severityColor: Record<string, string> = { low: "default", medium: "warning", high: "error" };
 
 export default function GuideIncidents() {
+  const feedback = useGuideFeedback();
   const [incidents, setIncidents] = useState<GuideIncident[]>([]);
   const [tours, setTours] = useState<Tour[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState(false);
 
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [uploadingId, setUploadingId] = useState<number | null>(null);
 
   const [form, setForm] = useState({
     tour_schedule_id: "",
@@ -48,22 +47,20 @@ export default function GuideIncidents() {
     description: "",
   });
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-
-    try {
-      const [ds, myTours] = await Promise.all([
-        guideService.getMyIncidents(),
-        guideService.getMyTours(),
-      ]);
-      setIncidents(ds);
-      setTours(myTours);
-    } catch (err) {
-      console.error("Lỗi tải sự cố:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadData = useCallback(() => {
+    feedback.clearLoadError("Chưa tải được danh sách sự cố");
+    return Promise.all([guideService.getMyIncidents(), guideService.getMyTours()])
+      .then(result => {
+        setIncidents(result[0]);
+        setTours(result[1]);
+        setPageError(false);
+      })
+      .catch(err => {
+        setPageError(true);
+        feedback.loadError(err, "Chưa tải được danh sách sự cố");
+      })
+      .finally(() => setLoading(false));
+  }, [feedback]);
 
   useEffect(() => {
     loadData();
@@ -80,7 +77,7 @@ export default function GuideIncidents() {
       tours.flatMap((tour) =>
         (tour.schedules ?? [])
           .filter(
-            (sc) => sc.status === "in_progress" || sc.status === "completed",
+            (sc) => (sc.effective_status ?? sc.status) === "in_progress" || (sc.effective_status ?? sc.status) === "completed",
           )
           .map((sc) => ({
             id: sc.id,
@@ -91,10 +88,10 @@ export default function GuideIncidents() {
   );
 
   const submit = async () => {
-    if (!form.tour_schedule_id) return;
+    if (saving || !form.tour_schedule_id || !form.occurred_at || form.description.trim().length < 20) return;
+    if (dayjs(form.occurred_at).isAfter(dayjs())) { feedback.error(null, "Thời điểm xảy ra không được ở tương lai."); return; }
 
     setSaving(true);
-    setError("");
 
     try {
       const { message } = await guideService.reportIncident(
@@ -107,64 +104,56 @@ export default function GuideIncidents() {
         },
       );
 
-      setNotice(message);
+      feedback.success(message);
       setCreating(false);
       setForm((truoc) => ({ ...truoc, description: "" }));
-      loadData();
+      await loadData();
     } catch (err) {
-      const response = (err as { response?: { data?: { message?: string } } })
-        ?.response?.data;
-      setError(response?.message || "Không gửi được báo cáo.");
+      feedback.error(err, "Chưa gửi được báo cáo sự cố. Nội dung đã nhập vẫn được giữ lại.");
     } finally {
       setSaving(false);
     }
   };
 
   const uploadPhoto = async (incidentId: number, file: File) => {
+    if (uploadingId !== null) return;
+    setUploadingId(incidentId);
+    setPageError(false);
     try {
       await guideService.uploadIncidentPhoto(incidentId, file);
-      loadData();
+      feedback.success("Đã thêm ảnh hiện trường.");
+      await loadData();
     } catch (err) {
-      console.error("Lỗi tải ảnh:", err);
+      feedback.error(err, "Chưa tải được ảnh hiện trường. Vui lòng thử lại.");
+    } finally {
+      setUploadingId(null);
     }
   };
 
   return (
     <div className="space-y-6">
+      {pageError && <Button onClick={() => { setLoading(true); void loadData(); }} loading={loading}>Tải lại dữ liệu</Button>}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            Chi phí phát sinh
-          </h1>
+          <Typography.Title level={3} style={{ margin: 0 }}>
+            Báo sự cố
+          </Typography.Title>
           <p className="text-sm text-gray-500 mt-1">
-            Báo lại những gì đang xảy ra với đoàn. Bạn không cần và không được
-            quyết mức tiền — điều hành sẽ đưa phương án về đây cho bạn đọc cho
-            khách.
+            Gửi sự việc, ảnh hiện trường và theo dõi phản hồi của điều hành.
           </p>
         </div>
 
         {!creating && (
-          <button
-            type="button"
-            onClick={() => setCreating(true)}
-            disabled={chuyenDangDi.length === 0}
-            className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-40 shrink-0"
-          >
+          <Button type="primary" danger onClick={() => { setCreating(true); }} disabled={chuyenDangDi.length === 0}>
             <Plus className="h-4 w-4" />
             Báo sự cố
-          </button>
+          </Button>
         )}
       </div>
 
-      {notice && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-          {notice}
-        </div>
-      )}
-
-      {chuyenDangDi.length === 0 && !loading && (
+      {chuyenDangDi.length === 0 && !pageError && !loading && (
         <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-500">
-          Bạn không có chuyến nào đang đi. Sự cố dọc đường chỉ báo được khi đoàn
+          Bạn không có chuyến đang đi hoặc đã kết thúc. Sự cố chỉ báo được khi đoàn
           đã lên đường; chuyến chưa đi mà có vấn đề thì báo điều hành để hủy
           hoặc dời lịch.
         </p>
@@ -172,161 +161,29 @@ export default function GuideIncidents() {
 
       {/* Biểu mẫu báo cáo — không có ô tiền nào, và đó là chủ ý */}
       {creating && (
-        <div className="rounded-xl border border-gray-200 bg-white p-5 space-y-3 shadow-sm">
-          <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">
-              Chuyến đang đi
-            </label>
-            <select
-              value={form.tour_schedule_id}
-              onChange={(e) =>
-                setForm((truoc) => ({
-                  ...truoc,
-                  tour_schedule_id: e.target.value,
-                }))
-              }
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
-            >
-              <option value="">Chọn chuyến</option>
-              {chuyenDangDi.map((sc) => (
-                <option key={sc.id} value={sc.id}>
-                  {sc.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
-                Loại sự cố
-              </label>
-              <select
-                value={form.type}
-                onChange={(e) =>
-                  setForm((truoc) => ({ ...truoc, type: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
-              >
-                {INCIDENT_TYPES.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
-                Mức nghiêm trọng
-              </label>
-              <select
-                value={form.severity}
-                onChange={(e) =>
-                  setForm((truoc) => ({ ...truoc, severity: e.target.value }))
-                }
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
-              >
-                {INCIDENT_SEVERITIES.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
-                Xảy ra lúc
-              </label>
-              {/* `maxDate` là hôm nay: sự cố đã xảy ra rồi mới có người ngồi báo cáo nó. */}
-              <DateTimePicker
-                withTime
-                maxDate={new Date()}
-                value={form.occurred_at}
-                onChange={(giaTri) =>
-                  setForm((truoc) => ({
-                    ...truoc,
-                    occurred_at: giaTri,
-                  }))
-                }
-                placeholder="Chọn thời điểm xảy ra"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-gray-700 mb-1">
-              Diễn biến
-            </label>
-            <textarea
-              rows={3}
-              value={form.description}
-              onChange={(e) =>
-                setForm((truoc) => ({ ...truoc, description: e.target.value }))
-              }
-              placeholder="VD: Bão vào đất liền, tàu không ra đảo được, đoàn phải ở lại bờ thêm một đêm..."
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
-            />
-            <p className="mt-1 text-[11px] text-gray-400">
-              Ít nhất 20 ký tự. Điều hành ở xa và chỉ có mô tả này để quyết
-              phương án — viết như đang kể cho người không nhìn thấy hiện
-              trường.
-            </p>
-          </div>
-
-          {error && (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
-              {error}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setCreating(false)}
-              disabled={saving}
-              className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              Bỏ qua
-            </button>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={
-                saving ||
-                !form.tour_schedule_id ||
-                form.description.trim().length < 20
-              }
-              className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-40"
-            >
-              {saving ? "Đang gửi..." : "Gửi cho điều hành"}
-            </button>
-          </div>
-        </div>
+        <Modal open title="Báo sự cố với điều hành" onCancel={() => setCreating(false)} closable={!saving} keyboard={!saving} mask={{ closable: false }} cancelButtonProps={{ disabled: saving }} onOk={submit} confirmLoading={saving} okText="Gửi cho điều hành" cancelText="Bỏ qua" okButtonProps={{ disabled: !form.tour_schedule_id || !form.occurred_at || form.description.trim().length < 20 }} width={640}>
+          <Form layout="vertical" disabled={saving}>
+            <Form.Item htmlFor="GuideIncidents-field-1" label="Chuyến đang đi hoặc đã kết thúc" required><Select id="GuideIncidents-field-1" showSearch optionFilterProp="label" placeholder="Chọn chuyến" value={form.tour_schedule_id || undefined} onChange={value => setForm(prev => ({ ...prev, tour_schedule_id: value }))} options={chuyenDangDi.map(sc => ({ value: String(sc.id), label: sc.label }))} /></Form.Item>
+            <Row gutter={16}><Col xs={24} sm={12}><Form.Item htmlFor="GuideIncidents-field-2" label="Loại sự cố" required><Select id="GuideIncidents-field-2" value={form.type} options={[...INCIDENT_TYPES]} onChange={value => setForm(prev => ({ ...prev, type: value }))} /></Form.Item></Col>
+              <Col xs={24} sm={12}><Form.Item htmlFor="GuideIncidents-field-3" label="Mức nghiêm trọng" required><Select id="GuideIncidents-field-3" value={form.severity} options={[...INCIDENT_SEVERITIES]} onChange={value => setForm(prev => ({ ...prev, severity: value }))} /></Form.Item></Col></Row>
+            <Form.Item htmlFor="GuideIncidents-field-4" label="Xảy ra lúc" required><DatePicker id="GuideIncidents-field-4" showTime={{ format: "HH:mm" }} format="DD/MM/YYYY HH:mm" maxDate={dayjs()} value={form.occurred_at ? dayjs(form.occurred_at) : null} onChange={value => setForm(prev => ({ ...prev, occurred_at: value ? value.format("YYYY-MM-DDTHH:mm") : "" }))} style={{ width: "100%" }} /></Form.Item>
+            <Form.Item htmlFor="GuideIncidents-field-5" label="Diễn biến" required extra="Ít nhất 20 ký tự. Mô tả hiện trường và ảnh hưởng đến đoàn để điều hành quyết định phương án."><Input.TextArea id="GuideIncidents-field-5" rows={4} value={form.description} onChange={event => setForm(prev => ({ ...prev, description: event.target.value }))} placeholder="Ví dụ: Bão vào đất liền, tàu không ra đảo được, đoàn phải ở lại bờ thêm một đêm..." /></Form.Item>
+          </Form>
+        </Modal>
       )}
 
       {/* Danh sách đã báo */}
       <div className="space-y-3">
-        {loading && <p className="text-sm text-gray-500">Đang tải...</p>}
+        {loading && <Skeleton active />}
 
-        {!loading && incidents.length === 0 && (
+        {!loading && !pageError && incidents.length === 0 && (
           <p className="text-sm text-gray-500">Chưa có sự cố nào được báo.</p>
         )}
 
         {incidents.map((sc) => (
-          <div
-            key={sc.id}
-            className="rounded-xl border border-gray-200 bg-white p-4 space-y-2"
-          >
+          <Card key={sc.id}><div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={`rounded px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
-                  severityClass[sc.severity] ?? severityClass.low
-                }`}
-              >
-                {sc.severity_label}
-              </span>
+              <Tag color={severityColor[sc.severity] ?? "default"}>{sc.severity_label}</Tag>
               <span className="text-sm font-bold text-gray-900">
                 {sc.type_label}
               </span>
@@ -339,7 +196,7 @@ export default function GuideIncidents() {
             </div>
 
             {sc.reported_late && (
-              <p className="flex items-center gap-1 text-[11px] text-amber-700">
+              <p className="flex items-center gap-1 text-xs text-amber-700">
                 <AlertTriangle className="h-3 w-3" />
                 Ghi bù: báo muộn hơn 6 tiếng so với lúc xảy ra.
               </p>
@@ -349,41 +206,19 @@ export default function GuideIncidents() {
 
             {/* Phương án của điều hành, chỉ đọc */}
             {sc.resolution ? (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">
-                  Phương án của điều hành — đọc cho khách
-                </p>
-                <p className="mt-1 text-sm text-emerald-900">{sc.resolution}</p>
-              </div>
+              <Alert showIcon type="success" title="Phương án của điều hành — đọc cho khách" description={sc.resolution} />
             ) : (
               <p className="text-xs text-gray-400">{sc.status_label}</p>
             )}
 
             <div className="flex flex-wrap items-center gap-2">
               {sc.photos.map((anh) => (
-                <img
-                  key={anh.id}
-                  src={anh.image_path}
-                  alt={anh.caption ?? "Ảnh hiện trường"}
-                  className="h-16 w-16 rounded-lg border border-gray-200 object-cover"
-                />
+                <Image key={anh.id} src={anh.image_path} alt={anh.caption ?? "Ảnh hiện trường"} width={80} height={80} style={{ objectFit: "cover", borderRadius: 8 }} />
               ))}
 
-              <label className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 text-gray-400 hover:border-rose-300 hover:text-rose-500">
-                <Camera className="h-4 w-4" />
-                <span className="text-[10px]">Thêm ảnh</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) uploadPhoto(sc.id, file);
-                  }}
-                />
-              </label>
+              <Upload accept="image/*" showUploadList={false} disabled={uploadingId !== null} beforeUpload={file => { void uploadPhoto(sc.id, file); return false; }}><Button icon={<Camera size={16} />} loading={uploadingId === sc.id} disabled={uploadingId !== null}>Thêm ảnh</Button></Upload>
             </div>
-          </div>
+          </div></Card>
         ))}
       </div>
     </div>

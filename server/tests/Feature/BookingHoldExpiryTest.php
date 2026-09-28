@@ -15,6 +15,8 @@ use Tests\TestCase;
 
 class BookingHoldExpiryTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private function taoTourVaLich(
@@ -49,7 +51,7 @@ class BookingHoldExpiryTest extends TestCase
             'booking_deadline' => $hanChot,
             'max_people' => $maxPeople,
             'booked_people' => $bookedPeople,
-            'status' => $bookedPeople >= $maxPeople ? 'closed' : 'open',
+            'status' => 'open',
         ]);
     }
 
@@ -77,7 +79,7 @@ class BookingHoldExpiryTest extends TestCase
         $schedule = $this->taoTourVaLich(maxPeople: 5, bookedPeople: 3);
         $donQuaHan = $this->taoDonGiuCho($schedule, guests: 3, expiresAt: now()->subMinute());
 
-        $response = $this->postJson('/api/bookings', [
+        $response = $this->postVerifiedBooking([
             'tour_id' => $schedule->tour_id,
             'tour_schedule_id' => $schedule->id,
             'customer_name' => 'Khach Moi',
@@ -101,7 +103,7 @@ class BookingHoldExpiryTest extends TestCase
         $schedule = $this->taoTourVaLich(maxPeople: 5, bookedPeople: 3);
         $donDangGiu = $this->taoDonGiuCho($schedule, guests: 3, expiresAt: now()->addMinutes(9));
 
-        $response = $this->postJson('/api/bookings', [
+        $response = $this->postVerifiedBooking([
             'tour_id' => $schedule->tour_id,
             'tour_schedule_id' => $schedule->id,
             'customer_name' => 'Khach Moi',
@@ -185,7 +187,7 @@ class BookingHoldExpiryTest extends TestCase
         $schedule->refresh();
 
         $this->assertSame(0, (int) $schedule->booked_people, 'Khách chưa trả đồng nào thì chỗ phải về kho.');
-        $this->assertSame(ScheduleStatus::Closed, $schedule->status, 'Qua hạn chốt thì không mở bán lại.');
+        $this->assertSame(ScheduleStatus::Open, $schedule->status, 'Qua hạn chốt thì không mở bán lại.');
         $this->assertFalse($schedule->isBookable());
     }
 
@@ -209,5 +211,4 @@ class BookingHoldExpiryTest extends TestCase
         $this->assertTrue($schedule->isBookable());
     }
 }
-
 

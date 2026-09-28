@@ -271,7 +271,7 @@ class TransferDepositCarryOverTest extends TestCase
         $this->expectException(BusinessRuleException::class);
         $this->expectExceptionMessageMatches('/hạn chốt danh sách/u');
 
-        app(ScheduleMergeService::class)->merge($nguon, $dich, 'Gộp hai chuyến ế.');
+        app(ScheduleMergeService::class)->merge($nguon, $dich, 'Gộp hai chuyến ế.', \App\Models\User::factory()->create(['role' => 'admin']));
     }
 
     /** Và chặn cả khi chính chuyến NGUỒN đã qua hạn chốt. */
@@ -286,7 +286,7 @@ class TransferDepositCarryOverTest extends TestCase
 
         $this->expectException(BusinessRuleException::class);
 
-        app(ScheduleMergeService::class)->merge($nguon, $dich, 'Gộp hai chuyến ế.');
+        app(ScheduleMergeService::class)->merge($nguon, $dich, 'Gộp hai chuyến ế.', \App\Models\User::factory()->create(['role' => 'admin']));
     }
 
     /**
@@ -298,7 +298,7 @@ class TransferDepositCarryOverTest extends TestCase
     public function test_ghep_vao_chuyen_dung_han_tra_not_thi_van_no_phan_con_lai(): void
     {
         $tour = $this->tour(5_000_000);
-        $hanTraNot = (int) config('booking.balance_due_days', 10);
+        $hanTraNot = (int) config('booking.booking_deadline_days', 3) + 2;
 
         // Chuyến đích đi sớm hơn hạn trả nốt một ngày, nên hạn ấy đã nằm ở quá khứ ngay lúc ghép.
         $nguon = $this->chuyen($tour, $hanTraNot + 1);
@@ -306,15 +306,17 @@ class TransferDepositCarryOverTest extends TestCase
 
         $don = $this->donDaCoc($nguon);
 
-        app(ScheduleMergeService::class)->merge($nguon, $dich, 'Gộp hai chuyến ế.');
+        app(ScheduleMergeService::class)->merge($nguon, $dich, 'Gộp hai chuyến ế.', \App\Models\User::factory()->create(['role' => 'admin']));
+
+        app(ScheduleMergeService::class)->respond($don->proposals()->latest('id')->firstOrFail(), 'accept', null);
 
         $moi = $don->fresh();
 
         $this->assertEquals(5_000_000, $this->so()->netPaid($moi), 'Cọc không bị đụng tới.');
         $this->assertEquals(5_000_000, $this->so()->balanceDue($moi), 'Vẫn nợ đúng phần còn lại.');
         $this->assertTrue(
-            now()->gte($moi->balanceDueAt()),
-            'Hạn trả nốt của chuyến đích đã tới ngay lúc ghép xong.',
+            now()->lt($moi->balanceDueAt()),
+            'Hạn trả nốt là hạn chốt của chuyến đích và chưa tới.',
         );
     }
 }

@@ -212,6 +212,9 @@ class ScheduleDeadlineTest extends TestCase
             'number_of_days' => 2,
             'number_of_nights' => 1,
             'start_location' => 'Ha Noi',
+            'itineraries' => array_map(fn ($day) => [
+                'day_number' => $day, 'title' => "Ngày {$day}", 'content' => 'Tham quan và nghỉ ngơi.',
+            ], range(1, 2)),
             'schedules' => [[
                 'id' => $this->chuyen->id,
                 'start_date' => $this->chuyen->start_date->toDateTimeString(),
@@ -243,6 +246,9 @@ class ScheduleDeadlineTest extends TestCase
             'number_of_days' => 2,
             'number_of_nights' => 1,
             'start_location' => 'Ha Noi',
+            'itineraries' => array_map(fn ($day) => [
+                'day_number' => $day, 'title' => "Ngày {$day}", 'content' => 'Tham quan và nghỉ ngơi.',
+            ], range(1, 2)),
             'schedules' => [[
                 'id' => $this->chuyen->id,
                 'start_date' => $this->chuyen->start_date->toDateTimeString(),
@@ -284,6 +290,9 @@ class ScheduleDeadlineTest extends TestCase
             'number_of_days' => 2,
             'number_of_nights' => 1,
             'start_location' => 'Ha Noi',
+            'itineraries' => array_map(fn ($day) => [
+                'day_number' => $day, 'title' => "Ngày {$day}", 'content' => 'Tham quan và nghỉ ngơi.',
+            ], range(1, 2)),
             'schedules' => [[
                 'id' => $this->chuyen->id,
                 'start_date' => $this->chuyen->start_date->toDateTimeString(),
@@ -329,6 +338,9 @@ class ScheduleDeadlineTest extends TestCase
             'number_of_days' => 2,
             'number_of_nights' => 1,
             'start_location' => 'Ha Noi',
+            'itineraries' => array_map(fn ($day) => [
+                'day_number' => $day, 'title' => "Ngày {$day}", 'content' => 'Tham quan và nghỉ ngơi.',
+            ], range(1, 2)),
             'schedules' => [
                 [
                     'id' => $daQua->id,
@@ -405,7 +417,7 @@ class ScheduleDeadlineTest extends TestCase
             'start_date' => now()->addDays(2),
             'end_date' => now()->addDays(3),
             'booking_deadline' => now()->subDay(),
-            'status' => ScheduleStatus::Closed->value,
+            'status' => ScheduleStatus::Open->value,
         ]);
 
         $don = $this->taoDon($chuyen);
@@ -434,13 +446,13 @@ class ScheduleDeadlineTest extends TestCase
 
     // --- Xem trước tác động --------------------------------------------------------------
 
-    public function test_xem_truoc_nhac_chuyen_khong_tu_mo_ban_lai(): void
+    public function test_gia_han_khong_can_mo_ban_thu_cong(): void
     {
         $chuyen = $this->taoChuyen([
             'start_date' => now()->addDays(2),
             'end_date' => now()->addDays(3),
             'booking_deadline' => now()->subDay(),
-            'status' => ScheduleStatus::Closed->value,
+            'status' => ScheduleStatus::Open->value,
         ]);
 
         Sanctum::actingAs($this->dieuHanh);
@@ -455,13 +467,14 @@ class ScheduleDeadlineTest extends TestCase
         $this->assertSame('later', $impact['direction']);
         $this->assertTrue($impact['currently_past']);
         $this->assertFalse($impact['will_be_past']);
-        $this->assertTrue($impact['needs_manual_reopen']);
         $this->assertTrue($impact['can_change']);
 
-        $this->assertNotEmpty(array_filter(
+        $this->assertEmpty(array_filter(
             $impact['warnings'],
             fn (string $dong) => str_contains($dong, 'Mở bán'),
-        ), 'Phải nhắc rằng chuyến không tự mở bán lại.');
+        ));
+        $this->service()->change($chuyen, now()->addDay(), 'Gia han de nhan them khach.', $this->dieuHanh);
+        $this->assertTrue($chuyen->fresh()->isBookable());
     }
 
     public function test_xem_truoc_dem_dung_so_ghe_chet(): void
@@ -470,7 +483,7 @@ class ScheduleDeadlineTest extends TestCase
             'start_date' => now()->addDays(2),
             'end_date' => now()->addDays(3),
             'booking_deadline' => now()->subDay(),
-            'status' => ScheduleStatus::Closed->value,
+            'status' => ScheduleStatus::Open->value,
         ]);
 
         $don = $this->taoDon($chuyen, khach: 3);
@@ -520,7 +533,11 @@ class ScheduleDeadlineTest extends TestCase
         ));
         $this->assertNotEmpty(array_filter(
             $impact['warnings'],
-            fn (string $dong) => str_contains($dong, 'Số tiền hoàn của mọi đơn không đổi'),
+            fn (string $dong) => str_contains($dong, 'Với yêu cầu hủy tự nguyện, số tiền hoàn không đổi'),
+        ));
+        $this->assertNotEmpty(array_filter(
+            $impact['warnings'],
+            fn (string $dong) => str_contains($dong, 'Hạn trả nốt thay đổi cùng hạn chốt danh sách'),
         ));
     }
 

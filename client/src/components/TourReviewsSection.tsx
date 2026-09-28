@@ -1,3 +1,4 @@
+import { Alert, Button, Form, Input, Rate } from "antd";
 import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Star, CheckCircle2, MessageSquare, Clock, XCircle, CornerDownRight } from "lucide-react";
@@ -157,11 +158,10 @@ export const TourReviewsSection: React.FC<{
         {reviews.map((rev) => (
           <div
             key={rev.id}
-            className={`rounded-lg p-5 border space-y-3 ${
-              rev.is_mine && rev.status !== "approved"
-                ? "bg-amber-50/40 border-amber-200"
-                : "bg-gray-50/50 border-gray-100"
-            }`}
+            className={`rounded-lg p-5 border space-y-3 ${rev.is_mine && rev.status !== "approved"
+              ? "bg-amber-50/40 border-amber-200"
+              : "bg-gray-50/50 border-gray-100"
+              }`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -236,13 +236,7 @@ export const TourReviewsSection: React.FC<{
         ))}
 
         {page < lastPage && (
-          <button
-            onClick={() => loadReviews(page + 1, true)}
-            disabled={loading}
-            className="w-full py-3 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-          >
-            {loading ? "Đang tải..." : `Xem thêm đánh giá (còn ${summary.total - reviews.length})`}
-          </button>
+          <Button block loading={loading} onClick={() => loadReviews(page + 1, true)}>Xem thêm đánh giá (còn {summary.total - reviews.length})</Button>
         )}
       </div>
 
@@ -267,56 +261,14 @@ export const TourReviewsSection: React.FC<{
             {successMessage}
           </div>
         ) : (
-          <form onSubmit={handleAddReview} className="space-y-4">
-            {submitError && (
-              <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-semibold">
-                {submitError}
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Đánh giá số sao</label>
-              <div className="flex items-center gap-1 pt-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => setNewRating(star)}
-                    aria-label={`${star} sao`}
-                    className="p-1 hover:scale-110 transition-transform"
-                  >
-                    <Star
-                      className={`w-6 h-6 ${star <= newRating ? "fill-amber-400 text-amber-400" : "text-gray-300"}`}
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Nội dung bình luận</label>
-              <textarea
-                rows={3}
-                minLength={10}
-                placeholder="Chia sẻ trải nghiệm thực tế của bạn về khách sạn, hướng dẫn viên, món ăn..."
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                className="w-full p-3.5 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                required
-              />
-              <p className="mt-1 text-[11px] text-gray-400">
-                Ít nhất 10 ký tự. Nhận xét hiện công khai sau khi được duyệt.
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors disabled:opacity-50"
-            >
-              {submitting ? "Đang gửi nhận xét..." : "Gửi đánh giá"}
-            </button>
-          </form>
+          <Form component={false} layout="vertical"><form onSubmit={handleAddReview}>
+            {submitError && <Alert type="error" showIcon title={submitError} style={{ marginBottom: 16 }} />}
+            <Form.Item label="Đánh giá số sao"><Rate value={newRating} onChange={setNewRating} allowClear={false} /></Form.Item>
+            <Form.Item label="Nội dung bình luận" htmlFor="review-comment" extra="Ít nhất 10 ký tự. Nhận xét hiện công khai sau khi được duyệt.">
+              <Input.TextArea id="review-comment" rows={4} minLength={10} required value={newComment} onChange={event => setNewComment(event.target.value)} placeholder="Chia sẻ trải nghiệm thực tế của bạn về chuyến đi…" />
+            </Form.Item>
+            <Button htmlType="submit" type="primary" loading={submitting}>Gửi đánh giá</Button>
+          </form></Form>
         )}
       </div>
     </div>

@@ -1,21 +1,37 @@
+import PassengerSupplementPanel from "@/components/admin/PassengerSupplementPanel";
+import { ScheduleDetailsDrawer } from "@/components/admin/ScheduleDetailsDrawer";
+import { filterScheduleList, scheduleStatusText, scheduleStatus, scheduleView, type ScheduleView } from "@/utils/scheduleList";
+import dayjs from "dayjs";
+import api from "@/services/api";
+import { businessNow } from "@/utils/demoClock";
+import {
+  Button as AntButton,
+  Card as UICard,
+  Checkbox as AntCheckbox,
+  Alert as AntAlert,
+  DatePicker as AntDatePicker,
+  Empty as AntEmpty,
+  Form as AntForm,
+  Tabs as AntTabs,
+  Tooltip as AntTooltip,
+  Flex as UIFlex,
+  Input as AntInput,
+  Modal as AntModal,
+  Radio as AntRadio,
+  Select as AntSelect,
+  Table as AntTable,
+  Tag as AntTag,
+  Typography as AntTypography,
+} from "antd";
 import { useCallback, useEffect, useState, useMemo } from "react";
+import { useLatestRequest } from "@/components/admin/useLatestRequest";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  CalendarDays,
-  Clock,
-  Users,
   Search,
-  Filter,
   AlertTriangle,
   RotateCcw,
-  CheckCircle2,
-  ChevronDown,
-  ClipboardCheck,
-  GitMerge,
-  Lock,
-  Unlock,
 } from "lucide-react";
-import { TableActions } from "@/components/admin/TableActions";
+import { ScheduleMergeDialog } from "@/components/admin/ScheduleMergeDialog";
 import adminService from "@/services/adminService";
 import type {
   CancelPlan,
@@ -37,69 +53,30 @@ import { Toast } from "@/components/admin/CustomAlert";
 import {
   formatDateTime,
   formatPrice,
-  getEndDate,
   toDateTimeLocalValue,
 } from "@/utils/format";
 import {
   LY_DO_DOI_HAN_TOI_THIEU,
-  statusLabel,
-  statusClasses,
+  getScheduleUnavailableReason,
+  getScheduleDeadline,
 } from "@/utils/schedule";
-import Pagination from "@/components/common/Pagination";
-import { DateTimePicker } from "@/components/DateTimePicker";
-
-type ScheduleStatus = ExtendedSchedule["status"];
-
-/** Chuyến đã kết thúc vòng đời thì không còn gì để xử lý. */
-const conSong = (s: ExtendedSchedule) => {
-  const status = s.status || "open";
-  return status !== "cancelled" && status !== "completed";
-};
-
-const thieuNguoiDan = (s: ExtendedSchedule) =>
-  conSong(s) && (s.guides ?? []).length === 0;
-
-const quaHanConMoBan = (s: ExtendedSchedule, bayGio: number) =>
-  (s.status || "open") === "open" &&
-  s.booking_deadline !== null &&
-  s.booking_deadline !== undefined &&
-  new Date(s.booking_deadline).getTime() < bayGio;
-
-/**
- * Chuyến đã tới hạn chốt mà số khách ĐÃ TRẢ TIỀN chưa đạt mức tối thiểu.
- *
- * So `paid_people` chứ không so `booked_people`: chỗ đang giữ mà chưa trả tiền thì có thể biến
- * mất bất cứ lúc nào, và lệnh nền `ConfirmReadySchedules` cũng đếm đúng con số này khi quyết chốt
- * chuyến hay không. Hai bên nhìn hai con số khác nhau thì màn hình báo đủ khách trong khi tác vụ
- * nền lặng lẽ không chốt.
- *
- * Chỉ tính khi đã qua hạn chốt. Trước đó thiếu khách là chuyện bình thường — chuyến còn đang bán.
- */
-const thieuKhachToiThieu = (s: ExtendedSchedule, bayGio: number) => {
-  if (!conSong(s)) return false;
-  if (s.status === "confirmed" || s.status === "in_progress") return false;
-  if (!s.booking_deadline || new Date(s.booking_deadline).getTime() >= bayGio)
-    return false;
-
-  return (s.paid_people ?? 0) < (s.min_people || 1);
-};
-
-const THU_TU_TRANG_THAI: ScheduleStatus[] = [
-  "open",
-  "closed",
-  "confirmed",
-  "in_progress",
-  "completed",
-  "cancelled",
-];
+import Pagination from "@/components/admin/AdminPagination";
+import { DateTimePicker } from "@/components/admin/AdminDateTimePicker";
 
 export default function ScheduleManagement() {
   const navigate = useNavigate();
   const [tours, setTours] = useState<Tour[]>([]);
   const [guides, setGuides] = useState<Guide[]>([]);
   const [loading, setLoading] = useState(true);
+  const [canAdvanceTime, setCanAdvanceTime] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [view, setView] = useState<ScheduleView>("upcoming");
+  const [tourFilter, setTourFilter] = useState<number>();
+  const [dateRange, setDateRange] = useState<[string, string] | null>(null);
+  const [unassignedOnly, setUnassignedOnly] = useState(false);
+  const [detailScheduleId, setDetailScheduleId] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   // State phân công Hướng dẫn viên
@@ -161,6 +138,7 @@ export default function ScheduleManagement() {
   const [manifestScheduleId, setManifestScheduleId] = useState<number | null>(
     null,
   );
+
   const [dangXuatDanhSach, setDangXuatDanhSach] = useState(false);
   const [manifest, setManifest] = useState<ScheduleManifestResponse | null>(
     null,
@@ -179,6 +157,7 @@ export default function ScheduleManagement() {
   const [mergeReason, setMergeReason] = useState("");
   const [mergeSaving, setMergeSaving] = useState(false);
   const [mergeError, setMergeError] = useState("");
+  const { begin: beginMergeRequest, isCurrent: isCurrentMergeRequest, invalidate: invalidateMergeRequest } = useLatestRequest();
 
   // Dời hạn chốt danh sách. Xem docs/nghiep-vu/16-sua-han-chot.md.
   const [deadlineScheduleId, setDeadlineScheduleId] = useState<number | null>(
@@ -198,30 +177,24 @@ export default function ScheduleManagement() {
     isOpen: false,
   });
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [toursData, guidesData] = await Promise.all([
-        adminService.getTours(),
-        adminService.getGuides(),
-      ]);
-      setTours(toursData);
-      setGuides(guidesData?.data.filter((g) => g.status === "active") ?? []);
-    } catch (err) {
-      console.error("Failed to load schedules data: ", err);
-      setToast({
-        message: "Không thể tải dữ liệu quản lý chuyến.",
-        type: "error",
-        isOpen: true,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loadData = useCallback(() => Promise.all([
+    adminService.getTours(),
+    adminService.getGuides(),
+  ]).then(([toursData, guidesData]) => {
+    setLoadError("");
+    setTours(toursData);
+    setGuides(guidesData?.data.filter(guide => guide.status === "active") ?? []);
+  }).catch(() => {
+    setLoadError("Không tải được lịch khởi hành. Vui lòng thử lại.");
+  }).finally(() => setLoading(false)), []);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    void loadData();
+    const controller = new AbortController();
+    api.get("/admin/demo-availability", { signal: controller.signal })
+      .then(response => setCanAdvanceTime(response.data.data.enabled)).catch(() => {});
+    return () => controller.abort();
+  }, [loadData]);
 
   // Làm phẳng danh sách chuyến đi từ danh sách Tour
   const allSchedules = useMemo<ExtendedSchedule[]>(() => {
@@ -235,147 +208,35 @@ export default function ScheduleManagement() {
     );
   }, [tours]);
 
-  // Bộ lọc tìm kiếm
-  const filteredSchedules = useMemo(() => {
-    return allSchedules.filter((schedule) => {
-      const matchesSearch =
-        schedule.tour_title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        String(schedule.id).includes(searchQuery);
-      const status = schedule.status || "open";
-      const matchesStatus = statusFilter === "all" || status === statusFilter;
+  const filteredSchedules = useMemo(() => filterScheduleList(allSchedules, {
+    view, query: searchQuery, tourId: tourFilter, status: statusFilter,
+    dateRange, unassigned: unassignedOnly,
+  }), [allSchedules, view, searchQuery, tourFilter, statusFilter, dateRange, unassignedOnly]);
 
-      return matchesSearch && matchesStatus;
-    });
-  }, [allSchedules, searchQuery, statusFilter]);
-
-  /*
-   * Gom chuyến theo tour.
-   *
-   * Một tour bán quanh năm thì có vài chục chuyến, và bảng phẳng cũ lặp lại tên tour ấy vài chục
-   * lần — cuộn mười trang mà vẫn chỉ đang xem đúng ba sản phẩm. Gom lại thì mỗi tour một hàng,
-   * bấm vào mới mở ra các chuyến của nó.
-   *
-   * Phần tóm tắt trên hàng tour phải nói đủ để KHÔNG cần mở ra: bao nhiêu chuyến, chuyến gần
-   * nhất là ngày nào, và có bao nhiêu chuyến đang cần xử lý. Nếu thu gọn mà giấu mất vấn đề thì
-   * còn tệ hơn bảng phẳng.
-   */
-  const tourGroups = useMemo(() => {
-    const bayGio = Date.now();
-    const theoTour = new Map<
-      number,
-      { tour_id: number; tour_title: string; schedules: ExtendedSchedule[] }
-    >();
-
-    for (const schedule of filteredSchedules) {
-      let nhom = theoTour.get(schedule.tour_id);
-      if (!nhom) {
-        nhom = {
-          tour_id: schedule.tour_id,
-          tour_title: schedule.tour_title,
-          schedules: [],
-        };
-        theoTour.set(schedule.tour_id, nhom);
-      }
-      nhom.schedules.push(schedule);
-    }
-
-    return [...theoTour.values()].map((nhom) => {
-      const schedules = [...nhom.schedules].sort(
-        (a, b) =>
-          new Date(a.start_date).getTime() - new Date(b.start_date).getTime(),
-      );
-
-      /*
-       * Đếm theo thứ tự vòng đời chứ không theo thứ tự gặp phải, để dãy nhãn trên mỗi hàng tour
-       * luôn đọc cùng một chiều: mở bán → đóng bán → chốt → đang chạy → xong → hủy.
-       */
-      const dem = schedules.reduce<Partial<Record<ScheduleStatus, number>>>(
-        (tong, s) => {
-          const status = (s.status || "open") as ScheduleStatus;
-          tong[status] = (tong[status] ?? 0) + 1;
-          return tong;
-        },
-        {},
-      );
-
-      const demTrangThai = THU_TU_TRANG_THAI.filter(
-        (status) => dem[status],
-      ).map((status) => ({
-        status,
-        soLuong: dem[status] as number,
-      }));
-
-      const sapToi = schedules.find(
-        (s) =>
-          new Date(s.start_date).getTime() >= bayGio &&
-          s.status !== "cancelled" &&
-          s.status !== "completed",
-      );
-
-      /*
-       * "Cần xử lý" = chuyến còn sống mà thiếu một trong ba thứ điều hành phải lo: chưa có người
-       * dẫn, đã qua hạn chốt danh sách mà vẫn đang mở bán, hoặc **không đủ khách tối thiểu**.
-       */
-      const canXuLy = schedules.filter(
-        (s) =>
-          thieuNguoiDan(s) ||
-          quaHanConMoBan(s, bayGio) ||
-          thieuKhachToiThieu(s, bayGio),
-      ).length;
-
-      /*
-       * Chuyến thiếu khách tách riêng, vì nó là loại việc khác hẳn: hai cái kia sửa bằng một
-       * thao tác, còn cái này buộc phải chọn giữa hủy chuyến và chạy lỗ.
-       */
-      const thieuKhach = schedules.filter((s) =>
-        thieuKhachToiThieu(s, bayGio),
-      ).length;
-
-      return { ...nhom, schedules, demTrangThai, sapToi, canXuLy, thieuKhach };
-    });
-  }, [filteredSchedules]);
-
-  // Phân trang giờ đếm theo TOUR, không phải theo chuyến.
-  const totalItems = tourGroups.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-
-  const paginatedGroups = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return tourGroups.slice(startIndex, startIndex + itemsPerPage);
-  }, [tourGroups, currentPage, itemsPerPage]);
-
-  const [expandedTourIds, setExpandedTourIds] = useState<number[]>([]);
-
-  const toggleTour = (tourId: number) =>
-    setExpandedTourIds((truoc) =>
-      truoc.includes(tourId)
-        ? truoc.filter((id) => id !== tourId)
-        : [...truoc, tourId],
-    );
-
-  /*
-   * Đang lọc thì bung sẵn mọi nhóm khớp: người ta gõ tìm là để thấy chuyến, không phải để thấy
-   * tên tour rồi bấm thêm một lần nữa. Xóa bộ lọc thì thu hết về.
-   *
-   * Cố ý KHÔNG để `tourGroups` vào danh sách phụ thuộc. Mỗi lần phân công hướng dẫn viên hay đổi
-   * trạng thái là dữ liệu tải lại và `tourGroups` là mảng mới — nếu phụ thuộc vào nó thì mọi
-   * nhóm người dùng tự thu lại sẽ bung ra sau mỗi thao tác.
-   */
-  useEffect(() => {
+  const totalItems = filteredSchedules.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const visiblePage = Math.min(currentPage, totalPages);
+  const pageSchedules = filteredSchedules.slice((visiblePage - 1) * itemsPerPage, visiblePage * itemsPerPage);
+  const detailSchedule = allSchedules.find(schedule => schedule.id === detailScheduleId) ?? null;
+  const counts = allSchedules.reduce((result, schedule) => {
+    result[scheduleView(schedule)]++;
+    return result;
+  }, { upcoming: 0, running: 0, history: 0 });
+  const resetFilters = () => {
+    setSearchQuery("");
+    setTourFilter(undefined);
+    setStatusFilter("all");
+    setDateRange(null);
+    setUnassignedOnly(false);
     setCurrentPage(1);
+  };
+  const hasFilters = Boolean(searchQuery || tourFilter || statusFilter !== "all" || dateRange || unassignedOnly);
 
-    const dangLoc = searchQuery.trim() !== "" || statusFilter !== "all";
-    setExpandedTourIds(dangLoc ? tourGroups.map((nhom) => nhom.tour_id) : []);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, statusFilter]);
-
-  const loadHandoverRequests = useCallback(async () => {
-    try {
-      setHandoverRequests(await adminService.getPendingHandoverRequests());
-    } catch (err) {
-      console.error("Lỗi tải yêu cầu bàn giao:", err);
-    }
-  }, []);
+  const loadHandoverRequests = useCallback(() =>
+    adminService.getPendingHandoverRequests()
+      .then(requests => setHandoverRequests(requests))
+      .catch(err => console.error("Lỗi tải yêu cầu bàn giao:", err)),
+  []);
 
   useEffect(() => {
     loadHandoverRequests();
@@ -535,7 +396,7 @@ export default function ScheduleManagement() {
 
   const handleUpdateStatus = async (
     scheduleId: number,
-    nextStatus: "open" | "closed" | "confirmed" | "cancelled",
+    nextStatus: "open" | "confirmed" | "cancelled",
     reason?: string,
   ) => {
     try {
@@ -559,7 +420,7 @@ export default function ScheduleManagement() {
       );
 
       setToast({
-        message: `Đã cập nhật trạng thái chuyến khởi hành thành "${statusLabel[updatedSchedule.status]}".`,
+        message: `Đã cập nhật trạng thái chuyến khởi hành thành "${scheduleStatusText[updatedSchedule.status]}".`,
         type: "success",
         isOpen: true,
       });
@@ -643,7 +504,8 @@ export default function ScheduleManagement() {
     );
   };
 
-  const openMergeDialog = async (scheduleId: number) => {
+  const openMergeDialog = useCallback(async (scheduleId: number) => {
+    const requestId = beginMergeRequest();
     setMergeScheduleId(scheduleId);
     setMergeData(null);
     setMergeTargetId(null);
@@ -652,15 +514,22 @@ export default function ScheduleManagement() {
     setMergeLoading(true);
 
     try {
-      setMergeData(await adminService.getMergeCandidates(scheduleId));
+      const data = await adminService.getMergeCandidates(scheduleId);
+      if (!isCurrentMergeRequest(requestId)) return;
+      if (!data) throw new Error("Missing merge preview");
+      setMergeData(data);
     } catch (err) {
       console.error("Lỗi tải danh sách chuyến có thể ghép:", err);
+      if (isCurrentMergeRequest(requestId)) {
+        setMergeError("Không tải được chuyến nhận khách. Vui lòng thử lại.");
+      }
     } finally {
-      setMergeLoading(false);
+      if (isCurrentMergeRequest(requestId)) setMergeLoading(false);
     }
-  };
+  }, [beginMergeRequest, isCurrentMergeRequest]);
 
   const closeMergeDialog = () => {
+    invalidateMergeRequest();
     setMergeScheduleId(null);
     setMergeData(null);
     setMergeTargetId(null);
@@ -669,7 +538,9 @@ export default function ScheduleManagement() {
   };
 
   const confirmMerge = async () => {
-    if (!mergeScheduleId || !mergeTargetId || mergeReason.trim().length < 10)
+    if (mergeSaving || mergeLoading || !mergeScheduleId ||
+      !mergeData?.candidates.some((item) => item.schedule_id === mergeTargetId && item.can_merge) ||
+      !mergeTargetId || mergeReason.trim().length < 10 || mergeReason.trim().length > 500)
       return;
 
     setMergeSaving(true);
@@ -805,596 +676,120 @@ export default function ScheduleManagement() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            Quản lý Chuyến khởi hành
-          </h1>
-          <p className="text-sm text-gray-500">
-            Quản lý chi tiết vòng đời chuyến đi, theo dõi thời hạn đăng ký, chốt
-            chuyến chạy và hủy chuyến.
-          </p>
-        </div>
-      </div>
+    <UIFlex vertical gap="large">
+      <UIFlex justify="space-between" align="center" wrap gap="middle">
+        <AntTypography.Title level={3} style={{ margin: 0 }}>Lịch khởi hành</AntTypography.Title>
+        <AntButton icon={<RotateCcw size={16} />} loading={loading} onClick={() => { setLoading(true); void loadData(); }}>Làm mới</AntButton>
+      </UIFlex>
 
-      {/*
-        Yêu cầu bàn giao đang chờ — đặt ngay dưới tiêu đề, trên cả bộ lọc.
+      {handoverRequests.length > 0 && <AntAlert type="warning" showIcon
+        title={`${handoverRequests.length} yêu cầu đổi hướng dẫn viên đang chờ`}
+        action={<Link to="/admin/handovers">Xem yêu cầu</Link>} />}
 
-        Hướng dẫn viên gửi lên đúng lúc họ không dẫn tiếp được, mà đoàn thì đang trên đường. Nằm
-        dưới bảng chuyến thì phải cuộn hết trang mới thấy, và thứ này không chờ được.
-      */}
-      {handoverRequests.length > 0 && (
-        <Link
-          to="/admin/handovers"
-          className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm shadow-sm hover:bg-amber-100/60 transition-colors"
-        >
-          <AlertTriangle className="h-4 w-4 text-amber-700" />
-          <span className="font-bold text-amber-900">
-            {handoverRequests.length} yêu cầu bàn giao đang chờ bạn cử người
-            thay
-          </span>
-          <span className="text-xs text-amber-800">
-            {handoverRequests[0].requester_name}
-            {handoverRequests.length > 1
-              ? ` và ${handoverRequests.length - 1} người nữa`
-              : ""}
-          </span>
-          <span className="ml-auto text-xs font-semibold text-amber-900 underline">
-            Xử lý ngay
-          </span>
-        </Link>
-      )}
+      <UICard styles={{ body: { padding: "8px 20px 20px" } }}>
+        <AntTabs activeKey={view} onChange={key => {
+          setView(key as ScheduleView);
+          setStatusFilter("all");
+          setUnassignedOnly(false);
+          setCurrentPage(1);
+        }} items={[
+          { key: "upcoming", label: `Chưa khởi hành (${counts.upcoming})` },
+          { key: "running", label: `Đang diễn ra (${counts.running})` },
+          { key: "history", label: `Đã kết thúc / hủy (${counts.history})` },
+        ]} />
+        <AntForm layout="vertical">
+          <UIFlex gap="middle" wrap align="end">
+            <AntForm.Item label="Tìm chuyến" style={{ flex: "1 1 220px", marginBottom: 12 }}>
+              <AntInput allowClear prefix={<Search size={16} />} placeholder="Tên tour hoặc mã chuyến" value={searchQuery}
+                onChange={event => { setSearchQuery(event.target.value); setCurrentPage(1); }} />
+            </AntForm.Item>
+            <AntForm.Item label="Tour" style={{ flex: "1 1 220px", marginBottom: 12 }}>
+              <AntSelect allowClear showSearch optionFilterProp="label" placeholder="Tất cả tour" value={tourFilter}
+                options={tours.map(tour => ({ value: tour.id, label: tour.title }))}
+                onChange={value => { setTourFilter(value); setCurrentPage(1); }} />
+            </AntForm.Item>
+            <AntForm.Item label="Ngày khởi hành" style={{ flex: "1 1 260px", marginBottom: 12 }}>
+              <AntDatePicker.RangePicker style={{ width: "100%" }} format="DD/MM/YYYY" placeholder={["Từ ngày", "Đến ngày"]}
+                value={dateRange ? [dayjs(dateRange[0]), dayjs(dateRange[1])] : null}
+                onChange={dates => { setDateRange(dates?.[0] && dates[1] ? [dates[0].format("YYYY-MM-DD"), dates[1].format("YYYY-MM-DD")] : null); setCurrentPage(1); }} />
+            </AntForm.Item>
+            {view !== "running" && <AntForm.Item label="Trạng thái" style={{ flex: "0 1 200px", minWidth: 180, marginBottom: 12 }}>
+              <AntSelect value={statusFilter} onChange={value => { setStatusFilter(value); setCurrentPage(1); }}
+                options={[
+                  { value: "all", label: "Tất cả trạng thái" },
+                  ...(view === "history" ? ["completed", "cancelled"] as const : ["open", "confirmed"] as const)
+                    .map(value => ({ value, label: scheduleStatusText[value] })),
+                ]} />
+            </AntForm.Item>}
+          </UIFlex>
+        </AntForm>
+        <UIFlex align="center" justify="space-between" wrap gap="small">
+          {view !== "history" ? <AntCheckbox checked={unassignedOnly} onChange={event => { setUnassignedOnly(event.target.checked); setCurrentPage(1); }}>Chưa có hướng dẫn viên</AntCheckbox> : <span />}
+          <UIFlex gap="middle" align="center">
+            <AntTypography.Text type="secondary">{totalItems} chuyến</AntTypography.Text>
+            {hasFilters && <AntButton type="link" onClick={resetFilters}>Xóa bộ lọc</AntButton>}
+          </UIFlex>
+        </UIFlex>
+      </UICard>
 
-      {/* FILTER & SEARCH */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Tìm theo ID, tên tour..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-gray-200 bg-white placeholder-gray-400 outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-100"
-          />
-        </div>
+      {loadError && <AntAlert type="error" showIcon title={loadError} action={<AntButton onClick={loadData}>Thử lại</AntButton>} />}
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <Filter className="h-4 w-4 text-gray-400" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="flex-1 sm:flex-initial bg-white border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 outline-none focus:border-primary-500"
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="open">Đang mở bán</option>
-            <option value="closed">Đã đóng bán</option>
-            <option value="confirmed">Đã chốt chạy</option>
-            <option value="in_progress">Đang di chuyển</option>
-            <option value="completed">Đã hoàn thành</option>
-            <option value="cancelled">Đã hủy</option>
-          </select>
+      <UICard styles={{ body: { padding: 0 } }}>
+        <AntTable<ExtendedSchedule> rowKey="id" loading={loading} pagination={false} dataSource={pageSchedules}
+          scroll={{ x: 1050 }} locale={{ emptyText: <AntEmpty image={AntEmpty.PRESENTED_IMAGE_SIMPLE} description={hasFilters ? "Không có chuyến phù hợp với bộ lọc." : "Chưa có chuyến trong mục này."}>{hasFilters && <AntButton onClick={resetFilters}>Xóa bộ lọc</AntButton>}</AntEmpty> }}
+          columns={[
+            { key: "trip", title: "Chuyến đi", width: 290, render: (_, schedule) => <UIFlex vertical gap={4}>
+              <AntTypography.Text strong>{schedule.tour_title}</AntTypography.Text>
+              <AntTypography.Text>Khởi hành {formatDateTime(schedule.start_date)}</AntTypography.Text>
+              <AntTypography.Text type="secondary">#{schedule.id}{schedule.end_date ? ` · Về ${formatDateTime(schedule.end_date)}` : ""}</AntTypography.Text>
+            </UIFlex> },
+            { key: "deadline", title: <AntTooltip title="Hạn đặt chỗ, khai hành khách và thanh toán đủ tiền.">Hạn chốt danh sách</AntTooltip>, width: 170, render: (_, schedule) => {
+              const deadline = getScheduleDeadline(schedule);
+              const overdue = deadline && deadline.getTime() <= businessNow(schedule);
+              return <UIFlex vertical gap={4}>
+                <AntTypography.Text>{deadline ? formatDateTime(deadline.toISOString()) : "Chưa có"}</AntTypography.Text>
+                {overdue && scheduleStatus(schedule) === "open" && <AntTypography.Text type="secondary">Đã hết hạn nhận khách</AntTypography.Text>}
+              </UIFlex>;
+            } },
+            { key: "seats", title: "Chỗ đã đặt", width: 130, render: (_, schedule) => <UIFlex vertical gap={4}>
+              <AntTypography.Text strong>{schedule.booked_people} / {schedule.max_people} chỗ</AntTypography.Text>
+              <AntTypography.Text type="secondary">Còn {Math.max(0, schedule.max_people - schedule.booked_people)} chỗ</AntTypography.Text>
+            </UIFlex> },
+            { key: "guides", title: "Hướng dẫn viên", width: 180, render: (_, schedule) => <UIFlex vertical gap={4}>
+              {schedule.guides?.length ? <>
+                <AntTypography.Text>{schedule.guides.map(guide => guide.name).join(", ")}</AntTypography.Text>
+                {schedule.guides.some(guide => !guide.pivot?.accepted_at) && <AntTypography.Text type="secondary">Có người chưa phản hồi</AntTypography.Text>}
+              </> : <AntTypography.Text type="secondary">Chưa phân công</AntTypography.Text>}
+              {scheduleView(schedule) !== "history" && <AntButton type="link" size="small" style={{ padding: 0, alignSelf: "flex-start" }} onClick={() => openGuideDialog(schedule)}>{schedule.guides?.length ? "Đổi phân công" : "Phân công"}</AntButton>}
+            </UIFlex> },
+            { key: "status", title: "Trạng thái", width: 160, render: (_, schedule) => <UIFlex vertical align="start" gap={4}>
+              <AntTag color={scheduleStatus(schedule) === "in_progress" ? "processing" : scheduleStatus(schedule) === "confirmed" ? "success" : undefined}>{scheduleStatusText[scheduleStatus(schedule)]}</AntTag>
+              {scheduleStatus(schedule) === "open" && <AntTypography.Text type="secondary">{getScheduleUnavailableReason(schedule) || "Đang nhận đặt chỗ"}</AntTypography.Text>}
+            </UIFlex> },
+            { key: "actions", title: "", width: 105, fixed: "right", render: (_, schedule) =>
+              <AntButton aria-label={`Xem chi tiết chuyến #${schedule.id}`} onClick={() => setDetailScheduleId(schedule.id)}>Chi tiết</AntButton> },
+          ]} />
+        <UIFlex justify="end" style={{ padding: 16 }}>
+          <Pagination currentPage={visiblePage} lastPage={totalPages} total={totalItems} perPage={itemsPerPage} itemLabel="chuyến"
+            onPageChange={setCurrentPage} onPerPageChange={value => { setItemsPerPage(value); setCurrentPage(1); }} />
+        </UIFlex>
+      </UICard>
 
-          {(searchQuery !== "" || statusFilter !== "all") && (
-            <button
-              type="button"
-              title="Đặt lại bộ lọc"
-              onClick={() => {
-                setSearchQuery("");
-                setStatusFilter("all");
-                setCurrentPage(1);
-              }}
-              className="p-2 rounded-xl border border-gray-200 bg-white text-gray-400 hover:text-rose-500 hover:border-rose-300 hover:bg-rose-50 transition-all duration-150 cursor-pointer"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* SCHEDULES TABLE */}
-      {loading ? (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
-          <div className="h-8 bg-gray-100 rounded-lg animate-pulse" />
-          {[1, 2, 3, 4, 5].map((n) => (
-            <div key={n} className="h-14 bg-gray-50 rounded-lg animate-pulse" />
-          ))}
-        </div>
-      ) : filteredSchedules.length ? (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              {/*
-                Bảy cột, không còn cột "Tour du lịch": tên tour giờ nằm trên hàng nhóm phía trên,
-                lặp lại ở từng chuyến chỉ tốn chỗ.
-              */}
-              <thead>
-                <tr className="bg-slate-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  <th className="py-4 px-5">Mã chuyến</th>
-                  <th className="py-4 px-5">Thời gian khởi hành</th>
-                  <th className="py-4 px-5">Hạn đặt (Deadline)</th>
-                  <th className="py-4 px-5">Số khách (Min/Max)</th>
-                  <th className="py-4 px-5">Hướng dẫn viên</th>
-                  <th className="py-4 px-5">Trạng thái</th>
-                  <th className="py-4 px-5 text-right">Vận hành & Thao tác</th>
-                </tr>
-              </thead>
-
-              {paginatedGroups.map((nhom) => {
-                const dangMoNhom = expandedTourIds.includes(nhom.tour_id);
-
-                return (
-                  <tbody
-                    key={nhom.tour_id}
-                    className="border-b border-gray-100"
-                  >
-                    {/* HÀNG TOUR — bấm để mở/đóng các chuyến bên dưới */}
-                    <tr
-                      className={
-                        dangMoNhom
-                          ? "bg-slate-50"
-                          : "hover:bg-slate-50/60 transition-colors"
-                      }
-                    >
-                      {/*
-                        Nút mở/đóng và liên kết sang trang tour là hai phần tử cạnh nhau, không
-                        lồng nhau: một thẻ <a> nằm trong <button> là HTML sai và trình duyệt xử lý
-                        mỗi nơi một kiểu.
-                      */}
-                      <td colSpan={7} className="p-0">
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-3.5">
-                          <button
-                            type="button"
-                            onClick={() => toggleTour(nhom.tour_id)}
-                            aria-expanded={dangMoNhom}
-                            className="flex flex-1 min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-left cursor-pointer"
-                          >
-                            <ChevronDown
-                              className={`h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 ${dangMoNhom ? "" : "-rotate-90"}`}
-                            />
-
-                            <span className="font-bold text-gray-900 text-sm">
-                              {nhom.tour_title}
-                            </span>
-
-                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
-                              {nhom.schedules.length} chuyến
-                            </span>
-
-                            {/*
-                            Đếm theo trạng thái, dùng lại đúng bảng màu của hàng chuyến bên dưới,
-                            để hai tầng không nói hai thứ tiếng.
-                          */}
-                            {nhom.demTrangThai.map(({ status, soLuong }) => (
-                              <span
-                                key={status}
-                                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusClasses[status]}`}
-                              >
-                                {soLuong} {statusLabel[status].toLowerCase()}
-                              </span>
-                            ))}
-
-                            {nhom.canXuLy > 0 && (
-                              <span
-                                className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-bold text-amber-800"
-                                title="Chuyến chưa phân công hướng dẫn viên, quá hạn chốt mà vẫn mở bán, hoặc chưa đủ khách tối thiểu"
-                              >
-                                {nhom.canXuLy} cần xử lý
-                              </span>
-                            )}
-
-                            {/*
-                            Thiếu khách tách thành nhãn riêng, màu nặng hơn: hai loại việc kia sửa
-                            bằng một thao tác, còn cái này buộc phải chọn giữa hủy chuyến và chạy
-                            lỗ — và chọn muộn thì mất luôn quyền hủy.
-                          */}
-                            {nhom.thieuKhach > 0 && (
-                              <span
-                                className="rounded-full border border-rose-300 bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-800"
-                                title="Đã qua hạn chốt mà số khách đã thanh toán chưa đạt mức tối thiểu"
-                              >
-                                {nhom.thieuKhach} chưa đủ khách
-                              </span>
-                            )}
-                          </button>
-
-                          <span className="text-xs text-gray-500 whitespace-nowrap">
-                            {nhom.sapToi
-                              ? `Gần nhất: ${formatDateTime(nhom.sapToi.start_date)}`
-                              : "Không còn chuyến sắp tới"}
-                          </span>
-
-                          <Link
-                            to={`/admin/tours/${nhom.tour_id}`}
-                            className="shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-primary-600 hover:bg-primary-50 transition-colors"
-                          >
-                            Xem tour
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {dangMoNhom &&
-                      nhom.schedules.map((schedule) => {
-                        const status = schedule.status || "open";
-                        const deadline = schedule.booking_deadline;
-                        const minPeople = schedule.min_people || 5;
-                        const isOverdue = deadline
-                          ? new Date(deadline) < new Date()
-                          : false;
-
-                        return (
-                          <tr
-                            key={schedule.id}
-                            className="border-t border-gray-100 hover:bg-slate-50/50 transition-colors text-sm text-gray-700"
-                          >
-                            {/* Mã chuyến */}
-                            <td className="py-4 px-5 font-bold text-primary-700 font-mono">
-                              #{schedule.id}
-                            </td>
-
-                            {/* Thời gian */}
-                            <td className="py-4 px-5 whitespace-nowrap">
-                              <div className="flex items-center gap-1.5">
-                                <CalendarDays className="h-3.5 w-3.5 text-gray-400" />
-                                <div>
-                                  <p className="font-semibold text-gray-955">
-                                    {formatDateTime(schedule.start_date)}
-                                  </p>
-                                  <p className="text-xs text-gray-400 mt-0.5">
-                                    Đến:{" "}
-                                    {getEndDate(
-                                      schedule.start_date,
-                                      schedule.number_of_days,
-                                    )}
-                                  </p>
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Hạn chốt đặt */}
-                            <td className="py-4 px-5 whitespace-nowrap">
-                              {deadline ? (
-                                <div className="flex items-center gap-1.5">
-                                  <Clock
-                                    className={`h-3.5 w-3.5 ${isOverdue && status === "open" ? "text-amber-500 animate-pulse" : "text-gray-400"}`}
-                                  />
-                                  <div>
-                                    <p
-                                      className={`font-semibold ${isOverdue && status === "open" ? "text-amber-600" : "text-gray-955"}`}
-                                    >
-                                      {formatDateTime(deadline)}
-                                    </p>
-                                    {isOverdue && status === "open" && (
-                                      <span className="inline-block text-[10px] bg-amber-50 text-amber-700 px-1 py-0.5 rounded font-bold uppercase tracking-wider mt-0.5">
-                                        Quá hạn
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400">
-                                  Không giới hạn
-                                </span>
-                              )}
-                            </td>
-
-                            {/* Số khách */}
-                            <td className="py-4 px-5 whitespace-nowrap">
-                              <div className="flex items-center gap-1.5">
-                                <Users className="h-3.5 w-3.5 text-gray-400" />
-                                <div>
-                                  <p className="font-bold text-gray-900">
-                                    {schedule.booked_people} /{" "}
-                                    {schedule.max_people} khách
-                                  </p>
-                                  {/*
-                                    Số ĐÃ TRẢ TIỀN mới quyết định chuyến có chốt được không. Khi
-                                    thiếu thì nói thẳng con số ấy ra, thay vì chỉ ghi mức tối thiểu
-                                    rồi để người đọc tự trừ với một số khác.
-                                  */}
-                                  {thieuKhachToiThieu(schedule, Date.now()) ? (
-                                    <p className="text-xs font-bold text-rose-600 mt-0.5">
-                                      Mới {schedule.paid_people ?? 0}/
-                                      {minPeople} khách đã trả tiền
-                                    </p>
-                                  ) : (
-                                    <p className="text-xs text-gray-400 mt-0.5">
-                                      Tối thiểu: {minPeople} khách
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-
-                            {/*
-                              Hướng dẫn viên — nhiều người cho một chuyến.
-
-                              Hiện dạng thẻ rồi mở hộp thoại để sửa, vì ô chọn một dòng không chứa nổi
-                              danh sách. Bao nhiêu người là đủ thì điều hành quyết, hệ thống không
-                              cảnh báo theo số khách.
-                            */}
-                            <td className="py-4 px-5">
-                              <div className="flex flex-wrap items-center gap-1 min-w-44">
-                                {(schedule.guides ?? []).length === 0 ? (
-                                  <span className="text-xs text-gray-400">
-                                    Chưa phân công
-                                  </span>
-                                ) : (
-                                  (schedule.guides ?? []).map((guide) => (
-                                    /*
-                                      Chưa xác nhận thì thẻ nhạt đi và có dấu chấm.
-
-                                      Vẫn là đã phân công — người ta có tên trong đoàn — nhưng chưa ai
-                                      trả lời là chưa chắc họ biết. Phân biệt được thì mới còn nhắc,
-                                      chứ hai thứ nhìn giống nhau thì đến ngày đi mới biết.
-                                    */
-                                    <span
-                                      key={guide.id}
-                                      title={
-                                        guide.pivot?.accepted_at
-                                          ? `Đã xác nhận ${formatDateTime(guide.pivot.accepted_at)}`
-                                          : "Chưa xác nhận nhận chuyến"
-                                      }
-                                      className={`flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-semibold ${
-                                        guide.pivot?.accepted_at
-                                          ? "bg-gray-100 text-gray-700"
-                                          : "border border-dashed border-amber-300 bg-amber-50 text-amber-800"
-                                      }`}
-                                    >
-                                      {!guide.pivot?.accepted_at && (
-                                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                                      )}
-                                      {guide.name}
-                                    </span>
-                                  ))
-                                )}
-
-                                <button
-                                  type="button"
-                                  disabled={
-                                    status === "cancelled" ||
-                                    status === "completed"
-                                  }
-                                  onClick={() => openGuideDialog(schedule)}
-                                  className="rounded border border-gray-200 bg-white px-1.5 py-0.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 disabled:cursor-not-allowed disabled:text-gray-300 transition-colors"
-                                >
-                                  Sửa
-                                </button>
-                              </div>
-                            </td>
-
-                            {/* Trạng thái */}
-                            <td className="py-4 px-5 whitespace-nowrap">
-                              <div className="flex flex-col gap-1 items-start">
-                                <span
-                                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                    statusClasses[status] || statusClasses.open
-                                  }`}
-                                >
-                                  {statusLabel[status]}
-                                </span>
-                                {status === "cancelled" &&
-                                  schedule.cancelled_reason && (
-                                    <span
-                                      className="text-xs text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 font-medium max-w-40 truncate"
-                                      title={schedule.cancelled_reason}
-                                    >
-                                      Lý do: {schedule.cancelled_reason}
-                                    </span>
-                                  )}
-                              </div>
-                            </td>
-
-                            {/*
-                              Vận hành & Thao tác — gói sau một nút bánh răng.
-
-                              Trước đây tám nút trải ngang trên cùng một hàng: cột này rộng hơn cả cột
-                              dữ liệu, và muốn tìm đúng nút thì phải đọc hết tám nhãn. Danh sách dọc
-                              trong menu đọc nhanh hơn hẳn, và hàng bảng gọn lại.
-
-                              Thứ tự trong menu theo vòng đời chuyến chứ không theo mức độ hay tần suất:
-                              xem trước, rồi bán, rồi chốt, rồi điều người, cuối cùng mới tới hủy. Ai
-                              quen vòng đời thì đoán được vị trí mà không cần đọc.
-                            */}
-                            <td className="py-4 px-5 text-right whitespace-nowrap">
-                              <div className="flex items-center gap-2 justify-end">
-                                {(status === "completed" ||
-                                  status === "cancelled") && (
-                                  <span className="text-caption-sm text-muted-soft italic">
-                                    Đã hoàn thành
-                                  </span>
-                                )}
-
-                                <TableActions
-                                  id={schedule.id}
-                                  label="Vận hành chuyến"
-                                  actions={[
-                                    /*
-                                      G05 - Danh sách đoàn theo từng nhóm. Trả lời hai câu ở cùng một
-                                      chỗ: gửi cho nhà cung cấp được chưa, và nhóm này gồm những ai.
-                                    */
-                                    ...(status !== "cancelled"
-                                      ? [
-                                          {
-                                            label: "Danh sách đoàn",
-                                            onClick: () =>
-                                              openManifestCheck(schedule.id),
-                                            icon: <Users className="w-4 h-4" />,
-                                          },
-                                        ]
-                                      : []),
-
-                                    {
-                                      label: "Xem điểm danh",
-                                      onClick: () =>
-                                        navigate(
-                                          `/admin/tour-schedules/${schedule.id}/attendance`,
-                                        ),
-                                      icon: (
-                                        <ClipboardCheck className="w-4 h-4" />
-                                      ),
-                                    },
-
-                                    ...(status === "open"
-                                      ? [
-                                          {
-                                            label: "Đóng bán",
-                                            onClick: () =>
-                                              handleUpdateStatus(
-                                                schedule.id,
-                                                "closed",
-                                              ),
-                                            icon: <Lock className="w-4 h-4" />,
-                                          },
-                                        ]
-                                      : []),
-
-                                    ...(status === "closed"
-                                      ? [
-                                          {
-                                            label: "Mở bán lại",
-                                            onClick: () =>
-                                              handleUpdateStatus(
-                                                schedule.id,
-                                                "open",
-                                              ),
-                                            icon: (
-                                              <Unlock className="w-4 h-4" />
-                                            ),
-                                          },
-                                        ]
-                                      : []),
-
-                                    /* Dời hạn chốt. Chuyến đã chạy hoặc đã xong thì mốc này hết nghĩa. */
-                                    ...(status === "open" ||
-                                    status === "closed" ||
-                                    status === "confirmed"
-                                      ? [
-                                          {
-                                            label: "Sửa hạn chốt danh sách",
-                                            onClick: () =>
-                                              openDeadlineDialog(schedule),
-                                            icon: <Clock className="w-4 h-4" />,
-                                          },
-                                        ]
-                                      : []),
-
-                                    ...(status === "open" || status === "closed"
-                                      ? [
-                                          {
-                                            label: "Chốt chuyến",
-                                            onClick: () =>
-                                              handleUpdateStatus(
-                                                schedule.id,
-                                                "confirmed",
-                                              ),
-                                            icon: (
-                                              <CheckCircle2 className="w-4 h-4" />
-                                            ),
-                                            variant: "success" as const,
-                                          },
-                                        ]
-                                      : []),
-
-                                    /* L03 - Ghép chuyến: chỉ có nghĩa khi chưa khởi hành và ít khách. */
-                                    ...(status === "open" ||
-                                    status === "closed" ||
-                                    status === "confirmed"
-                                      ? [
-                                          {
-                                            label: "Ghép chuyến",
-                                            onClick: () =>
-                                              openMergeDialog(schedule.id),
-                                            icon: (
-                                              <GitMerge className="w-4 h-4" />
-                                            ),
-                                          },
-                                        ]
-                                      : []),
-
-                                    /* Bàn giao: chỉ có nghĩa khi đoàn sắp hoặc đã lên đường và đang có
-                                       người phụ trách để mà giao. */
-                                    ...((status === "confirmed" ||
-                                      status === "in_progress") &&
-                                    (schedule.guides ?? []).length > 0
-                                      ? [
-                                          {
-                                            label: "Bàn giao hướng dẫn viên",
-                                            onClick: () =>
-                                              openHandoverDialog(schedule.id),
-                                            icon: (
-                                              <RotateCcw className="w-4 h-4" />
-                                            ),
-                                            variant: "warning" as const,
-                                          },
-                                        ]
-                                      : []),
-
-                                    /* Nguy hiểm nằm cuối, TableActions tự chèn đường kẻ tách phía trên. */
-                                    ...(status === "open" ||
-                                    status === "closed" ||
-                                    status === "confirmed"
-                                      ? [
-                                          {
-                                            label: "Hủy chuyến",
-                                            hint: "Phải gán phương án cho từng đơn đã thu tiền",
-                                            onClick: () =>
-                                              openCancelDialog(schedule.id),
-                                            icon: (
-                                              <AlertTriangle className="w-4 h-4" />
-                                            ),
-                                            variant: "danger" as const,
-                                          },
-                                        ]
-                                      : []),
-                                  ]}
-                                />
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                );
-              })}
-            </table>
-          </div>
-
-          {/* PAGINATION PANEL */}
-          <div className="bg-slate-50 border-t border-gray-100 px-5 py-3">
-            <Pagination
-              currentPage={currentPage}
-              lastPage={totalPages}
-              total={totalItems}
-              perPage={itemsPerPage}
-              itemLabel="tour"
-              onPageChange={(p) => setCurrentPage(p)}
-              onPerPageChange={(newPerPage) => {
-                setItemsPerPage(newPerPage);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="p-10 text-center rounded-2xl border border-gray-100 bg-white text-sm text-gray-500">
-          Không tìm thấy chuyến đi nào khớp với bộ lọc.
-        </div>
-      )}
-
-      {/* Bàn giao hướng dẫn viên giữa chừng */}
-      {handoverScheduleId !== null && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
-          <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
-            <div>
-              <h4 className="text-base font-bold text-gray-900">
+      <ScheduleDetailsDrawer schedule={detailSchedule} canAdvanceTime={canAdvanceTime} onClose={() => setDetailScheduleId(null)}
+        onReload={loadData} onFeedback={(message, type) => setToast({ message, type, isOpen: true })}
+        onGuides={openGuideDialog} onManifest={openManifestCheck}
+        onAttendance={id => navigate(`/admin/tour-schedules/${id}/attendance`)}
+        onDeadline={openDeadlineDialog}
+        onConfirm={schedule => handleUpdateStatus(schedule.id, "confirmed")}
+        onMerge={openMergeDialog} onHandover={openHandoverDialog} onCancel={openCancelDialog} />
+      {/* Bàn giao hướng dẫn viên giữa chừng */}{handoverScheduleId !== null && (
+        <AntModal open title={<>
                 Bàn giao hướng dẫn viên — chuyến #{handoverScheduleId}
-              </h4>
+              </>} width={720} onCancel={() => setHandoverScheduleId(null)} closable={!(handoverSaving)} keyboard={!(handoverSaving)} mask={{ closable: false }} footer={null} styles={{ body: { maxHeight: "72vh", overflowY: "auto" } }}><UIFlex vertical gap="middle">
+            <div>
+
               <p className="text-xs text-gray-500 mt-0.5">
-                Người cũ mất quyền ghi ngay khi lưu. Dữ liệu họ đã ghi giữ
-                nguyên, chỉ chuyển quyền ghi tiếp.
+                Sau khi lưu, người mới tiếp quản điểm danh và cập nhật chuyến.
               </p>
             </div>
 
@@ -1413,23 +808,18 @@ export default function ScheduleManagement() {
                 <p className="font-semibold">
                   {khongCoAiNhoDuoc
                     ? "Chưa bàn giao được."
-                    : "Đoàn chỉ còn một người — chỉ nhờ được đoàn khác."}
+                    : "Chỉ còn một hướng dẫn viên phụ trách."}
                 </p>
                 <p className="text-xs mt-0.5">
                   {khongCoAiNhoDuoc ? (
                     <>
-                      Đoàn đang trên đường và không có hướng dẫn viên nào khác
-                      đang dẫn đoàn cùng lúc để nhờ. Hãy bấm{" "}
-                      <strong>Sửa</strong> ở cột hướng dẫn viên phân công thêm
-                      một người cho chuyến, rồi quay lại đây.
+                      Cần thêm hướng dẫn viên trước khi bàn giao. Đóng hộp thoại,
+                      chọn <strong>Đổi phân công</strong> để thêm người phụ trách.
                     </>
                   ) : (
                     <>
-                      Gỡ người dẫn duy nhất ra thì đoàn không có ai cho tới khi
-                      người mới tới nơi. Nên chỉ chọn được người{" "}
-                      <strong>đang dẫn một đoàn khác</strong> — họ đã ở ngoài
-                      đường. Người đó sẽ tạm giữ hai đoàn, hệ thống đánh dấu để
-                      bạn xử lý tiếp.
+                      Người nhận sẽ tạm phụ trách hai đoàn. Cần sắp xếp người
+                      thay thế để mỗi đoàn có hướng dẫn viên riêng.
                     </>
                   )}
                 </p>
@@ -1450,47 +840,28 @@ export default function ScheduleManagement() {
                       <label className="block text-xs font-bold text-gray-700 mb-1">
                         Người giao
                       </label>
-                      <select
-                        value={handoverForm.from_guide_id}
-                        onChange={(e) =>
+                      <AntSelect showSearch={{ optionFilterProp: "label" }} value={String((handoverForm.from_guide_id) ?? "")} onChange={(e) =>
                           setHandoverForm((truoc) => ({
                             ...truoc,
-                            from_guide_id: Number(e.target.value),
-                          }))
-                        }
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
-                      >
-                        {handoverPanel.current_guides.map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.name}
-                          </option>
-                        ))}
-                      </select>
+                            from_guide_id: Number(e),
+                          }))} style={{ width: "100%" }} options={[handoverPanel.current_guides.map((g) => (
+                          { value: String(g.id), label: g.name, disabled: false }
+                        ))].flat().filter((option) => !!option)} />
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-gray-700 mb-1">
                         Người nhận
                       </label>
-                      <select
-                        value={handoverForm.to_guide_id}
-                        onChange={(e) =>
+                      <AntSelect showSearch={{ optionFilterProp: "label" }} value={String((handoverForm.to_guide_id) ?? "")} onChange={(e) =>
                           setHandoverForm((truoc) => ({
                             ...truoc,
-                            to_guide_id: Number(e.target.value),
-                          }))
-                        }
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
-                      >
-                        {nguoiThayChonDuoc.map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.name}
-                            {g.leading_other_group
+                            to_guide_id: Number(e),
+                          }))} style={{ width: "100%" }} options={[nguoiThayChonDuoc.map((g) => (
+                          { value: String(g.id), label: [g.name, g.leading_other_group
                               ? " — đang dẫn đoàn khác"
-                              : ""}
-                          </option>
-                        ))}
-                      </select>
+                              : ""].join(" "), disabled: false }
+                        ))].flat().filter((option) => !!option)} />
                     </div>
                   </div>
                 )}
@@ -1499,35 +870,24 @@ export default function ScheduleManagement() {
                   <label className="block text-xs font-bold text-gray-700 mb-1">
                     Lý do thay <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    value={handoverForm.reason}
-                    onChange={(e) =>
+                  <AntInput value={handoverForm.reason} onChange={(e) =>
                       setHandoverForm((truoc) => ({
                         ...truoc,
                         reason: e.target.value,
                       }))
-                    }
-                    placeholder="VD: Hướng dẫn viên cũ bị sốt cao, phải về sớm..."
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
-                  />
+                    } placeholder="VD: Hướng dẫn viên cũ bị sốt cao, phải về sớm..." style={{ width: "100%" }} />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
                     Tình trạng đoàn <span className="text-rose-500">*</span>
                   </label>
-                  <textarea
-                    rows={3}
-                    value={handoverForm.handover_note}
-                    onChange={(e) =>
+                  <AntInput.TextArea rows={3} value={handoverForm.handover_note} onChange={(e) =>
                       setHandoverForm((truoc) => ({
                         ...truoc,
                         handover_note: e.target.value,
                       }))
-                    }
-                    placeholder="Đoàn đang ở đâu, đã điểm danh tới chặng nào, khách nào cần để ý, việc gì đang dở..."
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400"
-                  />
+                    } placeholder="Đoàn đang ở đâu, đã điểm danh tới chặng nào, khách nào cần để ý, việc gì đang dở..." style={{ width: "100%" }} />
                   <p className="mt-1 text-[11px] text-gray-400">
                     Ít nhất 20 ký tự. Người nhận chỉ có đúng đoạn này để bắt
                     nhịp với đoàn.
@@ -1568,52 +928,30 @@ export default function ScheduleManagement() {
               </div>
             )}
 
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setHandoverScheduleId(null)}
-                disabled={handoverSaving}
-                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
-              >
-                Quay lại
-              </button>
-              <button
-                type="button"
-                onClick={confirmHandover}
-                disabled={
+            <UIFlex     justify="end" gap={8}><AntButton htmlType="button" onClick={() => setHandoverScheduleId(null)} disabled={handoverSaving}>Quay lại
+              </AntButton><AntButton htmlType="button" onClick={confirmHandover} disabled={
                   handoverSaving ||
                   khongCoAiNhoDuoc ||
                   !handoverForm.from_guide_id ||
                   !handoverForm.to_guide_id ||
                   handoverForm.reason.trim().length < 10 ||
                   handoverForm.handover_note.trim().length < 20
-                }
-                className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40"
-              >
-                {handoverSaving ? "Đang lưu..." : "Xác nhận bàn giao"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Phân công hướng dẫn viên — nhiều người cho một chuyến */}
-      {guideDialogScheduleId !== null && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
-          <div className="bg-white w-full max-w-md rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
+                } type="primary">{handoverSaving ? "Đang lưu..." : "Xác nhận bàn giao"}</AntButton></UIFlex>
+          </UIFlex></AntModal>
+      )}{/* Phân công hướng dẫn viên — nhiều người cho một chuyến */}{guideDialogScheduleId !== null && (
+        <AntModal open title={<>
+                Phân công hướng dẫn viên — chuyến #{guideDialogScheduleId}
+              </>} width={720} onCancel={() => setGuideDialogScheduleId(null)} closable={!(assigningScheduleId === guideDialogScheduleId)} keyboard={!(assigningScheduleId === guideDialogScheduleId)} mask={{ closable: false }} footer={null} styles={{ body: { maxHeight: "72vh", overflowY: "auto" } }}><UIFlex vertical gap="middle">
             <div>
-              <h4 className="text-base font-bold text-gray-900">
-                Hướng dẫn viên — chuyến #{guideDialogScheduleId}
-              </h4>
+
               <p className="text-xs text-gray-500 mt-0.5">
-                Chọn được nhiều người. Đoàn đông thì cần thêm người dẫn, bao
-                nhiêu là đủ do bạn quyết — hệ thống không tính hộ theo số khách.
+                Chọn một hoặc nhiều hướng dẫn viên cho chuyến này.
               </p>
               <Link
                 to="/admin/guides"
                 className="mt-1 inline-block text-[11px] font-semibold text-primary-600 hover:underline"
               >
-                Sửa hồ sơ năng lực hướng dẫn viên →
+                Xem hồ sơ hướng dẫn viên
               </Link>
             </div>
 
@@ -1648,19 +986,13 @@ export default function ScheduleManagement() {
                         : "cursor-pointer hover:bg-gray-50"
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={daChon}
-                      disabled={biChan}
-                      onChange={() =>
+                    <AntCheckbox checked={daChon} disabled={biChan} onChange={() =>
                         setPendingGuideIds((truoc) =>
                           truoc.includes(ung.id)
                             ? truoc.filter((id) => id !== ung.id)
                             : [...truoc, ung.id],
                         )
-                      }
-                      className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-primary-600"
-                    />
+                      } />
 
                     <span className="min-w-0 flex-1 space-y-0.5">
                       <span className="flex flex-wrap items-center gap-1.5">
@@ -1737,50 +1069,24 @@ export default function ScheduleManagement() {
             )}
 
             <p className="text-[11px] text-gray-400">
-              Xếp theo mức hợp với tour: chuyên đúng loại hình và quen tuyến lên
-              trước, đang gánh nhiều chuyến thì lùi xuống. Chỉ đúng một thứ thật
-              sự chặn — trùng lịch, vì một người không đứng ở hai đoàn cùng lúc.
-              Phần còn lại chỉ là gợi ý, bạn vẫn quyết.
+              Người phù hợp được xếp trước. Không thể chọn người trùng lịch.
             </p>
 
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setGuideDialogScheduleId(null)}
-                disabled={assigningScheduleId === guideDialogScheduleId}
-                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
-              >
-                Quay lại
-              </button>
-              <button
-                type="button"
-                onClick={() =>
+            <UIFlex     justify="end" gap={8}><AntButton htmlType="button" onClick={() => setGuideDialogScheduleId(null)} disabled={assigningScheduleId === guideDialogScheduleId}>Quay lại
+              </AntButton><AntButton htmlType="button" onClick={() =>
                   assignGuides(guideDialogScheduleId, pendingGuideIds)
-                }
-                disabled={assigningScheduleId === guideDialogScheduleId}
-                className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40"
-              >
-                {assigningScheduleId === guideDialogScheduleId
+                } disabled={assigningScheduleId === guideDialogScheduleId} type="primary">{assigningScheduleId === guideDialogScheduleId
                   ? "Đang lưu..."
-                  : "Lưu phân công"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Dời hạn chốt danh sách, có xem trước tác động */}
-      {deadlineScheduleId !== null && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
-          <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
+                  : "Lưu phân công"}</AntButton></UIFlex>
+          </UIFlex></AntModal>
+      )}{/* Dời hạn chốt danh sách, có xem trước tác động */}{deadlineScheduleId !== null && (
+        <AntModal open title={<>
+                Đổi hạn chốt — chuyến #{deadlineScheduleId}
+              </>} width={720} onCancel={closeDeadlineDialog} closable={!(deadlineSaving)} keyboard={!(deadlineSaving)} mask={{ closable: false }} footer={null} styles={{ body: { maxHeight: "72vh", overflowY: "auto" } }}><UIFlex vertical gap="middle">
             <div>
-              <h4 className="text-base font-bold text-gray-900">
-                Hạn chốt danh sách — chuyến #{deadlineScheduleId}
-              </h4>
+
               <p className="text-xs text-gray-500 mt-0.5">
-                Đây là mốc gửi danh sách khách cho khách sạn và nhà xe. Dời mốc
-                này là dời cùng lúc quyền bán chỗ, sửa tên hành khách, chuyển
-                chuyến và ghép chuyến.
+                Đổi hạn đặt chỗ, khai hành khách và thanh toán đủ tiền của chuyến.
               </p>
             </div>
 
@@ -1800,7 +1106,7 @@ export default function ScheduleManagement() {
             </div>
 
             {deadlineLoading && (
-              <p className="text-sm text-gray-500">Đang tính tác động...</p>
+              <p className="text-sm text-gray-500">Đang kiểm tra các đơn liên quan...</p>
             )}
 
             {deadlineImpact && !deadlineImpact.impact.can_change && (
@@ -1835,17 +1141,9 @@ export default function ScheduleManagement() {
               <label className="block text-xs font-bold text-gray-700 mb-1">
                 Lý do dời hạn <span className="text-red-500">*</span>
               </label>
-              <textarea
-                rows={2}
-                value={deadlineReason}
-                onChange={(e) => setDeadlineReason(e.target.value)}
-                placeholder="VD: Khách sạn cho thêm 2 phòng, chốt lại ngày 19/08..."
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
-              />
+              <AntInput.TextArea rows={2} value={deadlineReason} onChange={(e) => setDeadlineReason(e.target.value)} placeholder="VD: Khách sạn cho thêm 2 phòng, chốt lại ngày 19/08..." style={{ width: "100%" }} />
               <p className="text-[11px] text-gray-400 mt-1">
-                Bắt buộc, ít nhất {LY_DO_DOI_HAN_TOI_THIEU} ký tự. Ba tháng nữa
-                người đọc nhật ký cần biết vì sao mốc bị dời, và lúc đó không ai
-                nhớ lại giúp được.
+                Ít nhất {LY_DO_DOI_HAN_TOI_THIEU} ký tự.
               </p>
             </div>
 
@@ -1855,184 +1153,39 @@ export default function ScheduleManagement() {
               </div>
             )}
 
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeDeadlineDialog}
-                disabled={deadlineSaving}
-                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
-              >
-                Quay lại
-              </button>
-              <button
-                type="button"
-                onClick={confirmDeadline}
-                disabled={
+            <UIFlex     justify="end" gap={8}><AntButton htmlType="button" onClick={closeDeadlineDialog} disabled={deadlineSaving}>Quay lại
+              </AntButton><AntButton htmlType="button" onClick={confirmDeadline} disabled={
                   deadlineSaving ||
                   deadlineLoading ||
                   !deadlineImpact?.impact.can_change ||
                   deadlineImpact?.impact.direction === "unchanged" ||
                   deadlineReason.trim().length < LY_DO_DOI_HAN_TOI_THIEU
-                }
-                className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40"
-              >
-                {deadlineSaving ? "Đang lưu..." : "Đồng ý, lưu hạn chốt mới"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* L03 - Ghép chuyến */}
-      {mergeScheduleId !== null && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
-          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
+                } type="primary">{deadlineSaving ? "Đang lưu..." : "Lưu hạn chốt"}</AntButton></UIFlex>
+          </UIFlex></AntModal>
+      )}{/* L03 - Ghép chuyến */}{mergeScheduleId !== null && (
+        <ScheduleMergeDialog
+          schedules={allSchedules}
+          sourceId={mergeScheduleId}
+          data={mergeData}
+          loading={mergeLoading}
+          targetId={mergeTargetId}
+          reason={mergeReason}
+          saving={mergeSaving}
+          error={mergeError}
+          onSourceChange={openMergeDialog}
+          onTargetChange={(id) => { setMergeTargetId(id); setMergeError(""); }}
+          onReasonChange={setMergeReason}
+          onClose={closeMergeDialog}
+          onConfirm={confirmMerge}
+        />
+      )}{/* G05 - Kiểm tra danh sách đoàn trước khi gửi nhà cung cấp */}{manifestScheduleId !== null && (
+        <AntModal open title={<>
+                Danh sách khách — chuyến #{manifestScheduleId}
+              </>} width={960} onCancel={() => setManifestScheduleId(null)} closable={true} keyboard={true} mask={{ closable: false }} footer={null} styles={{ body: { maxHeight: "72vh", overflowY: "auto" } }}><UIFlex vertical gap="middle">
             <div>
-              <h4 className="text-base font-bold text-gray-900">
-                Ghép chuyến #{mergeScheduleId} vào chuyến khác
-              </h4>
+
               <p className="text-xs text-gray-500 mt-0.5">
-                Toàn bộ đơn đã thanh toán sẽ chuyển sang chuyến đích, giá giữ
-                nguyên. Chuyến này sau đó chuyển thành đã hủy.
-              </p>
-            </div>
-
-            {/*
-              Ghép là đổi ngày đi của người đã trả tiền mà không hỏi họ. Người bấm nút phải biết
-              hai hệ quả ấy trước khi bấm, không phải đọc lại quy trình sau khi khách gọi lên.
-            */}
-            <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5 space-y-1">
-              <p className="text-xs font-bold text-amber-900">Ghép xong, hệ thống tự làm hai việc</p>
-              <p className="text-[11px] text-amber-800">
-                Gửi thư cho mọi khách của chuyến này: người đã thanh toán nhận thư báo ngày mới,
-                người chưa thanh toán nhận thư báo hủy kèm lời mời đặt lại.
-              </p>
-              <p className="text-[11px] text-amber-800">
-                Khách không đồng ý ngày mới thì hủy được và <b>hoàn đủ 100%</b>, không tính phí hủy —
-                vì đây là thay đổi do công ty thực hiện.
-              </p>
-            </div>
-
-            {mergeLoading && (
-              <p className="text-sm text-gray-500">
-                Đang tìm chuyến phù hợp...
-              </p>
-            )}
-
-            {mergeData && mergeData.candidates.length === 0 && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 space-y-1">
-                <p className="font-semibold">Không có chuyến nào ghép được.</p>
-                <p className="text-xs">
-                  Chuyến đích phải cùng tour, còn đủ chỗ, lệch ngày không quá 2
-                  ngày, và{" "}
-                  <strong>
-                    cả hai chuyến đều còn trước hạn chốt danh sách
-                  </strong>{" "}
-                  — vì mục đích của ghép là gửi một danh sách đúng cho nhà cung
-                  cấp, thay vì gửi hai rồi đi vá.
-                </p>
-              </div>
-            )}
-
-            {/* Máy chủ đã loại chuyến không ghép được và tính sẵn tác động, nên đây chỉ hiển thị. */}
-            <div className="space-y-2">
-              {mergeData?.candidates.map((item) => {
-                const dangChon = mergeTargetId === item.schedule_id;
-
-                return (
-                  <button
-                    key={item.schedule_id}
-                    type="button"
-                    onClick={() => setMergeTargetId(item.schedule_id)}
-                    className={`w-full text-left rounded-lg border p-3 transition-colors ${
-                      dangChon
-                        ? "border-blue-500 bg-blue-50/60 ring-2 ring-blue-200"
-                        : "border-gray-200 bg-white hover:bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-sm font-bold text-gray-900">
-                        #{item.schedule_id} · {formatDateTime(item.start_date)}
-                      </span>
-                      <span className="text-[11px] text-gray-500">
-                        {item.booked_people}/{item.max_people} chỗ
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-gray-600">
-                      Chuyển {item.transferring} đơn ({item.transferring_guests}{" "}
-                      khách)
-                      {item.cancelling > 0 && (
-                        <span className="text-amber-800 font-semibold">
-                          {" "}
-                          · hủy {item.cancelling} đơn chưa thanh toán
-                        </span>
-                      )}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">
-                Lý do ghép <span className="text-rose-500">*</span>
-              </label>
-              <textarea
-                rows={2}
-                value={mergeReason}
-                onChange={(e) => setMergeReason(e.target.value)}
-                placeholder="VD: Hai chuyến đều chưa đủ khách tối thiểu nên dồn về một chuyến..."
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
-              />
-              <p className="text-[11px] text-gray-400 mt-1">
-                Khách sẽ đọc được nội dung này khi được thông báo đổi ngày khởi
-                hành.
-              </p>
-            </div>
-
-            {mergeError && (
-              <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-                {mergeError}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeMergeDialog}
-                disabled={mergeSaving}
-                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
-              >
-                Không ghép nữa
-              </button>
-              <button
-                type="button"
-                onClick={confirmMerge}
-                disabled={
-                  mergeSaving ||
-                  !mergeTargetId ||
-                  mergeReason.trim().length < 10
-                }
-                className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40"
-              >
-                {mergeSaving ? "Đang ghép..." : "Xác nhận ghép"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* G05 - Kiểm tra danh sách đoàn trước khi gửi nhà cung cấp */}
-      {manifestScheduleId !== null && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
-          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
-            <div>
-              <h4 className="text-base font-bold text-gray-900">
-                Danh sách đoàn — chuyến #{manifestScheduleId}
-              </h4>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Mỗi đơn là một nhóm, thường do một người đứng ra đăng ký cho cả
-                nhà hoặc cả phòng ban. Bấm vào nhóm để xem nhóm đó gồm những ai.
+                Chọn một đơn để xem danh sách hành khách.
               </p>
             </div>
 
@@ -2062,16 +1215,9 @@ export default function ScheduleManagement() {
                   còn thiếu ai — tệp ghi rõ nhóm nào chưa khai. Ô cảnh báo phía trên đã nói đủ về
                   việc gửi ra ngoài, chặn thêm ở đây chỉ khiến người ta chép tay.
                 */}
-                <button
-                  type="button"
-                  onClick={xuatDanhSachDoan}
-                  disabled={dangXuatDanhSach}
-                  className="w-full rounded-lg border border-primary-200 bg-primary-50 px-4 py-2.5 text-sm font-bold text-primary-700 hover:bg-primary-100 disabled:opacity-50 transition-colors"
-                >
-                  {dangXuatDanhSach
+                <AntButton htmlType="button" onClick={xuatDanhSachDoan} disabled={dangXuatDanhSach} style={{ width: "100%" }}>{dangXuatDanhSach
                     ? "Đang tạo tệp..."
-                    : "Tải danh sách đoàn (Excel)"}
-                </button>
+                    : "Tải danh sách đoàn (Excel)"}</AntButton>
 
                 {manifest.groups.length === 0 && (
                   <p className="text-sm text-gray-500">
@@ -2079,8 +1225,7 @@ export default function ScheduleManagement() {
                   </p>
                 )}
 
-                <div className="space-y-2">
-                  {manifest.groups.map((nhom) => {
+                <UIFlex vertical gap={8} >{manifest.groups.map((nhom) => {
                     const dangMo = openGroupIds.includes(nhom.booking_id);
                     const nguoiLienHe = nhom.passengers.find(
                       (khach) => khach.is_contact,
@@ -2091,16 +1236,9 @@ export default function ScheduleManagement() {
                         key={nhom.booking_id}
                         className="rounded-lg border border-gray-200 overflow-hidden"
                       >
-                        <button
-                          type="button"
-                          onClick={() => toggleGroup(nhom.booking_id)}
-                          className="w-full text-left p-3 text-xs hover:bg-gray-50 transition-colors"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-gray-900">
+                        <AntButton htmlType="button" onClick={() => toggleGroup(nhom.booking_id)} style={{ width: "100%", height: "auto", whiteSpace: "normal", textAlign: "left" }}><UIFlex    align="center" justify="space-between" gap={8}><span className="font-bold text-gray-900">
                               BK-{nhom.booking_id} · {nhom.customer_name}
-                            </span>
-                            <span className="flex items-center gap-2">
+                            </span><span className="flex items-center gap-2">
                               <span
                                 className={`font-mono ${
                                   nhom.missing > 0
@@ -2113,54 +1251,33 @@ export default function ScheduleManagement() {
                               <span className="text-gray-400">
                                 {dangMo ? "▾" : "▸"}
                               </span>
-                            </span>
-                          </div>
-
-                          <p className="mt-0.5 flex flex-wrap gap-x-3 text-gray-500">
+                            </span></UIFlex><p className="mt-0.5 flex flex-wrap gap-x-3 text-gray-500">
                             {nhom.customer_phone && (
                               <span>{nhom.customer_phone}</span>
                             )}
                             {nguoiLienHe && (
                               <span>Liên hệ đoàn: {nguoiLienHe.name}</span>
                             )}
-                          </p>
-
-                          {nhom.warnings.map((warning) => (
+                          </p>{nhom.warnings.map((warning) => (
                             <p key={warning} className="mt-0.5 text-amber-800">
                               {warning}
                             </p>
-                          ))}
-                        </button>
+                          ))}</AntButton>
 
                         {dangMo && (
                           <div className="border-t border-gray-100 bg-gray-50/60 p-3">
+                            <div className="mb-4"><PassengerSupplementPanel bookingId={nhom.booking_id} onChanged={async () => {
+                              const updated = await adminService.getScheduleManifest(manifestScheduleId);
+                              setManifest(updated);
+                            }} /></div>
                             {nhom.passengers.length === 0 ? (
                               <p className="text-xs text-gray-500">
                                 Nhóm này chưa khai tên người nào.
                               </p>
                             ) : (
-                              <table className="w-full text-xs">
-                                <thead>
-                                  <tr className="text-left text-gray-500">
-                                    <th className="pb-1 font-semibold">
-                                      Họ tên
-                                    </th>
-                                    <th className="pb-1 font-semibold">Loại</th>
-                                    <th className="pb-1 font-semibold">
-                                      Ngày sinh
-                                    </th>
-                                    <th className="pb-1 font-semibold">
-                                      Giấy tờ
-                                    </th>
-                                  </tr>
-                                </thead>
-                                <tbody className="align-top">
-                                  {nhom.passengers.map((khach) => (
-                                    <tr
-                                      key={khach.id}
-                                      className="border-t border-gray-200"
-                                    >
-                                      <td className="py-1.5 pr-2 font-semibold text-gray-900">
+                              <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }}
+    dataSource={nhom.passengers.map((khach) => (
+                                    {key: khach.id, cells: [<>
                                         {khach.name}
                                         {khach.is_contact && (
                                           <span className="ml-1.5 rounded bg-primary-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-700">
@@ -2172,75 +1289,60 @@ export default function ScheduleManagement() {
                                             {khach.special_request}
                                           </span>
                                         )}
-                                      </td>
-                                      <td className="py-1.5 pr-2 text-gray-600">
+                                      </>,<>
                                         {khach.type === "adult"
                                           ? "Người lớn"
                                           : khach.type === "child"
                                             ? "Trẻ em"
                                             : "Em bé"}
-                                      </td>
-                                      <td className="py-1.5 pr-2 text-gray-600">
+                                      </>,<>
                                         {khach.date_of_birth
                                           ? formatDateTime(khach.date_of_birth)
                                           : "—"}
-                                      </td>
-                                      <td className="py-1.5 font-mono text-gray-600">
+                                      </>,<>
                                         {khach.identity_number ?? "—"}
-                                      </td>
-                                    </tr>
+                                      </>], rowProps: {}}
                                   ))}
-                                </tbody>
-                              </table>
+    columns={[{ key: "0", title: <>
+                                      Họ tên
+                                    </>, align: "left", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Loại</>, align: "left", render: (_value, record) => record.cells[1] },{ key: "2", title: <>
+                                      Ngày sinh
+                                    </>, align: "left", render: (_value, record) => record.cells[2] },{ key: "3", title: <>
+                                      Giấy tờ
+                                    </>, align: "left", render: (_value, record) => record.cells[3] }]}
+    onRow={(record) => record.rowProps}
+     />
                             )}
                           </div>
                         )}
                       </div>
                     );
-                  })}
-                </div>
+                  })}</UIFlex>
               </>
             )}
 
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setManifestScheduleId(null)}
-                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/*
+            <UIFlex     justify="end" ><AntButton htmlType="button" onClick={() => setManifestScheduleId(null)}>Đóng
+              </AntButton></UIFlex>
+          </UIFlex></AntModal>
+      )}{/*
         K - Hủy chuyến, ba bước bắt buộc: xem tác động, gán phương án cho từng đơn đã thanh toán,
         rồi mới xác nhận. Trước đây chỗ này chỉ hỏi lý do rồi đổi trạng thái, còn đơn của khách
         thì không ai đụng tới.
-      */}
-      {cancellingScheduleId !== null && (
-        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/45 animate-fade-in">
-          <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-100 p-6 space-y-4 animate-scale-up max-h-[85vh] overflow-y-auto">
-            <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-base font-bold text-gray-900">
+      */}{cancellingScheduleId !== null && (
+        <AntModal open title={<>
                   Hủy chuyến #{cancellingScheduleId}
-                </h4>
+                </>} width={960} onCancel={closeCancelDialog} closable={!(cancelSaving)} keyboard={!(cancelSaving)} mask={{ closable: false }} footer={null} styles={{ body: { maxHeight: "72vh", overflowY: "auto" } }}><UIFlex vertical gap="middle">
+            <UIFlex    align="start"  gap={12}><div className="p-2.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div><div>
+
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Lỗi không thuộc về khách, nên mỗi đơn đã thanh toán phải được
-                  hoàn đủ 100% hoặc chuyển miễn phí sang chuyến khác. Không áp
-                  bảng phí hủy.
+                  Chọn hoàn đủ tiền hoặc chuyển chuyến miễn phí cho từng đơn đã thanh toán.
                 </p>
-              </div>
-            </div>
+              </div></UIFlex>
 
             {cancelPreviewLoading && (
-              <p className="text-sm text-gray-500">Đang tính tác động...</p>
+              <p className="text-sm text-gray-500">Đang kiểm tra các đơn liên quan...</p>
             )}
 
             {cancelPreview && !cancelPreview.impact.can_cancel && (
@@ -2280,12 +1382,9 @@ export default function ScheduleManagement() {
                     Chuyến này chưa có đơn nào đã thanh toán.
                   </p>
                 ) : (
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                  <UIFlex vertical gap={8} ><p className="text-xs font-bold uppercase tracking-wider text-gray-700">
                       Phương án cho từng đơn
-                    </p>
-
-                    {cancelPreview.impact.paid_bookings.map((don) => {
+                    </p>{cancelPreview.impact.paid_bookings.map((don) => {
                       const plan = cancelPlans[don.booking_id];
 
                       return (
@@ -2305,10 +1404,7 @@ export default function ScheduleManagement() {
 
                           <div className="flex flex-wrap items-center gap-3 text-xs">
                             <label className="flex cursor-pointer items-center gap-1.5">
-                              <input
-                                type="radio"
-                                checked={plan?.action === "refund"}
-                                onChange={() =>
+                              <AntRadio checked={plan?.action === "refund"} onChange={() =>
                                   setCancelPlans((truoc) => ({
                                     ...truoc,
                                     [don.booking_id]: {
@@ -2316,21 +1412,15 @@ export default function ScheduleManagement() {
                                       action: "refund",
                                     },
                                   }))
-                                }
-                                className="h-3.5 w-3.5 border-gray-300 text-primary-600"
-                              />
+                                } />
                               Hoàn đủ {formatPrice(don.paid_amount)}
                             </label>
 
                             <label className="flex cursor-pointer items-center gap-1.5">
-                              <input
-                                type="radio"
-                                disabled={
+                              <AntRadio disabled={
                                   cancelPreview.impact.transfer_options
                                     .length === 0
-                                }
-                                checked={plan?.action === "transfer"}
-                                onChange={() =>
+                                } checked={plan?.action === "transfer"} onChange={() =>
                                   setCancelPlans((truoc) => ({
                                     ...truoc,
                                     [don.booking_id]: {
@@ -2341,39 +1431,23 @@ export default function ScheduleManagement() {
                                           ?.schedule_id ?? null,
                                     },
                                   }))
-                                }
-                                className="h-3.5 w-3.5 border-gray-300 text-primary-600 disabled:cursor-not-allowed"
-                              />
+                                } />
                               Chuyển sang chuyến khác
                             </label>
 
                             {plan?.action === "transfer" && (
-                              <select
-                                value={String(plan.to_schedule_id ?? "")}
-                                onChange={(e) =>
+                              <AntSelect showSearch={{ optionFilterProp: "label" }} value={String(plan.to_schedule_id ?? "")} onChange={(e) =>
                                   setCancelPlans((truoc) => ({
                                     ...truoc,
                                     [don.booking_id]: {
                                       ...truoc[don.booking_id],
-                                      to_schedule_id: Number(e.target.value),
+                                      to_schedule_id: Number(e),
                                     },
-                                  }))
-                                }
-                                className="rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-primary-400"
-                              >
-                                {cancelPreview.impact.transfer_options.map(
+                                  }))} style={{ width: "100%" }} options={[cancelPreview.impact.transfer_options.map(
                                   (item) => (
-                                    <option
-                                      key={item.schedule_id}
-                                      value={item.schedule_id}
-                                    >
-                                      #{item.schedule_id} ·{" "}
-                                      {formatDateTime(item.start_date)} · còn{" "}
-                                      {item.remaining_seats} chỗ
-                                    </option>
+                                    { value: String(item.schedule_id), label: ["#", item.schedule_id, "·", " ", formatDateTime(item.start_date), "· còn", " ", item.remaining_seats, "chỗ"].join(" "), disabled: false }
                                   ),
-                                )}
-                              </select>
+                                )].flat().filter((option) => !!option)} />
                             )}
                           </div>
 
@@ -2386,21 +1460,14 @@ export default function ScheduleManagement() {
                           )}
                         </div>
                       );
-                    })}
-                  </div>
+                    })}</UIFlex>
                 )}
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
                     Lý do hủy <span className="text-rose-500">*</span>
                   </label>
-                  <textarea
-                    rows={2}
-                    value={cancelReasonInput}
-                    onChange={(e) => setCancelReasonInput(e.target.value)}
-                    placeholder="VD: Nhà xe báo hỏng xe, không thu xếp được xe thay thế..."
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-400"
-                  />
+                  <AntInput.TextArea rows={2} value={cancelReasonInput} onChange={(e) => setCancelReasonInput(e.target.value)} placeholder="VD: Nhà xe báo hỏng xe, không thu xếp được xe thay thế..." style={{ width: "100%" }} />
                   <p className="text-[11px] text-gray-400 mt-1">
                     Khách sẽ đọc được nội dung này. Ít nhất 10 ký tự.
                   </p>
@@ -2414,31 +1481,14 @@ export default function ScheduleManagement() {
               </div>
             )}
 
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeCancelDialog}
-                disabled={cancelSaving}
-                className="px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl"
-              >
-                Không hủy nữa
-              </button>
-              <button
-                type="button"
-                onClick={confirmCancelSchedule}
-                disabled={
+            <UIFlex     justify="end" gap={8}><AntButton htmlType="button" onClick={closeCancelDialog} disabled={cancelSaving}>Không hủy nữa
+              </AntButton><AntButton htmlType="button" onClick={confirmCancelSchedule} disabled={
                   cancelSaving ||
                   cancelPreviewLoading ||
                   !cancelPreview?.impact.can_cancel ||
                   cancelReasonInput.trim().length < 10
-                }
-                className="px-4 py-2 text-xs font-semibold text-white rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-40"
-              >
-                {cancelSaving ? "Đang hủy..." : "Xác nhận hủy chuyến"}
-              </button>
-            </div>
-          </div>
-        </div>
+                } type="primary" danger>{cancelSaving ? "Đang hủy..." : "Xác nhận hủy chuyến"}</AntButton></UIFlex>
+          </UIFlex></AntModal>
       )}
 
       <Toast
@@ -2446,7 +1496,6 @@ export default function ScheduleManagement() {
         type={toast.type}
         isOpen={toast.isOpen}
         onClose={() => setToast((current) => ({ ...current, isOpen: false }))}
-      />
-    </div>
+      /></UIFlex>
   );
 }

@@ -223,7 +223,7 @@ class BookingTransferTest extends TestCase
         $this->artisan('bookings:check-seat-consistency')->assertSuccessful();
     }
 
-    public function test_chuyen_lam_day_chuyen_dich_thi_dong_ban(): void
+    public function test_chuyen_lam_day_chuyen_dich_thi_ngung_nhan_dat(): void
     {
         $chuyenNho = $this->taoChuyen(now()->addDays(50), null, ['max_people' => 2]);
         $don = $this->taoDon();
@@ -231,16 +231,17 @@ class BookingTransferTest extends TestCase
         $this->service()->transfer($don, $chuyenNho, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
 
         $this->assertSame(
-            ScheduleStatus::Closed->value,
+            ScheduleStatus::Open->value,
             $chuyenNho->fresh()->getRawOriginal('status'),
         );
+        $this->assertFalse($chuyenNho->fresh()->isBookable());
     }
 
     /** Chuyến gốc vừa trống chỗ thì mở bán lại, nếu vẫn còn trong hạn chốt. */
     public function test_chuyen_goc_dang_day_thi_mo_ban_lai(): void
     {
         $don = $this->taoDon(nguoiLon: 10);
-        $this->chuyenGoc->update(['status' => ScheduleStatus::Closed->value]);
+        $this->chuyenGoc->update(['status' => ScheduleStatus::Open->value]);
 
         $this->service()->transfer($don, $this->chuyenDich, 'Khach xin doi sang ngay khac.', $this->dieuHanh, 'company', canCu: $this->daHoiKhach($don));
 
@@ -410,10 +411,10 @@ class BookingTransferTest extends TestCase
         $this->assertSame(0, (int) $this->chuyenDich->fresh()->booked_people);
     }
 
-    public function test_chuyen_dich_da_dong_ban_thi_tu_choi(): void
+    public function test_chuyen_dich_da_chot_thi_tu_choi(): void
     {
         $don = $this->taoDon();
-        $this->chuyenDich->update(['status' => ScheduleStatus::Closed->value]);
+        $this->chuyenDich->update(['status' => ScheduleStatus::Confirmed->value]);
 
         $this->expectException(\App\Exceptions\BusinessRuleException::class);
 

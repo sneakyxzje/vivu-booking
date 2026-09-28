@@ -1,8 +1,9 @@
+import { Button, Card, Checkbox, DatePicker, Flex, Form, Grid, Radio, Slider, Typography } from "antd";
 import React from "react";
 import type { Category, Service } from "@/types";
-import { DateRangePicker } from "@/components/DateRangePicker";
+import dayjs from "dayjs";
 
-export const DURATION_OPTIONS = [
+const DURATION_OPTIONS = [
   { value: "all", label: "Tất cả" },
   { value: "1", label: "Trong ngày (1 ngày)" },
   { value: "2-3", label: "Ngắn ngày (2 - 3 ngày)" },
@@ -28,154 +29,55 @@ interface TourFiltersProps {
 }
 
 export const TourFilters: React.FC<TourFiltersProps> = ({
-  categories,
-  services,
-  selectedCategories,
-  toggleCategory,
-  selectedServices,
-  toggleService,
-  selectedDuration,
-  setSelectedDuration,
-  priceRange,
-  setPriceRange,
-  maxPrice,
-  departureRange,
-  setDepartureRange,
-  onReset,
+  categories, services, selectedCategories, toggleCategory, selectedServices, toggleService,
+  selectedDuration, setSelectedDuration, priceRange, setPriceRange, maxPrice,
+  departureRange, setDepartureRange, onReset,
 }) => {
-  /*
-   * Không còn tự tính "hôm nay" ở đây.
-   *
-   * Dòng cũ là `new Date().toISOString().slice(0, 10)` — `toISOString()` đổi sang UTC, nên với
-   * giờ Việt Nam mọi thời điểm trước 7 giờ sáng đều ra ngày HÔM QUA. Người mở trang lúc 6 giờ
-   * sáng vẫn chọn được ngày hôm qua, còn máy chủ thì từ chối.
-   *
-   * `DateRangePicker` nhận thẳng một `Date` và chỉ đọc các thành phần giờ địa phương.
-   */
-  return (
-    <aside className="w-full lg:w-[320px] shrink-0">
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 sticky top-24">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-gray-900">Bộ lọc nâng cao</h2>
-          <button onClick={onReset} className="text-xs font-bold text-primary-600 hover:text-primary-700 underline cursor-pointer">
-            Xóa lọc
-          </button>
-        </div>
-
-        {/*
-          Ngày khởi hành đứng đầu bộ lọc, trước cả danh mục.
-          Phần lớn người tìm tour bắt đầu từ "tôi rảnh những ngày này", chứ không từ loại hình.
-        */}
-        <div className="mb-8">
-          <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wider">Ngày khởi hành</h3>
-          {/*
-            Mốc dựng sẵn hướng TỚI, không lùi lại: câu hỏi ở đây là "tôi muốn đi ngày nào".
-            `minDate` chặn ngay trên lịch thay vì để máy chủ trả 422 — người dùng thấy được giới
-            hạn trước khi chọn thì không bao giờ chạm vào lỗi đó.
-          */}
-          <DateRangePicker
-            presets="future"
-            minDate={new Date()}
-            placeholder="Chọn ngày bạn rảnh"
-            value={{ from: departureRange[0], to: departureRange[1] }}
-            onChange={(khoang) => setDepartureRange([khoang.from, khoang.to])}
-          />
-          <p className="mt-3 text-xs text-gray-400">
-            Chỉ hiện tour còn chỗ và chưa qua hạn chốt trong khoảng ngày này.
-          </p>
-        </div>
-
-        <div className="h-px bg-gray-100 my-6" />
-
-        <div className="mb-8">
-          <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wider">Danh mục Tour</h3>
-          <div className="space-y-3">
-            {categories.length === 0 ? (
-              <p className="text-sm text-gray-400">Chưa có danh mục.</p>
-            ) : categories.map((cat) => (
-              <label key={cat.id} className="flex items-center justify-between cursor-pointer group">
-                <div className="flex items-center gap-3">
-                  <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedCategories.includes(cat.slug) ? "bg-primary-600 border-primary-600" : "border-gray-300 bg-white group-hover:border-primary-400"}`}>
-                    {selectedCategories.includes(cat.slug) && (
-                      <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                  <span className="text-sm text-gray-600 group-hover:text-gray-900 font-medium">{cat.name}</span>
-                </div>
-                <input type="checkbox" className="hidden" checked={selectedCategories.includes(cat.slug)} onChange={() => toggleCategory(cat.slug)} />
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="h-px bg-gray-100 my-6" />
-
-        <div className="mb-8">
-          <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wider">Mức giá</h3>
-          <div className="px-2">
-            <input
-              type="range"
-              min="0"
-              max={maxPrice}
-              step="500000"
-              value={priceRange[1]}
-              onChange={(e) => setPriceRange([0, parseInt(e.target.value, 10)])}
-              className="w-full accent-primary-600 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-            />
-            <div className="flex justify-between items-center mt-4">
-              <span className="text-xs text-gray-500 font-medium">0đ</span>
-              <span className="text-sm font-bold text-primary-600 bg-primary-50 px-3 py-1 rounded-lg">
-                Tới {new Intl.NumberFormat("vi-VN").format(priceRange[1])}đ
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="h-px bg-gray-100 my-6" />
-
-        <div className="mb-8">
-          <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wider">Thời gian</h3>
-          <div className="space-y-3">
-            {DURATION_OPTIONS.map((opt) => (
-              <label key={opt.value} className="flex items-center gap-3 cursor-pointer group">
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${selectedDuration === opt.value ? "border-primary-600" : "border-gray-300 group-hover:border-primary-400"}`}>
-                  {selectedDuration === opt.value && <div className="w-2.5 h-2.5 bg-primary-600 rounded-full" />}
-                </div>
-                <span className="text-sm text-gray-600 group-hover:text-gray-900 font-medium">{opt.label}</span>
-                <input type="radio" name="duration" className="hidden" onChange={() => setSelectedDuration(opt.value)} checked={selectedDuration === opt.value} />
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="h-px bg-gray-100 my-6" />
-
-        <div>
-          <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase tracking-wider">Dịch vụ đi kèm</h3>
-          <div className="space-y-3">
-            {services.length === 0 ? (
-              <p className="text-sm text-gray-400">Chưa có dịch vụ.</p>
-            ) : services.map((srv) => {
-              const id = String(srv.id);
-              return (
-                <label key={srv.id} className="flex items-center gap-3 cursor-pointer group">
-                  <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedServices.includes(id) ? "bg-primary-600 border-primary-600" : "border-gray-300 bg-white group-hover:border-primary-400"}`}>
-                    {selectedServices.includes(id) && (
-                      <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                  <span className="text-sm text-gray-600 group-hover:text-gray-900 font-medium">{srv.name}</span>
-                  <input type="checkbox" className="hidden" checked={selectedServices.includes(id)} onChange={() => toggleService(id)} />
-                </label>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </aside>
-  );
+  const screens = Grid.useBreakpoint();
+  const today = dayjs().startOf("day");
+  return <Card title="Bộ lọc tour" extra={<Button type="link" onClick={onReset}>Xóa lọc</Button>}>
+    <Form layout="vertical">
+      <Form.Item label="Ngày khởi hành" extra="Chỉ hiện tour còn chỗ và chưa qua hạn chốt trong khoảng ngày này.">
+        {screens.md ? <DatePicker.RangePicker style={{ width: "100%" }} format="DD/MM/YYYY" minDate={today}
+          allowEmpty={[true, true]} placeholder={["Từ ngày", "Đến ngày"]}
+          value={[departureRange[0] ? dayjs(departureRange[0]) : null, departureRange[1] ? dayjs(departureRange[1]) : null]}
+          onChange={dates => setDepartureRange([dates?.[0]?.format("YYYY-MM-DD") ?? "", dates?.[1]?.format("YYYY-MM-DD") ?? ""])}
+          presets={[
+            { label: "7 ngày tới", value: [today, today.add(6, "day")] },
+            { label: "30 ngày tới", value: [today, today.add(29, "day")] },
+          ]} /> : <Flex vertical gap="small">
+          <DatePicker aria-label="Khởi hành từ ngày" style={{ width: "100%" }} format="DD/MM/YYYY" placeholder="Từ ngày" minDate={today}
+            maxDate={departureRange[1] ? dayjs(departureRange[1]) : undefined}
+            value={departureRange[0] ? dayjs(departureRange[0]) : null}
+            onChange={date => setDepartureRange([date?.format("YYYY-MM-DD") ?? "", departureRange[1]])} />
+          <DatePicker aria-label="Khởi hành đến ngày" style={{ width: "100%" }} format="DD/MM/YYYY" placeholder="Đến ngày"
+            minDate={departureRange[0] ? dayjs(departureRange[0]) : today}
+            value={departureRange[1] ? dayjs(departureRange[1]) : null}
+            onChange={date => setDepartureRange([departureRange[0], date?.format("YYYY-MM-DD") ?? ""])} />
+        </Flex>}
+      </Form.Item>
+      <Form.Item label="Danh mục tour">
+        <Flex vertical gap="small">
+          {categories.length ? categories.map(cat => <Checkbox key={cat.id} checked={selectedCategories.includes(cat.slug)} onChange={() => toggleCategory(cat.slug)}>{cat.name}</Checkbox>)
+            : <Typography.Text type="secondary">Chưa có danh mục.</Typography.Text>}
+        </Flex>
+      </Form.Item>
+      <Form.Item label="Mức giá tối đa">
+        <Slider min={0} max={maxPrice} step={500000} value={priceRange[1]} onChange={value => setPriceRange([0, value])}
+          tooltip={{ formatter: value => new Intl.NumberFormat("vi-VN").format(value ?? 0) + "đ" }} />
+        <Typography.Text>Tới {new Intl.NumberFormat("vi-VN").format(priceRange[1])}đ</Typography.Text>
+      </Form.Item>
+      <Form.Item label="Thời gian">
+        <Radio.Group value={selectedDuration} onChange={event => setSelectedDuration(event.target.value)}>
+          <Flex vertical gap="small">{DURATION_OPTIONS.map(option => <Radio key={option.value} value={option.value}>{option.label}</Radio>)}</Flex>
+        </Radio.Group>
+      </Form.Item>
+      <Form.Item label="Dịch vụ đi kèm" style={{ marginBottom: 0 }}>
+        <Flex vertical gap="small">
+          {services.length ? services.map(service => <Checkbox key={service.id} checked={selectedServices.includes(String(service.id))} onChange={() => toggleService(String(service.id))}>{service.name}</Checkbox>)
+            : <Typography.Text type="secondary">Chưa có dịch vụ.</Typography.Text>}
+        </Flex>
+      </Form.Item>
+    </Form>
+  </Card>;
 };

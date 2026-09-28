@@ -48,6 +48,9 @@ class ScheduleReturnTimeTest extends TestCase
             'start_location' => 'Ha Noi',
             'end_location' => 'Ha Long',
             'status' => 'active',
+            'itineraries' => array_map(fn ($day) => [
+                'day_number' => $day, 'title' => "Ngày {$day}", 'content' => 'Tham quan và nghỉ ngơi.',
+            ], range(1, 3)),
             'schedules' => [$chuyen],
         ];
     }
@@ -162,6 +165,9 @@ class ScheduleReturnTimeTest extends TestCase
             'start_location' => $tour->start_location,
             'end_location' => $tour->end_location,
             'status' => 'active',
+            'itineraries' => array_map(fn ($day) => [
+                'day_number' => $day, 'title' => "Ngày {$day}", 'content' => 'Tham quan và nghỉ ngơi.',
+            ], range(1, 3)),
             'schedules' => [[
                 'id' => $chuyen->id,
                 'start_date' => $ngayDi . ' 06:00',

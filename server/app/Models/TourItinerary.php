@@ -13,10 +13,16 @@ use Illuminate\Database\Eloquent\Model;
     'end_point',
     'route_points',
     'rest_stops',
-    'content'
+    'content',
+    'images',
 ])]
 class TourItinerary extends Model
 {
+    protected function casts(): array
+    {
+        return ['images' => 'array'];
+    }
+
     public function tour()
     {
         return $this->belongsTo(Tour::class);

@@ -10,6 +10,8 @@ use Tests\TestCase;
 
 class AdminUserManagementTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     /**
      * Khóa tài khoản phải chặn được cả việc đặt tour.
      *
@@ -39,7 +41,7 @@ class AdminUserManagementTest extends TestCase
 
         \Laravel\Sanctum\Sanctum::actingAs($khach);
 
-        $this->postJson('/api/bookings', [
+        $this->postVerifiedBooking([
             'tour_id' => $tour->id,
             'tour_schedule_id' => $chuyen->id,
             'customer_name' => 'Khach Bi Khoa',

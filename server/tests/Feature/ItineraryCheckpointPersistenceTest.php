@@ -48,6 +48,8 @@ class ItineraryCheckpointPersistenceTest extends TestCase
             'content' => 'Khởi hành từ Hà Nội.',
         ]);
 
+        $tour->itineraries()->create(['day_number' => 2, 'title' => 'Ngày 2', 'content' => 'Trở về Hà Nội.']);
+
         $checkpoint = $itinerary->checkpoints()->create([
             'name' => 'Điểm đón Mỹ Đình',
             'sequence' => 1,
@@ -96,6 +98,7 @@ class ItineraryCheckpointPersistenceTest extends TestCase
             'number_of_nights' => 1,
             'start_location' => 'Hà Nội',
             'itineraries' => [
+                ['day_number' => 2, 'title' => 'Ngày 2', 'content' => 'Trở về Hà Nội.'],
                 [
                     'day_number' => 1,
                     'title' => 'Ngày 1',

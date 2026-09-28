@@ -108,16 +108,7 @@ export const taoChuyen = (
 export const daDoiHanChot = (item: ScheduleFormItem): boolean =>
   Boolean(item.id) && (item.booking_deadline ?? "") !== (item.booking_deadline_goc ?? "");
 
-export const ngayRong = (thuTu: number): ItineraryFormItem => ({
-  day_number: String(thuTu),
-  title: "",
-  start_point: "",
-  end_point: "",
-  route_points: [],
-  rest_stops: "",
-  content: "",
-  checkpoints: [],
-});
+export { ngayRong } from "./itineraryValidation";
 
 /** Đánh lại số ngày theo vị trí, để danh sách và `day_number` không bao giờ nói khác nhau. */
 export const danhSoLai = (danhSach: ItineraryFormItem[]): ItineraryFormItem[] =>

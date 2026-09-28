@@ -97,7 +97,7 @@ class AdminController extends Controller
             'total_services' => Service::count(),
             'upcoming_schedules' => TourSchedule::where('start_date', '>=', now()->toDateString())->count(),
             'total_booked_slots' => (int) TourSchedule::sum('booked_people'),
-            'full_schedules' => TourSchedule::where('status', ScheduleStatus::Closed->value)->count(),
+            'full_schedules' => TourSchedule::where('status', ScheduleStatus::Open->value)->whereColumn('booked_people', '>=', 'max_people')->count(),
             'inactive_schedules' => TourSchedule::whereIn('status', [ScheduleStatus::Cancelled->value, ScheduleStatus::Completed->value])->count(),
         ];
 

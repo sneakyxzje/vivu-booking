@@ -119,7 +119,7 @@ class GroupBookingTest extends TestCase
     public function test_khong_nhan_yeu_cau_vao_chuyen_da_dong_ban(): void
     {
         $dongBan = $this->taoChuyen(now()->addDays(30));
-        $dongBan->update(['status' => ScheduleStatus::Closed->value]);
+        $dongBan->update(['booking_deadline' => now()->subMinute()]);
 
         $this->expectException(BusinessRuleException::class);
 

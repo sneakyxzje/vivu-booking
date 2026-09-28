@@ -8,6 +8,8 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+Schedule::command('bookings:expire-proposals')->everyMinute()->withoutOverlapping();
+
 // Cả bốn lệnh đều quét bảng rồi khóa dòng để đổi trạng thái. withoutOverlapping bắt buộc
 // vì nếu một lần chạy lâu hơn chu kỳ, hai tiến trình sẽ tranh khóa trên cùng các bản ghi.
 
@@ -16,8 +18,8 @@ Schedule::command('bookings:release-expired')
     ->everyMinute()
     ->withoutOverlapping();
 
-// A05: Đóng bán các chuyến đã quá hạn chốt hoặc đã đủ chỗ
-Schedule::command('schedules:close-expired')
+// Loại đơn chưa trả đủ trước khi chốt danh sách.
+Schedule::command('bookings:cancel-unpaid-balances')
     ->everyMinute()
     ->withoutOverlapping();
 
@@ -75,8 +77,12 @@ Schedule::command('bookings:send-balance-reminders')
     ->dailyAt('09:00')
     ->withoutOverlapping();
 
-Schedule::command('bookings:cancel-unpaid-balances')
-    ->dailyAt('09:30')
+
+
+// Kho tri thức của chatbot. Mỗi giờ là đủ vì nội dung tour đổi theo ngày, và lệnh chạy
+// tăng dần nên lần không có gì mới gần như không tốn gì. Cần ngay thì `php artisan ai:index`.
+Schedule::command('ai:index')
+    ->hourly()
     ->withoutOverlapping();
 
 /*

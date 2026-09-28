@@ -15,33 +15,8 @@ return [
 
     'payment_ttl_minutes' => (int) env('BOOKING_PAYMENT_TTL_MINUTES', 10),
 
-    /*
-    |--------------------------------------------------------------------------
-    | Đặt cọc và hạn trả nốt
-    |--------------------------------------------------------------------------
-    |
-    | Khách trả trước một phần để giữ chỗ, phần còn lại trả trước ngày khởi hành.
-    | Đây là cách bán phổ biến của lữ hành nội địa: Vietravel lấy cọc 50% và thu
-    | nốt 7 đến 10 ngày trước khởi hành (20 đến 25 ngày với tour lễ, Tết).
-    |
-    | Hai con số dưới đây phải NHÌN NHAU, không đặt độc lập. Lý do:
-    |
-    | Khi khách bỏ ngang, hệ thống hủy đơn và áp bảng phí hủy tại đúng thời điểm
-    | ấy. Muốn "bỏ ngang thì mất cọc" thành sự thật thì bậc phí tại hạn trả nốt
-    | phải vừa đúng bằng tiền cọc — không cần một điều khoản riêng nào cả.
-    |
-    | Với cọc 50% và hạn trả nốt 10 ngày trước khởi hành, bậc phí ở mốc ấy là
-    | 50% giá tour (xem DEFAULT_RULES), tức khách mất đúng phần đã đặt cọc. Đổi
-    | một trong hai số mà quên số kia thì hoặc khách mất nhiều hơn cọc, hoặc còn
-    | được hoàn lại một phần cọc — cả hai đều khó giải thích.
-    |
-    | Đặt `deposit_percent` bằng 100 là quay lại lối cũ: thu đủ ngay khi đặt.
-    |
-    */
-
-    'deposit_percent' => (int) env('BOOKING_DEPOSIT_PERCENT', 50),
-
-    'balance_due_days' => (int) env('BOOKING_BALANCE_DUE_DAYS', 10),
+    // Mọi đơn đặt theo chỗ đều cọc 50%, trả nốt trước hạn chốt danh sách.
+    'deposit_percent' => 50,
 
     /*
     |--------------------------------------------------------------------------
@@ -86,7 +61,7 @@ return [
     |
     */
 
-    'confirm_window_hours' => (int) env('BOOKING_CONFIRM_WINDOW_HOURS', 24),
+    'confirm_window_hours' => (int) env('BOOKING_CONFIRM_WINDOW_HOURS', 72),
 
     /*
     |--------------------------------------------------------------------------

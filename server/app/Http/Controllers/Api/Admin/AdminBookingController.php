@@ -15,6 +15,7 @@ use App\Models\TourSchedule;
 use App\Services\BookingAuditLogger;
 use App\Services\BookingContactService;
 use App\Services\BookingHoldService;
+use App\Services\BookingMailDispatcher;
 use App\Services\BookingPaymentService;
 use App\Services\BookingPolicyService;
 use App\Services\CancellationPolicyService;
@@ -30,6 +31,23 @@ use Throwable;
 
 class AdminBookingController extends Controller
 {
+    /** Gửi lại thư của đơn theo yêu cầu quản trị viên. */
+    public function sendMail(Request $request, int $bookingId, BookingMailDispatcher $mailer): JsonResponse
+    {
+        $data = $request->validate([
+            'type' => ['required', 'string', Rule::in(array_keys(BookingMailDispatcher::danhSach()))],
+        ]);
+
+        $booking = Booking::query()->with(['tour', 'schedule', 'customer'])->findOrFail($bookingId);
+        $result = $mailer->gui($booking, $data['type']);
+
+        return response()->json([
+            'success' => true,
+            'message' => sprintf('Đã gửi "%s" tới %s.', $result['mo_ta'], $result['gui_toi']),
+            'data' => $result,
+        ]);
+    }
+
     public function __construct(
         private BookingHoldService $holdService,
         private BookingPolicyService $bookingPolicy,
@@ -65,7 +83,7 @@ class AdminBookingController extends Controller
 
         $bookings = $this->sapXep($this->truyVan($filters), $filters['sort'] ?? null)
             // `payments` nạp sẵn để hai con số tiền bên dưới không sinh một cặp truy vấn cho mỗi dòng.
-            ->with(['tour:id,title', 'customer:id,name,email,phone', 'schedule:id,start_date', 'payments'])
+            ->with(['tour:id,title', 'customer:id,name,email,phone', 'schedule:id,start_date,booking_deadline', 'payments'])
             ->paginate($filters['per_page'] ?? 10)
             ->withQueryString();
 
@@ -346,7 +364,7 @@ class AdminBookingController extends Controller
 
             $booking->update([
                 'status' => 'confirmed',
-                'confirmed_at' => now(),
+                'confirmed_at' => \App\Services\DemoClock::booking($booking),
                 'expires_at' => null,
             ]);
 
@@ -527,7 +545,7 @@ class AdminBookingController extends Controller
                 'cancel_reason' => $validated['cancel_reason'],
                 // Ghi đúng loại người dùng đã chọn, và nó khớp với chính con số vừa tính ở trên.
                 'cancel_type' => $loaiHuy,
-                'cancelled_at' => now(),
+                'cancelled_at' => \App\Services\DemoClock::booking($booking),
                 'cancelled_by' => $request->user()?->id,
                 /*
                  * Ghi số tiền hoàn lên chính đơn, không chỉ vào nhật ký.

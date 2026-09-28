@@ -50,6 +50,7 @@ export interface ItineraryCheckpoint {
 }
 
 export interface TourItinerary {
+  images?: string[] | null;
   id: number;
   tour_id: number;
   day_number: number;
@@ -88,6 +89,8 @@ export interface GuideDecline {
 }
 
 export interface TourSchedule {
+  server_now?: string;
+  demo_clock?: import("@/utils/demoClock").DemoClockValue | null;
   id: number;
   tour_id: number;
   start_date: string;
@@ -108,7 +111,8 @@ export interface TourSchedule {
   // Vòng đời chuyến khởi hành, khớp App\Enums\ScheduleStatus.
   // Không gộp active / inactive / full vào đây: đó là giá trị của tours.status.
   // Sau migration chuẩn hóa, chuyến không bao giờ mang ba giá trị đó nữa.
-  status: "open" | "closed" | "confirmed" | "in_progress" | "completed" | "cancelled";
+  status: "open" | "confirmed" | "in_progress" | "completed" | "cancelled";
+  effective_status?: TourSchedule["status"];
   min_people?: number;
   /**
    * Số khách của các đơn ĐÃ THANH TOÁN. Khác `booked_people`, vốn đếm cả chỗ đang giữ.
@@ -119,6 +123,7 @@ export interface TourSchedule {
   paid_people?: number;
   booking_deadline?: string;
   cancelled_reason?: string | null;
+  merged_into_schedule_id?: number | null;
   /**
    * Các hướng dẫn viên phụ trách chuyến.
    *
@@ -174,4 +179,3 @@ export interface TourFilterParams {
   page?: number;
   per_page?: number;
 }
-

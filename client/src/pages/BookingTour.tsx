@@ -1,3 +1,4 @@
+import { Alert, Checkbox, Form, InputNumber, Select, Input as AntInput, Button as AntButton } from "antd";
 import bookingService from "@/services/bookingService";
 import policyService from "@/services/policyService";
 import tourService from "@/services/tourService";
@@ -5,15 +6,18 @@ import type { Tour, TourSchedule } from "@/types";
 import { formatDateTime } from "@/utils/format";
 import {
   getAvailableSlots,
+  getScheduleDeadline,
   getScheduleUnavailableReason,
   getSeatCount,
   HAN_CHOT_MAC_DINH_NGAY,
-  isBalanceDeadlinePassed,
   isScheduleBookable,
 } from "@/utils/schedule";
+import { validateEmail, validateHasAdultPassenger, validatePhone } from "@/utils/validation";
+import OtpVerificationModal from "@/components/booking/OtpVerificationModal";
+import otpService from "@/services/otpService";
 import type { AxiosError } from "axios";
 import type { ChangeEvent, FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 type BookingFormState = {
@@ -47,15 +51,9 @@ type BookingFormProps = {
   onSubmit: (event: FormEvent) => void;
   /** Hạn chốt mặc định theo cấu hình máy chủ, áp cho chuyến không đặt hạn riêng. */
   hanChotNgay: number;
-  /**
-   * Điều kiện thanh toán hai đợt, đọc từ máy chủ.
-   *
-   * `depositPercent` bằng 100 nghĩa là thu đủ ngay khi đặt — lúc ấy khối cọc không hiện, vì nói
-   * "đặt cọc 100%" là một câu vô nghĩa với người đọc.
-   */
+
   depositPercent: number;
   depositAmount: number;
-  balanceDueDays: number;
 };
 
 type BookingSidebarProps = {
@@ -108,7 +106,6 @@ const BookingForm = ({
   hanChotNgay,
   depositPercent,
   depositAmount,
-  balanceDueDays,
 }: BookingFormProps) => {
   const totalGuestCount = form.adultCount + form.childCount + form.infantCount;
   /*
@@ -120,6 +117,7 @@ const BookingForm = ({
    */
   const seatCount = getSeatCount(form.adultCount, form.childCount);
   const selectedSchedule = schedules.find((schedule) => String(schedule.id) === form.tourScheduleId);
+  const balanceDeadline = getScheduleDeadline(selectedSchedule, hanChotNgay);
   const availableSlots = getScheduleAvailableSlots(selectedSchedule);
   const scheduleUnavailableReason = getScheduleUnavailableReason(
     selectedSchedule,
@@ -127,15 +125,6 @@ const BookingForm = ({
     hanChotNgay,
   );
   const isOverCapacity = Boolean(selectedSchedule) && seatCount > availableSlots;
-  /*
-   * Chuyến này có được cọc không — hỏi theo CHUYẾN, không theo cấu hình chung.
-   *
-   * Tỷ lệ cọc là một con số của cả hệ thống, nhưng việc có chia đợt hay không thì phụ thuộc chuyến
-   * khách chọn: hạn trả nốt là ngày khởi hành trừ mười ngày, nên chuyến đi trong tuần tới có hạn ấy
-   * ở quá khứ và máy chủ thu đủ ngay. Trước đây màn này chỉ nhìn `depositPercent`, nên nó hứa cọc
-   * 50% cho cả những chuyến sát ngày rồi cổng thanh toán đòi nguyên giá.
-   */
-  const quaHanTraNot = isBalanceDeadlinePassed(selectedSchedule, balanceDueDays);
   const coChiaDot = depositPercent < 100 && totalAmount > 0 && Boolean(selectedSchedule);
 
   const handleInputChange =
@@ -208,74 +197,57 @@ const BookingForm = ({
   ];
 
   return (
-    <form
+    <Form component={false} layout="vertical" disabled={submitting}><form
       onSubmit={onSubmit}
       className="bg-white p-6 md:p-8 rounded-xl border border-gray-100 shadow-sm space-y-6"
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Họ tên */}
-        <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-0.5">
-            Họ và tên <span className="text-rose-500">*</span>
-          </label>
-          <input
-            className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-medium transition-all"
+        <Form.Item label={<>Họ và tên <span className="text-rose-500">*</span></>} htmlFor="bookingtour-field-1" style={{ marginBottom: 0 }}>
+          <AntInput id="bookingtour-field-1"
+
             placeholder="Nhập họ và tên người đi"
             value={form.customerName}
             onChange={handleInputChange("customerName")}
             required
           />
-        </div>
+        </Form.Item>
 
         {/* Số điện thoại */}
-        <div className="space-y-1.5">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-0.5">
-            Số điện thoại
-          </label>
-          <input
-            className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-medium transition-all"
+        <Form.Item label={<>Số điện thoại
+        </>} htmlFor="bookingtour-field-2" style={{ marginBottom: 0 }}>
+          <AntInput id="bookingtour-field-2" type="tel" autoComplete="tel" required
+
             placeholder="09xxxxxxxx"
             value={form.customerPhone}
             onChange={handleInputChange("customerPhone")}
           />
-        </div>
+        </Form.Item>
 
         {/* Email */}
-        <div className="space-y-1.5 md:col-span-2">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-0.5">
-            Địa chỉ Email <span className="text-rose-500">*</span>
-          </label>
-          <input
-            className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-medium transition-all"
+        <Form.Item label={<>Địa chỉ Email <span className="text-rose-500">*</span></>} htmlFor="bookingtour-field-3" style={{ marginBottom: 0 }} className="md:col-span-2">
+          <AntInput id="bookingtour-field-3"
+
             placeholder="nguyenvanan@gmail.com"
             type="email"
             value={form.customerEmail}
             onChange={handleInputChange("customerEmail")}
             required
           />
-        </div>
+        </Form.Item>
 
         {/* Lịch khởi hành */}
-        <div className="space-y-1.5 md:col-span-2">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-0.5">
-            Chọn ngày khởi hành mong muốn <span className="text-rose-500">*</span>
-          </label>
-          <select
-            className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-white font-medium transition-all"
-            value={form.tourScheduleId}
-            onChange={handleInputChange("tourScheduleId")}
-            required
-          >
-            {schedules.map((schedule) => {
+        <Form.Item label={<>Chọn ngày khởi hành mong muốn <span className="text-rose-500">*</span></>} htmlFor="booking-schedule" style={{ marginBottom: 0 }} className="md:col-span-2">
+          <Select id="booking-schedule" style={{ width: "100%" }} value={form.tourScheduleId || undefined}
+            placeholder="Chọn lịch khởi hành" onChange={value => onChange("tourScheduleId", value)}
+            options={schedules.map(schedule => {
               const reason = getScheduleUnavailableReason(schedule, tour.status, hanChotNgay);
-              return (
-                <option key={schedule.id} value={schedule.id} disabled={Boolean(reason)}>
-                  Khởi hành: {formatDateTime(schedule.start_date)} (Còn {getScheduleAvailableSlots(schedule)} chỗ){schedule.booking_deadline ? ` - Hạn chốt: ${formatDateTime(schedule.booking_deadline)}` : ""}{reason ? ` (${reason})` : ""}
-                </option>
-              );
-            })}
-          </select>
-        </div>
+              return {
+                value: String(schedule.id), disabled: Boolean(reason), label:
+                  "Khởi hành: " + formatDateTime(schedule.start_date) + " · Còn " + getScheduleAvailableSlots(schedule) + " chỗ" + (schedule.booking_deadline ? " · Hạn chốt: " + formatDateTime(schedule.booking_deadline) : "") + (reason ? " · " + reason : "")
+              };
+            })} />
+        </Form.Item>
         {/* Số khách theo loại */}
         <div className="md:col-span-2 rounded-lg border border-slate-200 bg-white p-4.5 space-y-3">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -301,36 +273,11 @@ const BookingForm = ({
                     {item.note} · {formatCurrency(item.price)}
                   </p>
                 </div>
-                <div className="flex h-10 items-center rounded-xl border border-slate-200 bg-white">
-                  <button
-                    type="button"
-                    onClick={() => updateGuestCount(item.field, -1)}
-                    disabled={item.field === "adultCount" ? form[item.field] <= 1 : form[item.field] <= 0}
-                    className="h-10 w-10 text-lg font-bold text-gray-500 hover:text-primary-600 disabled:opacity-35 disabled:hover:text-gray-500"
-                    aria-label={`Giảm ${item.label}`}
-                  >
-                    -
-                  </button>
-                  <span className="w-10 text-center text-sm font-bold text-gray-900">
-                    {form[item.field]}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => updateGuestCount(item.field, 1)}
-                    disabled={
-                      !selectedSchedule ||
-                      Boolean(scheduleUnavailableReason) ||
-                      // Em bé không chiếm ghế nên không bị số chỗ còn lại chặn...
-                      (item.field !== "infantCount" && seatCount >= availableSlots) ||
-                      // ...nhưng bị chặn bởi số người lớn: một lòng, một bé.
-                      (item.field === "infantCount" && form.infantCount >= form.adultCount)
-                    }
-                    className="h-10 w-10 text-lg font-bold text-gray-500 hover:text-primary-600 disabled:opacity-35 disabled:hover:text-gray-500"
-                    aria-label={`Tăng ${item.label}`}
-                  >
-                    +
-                  </button>
-                </div>
+                <InputNumber aria-label={item.label} value={form[item.field]} precision={0}
+                  min={item.field === "adultCount" ? 1 : 0}
+                  max={item.field === "infantCount" ? form.adultCount : Math.max(item.field === "adultCount" ? 1 : 0, availableSlots - seatCount + form[item.field])}
+                  disabled={!selectedSchedule || Boolean(scheduleUnavailableReason) || submitting}
+                  onChange={value => { if (value !== null) updateGuestCount(item.field, value - form[item.field]); }} />
               </div>
             ))}
 
@@ -344,6 +291,11 @@ const BookingForm = ({
               <p className="rounded-lg bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-800">
                 Mỗi em bé cần một người lớn đi kèm, nên số em bé không vượt quá số người lớn. Em bé
                 dưới 2 tuổi ngồi cùng bố mẹ nên <b>không chiếm chỗ riêng</b> trên xe.
+              </p>
+            )}
+            {form.adultCount < 1 && (
+              <p className="rounded-lg bg-rose-50 px-3.5 py-2.5 text-xs leading-relaxed text-rose-700 font-medium border border-rose-100">
+                ⚠️ Chuyến đi phải có ít nhất 1 hành khách là <b>Người lớn</b> (từ 12 tuổi trở lên).
               </p>
             )}
           </div>
@@ -382,38 +334,36 @@ const BookingForm = ({
           </div>
         </div>
 
-
-
         {/* Mã giảm giá */}
         <div className="space-y-1.5 md:col-span-2">
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-0.5">
             Mã giảm giá
           </label>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              className="flex-1 px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-semibold uppercase transition-all"
+            <AntInput aria-label="Nhập mã giảm giá"
+              className="flex-1"
               placeholder="Nhập mã giảm giá"
               value={form.discountCode}
               onChange={handleInputChange("discountCode")}
               disabled={Boolean(appliedDiscountCode)}
             />
             {appliedDiscountCode ? (
-              <button
-                type="button"
+              <AntButton
+                htmlType="button"
                 onClick={onClearDiscount}
-                className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50"
+
               >
                 Bỏ mã
-              </button>
+              </AntButton>
             ) : (
-              <button
-                type="button"
+              <AntButton
+                htmlType="button"
                 onClick={onApplyDiscount}
-                disabled={discountApplying || !form.discountCode.trim()}
-                className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                loading={discountApplying} disabled={discountApplying || !form.discountCode.trim()}
+                type="primary"
               >
                 {discountApplying ? "Đang áp dụng..." : "Áp dụng"}
-              </button>
+              </AntButton>
             )}
           </div>
           {appliedDiscountCode && (
@@ -424,18 +374,16 @@ const BookingForm = ({
         </div>
 
         {/* Ghi chú */}
-        <div className="space-y-1.5 md:col-span-2">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider pl-0.5">
-            Ghi chú thêm (nếu có)
-          </label>
-          <textarea
-            className="w-full px-4 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 bg-gray-50/50 font-medium transition-all"
+        <Form.Item label={<>Ghi chú thêm (nếu có)
+        </>} htmlFor="bookingtour-field-4" style={{ marginBottom: 0 }} className="md:col-span-2">
+          <AntInput.TextArea id="bookingtour-field-4"
+
             rows={3}
             placeholder="Ví dụ: Ăn chay, phòng có giường em bé..."
             value={form.note}
             onChange={handleInputChange("note")}
           />
-        </div>
+        </Form.Item>
 
         {/*
           Danh sách hành khách KHÔNG khai ở đây nữa.
@@ -471,7 +419,7 @@ const BookingForm = ({
           Khách bấm đặt rồi thấy cổng thanh toán hiện một con số khác giá tour thì họ dừng lại tự hỏi
           có nhầm không. Nói trước ở đây, ngay cạnh tổng tiền, là chỗ duy nhất kịp.
         */}
-        {coChiaDot && !quaHanTraNot && (
+        {coChiaDot && (
           <div className="space-y-1.5 rounded-lg border border-primary-200 bg-white px-4 py-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-bold text-primary-800">
@@ -482,49 +430,20 @@ const BookingForm = ({
               </span>
             </div>
             <p className="text-xs leading-relaxed text-muted">
-              Phần còn lại <b>{formatCurrency(totalAmount - depositAmount)}</b> thanh toán chậm nhất{" "}
-              <b>{balanceDueDays} ngày trước ngày khởi hành</b>. Chúng tôi sẽ gửi thư nhắc trước hạn.
+              Phần còn lại <b>{formatCurrency(totalAmount - depositAmount)}</b> thanh toán{" "}
+              <b>trước hạn chốt danh sách{balanceDeadline ? ` (${formatDateTime(balanceDeadline.toISOString())})` : ""}</b>. Chúng tôi sẽ gửi thư nhắc trước hạn.
               Quá hạn mà chưa thanh toán, đơn bị hủy và khoản đặt cọc không được hoàn lại.
             </p>
           </div>
         )}
 
-        {/*
-          Chuyến sát ngày: nói thẳng là thu đủ, và nói vì sao.
 
-          Im lặng ở đây cũng sai như hứa cọc: khách vừa đọc chính sách "đặt cọc 50%" ở trang trước,
-          nên họ đến cổng thanh toán với một con số trong đầu. Một dòng giải thích rẻ hơn nhiều so
-          với một cuộc gọi lên tổng đài hỏi sao bị tính gấp đôi.
-        */}
-        {coChiaDot && quaHanTraNot && (
-          <div className="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50/70 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-bold text-amber-900">Thanh toán hôm nay (100%)</span>
-              <span className="text-lg font-bold text-amber-900">{formatCurrency(totalAmount)}</span>
-            </div>
-            <p className="text-xs leading-relaxed text-amber-800">
-              Chuyến này khởi hành trong vòng <b>{balanceDueDays} ngày</b> nên không chia hai đợt:
-              hạn thanh toán phần còn lại đã qua, đơn hàng được thu đủ ngay khi đặt. Đặt sớm hơn cho
-              chuyến khác, bạn chỉ cần cọc {depositPercent}%.
-            </p>
-          </div>
-        )}
       </div>
 
       {scheduleUnavailableReason ? (
-        <div className="rounded-lg bg-rose-50 border border-rose-100 p-4 text-xs font-medium text-rose-700 flex items-center gap-2">
-          <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-          </svg>
-          {scheduleUnavailableReason}. Vui lòng chọn ngày khởi hành khác ở phần thông tin ngày đi.
-        </div>
+        <Alert type="error" showIcon title={scheduleUnavailableReason} description="Vui lòng chọn ngày khởi hành khác." />
       ) : message ? (
-        <div className="rounded-lg bg-rose-50 border border-rose-100 p-4 text-xs font-medium text-rose-700 flex items-center gap-2">
-          <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-          </svg>
-          {message}
-        </div>
+        <Alert type="error" showIcon title={message} />
       ) : null}
 
       {/*
@@ -541,30 +460,13 @@ const BookingForm = ({
         lúc tạo. Ô tích cộng liên kết là đủ cho việc ấy; bảng phí thuộc về trang chính sách.
       */}
       <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
-        <label className="flex items-start gap-2.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={form.acceptTerms}
-            onChange={(event) => onChange("acceptTerms", event.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-          />
-          <span className="text-xs text-gray-700 leading-relaxed">
-            Tôi đã đọc và đồng ý với{" "}
-            <a
-              href="/chinh-sach"
-              target="_blank"
-              rel="noreferrer"
-              className="font-semibold text-primary-600 underline"
-            >
-              chính sách hủy và hoàn tiền
-            </a>{" "}
-            của Vivu Booking. Tôi hiểu rằng mức hoàn tiền phụ thuộc vào thời điểm hủy.
-          </span>
-        </label>
+        <Checkbox checked={form.acceptTerms} onChange={event => onChange("acceptTerms", event.target.checked)}>
+          Tôi đã đọc và đồng ý với <a href="/chinh-sach" target="_blank" rel="noreferrer">chính sách hủy và hoàn tiền</a> của Vivu Booking. Tôi hiểu rằng mức hoàn tiền phụ thuộc vào thời điểm hủy.
+        </Checkbox>
       </div>
 
-      <button
-        className="w-full rounded-lg bg-primary-600 py-3.5 font-bold text-white shadow-md hover:bg-primary-700 hover:shadow-lg transition-all active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none text-sm cursor-pointer"
+      <AntButton htmlType="submit"
+        type="primary" block loading={submitting}
         disabled={
           submitting ||
           !form.tourScheduleId ||
@@ -573,12 +475,9 @@ const BookingForm = ({
           !form.acceptTerms
         }
       >
-        {submitting
-          ? "Đang xử lý đặt tour..."
-          : scheduleUnavailableReason ??
-            (form.acceptTerms ? "Xác nhận đặt tour" : "Vui lòng đồng ý điều khoản để tiếp tục")}
-      </button>
-    </form>
+        {submitting ? "Đang xử lý…" : "Xác nhận đặt tour"}
+      </AntButton>
+    </form></Form>
   );
 };
 
@@ -615,8 +514,8 @@ const ScheduleCard = ({ schedules, selectedScheduleId }: { schedules: TourSchedu
             <div
               key={schedule.id}
               className={`p-3.5 rounded-lg border transition-all duration-300 ${isSelected
-                  ? "bg-primary-50/50 border-primary-300 text-primary-900 shadow-xs"
-                  : "bg-gray-50/40 border-slate-200 text-gray-600"
+                ? "bg-primary-50/50 border-primary-300 text-primary-900 shadow-xs"
+                : "bg-gray-50/40 border-slate-200 text-gray-600"
                 }`}
             >
               <div className="flex items-center justify-between">
@@ -710,8 +609,16 @@ export const BookingTour = () => {
    * Mặc định trước khi tải xong là 100% — tức không hiện khối cọc. Đoán sai theo chiều ngược lại
    * thì trang hứa "chỉ trả 50%" trong khi máy chủ lấy đủ tiền, và khách phát hiện ở cổng thanh toán.
    */
-  const [depositPercent, setDepositPercent] = useState(100);
-  const [balanceDueDays, setBalanceDueDays] = useState(0);
+  const [depositPercent, setDepositPercent] = useState(50);
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [otpChallenge, setOtpChallenge] = useState("");
+  const checkoutAttempt = useRef<{
+    token: string;
+    requestKey: string;
+    payload: Parameters<typeof bookingService.create>[0];
+  } | null>(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -723,8 +630,7 @@ export const BookingTour = () => {
         if (huy || !data) return;
 
         setHanChotNgay(data.booking.deadline_days || HAN_CHOT_MAC_DINH_NGAY);
-        setDepositPercent(data.payment?.deposit_percent ?? 100);
-        setBalanceDueDays(data.payment?.balance_due_days ?? 0);
+        setDepositPercent(data.payment?.deposit_percent ?? 50);
       })
       .catch(() => undefined);
 
@@ -789,7 +695,6 @@ export const BookingTour = () => {
     [discountAmount, subtotalAmount],
   );
 
-
   const updateForm = (field: keyof BookingFormState, value: string | number | boolean) => {
     setForm((current) => ({ ...current, [field]: value }));
     if (["adultCount", "childCount", "infantCount", "discountCode"].includes(field)) {
@@ -835,30 +740,28 @@ export const BookingTour = () => {
    * thôi không gửi. Danh sách khai sau qua liên kết theo mã tra cứu, hạn cuối là hạn chốt danh
    * sách của chuyến.
    */
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
+  const bookingPayload = (): Parameters<typeof bookingService.create>[0] => ({
+    tour_id: tour!.id,
+    tour_schedule_id: Number(form.tourScheduleId),
+    customer_name: form.customerName,
+    customer_email: form.customerEmail.trim().toLowerCase(),
+    customer_phone: form.customerPhone,
+    adult_count: Number(form.adultCount),
+    child_count: Number(form.childCount),
+    infant_count: Number(form.infantCount),
+    note: form.note,
+    discount_code: appliedDiscountCode ?? undefined,
+    accept_terms: form.acceptTerms,
+  });
 
-    if (!tour) return;
-
+  const processBooking = async () => {
+    const attempt = checkoutAttempt.current;
+    if (!tour || !attempt) return;
     setSubmitting(true);
     setMessage(null);
-
     try {
-      const response = await bookingService.create({
-        tour_id: tour.id,
-        tour_schedule_id: Number(form.tourScheduleId),
-        customer_name: form.customerName,
-        customer_email: form.customerEmail,
-        customer_phone: form.customerPhone,
-        adult_count: Number(form.adultCount),
-        child_count: Number(form.childCount),
-        infant_count: Number(form.infantCount),
-        note: form.note,
-        discount_code: appliedDiscountCode ?? undefined,
-        // Máy chủ đòi trường này và ghi lại mốc xác nhận lên đơn — ô tích chỉ nằm trong trình
-        // duyệt thì không phải bằng chứng, nó biến mất ngay khi đóng trang.
-        accept_terms: form.acceptTerms,
-      });
+      const response = await bookingService.create(attempt.payload, attempt);
+      checkoutAttempt.current = null;
 
       const booking = {
         ...response.data.data.booking,
@@ -869,9 +772,63 @@ export const BookingTour = () => {
         state: booking,
       });
     } catch (error) {
+      const status = (error as AxiosError)?.response?.status;
+      if (status === 403 || status === 409) checkoutAttempt.current = null;
       setMessage(getErrorMessage(error));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+
+    if (!tour || submitting || sendingOtp) return;
+    if (!form.acceptTerms || !form.tourScheduleId) {
+      setMessage("Vui lòng chọn lịch khởi hành và đồng ý điều khoản trước khi đặt tour.");
+      return;
+    }
+
+    // Task 1: Validate Email & Phone
+    if (!validateEmail(form.customerEmail)) {
+      setMessage("Địa chỉ Email không hợp lệ. Ví dụ: nguyenvanan@gmail.com");
+      return;
+    }
+
+    if (!validatePhone(form.customerPhone)) {
+      setMessage("Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam 10 chữ số.");
+      return;
+    }
+
+    // Task 2: Validate 1 chuyến đi không được chỉ có mỗi em bé (phải có ít nhất 1 người lớn)
+    if (!validateHasAdultPassenger(form.adultCount)) {
+      setMessage("Chuyến đi phải có ít nhất 1 hành khách là Người lớn (từ 12 tuổi trở lên).");
+      return;
+    }
+
+    setMessage(null);
+
+    // A retry after a lost response must reuse both proof and request identity.
+    if (checkoutAttempt.current && JSON.stringify(checkoutAttempt.current.payload) === JSON.stringify(bookingPayload())) {
+      await processBooking();
+      return;
+    }
+    checkoutAttempt.current = null;
+
+    // Bắt đầu luồng gửi mã OTP xác thực trước khi tạo đơn & thanh toán
+    setSendingOtp(true);
+    try {
+      const result = await otpService.sendOtp({
+        email: form.customerEmail.trim(),
+        customer_name: form.customerName.trim(),
+        tour_title: tour.title,
+      });
+      setOtpChallenge(result.data.challenge);
+      setIsOtpModalOpen(true);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Không thể gửi mã OTP xác thực email. Vui lòng thử lại.");
+    } finally {
+      setSendingOtp(false);
     }
   };
 
@@ -902,7 +859,7 @@ export const BookingTour = () => {
               tour={tour}
               message={message}
               schedules={schedules}
-              submitting={submitting}
+              submitting={submitting || sendingOtp}
               subtotalAmount={subtotalAmount}
               discountAmount={discountAmount}
               totalAmount={totalAmount}
@@ -917,7 +874,6 @@ export const BookingTour = () => {
               // Làm tròn về đồng nguyên đúng như máy chủ làm, để con số hiện ở đây khớp với con số
               // cổng thanh toán yêu cầu.
               depositAmount={Math.round((totalAmount * depositPercent) / 100)}
-              balanceDueDays={balanceDueDays}
             />
           </div>
 
@@ -926,9 +882,22 @@ export const BookingTour = () => {
           </div>
         </div>
       </div>
+
+      <OtpVerificationModal
+        isOpen={isOtpModalOpen}
+        challenge={otpChallenge}
+        email={form.customerEmail}
+        customerName={form.customerName}
+        tourTitle={tour?.title}
+        onClose={() => setIsOtpModalOpen(false)}
+        onVerified={async token => {
+          checkoutAttempt.current = { token, requestKey: crypto.randomUUID(), payload: bookingPayload() };
+          setIsOtpModalOpen(false);
+          await processBooking();
+        }}
+      />
     </div>
   );
 };
 
 export default BookingTour;
-

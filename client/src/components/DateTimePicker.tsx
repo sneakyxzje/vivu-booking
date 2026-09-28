@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, X } from "lucide-react";
 import { MonthGrid } from "./date/MonthGrid";
 import type { OTrangThai } from "./date/MonthGrid";
 import { PopoverNoi } from "./date/PopoverNoi";
@@ -9,6 +9,7 @@ import {
   dauNgay,
   doiSangNgay,
   ghepGio,
+  hai,
   hienThiNgay,
   khoaNgay,
   layGio,
@@ -136,6 +137,22 @@ export const DateTimePicker: React.FC<Props> = ({
   const namHienTai = (tranTren ?? new Date()).getFullYear();
   const danhSachNam = Array.from({ length: SO_NAM_NGAY_SINH }, (_, i) => namHienTai - i);
 
+  const timeStr = layGio(nhap, "08:00");
+  const [gio24Str, phutStr] = timeStr.split(":");
+  const gio24Num = parseInt(gio24Str || "8", 10);
+  const phutNum = parseInt(phutStr || "0", 10);
+
+  const period: "AM" | "PM" = gio24Num >= 12 ? "PM" : "AM";
+  const h12Num: number = gio24Num % 12 === 0 ? 12 : gio24Num % 12;
+
+  const updateTime = (h12Val: number, mVal: number, pVal: "AM" | "PM") => {
+    let h24 = h12Val % 12;
+    if (pVal === "PM") h24 += 12;
+    const newTimeStr = `${hai(h24)}:${hai(mVal)}`;
+    const currentBaseDate = nhap ? nhap.slice(0, 10) : khoaNgay(new Date());
+    setNhap(ghepGio(currentBaseDate, newTimeStr, true));
+  };
+
   const nhanNut = value ? hienThiNgay(value, withTime) : placeholder;
 
   const lopNut =
@@ -191,7 +208,7 @@ export const DateTimePicker: React.FC<Props> = ({
         neo={nut}
         onDong={dong}
         nhan={label ?? "Chọn thời gian"}
-        className="w-max max-w-[calc(100vw-1rem)] p-3"
+        className="w-[320px] max-w-[calc(100vw-1rem)] p-3 rounded-2xl shadow-2xl border border-gray-200"
       >
         <div>
           {laNgaySinh ? (
@@ -267,21 +284,97 @@ export const DateTimePicker: React.FC<Props> = ({
           />
 
           {withTime && (
-            <div className="mt-3 flex items-center gap-2 border-t border-gray-100 pt-3">
-              <label className="flex items-center gap-2 text-xs text-gray-600">
-                Giờ
-                <input
-                  type="time"
-                  value={layGio(nhap, "08:00")}
-                  disabled={!nhap}
-                  onChange={(e) =>
-                    setNhap((cu) => ghepGio(cu.slice(0, 10), e.target.value, true))
-                  }
-                  className="rounded-lg border border-gray-200 px-2 py-1 text-xs disabled:bg-gray-50 disabled:text-gray-400"
-                />
-              </label>
-              {!nhap && (
-                <span className="text-[11px] text-gray-400">Chọn ngày trước đã</span>
+            <div className="mt-2.5 border-t border-gray-100 pt-2.5">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-bold text-gray-700 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-emerald-600" />
+                  Chọn giờ phút:
+                </span>
+                <span className="text-[11px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                  {hai(h12Num)}:{hai(phutNum)} {period}
+                </span>
+              </div>
+
+              {!nhap ? (
+                <div className="text-center py-2 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                  <span className="text-[11px] text-gray-400">Chọn ngày trước</span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                  {/* Cột 1: GIỜ (01 - 12) */}
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-bold text-slate-400 text-center uppercase tracking-wider mb-1">Giờ</span>
+                    <div className="h-28 overflow-y-auto space-y-0.5 pr-0.5">
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => {
+                        const hStr = hai(h);
+                        const isSelected = h12Num === h;
+                        return (
+                          <button
+                            key={h}
+                            type="button"
+                            onClick={() => updateTime(h, phutNum, period)}
+                            className={`w-full py-0.5 text-[11px] rounded font-semibold transition-all ${
+                              isSelected
+                                ? "bg-emerald-600 text-white shadow-xs"
+                                : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+                            }`}
+                          >
+                            {hStr}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Cột 2: PHÚT (00 - 59) */}
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-bold text-slate-400 text-center uppercase tracking-wider mb-1">Phút</span>
+                    <div className="h-28 overflow-y-auto space-y-0.5 pr-0.5">
+                      {Array.from({ length: 60 }, (_, i) => i).map((m) => {
+                        const mStr = hai(m);
+                        const isSelected = phutNum === m;
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => updateTime(h12Num, m, period)}
+                            className={`w-full py-0.5 text-[11px] rounded font-semibold transition-all ${
+                              isSelected
+                                ? "bg-emerald-600 text-white shadow-xs"
+                                : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
+                            }`}
+                          >
+                            {mStr}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Cột 3: BUỔI (AM / PM) */}
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-bold text-slate-400 text-center uppercase tracking-wider mb-1">Buổi</span>
+                    <div className="flex flex-col gap-1 pt-0.5">
+                      {(["AM", "PM"] as const).map((p) => {
+                        const isSelected = period === p;
+                        return (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => updateTime(h12Num, phutNum, p)}
+                            className={`w-full py-2 text-[11px] rounded font-bold transition-all ${
+                              isSelected
+                                ? "bg-emerald-700 text-white shadow-xs"
+                                : "bg-white text-slate-600 border border-slate-200 hover:bg-emerald-50 hover:text-emerald-700"
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -310,7 +403,7 @@ export const DateTimePicker: React.FC<Props> = ({
                 type="button"
                 onClick={apDung}
                 disabled={!nhap}
-                className="rounded-lg bg-primary-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-primary-700 disabled:opacity-50"
+                className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 Chọn
               </button>

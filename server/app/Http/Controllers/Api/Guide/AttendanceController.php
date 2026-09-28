@@ -14,6 +14,8 @@ use App\Models\PassengerCheckinHistory;
 use App\Models\TourSchedule;
 use App\Services\AttendanceService;
 use App\Services\CloudinaryService;
+use App\Services\DemoClock;
+use App\Services\ScheduleLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -93,10 +95,22 @@ class AttendanceController extends Controller
         'created_at',
     ]);
 
+        $now = DemoClock::schedule($schedule)->setTimezone(AttendanceService::TIMEZONE);
+        $status = app(ScheduleLifecycleService::class)->effectiveStatus($schedule, $now);
+        foreach ($checkpoints as $checkpoint) {
+            $checkpoint->setAttribute('attendance_date', $this->attendanceService->checkpointDate($schedule, $checkpoint)->toDateString());
+        }
+
         return $this->success([
             'schedule' => [
+                'demo_clock' => $schedule->demo_clock,
                 'id' => $schedule->id,
                 'start_date' => $schedule->start_date,
+                'end_date' => $schedule->end_date,
+                'status' => $status->value,
+                'can_record' => $status->isRunning(),
+                'server_now' => $now->toIso8601String(),
+                'recording_ends_at' => ($schedule->end_date ?? $schedule->start_date->copy()->addDays(max(0, (int) $schedule->tour->number_of_days - 1))->endOfDay())->toIso8601String(),
                 'max_people' => (int) $schedule->max_people,
                 'booked_people' => (int) $schedule->booked_people,
             ],
@@ -143,6 +157,8 @@ class AttendanceController extends Controller
             );
         }
 
+        $this->attendanceService->assertCanRecord($request->user(), $schedule, $checkpoint);
+
         $validated = $request->validate([
             'checkins' => ['required', 'array', 'min:1'],
 
@@ -183,7 +199,7 @@ class AttendanceController extends Controller
         //
         // Lớp dịch vụ giữ đủ chín quy tắc ở docs/nghiep-vu/04-luong-dieu-hanh.md mục 5.3.
         // Viết lại logic ngay trong controller thì bốn quy tắc không có chỗ nào cài: chuyến
-        // phải đang chạy, không tick trước cho ngày chưa tới, đánh dấu ghi bù muộn, và điểm
+        // phải đang chạy, chỉ ghi đúng ngày hiện tại theo giờ Việt Nam, và điểm
         // dừng bắt buộc ảnh mới chốt được. Điểm danh là dữ liệu dùng để đối chiếu khi có
         // khiếu nại nên không được có đường ghi nào lách qua các quy tắc đó.
         DB::transaction(function () use (
@@ -269,150 +285,51 @@ class AttendanceController extends Controller
         ], "Đã lưu điểm danh cho {$saved} hành khách.");
     }
 
-   /**
- * Upload ảnh check-in tại một điểm dừng.
- *
- * Lưu:
- * - điểm dừng
- * - tọa độ GPS
- * - thời gian chụp
- * - khoảng cách tới điểm dừng
- *
- * Nếu khoảng cách vượt quá 200m thì vẫn lưu ảnh
- * nhưng trả về cảnh báo.
- */
-public function uploadPhoto(
-    Request $request,
-    int $scheduleId,
-    int $checkpointId
-): JsonResponse {
-    $schedule = $this->findAssignedSchedule($request, $scheduleId);
+    /** Lưu ảnh tại điểm dừng, không yêu cầu hoặc thu thập tọa độ GPS. */
+    public function uploadPhoto(
+        Request $request,
+        int $scheduleId,
+        int $checkpointId
+    ): JsonResponse {
+        $schedule = $this->findAssignedSchedule($request, $scheduleId);
+        if (!$schedule) {
+            return $this->error('Không tìm thấy lịch khởi hành được phân công.', 404);
+        }
 
-    if (!$schedule) {
-        return $this->error(
-            'Không tìm thấy lịch khởi hành được phân công.',
-            404
+        $checkpoint = $this->findCheckpointOfSchedule($schedule, $checkpointId);
+        if (!$checkpoint) {
+            return $this->error('Điểm dừng không thuộc tour của lịch khởi hành này.', 404);
+        }
+
+        $this->attendanceService->assertCanRecord($request->user(), $schedule, $checkpoint);
+        $request->validate([
+            'photo' => ['required', 'image', 'max:5120'],
+        ], [
+            'photo.required' => 'Vui lòng chọn ảnh check-in.',
+            'photo.image' => 'Tệp tải lên phải là hình ảnh.',
+            'photo.max' => 'Ảnh không được vượt quá 5MB.',
+        ]);
+
+        $imagePath = $this->cloudinaryService->uploadImage(
+            $request->file('photo'),
+            'vivu-booking/checkins'
         );
+
+        // Thời gian/quyền có thể đổi trong lúc gửi ảnh lên dịch vụ lưu trữ.
+        $this->attendanceService->assertCanRecord($request->user(), $schedule, $checkpoint);
+        $photo = CheckpointPhoto::create([
+            'tour_schedule_id' => $schedule->id,
+            'tour_itinerary_id' => $checkpoint->tour_itinerary_id,
+            'itinerary_checkpoint_id' => $checkpoint->id,
+            'guide_id' => $request->user()->id,
+            'image_path' => $imagePath,
+            'captured_at' => now(),
+        ]);
+
+        return $this->success([
+            'photo' => $photo->load('checkpoint:id,name'),
+        ], 'Đã lưu ảnh check-in thành công.');
     }
-
-    $checkpoint = $this->findCheckpointOfSchedule(
-        $schedule,
-        $checkpointId
-    );
-
-    if (!$checkpoint) {
-        return $this->error(
-            'Điểm dừng không thuộc tour của lịch khởi hành này.',
-            404
-        );
-    }
-
-    $validated = $request->validate([
-        'photo' => [
-            'required',
-            'image',
-            'max:5120',
-        ],
-
-        'latitude' => [
-            'required',
-            'numeric',
-            'between:-90,90',
-        ],
-
-        'longitude' => [
-            'required',
-            'numeric',
-            'between:-180,180',
-        ],
-    ], [
-        'photo.required' => 'Vui lòng chọn ảnh check-in.',
-        'photo.image' => 'Tệp tải lên phải là hình ảnh.',
-        'photo.max' => 'Ảnh không được vượt quá 5MB.',
-
-        'latitude.required' => 'Vui lòng cung cấp vĩ độ GPS.',
-        'latitude.numeric' => 'Vĩ độ GPS không hợp lệ.',
-
-        'longitude.required' => 'Vui lòng cung cấp kinh độ GPS.',
-        'longitude.numeric' => 'Kinh độ GPS không hợp lệ.',
-    ]);
-
-    $latitude = (float) $validated['latitude'];
-    $longitude = (float) $validated['longitude'];
-
-    /*
-     * Tính khoảng cách từ vị trí chụp đến điểm dừng.
-     */
-    if ($checkpoint->latitude === null || $checkpoint->longitude === null) {
-    return $this->error(
-        'Điểm dừng chưa được cấu hình tọa độ GPS.',
-        422
-    );
-}
-    $distanceMeters = $this->calculateDistanceInMeters(
-        $latitude,
-        $longitude,
-        (float) $checkpoint->latitude,
-        (float) $checkpoint->longitude
-    );
-
-    /*
-     * Ngưỡng cảnh báo: 200 mét.
-     */
-    $warningDistance = 200;
-
-    $isFar = $distanceMeters > $warningDistance;
-
-    /*
-     * Upload ảnh lên Cloudinary.
-     */
-    $imagePath = $this->cloudinaryService->uploadImage(
-        $request->file('photo'),
-        'vivu-booking/checkins'
-    );
-
-    /*
-     * Lưu thông tin ảnh.
-     */
-    $photo = CheckpointPhoto::create([
-        'tour_schedule_id' => $schedule->id,
-        'tour_itinerary_id' => $checkpoint->tour_itinerary_id,
-        'itinerary_checkpoint_id' => $checkpoint->id,
-        'guide_id' => $request->user()->id,
-        'image_path' => $imagePath,
-        'latitude' => $latitude,
-        'longitude' => $longitude,
-        'captured_at' => now(),
-    ]);
-
-    return $this->success([
-        'photo' => $photo->load('checkpoint:id,name,latitude,longitude'),
-
-        'location' => [
-            'latitude' => $latitude,
-            'longitude' => $longitude,
-        ],
-
-        'checkpoint' => [
-            'id' => $checkpoint->id,
-            'name' => $checkpoint->name,
-            'latitude' => (float) $checkpoint->latitude,
-            'longitude' => (float) $checkpoint->longitude,
-        ],
-
-        'distance_meters' => round($distanceMeters, 2),
-
-        'warning' => $isFar,
-
-        'warning_message' => $isFar
-            ? "Vị trí chụp ảnh cách điểm dừng {$checkpoint->name} "
-                . round($distanceMeters, 2)
-                . "m, vượt quá ngưỡng cho phép {$warningDistance}m."
-            : null,
-    ], $isFar
-        ? 'Đã lưu ảnh check-in nhưng vị trí chụp ở xa điểm dừng.'
-        : 'Đã lưu ảnh check-in thành công.');
-}
 
     private function findAssignedSchedule(
         Request $request,
@@ -436,37 +353,4 @@ public function uploadPhoto(
             })
             ->first();
     }
-    /**
- * Tính khoảng cách giữa hai tọa độ GPS bằng công thức Haversine.
- *
- * Kết quả trả về theo mét.
- */
-private function calculateDistanceInMeters(
-    float $latitude1,
-    float $longitude1,
-    float $latitude2,
-    float $longitude2
-): float {
-    $earthRadius = 6371000;
-
-    $latitudeDifference = deg2rad(
-        $latitude2 - $latitude1
-    );
-
-    $longitudeDifference = deg2rad(
-        $longitude2 - $longitude1
-    );
-
-    $a = sin($latitudeDifference / 2) ** 2
-        + cos(deg2rad($latitude1))
-        * cos(deg2rad($latitude2))
-        * sin($longitudeDifference / 2) ** 2;
-
-    $c = 2 * atan2(
-        sqrt($a),
-        sqrt(1 - $a)
-    );
-
-    return $earthRadius * $c;
-}
 }

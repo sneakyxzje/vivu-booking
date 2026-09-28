@@ -1,24 +1,10 @@
-import React, { useState } from "react";
-import { ArrowRight, CalendarRange, ChevronDown, Plus, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Alert, Button, Card, Col, Collapse, Empty, Flex, Form, Input, Popconfirm, Row, Tabs, Typography } from "antd";
 import type { ItineraryFormItem } from "./types";
-import { danhSoLai, ngayRong } from "./formHelpers";
+import { danhSoLai } from "./formHelpers";
+import { fillItineraryDays } from "./itineraryValidation";
 import { CheckpointManager } from "../../admin/CheckpointManager";
-
-/**
- * Bước 2: hành trình từng ngày.
- *
- * ## Gấp lại theo ngày
- *
- * Một tour 5 ngày trước đây trải ra năm khối, mỗi khối bảy ô nhập cộng phần điểm dừng — cuộn
- * mãi không hết và không nhìn ra ngày nào còn dở. Giờ mỗi ngày là một hàng gấp được, mở đúng
- * ngày đang sửa, và hàng nào thiếu thì mang nhãn thiếu ngay trên đầu.
- *
- * ## Số ngày không hỏi nữa
- *
- * `day_number` suy ra từ thứ tự trong danh sách. Trước đây nó là một ô nhập tay, nên người dùng
- * gõ được "Ngày 3" ở vị trí thứ nhất, hoặc hai hàng cùng mang số 2 — máy chủ từ chối, còn thông
- * báo lỗi thì nói về một con số mà biểu mẫu vừa hiển thị đúng ngay bên cạnh.
- */
+import { ItineraryImagesInput } from "./ItineraryImagesInput";
 
 interface Props {
   labelClass: string;
@@ -28,289 +14,101 @@ interface Props {
   onChange: (next: ItineraryFormItem[]) => void;
 }
 
-export const TourFormItinerarySection: React.FC<Props> = ({
-  labelClass,
-  fieldClass,
-  items,
-  maxDays,
-  onChange,
-}) => {
-  const [dangMo, setDangMo] = useState<number | null>(0);
+const complete = (item: ItineraryFormItem) => Boolean(item.title.trim() && item.content.trim());
 
-  const conThieu = Math.max(0, maxDays - items.length);
+export function TourFormItinerarySection({ items: savedItems, maxDays, onChange }: Props) {
+  const [activeDay, setActiveDay] = useState(0);
+  const editorTop = useRef<HTMLDivElement>(null);
+  const dayLimit = Number.isInteger(maxDays) && maxDays > 0 ? maxDays : 1;
+  // An already-open form may still contain only day 1 when its duration is longer.
+  // Navigation and editing must use the full set of days, including blank ones.
+  const items = fillItineraryDays(savedItems, dayLimit);
+  const activeIndex = Math.min(activeDay, Math.max(0, items.length - 1));
+  const current = items[activeIndex];
+  const writtenDays = items.filter(complete).length;
 
-  const sua = (index: number, thayDoi: Partial<ItineraryFormItem>) =>
-    onChange(items.map((item, i) => (i === index ? { ...item, ...thayDoi } : item)));
+  const update = (changes: Partial<ItineraryFormItem>) =>
+    onChange(items.map((item, index) => index === activeIndex ? { ...item, ...changes } : item));
 
-  const them = (soLuong = 1) => {
-    const themVao = Array.from({ length: Math.min(soLuong, conThieu) }, (_, i) =>
-      ngayRong(items.length + i + 1),
-    );
-    if (themVao.length === 0) return;
-
-    onChange(danhSoLai([...items, ...themVao]));
-    setDangMo(items.length);
+  const goToDay = (index: number) => {
+    setActiveDay(Math.max(0, Math.min(index, items.length - 1)));
+    editorTop.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const xoa = (index: number) => {
-    onChange(danhSoLai(items.filter((_, i) => i !== index)));
-    setDangMo(null);
+  const remove = () => {
+    onChange(danhSoLai(items.filter((_, index) => index !== activeIndex)));
+    setActiveDay(Math.max(0, activeIndex - 1));
   };
 
-  const suaChang = (index: number, viTri: number, giaTri: string) =>
-    sua(index, {
-      route_points: items[index].route_points.map((p, i) => (i === viTri ? giaTri : p)),
-    });
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
-            <CalendarRange className="h-4 w-4" />
-          </span>
-          <div>
-            <h3 className="text-sm font-bold text-gray-950">Hành trình từng ngày</h3>
-            <p className="mt-0.5 text-xs text-gray-500">
-              Tour dài {maxDays} ngày, đã khai {items.length} ngày.
-              {conThieu > 0 && ` Còn thiếu ${conThieu} ngày.`}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          {conThieu > 1 && (
-            <button
-              type="button"
-              onClick={() => them(conThieu)}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              Tạo đủ {conThieu} ngày
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => them()}
-            disabled={conThieu === 0}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Thêm ngày
-          </button>
-        </div>
+  return <Flex ref={editorTop} vertical gap="middle" style={{ scrollMarginTop: 80 }}>
+    <Flex justify="space-between" align="center" wrap gap="middle">
+      <div>
+        <Typography.Title level={4} style={{ margin: 0 }}>Lịch trình từng ngày</Typography.Title>
+        <Typography.Text type="secondary">Tour {dayLimit} ngày · Đã viết {writtenDays}/{dayLimit} ngày</Typography.Text>
       </div>
+    </Flex>
 
-      {items.length === 0 && (
-        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/60 px-6 py-10 text-center">
-          <p className="text-sm font-semibold text-gray-700">Chưa khai ngày nào</p>
-          <p className="mt-1 text-xs text-gray-500">
-            Khách xem tour sẽ không thấy lịch trình. Bấm "Thêm ngày" để bắt đầu.
-          </p>
-        </div>
-      )}
+    {items.length > dayLimit && <Alert type="warning" showIcon title={`Lịch trình có ${items.length} ngày, nhưng tour đang đặt ${dayLimit} ngày. Xóa ngày thừa hoặc sửa thời lượng tour.`} />}
 
-      <div className="space-y-3">
-        {items.map((item, index) => {
-          const moRong = dangMo === index;
-          const thieu = !item.title.trim() || !item.content.trim();
+    {current ? <>
+      <Tabs activeKey={String(activeIndex)} onChange={key => goToDay(Number(key))} type="card"
+        items={items.map((item, index) => ({
+          key: String(index),
+          label: <span>Ngày {index + 1}{!complete(item) && <Typography.Text type="secondary"> · Chưa viết đủ</Typography.Text>}</span>,
+        }))} style={{ marginBottom: -16 }} />
 
-          return (
-            <div
-              key={index}
-              className={`overflow-hidden rounded-xl border bg-white shadow-sm ${
-                thieu ? "border-amber-200" : "border-gray-200"
-              }`}
-            >
-              <div className="flex items-center gap-3 px-4 py-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-xs font-bold text-white">
-                  N{index + 1}
-                </span>
+      <Card key={current.id ?? `day-${activeIndex}`} title={`Ngày ${activeIndex + 1}`} extra={items.length > dayLimit &&
+        <Popconfirm title={`Xóa ngày ${activeIndex + 1} khỏi lịch trình?`} description="Nội dung và điểm danh của ngày này sẽ được bỏ khỏi biểu mẫu." okText="Xóa ngày" cancelText="Giữ lại" onConfirm={remove}>
+          <Button danger type="text">Xóa ngày</Button>
+        </Popconfirm>
+      }>
+        <Form component={false} layout="vertical">
+          <Form.Item label="Tiêu đề ngày" htmlFor={`itinerary-${activeIndex}-title`} required>
+            <Input id={`itinerary-${activeIndex}-title`} maxLength={255} value={current.title} onChange={event => update({ title: event.target.value })}
+              placeholder="Ví dụ: Hà Nội – tham quan vịnh Hạ Long" />
+          </Form.Item>
+          <Form.Item label="Hoạt động trong ngày" htmlFor={`itinerary-${activeIndex}-content`} required>
+            <Input.TextArea id={`itinerary-${activeIndex}-content`} value={current.content} onChange={event => update({ content: event.target.value })}
+              autoSize={{ minRows: 7, maxRows: 18 }} placeholder={"Sáng: Đón khách và khởi hành.\nTrưa: Ăn trưa tại nhà hàng.\nChiều: Tham quan các điểm trong chương trình.\nTối: Ăn tối, nhận phòng và nghỉ ngơi."} />
+          </Form.Item>
+          <Form.Item label="Ảnh trong ngày" extra="Không bắt buộc · Tối đa 8 ảnh, mỗi ảnh 5 MB. Ảnh được tải lên khi lưu tour.">
+            <ItineraryImagesInput item={current} onChange={update} />
+          </Form.Item>
+        </Form>
 
-                <button
-                  type="button"
-                  onClick={() => setDangMo(moRong ? null : index)}
-                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold text-gray-900">
-                      {item.title.trim() || `Ngày ${index + 1} — chưa đặt tiêu đề`}
-                    </span>
-                    <span className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-gray-500">
-                      {item.start_point || item.end_point ? (
-                        <>
-                          {item.start_point || "…"}
-                          <ArrowRight className="h-3 w-3 shrink-0" />
-                          {item.end_point || "…"}
-                        </>
-                      ) : (
-                        "Chưa khai điểm đi và điểm đến"
-                      )}
-                      {(item.checkpoints?.length ?? 0) > 0 &&
-                        ` · ${item.checkpoints?.length} điểm dừng`}
-                    </span>
-                  </span>
+        <Collapse key={activeIndex} defaultActiveKey={[
+          ...(current.start_point || current.end_point || current.route_points.length || current.rest_stops ? ["route"] : []),
+          ...(current.checkpoints?.length ? ["checkpoints"] : []),
+        ]} items={[
+          { key: "route", label: "Di chuyển và nghỉ chân", extra: <Typography.Text type="secondary">Không bắt buộc</Typography.Text>,
+            children: <Form component={false} layout="vertical">
+              <Row gutter={16}>
+                <Col xs={24} sm={12}><Form.Item label="Điểm xuất phát trong ngày" htmlFor={`itinerary-${activeIndex}-start`}>
+                  <Input id={`itinerary-${activeIndex}-start`} maxLength={255} value={current.start_point} onChange={event => update({ start_point: event.target.value })} placeholder="Ví dụ: Hà Nội" />
+                </Form.Item></Col>
+                <Col xs={24} sm={12}><Form.Item label="Điểm kết thúc trong ngày" htmlFor={`itinerary-${activeIndex}-end`}>
+                  <Input id={`itinerary-${activeIndex}-end`} maxLength={255} value={current.end_point} onChange={event => update({ end_point: event.target.value })} placeholder="Ví dụ: Hạ Long" />
+                </Form.Item></Col>
+              </Row>
+              <Form.Item label="Các nơi đi qua" htmlFor={`itinerary-${activeIndex}-route`} tooltip="Mỗi dòng một địa điểm, theo thứ tự di chuyển.">
+                <Input.TextArea id={`itinerary-${activeIndex}-route`} autoSize={{ minRows: 2, maxRows: 6 }} value={current.route_points.join("\n")}
+                  onChange={event => update({ route_points: event.target.value ? event.target.value.split("\n") : [] })} placeholder={"Hải Dương\nUông Bí\nBãi Cháy"} />
+              </Form.Item>
+              <Form.Item label="Nơi nghỉ chân" htmlFor={`itinerary-${activeIndex}-rest`} style={{ marginBottom: 0 }}>
+                <Input.TextArea id={`itinerary-${activeIndex}-rest`} rows={2} value={current.rest_stops} onChange={event => update({ rest_stops: event.target.value })} placeholder="Ví dụ: Trạm dừng Sao Đỏ" />
+              </Form.Item>
+            </Form> },
+          { key: "checkpoints", label: `Điểm danh cho hướng dẫn viên${current.checkpoints?.length ? ` (${current.checkpoints.length} điểm)` : ""}`,
+            extra: <Typography.Text type="secondary">Không bắt buộc</Typography.Text>,
+            children: <CheckpointManager checkpoints={current.checkpoints ?? []} onChange={checkpoints => update({ checkpoints })} /> },
+        ]} />
 
-                  {thieu && (
-                    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                      Còn thiếu
-                    </span>
-                  )}
-                  <ChevronDown
-                    className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${
-                      moRong ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => xoa(index)}
-                  aria-label={`Xóa ngày ${index + 1}`}
-                  className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-
-              {moRong && (
-                <div className="space-y-4 border-t border-gray-100 bg-gray-50/40 p-4">
-                  <div>
-                    <label className={labelClass}>
-                      Tiêu đề ngày <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      required
-                      value={item.title}
-                      onChange={(e) => sua(index, { title: e.target.value })}
-                      placeholder="VD: Khởi hành Hà Nội - du thuyền vịnh Hạ Long"
-                      className={fieldClass}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className={labelClass}>Điểm đầu trong ngày</label>
-                      <input
-                        value={item.start_point}
-                        onChange={(e) => sua(index, { start_point: e.target.value })}
-                        placeholder="VD: Hà Nội"
-                        className={fieldClass}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Điểm đến trong ngày</label>
-                      <input
-                        value={item.end_point}
-                        onChange={(e) => sua(index, { end_point: e.target.value })}
-                        placeholder="VD: Hạ Long"
-                        className={fieldClass}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <label className={`${labelClass} mb-0`}>
-                        Các chặng đi qua
-                        <span className="ml-1.5 text-xs font-medium text-gray-400">
-                          (không bắt buộc)
-                        </span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          sua(index, { route_points: [...item.route_points, ""] })
-                        }
-                        className="inline-flex items-center gap-1 rounded-lg bg-primary-50 px-2.5 py-1.5 text-[11px] font-semibold text-primary-700 hover:bg-primary-100"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        Thêm chặng
-                      </button>
-                    </div>
-
-                    <div className="space-y-2">
-                      {item.route_points.length === 0 && (
-                        <p className="rounded-lg border border-dashed border-gray-200 bg-white px-4 py-2.5 text-[11px] text-gray-500">
-                          Chưa khai chặng nào, và để nguyên như vậy cũng được. Tour đi thẳng thì
-                          không có chặng trung gian để ghi.
-                        </p>
-                      )}
-
-                      {item.route_points.map((point, viTri) => (
-                        <div key={viTri} className="flex items-center gap-2">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
-                            {viTri + 1}
-                          </span>
-                          <input
-                            value={point}
-                            onChange={(e) => suaChang(index, viTri, e.target.value)}
-                            placeholder={`VD: ${
-                              ["Hải Dương", "Uông Bí", "Bãi Cháy"][viTri] ?? "Điểm dừng tiếp theo"
-                            }`}
-                            className={fieldClass}
-                          />
-                          {/* Xóa được cả hàng cuối cùng: trường này vốn không bắt buộc. */}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              sua(index, {
-                                route_points: item.route_points.filter((_, i) => i !== viTri),
-                              })
-                            }
-                            aria-label={`Xóa chặng ${viTri + 1}`}
-                            className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="border-t border-gray-200 pt-4">
-                    <CheckpointManager
-                      checkpoints={item.checkpoints ?? []}
-                      fieldClass={fieldClass}
-                      onChange={(checkpoints) => sua(index, { checkpoints })}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 border-t border-gray-200 pt-4">
-                    <div>
-                      <label className={labelClass}>
-                        Nội dung trong ngày <span className="text-red-500">*</span>
-                      </label>
-                      <textarea
-                        required
-                        rows={4}
-                        value={item.content}
-                        onChange={(e) => sua(index, { content: e.target.value })}
-                        placeholder="Mô tả hoạt động, bữa ăn, nghỉ ngơi trong ngày..."
-                        className={`${fieldClass} resize-y`}
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>
-                        Điểm nghỉ chân
-                        <span className="ml-1.5 text-xs font-medium text-gray-400">
-                          (không bắt buộc)
-                        </span>
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={item.rest_stops}
-                        onChange={(e) => sua(index, { rest_stops: e.target.value })}
-                        placeholder="VD: Trạm dừng Sao Đỏ"
-                        className={`${fieldClass} resize-y`}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
+        <Flex justify="space-between" wrap gap="small" style={{ marginTop: 24 }}>
+          <Button htmlType="button" disabled={activeIndex === 0} onClick={() => goToDay(activeIndex - 1)}>Ngày trước</Button>
+          <Typography.Text type="secondary">Ngày {activeIndex + 1} / {items.length}</Typography.Text>
+          <Button htmlType="button" disabled={activeIndex >= items.length - 1} onClick={() => goToDay(activeIndex + 1)}>Ngày tiếp theo</Button>
+        </Flex>
+      </Card>
+    </> : <Card><Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Nhập số ngày của tour ở bước Thông tin & giá để tạo lịch trình." /></Card>}
+  </Flex>;
+}

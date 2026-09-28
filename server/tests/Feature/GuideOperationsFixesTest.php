@@ -28,6 +28,8 @@ use Tests\TestCase;
  */
 class GuideOperationsFixesTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private User $dieuHanh;
@@ -90,6 +92,9 @@ class GuideOperationsFixesTest extends TestCase
             'number_of_days' => 3,
             'number_of_nights' => 2,
             'start_location' => 'Ha Noi',
+            'itineraries' => array_map(fn ($day) => [
+                'day_number' => $day, 'title' => "Ngày {$day}", 'content' => 'Tham quan và nghỉ ngơi.',
+            ], range(1, 3)),
             'schedules' => $schedules,
         ]);
     }
@@ -211,7 +216,8 @@ class GuideOperationsFixesTest extends TestCase
     private function dungHienTruong(bool $batBuocAnh): array
     {
         $guide = $this->taoNguoi('guide');
-        $chuyen = $this->taoChuyen(now()->subHours(2), ['status' => ScheduleStatus::InProgress->value]);
+        // Day-one attendance must stay on today's date, including runs shortly after midnight.
+        $chuyen = $this->taoChuyen(now()->startOfDay(), ['status' => ScheduleStatus::InProgress->value]);
         $chuyen->guides()->sync([$guide->id]);
 
         /** @var TourItinerary $lichTrinh */
@@ -338,9 +344,8 @@ class GuideOperationsFixesTest extends TestCase
     /**
      * Trả tiền thất bại thì đơn giữ nguyên chỗ tới hết hạn, không bị hủy ngay.
      *
-     * "Thất bại" ở cổng phần lớn là chuyện khách sửa được trong một phút: sai OTP, thẻ không đủ số
-     * dư, bấm Hủy để đổi sang thẻ khác. Hủy đơn ngay nghĩa là họ quay lại thì chỗ đã mất — và thời
-     * hạn giữ chỗ sinh ra chính là để đựng khoảng thời gian đó.
+     * Lỗi thanh toán như thiếu số dư giữ đơn để thử lại. Khách chủ động hủy (mã 24)
+     * là nghiệp vụ riêng: hủy đơn ngay, được kiểm tra ở bài bên dưới.
      */
     public function test_tra_tien_that_bai_thi_don_van_giu_cho_toi_het_han(): void
     {
@@ -348,7 +353,7 @@ class GuideOperationsFixesTest extends TestCase
 
         $chuyen = $this->taoChuyen(now()->addDays(20));
 
-        $don = $this->postJson('/api/bookings', [
+        $don = $this->postVerifiedBooking([
             'tour_id' => $this->tour->id,
             'tour_schedule_id' => $chuyen->id,
             'customer_name' => 'Khach Doi The',
@@ -373,6 +378,46 @@ class GuideOperationsFixesTest extends TestCase
             (int) $chuyen->fresh()->booked_people,
             'Chỗ vẫn được giữ cho tới khi hết hạn thanh toán.',
         );
+        $this->assertDatabaseCount('booking_payments', 0);
+
+        // Khách đổi thẻ và trả lại trên cùng đơn; IPN lặp không thu tiền hai lần.
+        $retry = $this->vnpayQuayVe($booking, 4_000_000);
+        $this->getJson('/api/vnpay/ipn?' . http_build_query($retry))->assertOk();
+        $this->getJson('/api/vnpay/ipn?' . http_build_query($retry))->assertOk();
+        $this->assertSame('confirmed', $booking->fresh()->status);
+        $this->assertNull($booking->fresh()->expires_at);
+        $this->assertSame($choTruoc, (int) $chuyen->fresh()->booked_people);
+        $this->assertDatabaseCount('booking_payments', 1);
+        $this->assertSame(4_000_000.0, (float) $booking->payments()->sum('amount'));
+    }
+
+    public function test_khach_huy_tai_vnpay_thi_huy_don_va_tra_cho_ngay(): void
+    {
+        Mail::fake();
+        $chuyen = $this->taoChuyen(now()->addDays(20));
+        $this->postVerifiedBooking([
+            'tour_id' => $this->tour->id,
+            'tour_schedule_id' => $chuyen->id,
+            'customer_name' => 'Khach Huy Thanh Toan',
+            'customer_email' => 'huythanhtoan@example.com',
+            'adult_count' => 2,
+            'accept_terms' => true,
+        ])->assertStatus(201);
+
+        $booking = Booking::query()->firstOrFail();
+        $this->assertTrue($booking->expires_at->isFuture());
+        $this->assertSame(2, (int) $chuyen->fresh()->booked_people);
+        $callback = $this->vnpayQuayVe($booking, 4_000_000, thanhCong: false, maLoi: '24');
+
+        $this->getJson('/api/vnpay/ipn?' . http_build_query($callback))->assertOk();
+        $this->assertSame('cancelled', $booking->fresh()->status);
+        $this->assertSame(0, (int) $chuyen->fresh()->booked_people);
+        $this->assertDatabaseCount('booking_payments', 0);
+
+        // Callback gửi lại không trả chỗ lần thứ hai.
+        $this->getJson('/api/vnpay/ipn?' . http_build_query($callback))->assertOk();
+        $this->assertSame('cancelled', $booking->fresh()->status);
+        $this->assertSame(0, (int) $chuyen->fresh()->booked_people);
     }
 
     /** Hết hạn thì tác vụ nền vẫn dọn đúng như cũ — không có đơn nào nằm lại vĩnh viễn. */
@@ -382,7 +427,7 @@ class GuideOperationsFixesTest extends TestCase
 
         $chuyen = $this->taoChuyen(now()->addDays(20));
 
-        $this->postJson('/api/bookings', [
+        $this->postVerifiedBooking([
             'tour_id' => $this->tour->id,
             'tour_schedule_id' => $chuyen->id,
             'customer_name' => 'Khach Bo Cuoc',
@@ -406,12 +451,12 @@ class GuideOperationsFixesTest extends TestCase
     }
 
     /** Dựng lượt VNPay quay về, ký đúng như cổng thật ký. */
-    private function vnpayQuayVe(Booking $booking, float $soTien, bool $thanhCong = true): array
+    private function vnpayQuayVe(Booking $booking, float $soTien, bool $thanhCong = true, string $maLoi = '51'): array
     {
         $params = [
             'vnp_Amount' => (int) round($soTien * 100),
             'vnp_BankCode' => 'NCB',
-            'vnp_ResponseCode' => $thanhCong ? '00' : '24',
+            'vnp_ResponseCode' => $thanhCong ? '00' : $maLoi,
             'vnp_TransactionNo' => (string) random_int(10000000, 99999999),
             'vnp_TransactionStatus' => $thanhCong ? '00' : '02',
             'vnp_TxnRef' => app(VNPayService::class)->txnRef($booking),
@@ -428,15 +473,11 @@ class GuideOperationsFixesTest extends TestCase
     }
 
     // ─────────────────────────────────────────────────────────────────────────────────────
-    // Mức khách tối thiểu
+    // Số khách mục tiêu
     // ─────────────────────────────────────────────────────────────────────────────────────
 
     /**
-     * `min_people` đếm GHẾ, không đếm người — cùng thước với `max_people`.
-     *
-     * `booked_people` cộng lên theo số ghế (em bé đi cùng bố mẹ không chiếm chỗ), nên đếm `guests`
-     * ở đầu kia là đo hai đầu của một trục bằng hai cái thước. Chuyến `min_people = 4` bán được 2
-     * người lớn kèm 2 em bé sẽ tự chốt chạy, trong khi chỉ có 2 suất thực sự bán được.
+     * Em bé không chiếm ghế; dưới số khách mục tiêu vẫn chạy cho khách đã trả đủ.
      */
     public function test_min_people_dem_ghe_khong_dem_em_be(): void
     {
@@ -468,10 +509,11 @@ class GuideOperationsFixesTest extends TestCase
 
         $this->artisan('schedules:confirm-ready')->assertSuccessful();
 
-        $this->assertNotSame(
+        $this->assertSame(
             ScheduleStatus::Confirmed,
             $chuyen->fresh()->status,
-            'Hai người lớn và hai em bé chỉ là hai suất bán được, chưa đủ mức tối thiểu bốn.',
+            'Hai ghế đã trả đủ vẫn được khởi hành dù mục tiêu là bốn.',
         );
+        $this->assertSame(2, (int) $chuyen->fresh()->booked_people);
     }
 }

@@ -130,6 +130,112 @@ class GuideAttendanceTest extends TestCase
         );
     }
 
+    public function test_qua_nua_dem_khoa_ngay_cu_nhung_van_xem_duoc_du_lieu(): void
+    {
+        $this->dungChuyenDi();
+        Sanctum::actingAs($this->guide);
+        $today = now()->startOfDay();
+        $this->travelTo($today->copy()->endOfDay());
+        $entry = ['booking_passenger_id' => $this->passenger->id, 'status' => 'present'];
+        $this->guiDiemDanh($entry)->assertOk();
+        $saved = PassengerCheckin::firstOrFail()->toArray();
+
+        $this->travelTo($today->copy()->addDay());
+        $this->guiDiemDanh([...$entry, 'status' => 'absent', 'note' => 'Sửa lại điểm danh ngày trước.'])
+            ->assertStatus(422)->assertJsonPath('message', 'Điểm dừng ngày ' . $today->format('d/m/Y') . ' đã qua, chỉ được xem. Nếu cần đính chính, vui lòng báo điều hành.');
+        $this->postJson("/api/guide/schedules/{$this->schedule->id}/checkpoints/{$this->checkpoint->id}/checkin-photo")
+            ->assertStatus(422)->assertJsonPath('message', 'Điểm dừng ngày ' . $today->format('d/m/Y') . ' đã qua, chỉ được xem. Nếu cần đính chính, vui lòng báo điều hành.');
+        $this->assertSame($saved, PassengerCheckin::firstOrFail()->toArray());
+        $this->assertDatabaseCount('passenger_checkin_histories', 0);
+        $this->assertDatabaseCount('checkpoint_photos', 0);
+        $this->getJson("/api/guide/schedules/{$this->schedule->id}/attendance")->assertOk()
+            ->assertJsonPath('data.checkins.0.status', 'present')
+            ->assertJsonPath('data.checkpoints.0.attendance_date', $today->toDateString())
+            ->assertJsonPath('data.schedule.server_now', now()->toIso8601String());
+    }
+
+    public function test_ngay_moi_mo_dung_diem_theo_mui_gio_viet_nam(): void
+    {
+        $this->dungChuyenDi();
+        $this->schedule->update(['start_date' => '2026-10-03 23:00:00', 'end_date' => '2026-10-05 18:00:00']);
+        $dayTwo = TourItinerary::create([
+            'tour_id' => $this->itinerary->tour_id, 'day_number' => 2, 'title' => 'Ngày 2', 'content' => 'Tham quan.',
+        ])->checkpoints()->create(['name' => 'Điểm ngày 2', 'sequence' => 1]);
+        Sanctum::actingAs($this->guide);
+        $url = "/api/guide/schedules/{$this->schedule->id}/checkpoints/{$dayTwo->id}";
+        $payload = ['checkins' => [['booking_passenger_id' => $this->passenger->id, 'status' => 'present']]];
+
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-03T16:59:59Z'));
+        $this->putJson($url . '/attendance', $payload)->assertStatus(422)
+            ->assertJsonPath('message', 'Điểm dừng này thuộc ngày 04/10/2026, chưa tới nên chưa điểm danh được.');
+        $this->postJson($url . '/checkin-photo')->assertStatus(422)
+            ->assertJsonPath('message', 'Điểm dừng này thuộc ngày 04/10/2026, chưa tới nên chưa điểm danh được.');
+
+        // UTC vẫn là 03/10 nhưng Việt Nam đã sang 04/10 lúc 00:00.
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-03T17:00:00Z'));
+        $this->putJson($url . '/attendance', $payload)->assertOk();
+        $payload['checkins'][0]['note'] = 'Đã đối chiếu danh sách trong ngày.';
+        $this->putJson($url . '/attendance', $payload)->assertOk();
+        $this->assertDatabaseCount('passenger_checkin_histories', 1);
+        $this->assertFalse(PassengerCheckin::firstOrFail()->is_late_entry);
+    }
+
+    public function test_anh_chi_duoc_ghi_trong_ngay_ke_ca_tai_len_keo_dai_qua_nua_dem(): void
+    {
+        $this->dungChuyenDi();
+        Sanctum::actingAs($this->guide);
+        $midnight = now()->startOfDay()->addDay();
+        $uploadCrossesMidnight = false;
+        $this->mock(\App\Services\CloudinaryService::class, function ($mock) use (&$uploadCrossesMidnight, $midnight) {
+            $mock->shouldReceive('uploadImage')->twice()->andReturnUsing(function () use (&$uploadCrossesMidnight, $midnight) {
+                if ($uploadCrossesMidnight) $this->travelTo($midnight);
+                return 'https://example.test/checkin.png';
+            });
+        });
+        $url = "/api/guide/schedules/{$this->schedule->id}/checkpoints/{$this->checkpoint->id}/checkin-photo";
+        $payload = fn () => [
+            'photo' => \Illuminate\Http\UploadedFile::fake()->createWithContent('checkin.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWZkAAAAASUVORK5CYII=')),
+        ];
+        $this->postJson($url, $payload())->assertOk()
+            ->assertJsonPath('data.photo.itinerary_checkpoint_id', $this->checkpoint->id)
+            ->assertJsonMissingPath('data.location')
+            ->assertJsonMissingPath('data.distance_meters')
+            ->assertJsonMissingPath('data.warning');
+        $this->assertDatabaseHas('checkpoint_photos', [
+            'tour_schedule_id' => $this->schedule->id,
+            'itinerary_checkpoint_id' => $this->checkpoint->id,
+            'latitude' => null,
+            'longitude' => null,
+        ]);
+        $this->assertDatabaseCount('checkpoint_photos', 1);
+
+        $this->travelTo($midnight->copy()->subSecond());
+        $uploadCrossesMidnight = true;
+        $this->postJson($url, $payload())->assertStatus(422)
+            ->assertJsonPath('message', 'Điểm dừng ngày ' . $midnight->copy()->subDay()->format('d/m/Y') . ' đã qua, chỉ được xem. Nếu cần đính chính, vui lòng báo điều hành.');
+        $this->assertDatabaseCount('checkpoint_photos', 1);
+    }
+
+    public function test_anh_bo_qua_toa_do_gui_tu_client_cu(): void
+    {
+        $this->dungChuyenDi();
+        Sanctum::actingAs($this->guide);
+        $this->mock(\App\Services\CloudinaryService::class, function ($mock) {
+            $mock->shouldReceive('uploadImage')->once()->andReturn('https://example.test/checkin.png');
+        });
+        $url = "/api/guide/schedules/{$this->schedule->id}/checkpoints/{$this->checkpoint->id}/checkin-photo";
+        $this->postJson($url, [
+            'photo' => \Illuminate\Http\UploadedFile::fake()->createWithContent('checkin.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWZkAAAAASUVORK5CYII=')),
+            'latitude' => 21.0285,
+            'longitude' => 105.8542,
+        ])->assertOk()->assertJsonMissingPath('data.distance_meters');
+        $this->assertDatabaseHas('checkpoint_photos', [
+            'itinerary_checkpoint_id' => $this->checkpoint->id,
+            'latitude' => null,
+            'longitude' => null,
+        ]);
+    }
+
     public function test_guide_xem_duoc_du_lieu_diem_danh_cua_lich_duoc_phan_cong(): void
     {
         $this->dungChuyenDi();
@@ -279,7 +385,7 @@ class GuideAttendanceTest extends TestCase
     /**
      * Quy tắc 5. Ghi bù sau hơn một ngày vẫn cho ghi nhưng phải đánh dấu, để truy vết được.
      */
-    public function test_ghi_bu_muon_thi_duoc_danh_dau(): void
+    public function test_khong_duoc_ghi_bu_cho_ngay_da_qua(): void
     {
         $this->dungChuyenDi();
         $this->schedule->update([
@@ -291,9 +397,9 @@ class GuideAttendanceTest extends TestCase
         $this->guiDiemDanh([
             'booking_passenger_id' => $this->passenger->id,
             'status' => PassengerCheckinStatus::Present->value,
-        ])->assertOk();
+        ])->assertStatus(422);
 
-        $this->assertTrue(PassengerCheckin::query()->first()->is_late_entry);
+        $this->assertDatabaseCount('passenger_checkins', 0);
     }
 
     /**
@@ -352,5 +458,73 @@ class GuideAttendanceTest extends TestCase
         ])->assertStatus(404);
 
         $this->assertSame(0, PassengerCheckin::query()->count());
+    }
+
+    public function test_chuyen_ket_thuc_van_xem_duoc_nhung_khong_sua_hoac_them_anh(): void
+    {
+        $this->dungChuyenDi();
+        Sanctum::actingAs($this->guide);
+        $this->guiDiemDanh([
+            'booking_passenger_id' => $this->passenger->id,
+            'status' => 'present',
+        ])->assertOk();
+
+        // Scheduler chưa đổi trạng thái: vẫn phải khóa ngay khi thời gian chuyến đã hết.
+        $this->schedule->update(['end_date' => now()->subMinute()]);
+        $this->booking->update(['status' => 'completed']);
+        $this->getJson("/api/guide/schedules/{$this->schedule->id}/attendance")
+            ->assertOk()
+            ->assertJsonPath('data.schedule.status', 'completed')
+            ->assertJsonPath('data.schedule.can_record', false)
+            ->assertJsonPath('data.checkins.0.status', 'present')
+            ->assertJsonPath('data.bookings.0.passengers.0.name', 'Nguyen Van A');
+
+        $this->guiDiemDanh([
+            'booking_passenger_id' => $this->passenger->id,
+            'status' => 'absent',
+            'note' => 'Khong duoc sua sau khi ket thuc.',
+        ])->assertStatus(422);
+        $this->postJson("/api/guide/schedules/{$this->schedule->id}/checkpoints/{$this->checkpoint->id}/checkin-photo")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Chỉ điểm danh được khi đoàn đang đi. Chuyến này đang ở trạng thái "Đã kết thúc".');
+        $this->assertSame('present', PassengerCheckin::query()->first()->status->value);
+        $this->assertDatabaseCount('checkpoint_photos', 0);
+        $this->assertDatabaseCount('passenger_checkin_histories', 0);
+    }
+
+    public function test_tour_va_chuyen_moi_nhat_len_dau_van_giu_chuyen_cu(): void
+    {
+        $this->dungChuyenDi();
+        Sanctum::actingAs($this->guide);
+        $tour = $this->schedule->tour;
+        $tour->update(['created_at' => now()->addHour()]);
+        $newTour = Tour::factory()->create();
+        $older = TourSchedule::create([
+            'tour_id' => $tour->id, 'start_date' => now()->subDays(8),
+            'end_date' => now()->subDays(7), 'max_people' => 10,
+            'booked_people' => 0, 'status' => 'completed',
+        ]);
+        $newer = TourSchedule::create([
+            'tour_id' => $newTour->id, 'start_date' => now()->addDays(8),
+            'end_date' => now()->addDays(9), 'max_people' => 10,
+            'booked_people' => 0, 'status' => 'open',
+        ]);
+        $older->guides()->sync([$this->guide->id]);
+        $newer->guides()->sync([$this->guide->id]);
+        // Chuyến rất mới nhưng không phân công không được ảnh hưởng thứ tự hay lộ dữ liệu.
+        TourSchedule::create([
+            'tour_id' => $tour->id, 'start_date' => now()->addDays(30),
+            'max_people' => 10, 'booked_people' => 0, 'status' => 'open',
+        ]);
+
+        $this->getJson('/api/guide/my-tours')->assertOk()
+            ->assertJsonPath('data.0.id', $newTour->id)
+            ->assertJsonPath('data.1.id', $tour->id)
+            ->assertJsonCount(2, 'data.1.schedules')
+            ->assertJsonPath('data.1.schedules.0.id', $this->schedule->id)
+            ->assertJsonPath('data.1.schedules.1.id', $older->id)
+            ->assertJsonPath('data.1.schedules.1.effective_status', 'completed');
+        $this->getJson("/api/guide/schedules/{$older->id}/attendance")->assertOk()
+            ->assertJsonPath('data.schedule.can_record', false);
     }
 }

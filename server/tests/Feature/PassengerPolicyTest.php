@@ -24,6 +24,8 @@ use Tests\TestCase;
  */
 class PassengerPolicyTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private User $khach;
@@ -457,7 +459,7 @@ class PassengerPolicyTest extends TestCase
      */
     public function test_dat_tour_voi_giay_to_trung_nhau_cung_bi_tu_choi(): void
     {
-        $this->postJson('/api/bookings', [
+        $this->postVerifiedBooking([
             'tour_id' => $this->schedule->tour_id,
             'tour_schedule_id' => $this->schedule->id,
             'customer_name' => 'Nguyen Van An',

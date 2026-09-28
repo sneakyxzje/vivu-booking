@@ -1,3 +1,13 @@
+import {
+  App as AntApp,
+  Button as AntButton,
+  Card as UICard,
+  Checkbox as AntCheckbox,
+  Flex as UIFlex,
+  Input as AntInput,
+  Table as AntTable,
+  Typography as AntTypography,
+} from "antd";
 import React, { useEffect, useMemo, useState } from "react";
 import adminService from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
@@ -17,6 +27,7 @@ const formatPrice = (value: number | null | undefined) =>
   value == null ? "Miễn phí (bao gồm trong giá tour)" : `${Number(value).toLocaleString("vi-VN")}đ / khách`;
 
 export default function ServiceManagement() {
+  const { modal } = AntApp.useApp();
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -118,9 +129,7 @@ export default function ServiceManagement() {
 
   const handleDelete = async (id: number, name: string) => {
     if (
-      !window.confirm(
-        `Bạn chắc chắn muốn xóa dịch vụ "${name}"?\n\nDịch vụ sẽ bị gỡ khỏi tất cả tour đang sử dụng.`,
-      )
+      !(await modal.confirm({ title: "Xác nhận xóa", content: `Bạn chắc chắn muốn xóa dịch vụ "${name}"?\n\nDịch vụ sẽ bị gỡ khỏi tất cả tour đang sử dụng.`, okText: "Xóa", cancelText: "Giữ lại", okButtonProps: { danger: true }, mask: { closable: false } }))
     )
       return;
 
@@ -134,25 +143,17 @@ export default function ServiceManagement() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <UIFlex vertical gap="large" ><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-950">Quản lý Dịch vụ đi kèm</h1>
+          <AntTypography.Title level={3} >Quản lý Dịch vụ đi kèm</AntTypography.Title>
           <p className="mt-1 text-sm text-gray-500">
             Những thứ tour đã bao gồm trong giá bán: khách sạn, ăn uống, bảo hiểm, vé tham quan.
             Chi phí phát sinh ngoài ý muốn nằm ở màn "Sự cố dọc đường".
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="shrink-0 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700"
-        >
-          Thêm dịch vụ
-        </button>
-      </div>
-
-      {notice && (
+        <AntButton htmlType="button" onClick={openCreateModal} type="primary">Thêm dịch vụ
+        </AntButton>
+      </div>{notice && (
         <div
           className={`rounded-lg px-4 py-3 text-sm font-medium ${
             notice.type === "success"
@@ -162,64 +163,18 @@ export default function ServiceManagement() {
         >
           {notice.text}
         </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-400">Tổng dịch vụ</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{services.length}</p>
-        </div>
-        <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-400">Đang hoạt động</p>
-          <p className="mt-2 text-2xl font-bold text-emerald-600">{activeCount}</p>
-        </div>
-        <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-400">Tổng lượt gắn vào tour</p>
-          <p className="mt-2 text-2xl font-bold text-primary-600">{totalTours}</p>
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-100 text-sm">
-          <thead className="bg-gray-50 text-left text-xs font-bold uppercase text-gray-500">
-            <tr>
-              <th className="px-4 py-3">Dịch vụ</th>
-              <th className="px-4 py-3">Mô tả</th>
-              <th className="px-4 py-3">Giá tham khảo</th>
-              <th className="px-4 py-3 text-center">Đang dùng</th>
-              <th className="px-4 py-3 text-center">Trạng thái</th>
-              <th className="px-4 py-3 text-right">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {loading ? (
-              <tr>
-                <td className="px-4 py-6 text-center text-gray-500" colSpan={6}>
-                  Đang tải...
-                </td>
-              </tr>
-            ) : services.length === 0 ? (
-              <tr>
-                <td className="px-4 py-6 text-center text-gray-400" colSpan={6}>
-                  Chưa có dịch vụ nào. Hãy thêm dịch vụ đầu tiên.
-                </td>
-              </tr>
-            ) : (
-              services.map((item) => (
-                <tr key={item.id} className="transition-colors hover:bg-gray-50/60">
-                  <td className="px-4 py-3 font-semibold text-gray-900">{item.name}</td>
-
-                  <td className="max-w-xs px-4 py-3 text-gray-500">
+      )}<div className="grid gap-4 md:grid-cols-3">
+        <UICard  ><UIFlex vertical gap="middle"><p className="text-xs font-semibold uppercase text-gray-400">Tổng dịch vụ</p><p className="mt-2 text-2xl font-bold text-gray-900">{services.length}</p></UIFlex></UICard>
+        <UICard  ><UIFlex vertical gap="middle"><p className="text-xs font-semibold uppercase text-gray-400">Đang hoạt động</p><p className="mt-2 text-2xl font-bold text-emerald-600">{activeCount}</p></UIFlex></UICard>
+        <UICard  ><UIFlex vertical gap="middle"><p className="text-xs font-semibold uppercase text-gray-400">Tổng lượt gắn vào tour</p><p className="mt-2 text-2xl font-bold text-primary-600">{totalTours}</p></UIFlex></UICard>
+      </div><div className="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
+        <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }} loading={loading}
+    dataSource={loading ? [] : services.map((item) => (
+                {key: item.id, cells: [<>{item.name}</>,<>
                     <span className="line-clamp-2">
                       {item.description || <em className="text-gray-300">Chưa có mô tả</em>}
                     </span>
-                  </td>
-
-                  <td className="px-4 py-3 font-semibold text-gray-800">{formatPrice(item.price)}</td>
-
-                  <td className="px-4 py-3 text-center text-gray-600">{item.tours_count ?? 0} tour</td>
-
-                  <td className="px-4 py-3 text-center">
+                  </>,<>{formatPrice(item.price)}</>,<>{item.tours_count ?? 0} tour</>,<>
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-bold ${
                         item.is_active ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"
@@ -227,9 +182,7 @@ export default function ServiceManagement() {
                     >
                       {item.is_active ? "Hoạt động" : "Tạm tắt"}
                     </span>
-                  </td>
-
-                  <td className="px-4 py-3 text-right">
+                  </>,<>
                     <TableActions
                       id={item.id}
                       label="Thao tác dịch vụ"
@@ -247,15 +200,14 @@ export default function ServiceManagement() {
                         },
                       ]}
                     />
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <Modal
+                  </>], rowProps: {}}
+              ))}
+    columns={[{ key: "0", title: <>Dịch vụ</>, align: "left", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Mô tả</>, align: "left", render: (_value, record) => record.cells[1] },{ key: "2", title: <>Giá tham khảo</>, align: "left", render: (_value, record) => record.cells[2] },{ key: "3", title: <>Đang dùng</>, align: "center", render: (_value, record) => record.cells[3] },{ key: "4", title: <>Trạng thái</>, align: "center", render: (_value, record) => record.cells[4] },{ key: "5", title: <>Thao tác</>, align: "right", render: (_value, record) => record.cells[5] }]}
+    onRow={(record) => record.rowProps}
+    locale={{ emptyText: <>
+                  Chưa có dịch vụ nào. Hãy thêm dịch vụ đầu tiên.
+                </> }} />
+      </div><Modal
         isOpen={isModalOpen}
         onClose={closeModal}
         onSubmit={handleSubmit}
@@ -264,20 +216,9 @@ export default function ServiceManagement() {
         size="lg"
         footer={
           <>
-            <button
-              type="button"
-              onClick={closeModal}
-              className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60 cursor-pointer"
-            >
-              {submitting ? "Đang lưu..." : editingId ? "Cập nhật" : "Tạo dịch vụ"}
-            </button>
+            <AntButton htmlType="button" onClick={closeModal}>Hủy
+            </AntButton>
+            <AntButton htmlType="submit" disabled={submitting} type="primary">{submitting ? "Đang lưu..." : editingId ? "Cập nhật" : "Tạo dịch vụ"}</AntButton>
           </>
         }
       >
@@ -291,24 +232,12 @@ export default function ServiceManagement() {
           <span className="text-xs font-semibold uppercase text-gray-500">
             Tên dịch vụ <span className="text-red-500">*</span>
           </span>
-          <input
-            required
-            autoFocus
-            placeholder="VD: Khách sạn 3 sao, Ăn uống 3 bữa..."
-            value={form.name}
-            onChange={(e) => updateForm("name", e.target.value)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500"
-          />
+          <AntInput required autoFocus placeholder="VD: Khách sạn 3 sao, Ăn uống 3 bữa..." value={form.name} onChange={(e) => updateForm("name", e.target.value)} style={{ width: "100%" }} />
         </label>
 
         <label className="block space-y-1.5">
           <span className="text-xs font-semibold uppercase text-gray-500">Mô tả ngắn</span>
-          <input
-            placeholder="VD: Phòng đôi tiêu chuẩn, điều hòa, wifi, buffet sáng..."
-            value={form.description ?? ""}
-            onChange={(e) => updateForm("description", e.target.value)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500"
-          />
+          <AntInput placeholder="VD: Phòng đôi tiêu chuẩn, điều hòa, wifi, buffet sáng..." value={form.description ?? ""} onChange={(e) => updateForm("description", e.target.value)} style={{ width: "100%" }} />
         </label>
 
         <label className="block space-y-1.5">
@@ -318,26 +247,13 @@ export default function ServiceManagement() {
             làm, nên ai nhìn cũng tưởng khách sẽ bị thu thêm.
           */}
           <span className="text-xs font-semibold uppercase text-gray-500">Giá tham khảo (VNĐ/khách)</span>
-          <input
-            type="number"
-            min="0"
-            step="1000"
-            placeholder="Để trống nếu không muốn hiện giá lên trang tour"
-            value={form.price ?? ""}
-            onChange={(e) => updateForm("price", e.target.value === "" ? null : Number(e.target.value))}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500"
-          />
+          <AntInput type="number" min="0" step="1000" placeholder="Để trống nếu không muốn hiện giá lên trang tour" value={form.price ?? ""} onChange={(e) => updateForm("price", e.target.value === "" ? null : Number(e.target.value))} style={{ width: "100%" }} />
         </label>
 
         <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700">
-          <input
-            type="checkbox"
-            checked={form.is_active}
-            onChange={(e) => updateForm("is_active", e.target.checked)}
-          />
+          <AntCheckbox checked={form.is_active} onChange={(e) => updateForm("is_active", e.target.checked)} />
           Kích hoạt dịch vụ
         </label>
-      </Modal>
-    </div>
+      </Modal></UIFlex>
   );
 }

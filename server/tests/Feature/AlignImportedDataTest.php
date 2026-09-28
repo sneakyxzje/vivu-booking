@@ -75,18 +75,15 @@ class AlignImportedDataTest extends TestCase
     }
 
     /**
-     * Và sau khi nắn thì hai hàm tiền thôi nói ngược nhau.
-     *
-     * Đây là lý do cả lệnh tồn tại: trước khi nắn, `paidForTour()` đọc đường lùi `paid_at` nên bảo
-     * đã trả đủ, còn `balanceDue()` chỉ cộng sổ nên bảo chưa trả gì.
+     * Số dư dùng cùng dữ liệu thanh toán trước và sau khi dựng lại sổ.
      */
     public function test_sau_khi_nan_thi_hai_ham_tien_khop_nhau(): void
     {
         $don = $this->don(['paid_at' => now()->subDays(20)]);
         $so = app(BookingPaymentService::class);
 
-        $this->assertEquals(4_000_000, $so->paidForTour($don), 'Đường lùi nói đã trả đủ...');
-        $this->assertEquals(4_000_000, $so->balanceDue($don), '...còn sổ nói chưa trả gì.');
+        $this->assertEquals(4_000_000, $so->paidForTour($don));
+        $this->assertEquals(0.0, $so->balanceDue($don), 'Đơn cũ đã trả đủ không bị coi là nợ ở hạn chốt.');
 
         $this->artisan('data:align-imported')->assertSuccessful();
 

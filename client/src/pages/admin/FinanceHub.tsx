@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { Flex as AntFlex, Typography as AntTypography, Alert, Button, Card, Col, Row, Skeleton, Tabs } from "antd";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ArrowDownLeft, ArrowUpRight, BookOpen } from "lucide-react";
 import adminService from "@/services/adminService";
@@ -45,14 +46,20 @@ export default function FinanceHub() {
    * hợp lý mà vô nghĩa.
    */
   const [phaiThu, setPhaiThu] = useState({ total: 0, count: 0 });
-  const [phaiTra, setPhaiTra] = useState({ total: 0, count: 0 });
+  const [phaiTra, setPhaiTra] = useState({ total: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const requestId = useRef(0);
 
-  const napSoTreo = useCallback(async () => {
-    try {
-      const [thu, tra] = await Promise.all([
+  const napSoTreo = useCallback(() => {
+    const id = ++requestId.current;
+    return Promise.all([
         adminService.getReceivables(),
         adminService.getRefundQueue(false),
-      ]);
+      ]).then(([thu, tra]) => {
+      if (id !== requestId.current) return;
+      if (!thu || !tra) throw new Error("Chưa có dữ liệu công nợ");
+      setError(false);
 
       setPhaiThu({
         total: thu?.outstanding_total ?? 0,
@@ -60,100 +67,45 @@ export default function FinanceHub() {
       });
       setPhaiTra({
         total: tra?.outstanding_total ?? 0,
-        count: tra?.data?.length ?? 0,
       });
-    } catch (err) {
+    }).catch((err) => {
+      if (id !== requestId.current) return;
+      setError(true);
       console.error("Không nạp được số dư treo:", err);
-    }
+    }).finally(() => {
+      if (id === requestId.current) setLoading(false);
+    });
   }, []);
 
   useEffect(() => {
     napSoTreo();
+    return () => { requestId.current += 1; };
   }, [napSoTreo, tab]);
 
   const doiTab = (key: TabKey) => {
+    if (key !== tab) setLoading(true);
     // `replace` để bấm quay lại không phải lùi qua từng tab đã xem.
     setSearchParams(key === "ledger" ? {} : { tab: key }, { replace: true });
   };
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Sổ giao dịch</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Tiền vào, tiền ra, và hai chiều còn treo — cùng một nguồn số liệu.
-        </p>
-      </div>
-
-      {/*
-        Dải tình hình, hiện ở mọi tab.
-
-        Đây là thứ trả lời câu "hôm nay đứng ở đâu" mà không phải bấm gì: còn phải đòi bao nhiêu,
-        còn phải trả bao nhiêu, và mỗi bên bao nhiêu đơn.
-      */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => doiTab("receivables")}
-          className={`rounded-xl border p-5 text-left transition-colors ${
-            phaiThu.total > 0
-              ? "border-amber-200 bg-amber-50 hover:bg-amber-100/70"
-              : "border-gray-200 bg-white hover:bg-gray-50"
-          }`}
-        >
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
-            <ArrowDownLeft className="h-4 w-4" />
-            Khách còn nợ công ty
-          </p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-amber-900">
-            {formatPrice(phaiThu.total)}
-          </p>
-          <p className="mt-0.5 text-xs text-gray-500">{phaiThu.count} đơn chưa thu đủ</p>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => doiTab("refunds")}
-          className={`rounded-xl border p-5 text-left transition-colors ${
-            phaiTra.total > 0
-              ? "border-rose-200 bg-rose-50 hover:bg-rose-100/70"
-              : "border-gray-200 bg-white hover:bg-gray-50"
-          }`}
-        >
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-rose-700">
-            <ArrowUpRight className="h-4 w-4" />
-            Công ty còn nợ khách
-          </p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-rose-900">
-            {formatPrice(phaiTra.total)}
-          </p>
-          <p className="mt-0.5 text-xs text-gray-500">{phaiTra.count} đơn chờ hoàn</p>
-        </button>
-      </div>
-
-      <div className="flex flex-wrap gap-1.5 border-b border-gray-200">
-        {TABS.map(({ key, label, icon: Icon, hint }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => doiTab(key)}
-            title={hint}
-            aria-current={tab === key ? "page" : undefined}
-            className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
-              tab === key
-                ? "border-primary-600 text-primary-700"
-                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800"
-            }`}
-          >
-            <Icon className="h-4 w-4" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "ledger" && <TransactionRegister />}
-      {tab === "receivables" && <ReceivableManagement />}
-      {tab === "refunds" && <RefundManagement />}
-    </div>
-  );
+  return <AntFlex vertical gap="large">
+    <div><AntTypography.Title level={3}>Sổ giao dịch</AntTypography.Title><AntTypography.Text type="secondary">Tra cứu dòng tiền, đối chiếu chứng từ và theo dõi công nợ.</AntTypography.Text></div>
+    <Card size="small" title="Công nợ hiện tại" extra={<AntTypography.Text type="secondary">Toàn bộ đơn</AntTypography.Text>}>
+      {loading ? <Skeleton active paragraph={{ rows: 1 }} title={false} /> : error ? <Alert type="warning" showIcon title="Chưa tải được tổng công nợ" action={<Button onClick={() => { setLoading(true); napSoTreo(); }}>Thử lại</Button>} /> : <Row gutter={[24, 12]}>
+        <Col xs={24} md={12}><AntFlex justify="space-between" align="center" gap="small" wrap>
+          <AntFlex vertical><AntTypography.Text type="secondary">Khách còn phải trả · {phaiThu.count} đơn</AntTypography.Text><AntTypography.Text strong>{formatPrice(phaiThu.total)}</AntTypography.Text></AntFlex>
+          <Button onClick={() => doiTab("receivables")}>Xem phải thu</Button>
+        </AntFlex></Col>
+        <Col xs={24} md={12}><AntFlex justify="space-between" align="center" gap="small" wrap>
+          <AntFlex vertical><AntTypography.Text type="secondary">Cần hoàn lại khách</AntTypography.Text><AntTypography.Text strong>{formatPrice(phaiTra.total)}</AntTypography.Text></AntFlex>
+          <Button onClick={() => doiTab("refunds")}>Xem phải hoàn</Button>
+        </AntFlex></Col>
+      </Row>}
+    </Card>
+    <Tabs activeKey={tab} onChange={(key) => doiTab(key as TabKey)} items={TABS.map(({ key, label, icon: Icon }) => ({
+      key, label, icon: <Icon size={16} />, children: <AntFlex vertical gap="middle">
+        {key === "ledger" ? <TransactionRegister /> : key === "receivables" ? <ReceivableManagement /> : <RefundManagement onChanged={napSoTreo} />}
+      </AntFlex>,
+    }))} />
+  </AntFlex>;
 }

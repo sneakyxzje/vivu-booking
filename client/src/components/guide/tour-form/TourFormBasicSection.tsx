@@ -1,3 +1,9 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Flex as UIFlex,
+  Input as AntInput,
+} from "antd";
 import React from "react";
 import { Banknote, MapPin, Tag } from "lucide-react";
 
@@ -46,8 +52,7 @@ const Nhom: React.FC<{
   icon: React.ReactNode;
   children: React.ReactNode;
 }> = ({ tieuDe, moTa, icon, children }) => (
-  <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-    <div className="mb-4 flex items-start gap-3 border-b border-gray-100 pb-3">
+  <UICard  ><UIFlex vertical gap="middle"><div className="mb-4 flex items-start gap-3 border-b border-gray-100 pb-3">
       <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
         {icon}
       </span>
@@ -55,9 +60,7 @@ const Nhom: React.FC<{
         <h3 className="text-sm font-bold text-gray-950">{tieuDe}</h3>
         <p className="mt-0.5 text-xs text-gray-500">{moTa}</p>
       </div>
-    </div>
-    {children}
-  </section>
+    </div>{children}</UIFlex></UICard>
 );
 
 /** Ô nhập tiền, kèm số đã định dạng ngay dưới để bắt lỗi thừa/thiếu một chữ số. */
@@ -77,7 +80,6 @@ const OTien: React.FC<{
   goiY,
   batBuoc,
   labelClass,
-  fieldClass,
   onChange,
 }) => (
   <div>
@@ -85,17 +87,7 @@ const OTien: React.FC<{
       {nhan} {batBuoc && <span className="text-red-500">*</span>}
     </label>
     <div className="relative">
-      <input
-        name={ten}
-        type="number"
-        min={0}
-        step={1000}
-        required={batBuoc}
-        value={giaTri}
-        onChange={onChange}
-        placeholder={goiY}
-        className={`${fieldClass} pr-10`}
-      />
+      <AntInput name={ten} type="number" min={0} step={1000} required={batBuoc} value={giaTri} onChange={onChange} placeholder={goiY} style={{ width: "100%" }} />
       <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-gray-400">
         đ
       </span>
@@ -129,80 +121,41 @@ export const TourFormBasicSection: React.FC<Props> = ({
     Number.isFinite(soNgay) && Number.isFinite(soDem) && soDem > soNgay;
 
   return (
-    <div className="space-y-5">
-      <Nhom
+    <UIFlex vertical gap={20} ><Nhom
         tieuDe="Thông tin"
         moTa="Tên và phần mô tả"
         icon={<Tag className="h-4 w-4" />}
       >
-        <div className="space-y-4">
-          <div>
+        <UIFlex vertical gap={16} ><div>
             <label className={labelClass}>
               Tiêu đề tour <span className="text-red-500">*</span>
             </label>
-            <input
-              name="title"
-              required
-              maxLength={255}
-              value={title}
-              onChange={onChange}
-              placeholder="VD: Hà Nội - Hạ Long 2N1Đ, du thuyền 5 sao"
-              className={fieldClass}
-            />
+            <AntInput name="title" required maxLength={255} value={title} onChange={onChange} placeholder="VD: Hà Nội - Hạ Long 2N1Đ, du thuyền 5 sao" style={{ width: "100%" }} />
             <p className="mt-1 text-[11px] text-gray-400">
               Nêu điểm đến và thời lượng ngay trong tên — đó là hai thứ khách
               lọc trước tiên.
             </p>
-          </div>
-
-          <div>
+          </div><div>
             <label className={labelClass}>Mô tả</label>
-            <textarea
-              name="description"
-              rows={5}
-              value={description}
-              onChange={onChange}
-              placeholder="Điểm nổi bật, trải nghiệm chính, tour hợp với ai..."
-              className={`${fieldClass} resize-y`}
-            />
-          </div>
-        </div>
-      </Nhom>
-
-      <Nhom
+            <AntInput.TextArea name="description" rows={5} value={description} onChange={onChange} placeholder="Điểm nổi bật, trải nghiệm chính, tour hợp với ai..." style={{ width: "100%" }} />
+          </div></UIFlex>
+      </Nhom><Nhom
         tieuDe="Thời lượng & hành trình"
         moTa="Đi mấy ngày, xuất phát từ đâu, về đâu."
         icon={<MapPin className="h-4 w-4" />}
       >
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <UIFlex vertical gap={16} ><div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClass}>
                 Số ngày <span className="text-red-500">*</span>
               </label>
-              <input
-                name="number_of_days"
-                type="number"
-                min={1}
-                required
-                value={numberOfDays}
-                onChange={onChange}
-                className={fieldClass}
-              />
+              <AntInput name="number_of_days" type="number" min={1} required value={numberOfDays} onChange={onChange} style={{ width: "100%" }} />
             </div>
             <div>
               <label className={labelClass}>
                 Số đêm <span className="text-red-500">*</span>
               </label>
-              <input
-                name="number_of_nights"
-                type="number"
-                min={0}
-                required
-                value={numberOfNights}
-                onChange={onChange}
-                className={`${fieldClass} ${demSai ? "border-red-300 focus:border-red-400" : ""}`}
-              />
+              <AntInput name="number_of_nights" type="number" min={0} required value={numberOfNights} onChange={onChange} style={{ width: "100%" }} />
               {demSai ? (
                 <p className="mt-1 text-[11px] font-semibold text-red-600">
                   Số đêm không được lớn hơn số ngày.
@@ -210,72 +163,35 @@ export const TourFormBasicSection: React.FC<Props> = ({
               ) : (
                 soNgay > 1 &&
                 soDem !== soNgay - 1 && (
-                  <button
-                    type="button"
-                    onClick={() =>
+                  <AntButton htmlType="button" onClick={() =>
                       onSet("number_of_nights", String(soNgay - 1))
-                    }
-                    className="mt-1 text-[11px] font-semibold text-primary-600 hover:underline"
-                  >
-                    Dùng {soNgay}N{soNgay - 1}Đ như thường lệ
-                  </button>
+                    }>Dùng {soNgay}N{soNgay - 1}Đ như thường lệ
+                  </AntButton>
                 )
               )}
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          </div><div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClass}>
                 Điểm khởi hành <span className="text-red-500">*</span>
               </label>
-              <input
-                name="start_location"
-                required
-                value={startLocation}
-                onChange={onChange}
-                placeholder="Hà Nội"
-                className={fieldClass}
-              />
+              <AntInput name="start_location" required value={startLocation} onChange={onChange} placeholder="Hà Nội" style={{ width: "100%" }} />
             </div>
             <div>
               <label className={labelClass}>Điểm kết thúc</label>
-              <input
-                name="end_location"
-                value={endLocation}
-                onChange={onChange}
-                placeholder="Hạ Long"
-                className={fieldClass}
-              />
+              <AntInput name="end_location" value={endLocation} onChange={onChange} placeholder="Hạ Long" style={{ width: "100%" }} />
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          </div><div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClass}>Phương tiện di chuyển</label>
-              <input
-                name="vehicle_info"
-                value={vehicleInfo}
-                onChange={onChange}
-                placeholder="VD: Xe giường nằm 34 chỗ đời mới, có wifi"
-                className={fieldClass}
-              />
+              <AntInput name="vehicle_info" value={vehicleInfo} onChange={onChange} placeholder="VD: Xe giường nằm 34 chỗ đời mới, có wifi" style={{ width: "100%" }} />
             </div>
             <div>
               <label className={labelClass}>Điểm đón khách</label>
-              <input
-                name="pickup_location"
-                value={pickupLocation}
-                onChange={onChange}
-                placeholder="VD: Nhà hát Lớn Hà Nội - 1 Tràng Tiền, có mặt trước 30 phút"
-                className={fieldClass}
-              />
+              <AntInput name="pickup_location" value={pickupLocation} onChange={onChange} placeholder="VD: Nhà hát Lớn Hà Nội - 1 Tràng Tiền, có mặt trước 30 phút" style={{ width: "100%" }} />
             </div>
-          </div>
-        </div>
-      </Nhom>
-
-      <Nhom
+          </div></UIFlex>
+      </Nhom><Nhom
         tieuDe="Giá vé"
         moTa="Giá một khách. Ba mức tuổi đều bắt buộc — để 0 nghĩa là miễn phí."
         icon={<Banknote className="h-4 w-4" />}
@@ -314,17 +230,11 @@ export const TourFormBasicSection: React.FC<Props> = ({
         </div>
 
         {Number(adultPrice) > 0 && !childPrice && (
-          <button
-            type="button"
-            onClick={() =>
+          <AntButton htmlType="button" onClick={() =>
               onSet("child_price", String(Math.round(Number(adultPrice) * 0.7)))
-            }
-            className="mt-1 text-xs font-semibold text-primary-600 hover:underline"
-          >
-            Điền giá trẻ em bằng 70% giá người lớn
-          </button>
+            }>Điền giá trẻ em bằng 70% giá người lớn
+          </AntButton>
         )}
-      </Nhom>
-    </div>
+      </Nhom></UIFlex>
   );
 };

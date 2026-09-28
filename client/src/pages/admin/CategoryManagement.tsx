@@ -1,3 +1,13 @@
+import {
+  App as AntApp,
+  Button as AntButton,
+  Card as UICard,
+  Checkbox as AntCheckbox,
+  Flex as UIFlex,
+  Input as AntInput,
+  Table as AntTable,
+  Typography as AntTypography,
+} from "antd";
 import React, { useEffect, useMemo, useState } from "react";
 import adminService from "@/services/adminService";
 import { Modal } from "@/components/admin/Modal";
@@ -12,6 +22,7 @@ const emptyForm: CategoryPayload = {
 };
 
 export default function CategoryManagement() {
+  const { modal } = AntApp.useApp();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -113,7 +124,7 @@ export default function CategoryManagement() {
   };
 
   const handleDelete = async (item: Category) => {
-    if (!window.confirm(`Bạn chắc chắn muốn xóa danh mục "${item.name}"?`)) return;
+    if (!(await modal.confirm({ title: "Xác nhận xóa", content: `Bạn chắc chắn muốn xóa danh mục "${item.name}"?`, okText: "Xóa", cancelText: "Giữ lại", okButtonProps: { danger: true }, mask: { closable: false } }))) return;
 
     try {
       await adminService.deleteCategory(item.id);
@@ -125,24 +136,16 @@ export default function CategoryManagement() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <UIFlex vertical gap="large" ><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-950">Quản lý Danh mục Tour</h1>
+          <AntTypography.Title level={3} >Quản lý Danh mục Tour</AntTypography.Title>
           <p className="mt-1 text-sm text-gray-500">
             Nhóm phân loại tour hiển thị ở bộ lọc và nhãn trên thẻ tour: biển đảo, nghỉ dưỡng, khám phá...
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openCreateModal}
-          className="shrink-0 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700"
-        >
-          Thêm danh mục
-        </button>
-      </div>
-
-      {notice && (
+        <AntButton htmlType="button" onClick={openCreateModal} type="primary">Thêm danh mục
+        </AntButton>
+      </div>{notice && (
         <div
           className={`rounded-lg px-4 py-3 text-sm font-medium ${
             notice.type === "success"
@@ -152,60 +155,18 @@ export default function CategoryManagement() {
         >
           {notice.text}
         </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-400">Tổng danh mục</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900">{categories.length}</p>
-        </div>
-        <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-400">Đang hiển thị</p>
-          <p className="mt-2 text-2xl font-bold text-emerald-600">{activeCount}</p>
-        </div>
-        <div className="rounded-lg border border-gray-100 bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-gray-400">Tổng lượt gắn vào tour</p>
-          <p className="mt-2 text-2xl font-bold text-primary-600">{totalTours}</p>
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-100 text-sm">
-          <thead className="bg-gray-50 text-left text-xs font-bold uppercase text-gray-500">
-            <tr>
-              <th className="px-4 py-3">Danh mục</th>
-              <th className="px-4 py-3">Đường dẫn (slug)</th>
-              <th className="px-4 py-3">Mô tả</th>
-              <th className="px-4 py-3 text-center">Đang dùng</th>
-              <th className="px-4 py-3 text-center">Trạng thái</th>
-              <th className="px-4 py-3 text-right">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {loading ? (
-              <tr>
-                <td className="px-4 py-6 text-center text-gray-500" colSpan={6}>
-                  Đang tải...
-                </td>
-              </tr>
-            ) : categories.length === 0 ? (
-              <tr>
-                <td className="px-4 py-6 text-center text-gray-400" colSpan={6}>
-                  Chưa có danh mục nào. Hãy thêm danh mục đầu tiên.
-                </td>
-              </tr>
-            ) : (
-              categories.map((item) => (
-                <tr key={item.id} className="transition-colors hover:bg-gray-50/60">
-                  <td className="px-4 py-3 font-semibold text-gray-900">{item.name}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{item.slug}</td>
-                  <td className="max-w-xs px-4 py-3 text-gray-500">
+      )}<div className="grid gap-4 md:grid-cols-3">
+        <UICard  ><UIFlex vertical gap="middle"><p className="text-xs font-semibold uppercase text-gray-400">Tổng danh mục</p><p className="mt-2 text-2xl font-bold text-gray-900">{categories.length}</p></UIFlex></UICard>
+        <UICard  ><UIFlex vertical gap="middle"><p className="text-xs font-semibold uppercase text-gray-400">Đang hiển thị</p><p className="mt-2 text-2xl font-bold text-emerald-600">{activeCount}</p></UIFlex></UICard>
+        <UICard  ><UIFlex vertical gap="middle"><p className="text-xs font-semibold uppercase text-gray-400">Tổng lượt gắn vào tour</p><p className="mt-2 text-2xl font-bold text-primary-600">{totalTours}</p></UIFlex></UICard>
+      </div><div className="overflow-hidden rounded-lg border border-gray-100 bg-white shadow-sm">
+        <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }} loading={loading}
+    dataSource={loading ? [] : categories.map((item) => (
+                {key: item.id, cells: [<>{item.name}</>,<>{item.slug}</>,<>
                     <span className="line-clamp-2">
                       {item.description || <em className="text-gray-300">Chưa có mô tả</em>}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-600">{item.tours_count ?? 0} tour</td>
-                  <td className="px-4 py-3 text-center">
+                  </>,<>{item.tours_count ?? 0} tour</>,<>
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-bold ${
                         item.is_active ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"
@@ -213,8 +174,7 @@ export default function CategoryManagement() {
                     >
                       {item.is_active ? "Hiển thị" : "Đã ẩn"}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
+                  </>,<>
                     <TableActions
                       id={item.id}
                       label="Thao tác danh mục"
@@ -239,15 +199,14 @@ export default function CategoryManagement() {
                         },
                       ]}
                     />
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <Modal
+                  </>], rowProps: {}}
+              ))}
+    columns={[{ key: "0", title: <>Danh mục</>, align: "left", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Đường dẫn (slug)</>, align: "left", render: (_value, record) => record.cells[1] },{ key: "2", title: <>Mô tả</>, align: "left", render: (_value, record) => record.cells[2] },{ key: "3", title: <>Đang dùng</>, align: "center", render: (_value, record) => record.cells[3] },{ key: "4", title: <>Trạng thái</>, align: "center", render: (_value, record) => record.cells[4] },{ key: "5", title: <>Thao tác</>, align: "right", render: (_value, record) => record.cells[5] }]}
+    onRow={(record) => record.rowProps}
+    locale={{ emptyText: <>
+                  Chưa có danh mục nào. Hãy thêm danh mục đầu tiên.
+                </> }} />
+      </div><Modal
         isOpen={isModalOpen}
         onClose={closeModal}
         onSubmit={handleSubmit}
@@ -256,20 +215,9 @@ export default function CategoryManagement() {
         size="lg"
         footer={
           <>
-            <button
-              type="button"
-              onClick={closeModal}
-              className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60 cursor-pointer"
-            >
-              {submitting ? "Đang lưu..." : editingId ? "Cập nhật" : "Tạo danh mục"}
-            </button>
+            <AntButton htmlType="button" onClick={closeModal}>Hủy
+            </AntButton>
+            <AntButton htmlType="submit" disabled={submitting} type="primary">{submitting ? "Đang lưu..." : editingId ? "Cập nhật" : "Tạo danh mục"}</AntButton>
           </>
         }
       >
@@ -283,14 +231,7 @@ export default function CategoryManagement() {
           <span className="text-xs font-semibold uppercase text-gray-500">
             Tên danh mục <span className="text-red-500">*</span>
           </span>
-          <input
-            required
-            autoFocus
-            placeholder="VD: Trekking, Du lịch tâm linh..."
-            value={form.name}
-            onChange={(e) => updateForm("name", e.target.value)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500"
-          />
+          <AntInput required autoFocus placeholder="VD: Trekking, Du lịch tâm linh..." value={form.name} onChange={(e) => updateForm("name", e.target.value)} style={{ width: "100%" }} />
           <span className="block text-xs text-gray-400">
             Đường dẫn (slug) sẽ được tạo tự động từ tên danh mục.
           </span>
@@ -298,23 +239,13 @@ export default function CategoryManagement() {
 
         <label className="block space-y-1.5">
           <span className="text-xs font-semibold uppercase text-gray-500">Mô tả ngắn</span>
-          <input
-            placeholder="VD: Các tour leo núi, đi bộ đường dài"
-            value={form.description ?? ""}
-            onChange={(e) => updateForm("description", e.target.value)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-500"
-          />
+          <AntInput placeholder="VD: Các tour leo núi, đi bộ đường dài" value={form.description ?? ""} onChange={(e) => updateForm("description", e.target.value)} style={{ width: "100%" }} />
         </label>
 
         <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-medium text-gray-700">
-          <input
-            type="checkbox"
-            checked={form.is_active}
-            onChange={(e) => updateForm("is_active", e.target.checked)}
-          />
+          <AntCheckbox checked={form.is_active} onChange={(e) => updateForm("is_active", e.target.checked)} />
           Hiển thị cho khách hàng
         </label>
-      </Modal>
-    </div>
+      </Modal></UIFlex>
   );
 }

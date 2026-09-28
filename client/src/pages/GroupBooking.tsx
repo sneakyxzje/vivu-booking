@@ -1,10 +1,12 @@
+import { Form, Alert, Select, InputNumber, Collapse, Button as AntButton, Input as AntInput } from "antd";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Building2, Phone, Search, Users } from "lucide-react";
-import tourService from "@/services/tourService";
 import bookingService from "@/services/bookingService";
+import tourService from "@/services/tourService";
 import type { GroupBookingPublicView, Tour } from "@/types";
 import { formatDateTime, formatPrice } from "@/utils/format";
+import { validateEmail, validatePhone } from "@/utils/validation";
 
 /**
  * Đặt tour theo đoàn — phía khách.
@@ -65,6 +67,23 @@ export default function GroupBooking() {
 
   const gui = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (sending) return;
+    if (!tourId || !scheduleId) { setFormError("Vui lòng chọn tour và ngày khởi hành."); return; }
+    if (!Number.isInteger(Number(guests)) || Number(guests) < 5 || Number(guests) > 500) {
+      setFormError("Vui lòng nhập số người từ 5 đến 500.");
+      return;
+    }
+
+    if (!validateEmail(contactEmail.trim())) {
+      setFormError("Địa chỉ Email liên hệ không hợp lệ.");
+      return;
+    }
+
+    if (!validatePhone(contactPhone.trim())) {
+      setFormError("Số điện thoại liên hệ không hợp lệ (gồm 10 chữ số).");
+      return;
+    }
+
     setSending(true);
     setFormError("");
 
@@ -163,167 +182,109 @@ export default function GroupBooking() {
               <p className="rounded-lg bg-white px-4 py-3 text-center font-mono text-sm font-bold text-gray-900 break-all">
                 {sentToken}
               </p>
-              <button
-                type="button"
+              <AntButton
+                htmlType="button"
                 onClick={() => {
                   setView(null);
                   setLookupCode(sentToken);
                   setSentToken("");
                   traCuu(sentToken);
                 }}
-                className="text-sm font-semibold text-emerald-800 hover:underline cursor-pointer"
+
               >
                 Xem trạng thái yêu cầu →
-              </button>
+              </AntButton>
             </div>
           ) : (
-            <form onSubmit={gui} className="rounded-2xl border border-gray-100 bg-white p-6 space-y-4 shadow-xs">
+            <Form component={false} layout="vertical"><form onSubmit={gui} className="rounded-2xl border border-gray-100 bg-white p-6 space-y-4 shadow-xs">
               <h2 className="text-lg font-bold text-gray-900">Gửi yêu cầu</h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wider">Tour</label>
-                  <select
-                    required
-                    value={tourId}
-                    onChange={(e) => setTourId(e.target.value)}
-                    className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm cursor-pointer focus:outline-none focus:border-primary-500"
-                  >
-                    <option value="">— Chọn tour —</option>
-                    {tours.map((t) => (
-                      <option key={t.id} value={t.id}>{t.title}</option>
-                    ))}
-                  </select>
-                </div>
+                <Form.Item label={<>Tour</>} htmlFor="groupbooking-field-1" style={{ marginBottom: 0 }}>
+                  <Select id="groupbooking-field-1" aria-label="Tour" style={{ width: "100%" }} value={tourId || undefined} placeholder="Chọn tour" showSearch optionFilterProp="label"
+                    onChange={setTourId} options={tours.map(t => ({ value: String(t.id), label: t.title }))} />
+                </Form.Item>
 
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wider">Ngày khởi hành</label>
-                  <select
-                    required
-                    value={scheduleId}
-                    onChange={(e) => setScheduleId(e.target.value)}
-                    disabled={!tourId}
-                    className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm cursor-pointer disabled:bg-gray-50 disabled:text-gray-400 focus:outline-none focus:border-primary-500"
-                  >
-                    <option value="">
-                      {tourId && schedules.length === 0 ? "Tour này chưa có chuyến nhận đặt" : "— Chọn ngày —"}
-                    </option>
-                    {schedules.map((s) => (
-                      <option key={s.id} value={s.id}>{formatDateTime(s.start_date)}</option>
-                    ))}
-                  </select>
-                </div>
+                <Form.Item label={<>Ngày khởi hành</>} htmlFor="groupbooking-field-2" style={{ marginBottom: 0 }}>
+                  <Select id="groupbooking-field-2" aria-label="Ngày khởi hành" style={{ width: "100%" }} value={scheduleId || undefined} onChange={setScheduleId} disabled={!tourId}
+                    placeholder={tourId && schedules.length === 0 ? "Tour này chưa có chuyến nhận đặt" : "Chọn ngày"}
+                    options={schedules.map(s => ({ value: String(s.id), label: formatDateTime(s.start_date) }))} />
+                </Form.Item>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wider">Người đại diện</label>
-                  <input
+                <Form.Item label={<>Người đại diện</>} htmlFor="groupbooking-field-3" style={{ marginBottom: 0 }}>
+                  <AntInput id="groupbooking-field-3"
                     required
                     type="text"
                     value={contactName}
                     onChange={(e) => setContactName(e.target.value)}
                     placeholder="Người điều hành sẽ gọi cho ai?"
-                    className="w-full rounded-md border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+
                   />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Số người (ước tính)
-                  </label>
-                  <input
-                    required
-                    type="number"
-                    min={5}
-                    max={500}
-                    value={guests}
-                    onChange={(e) => setGuests(e.target.value)}
-                    className="w-full rounded-md border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
-                  />
+                </Form.Item>
+                <Form.Item label={<>Số người (ước tính)
+                </>} htmlFor="groupbooking-field-4" style={{ marginBottom: 0 }}>
+                  <InputNumber id="groupbooking-field-4" aria-label="Số người ước tính" style={{ width: "100%" }} required min={5} max={500} precision={0} value={guests ? Number(guests) : null} onChange={value => setGuests(value === null ? "" : String(value))} />
                   <span className="mt-1 block text-[10px] text-gray-400">
                     Con số ước tính là đủ — số chính xác chốt sau khi thống nhất giá.
                   </span>
-                </div>
+                </Form.Item>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wider">Điện thoại</label>
-                  <input
+                <Form.Item label={<>Điện thoại</>} htmlFor="groupbooking-field-5" style={{ marginBottom: 0 }}>
+                  <AntInput id="groupbooking-field-5"
                     required
                     type="tel"
                     value={contactPhone}
                     onChange={(e) => setContactPhone(e.target.value)}
-                    className="w-full rounded-md border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+
                   />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</label>
-                  <input
+                </Form.Item>
+                <Form.Item label={<>Email</>} htmlFor="groupbooking-field-6" style={{ marginBottom: 0 }}>
+                  <AntInput id="groupbooking-field-6"
                     required
                     type="email"
                     value={contactEmail}
                     onChange={(e) => setContactEmail(e.target.value)}
-                    className="w-full rounded-md border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+
                   />
-                </div>
+                </Form.Item>
               </div>
 
               {/* Đoàn doanh nghiệp gần như luôn cần hóa đơn — hỏi ngay từ đầu đỡ một cuộc gọi */}
-              <details className="rounded-lg border border-gray-100 bg-gray-50/50 p-3">
-                <summary className="cursor-pointer text-xs font-semibold text-gray-600">
-                  Thông tin xuất hóa đơn VAT (nếu cần)
-                </summary>
-                <div className="mt-3 space-y-3">
-                  <input
-                    type="text"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="Tên công ty"
-                    className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
-                  />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      value={taxCode}
-                      onChange={(e) => setTaxCode(e.target.value)}
-                      placeholder="Mã số thuế"
-                      className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
-                    />
-                    <input
-                      type="text"
-                      value={invoiceAddress}
-                      onChange={(e) => setInvoiceAddress(e.target.value)}
-                      placeholder="Địa chỉ xuất hóa đơn"
-                      className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
-                    />
-                  </div>
+              <Collapse items={[{
+                key: "invoice", label: "Thông tin xuất hóa đơn VAT (nếu cần)", children: <div className="space-y-3">
+                  <AntInput aria-label="Tên công ty" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Tên công ty" />
+                  <AntInput aria-label="Mã số thuế" value={taxCode} onChange={e => setTaxCode(e.target.value)} placeholder="Mã số thuế" />
+                  <AntInput aria-label="Địa chỉ xuất hóa đơn" value={invoiceAddress} onChange={e => setInvoiceAddress(e.target.value)} placeholder="Địa chỉ xuất hóa đơn" />
                 </div>
-              </details>
+              }]} />
 
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wider">Yêu cầu riêng</label>
-                <textarea
+              <Form.Item label={<>Yêu cầu riêng</>} htmlFor="groupbooking-field-7" style={{ marginBottom: 0 }}>
+                <AntInput.TextArea id="groupbooking-field-7"
                   rows={2}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="VD: Đoàn có 3 người ăn chay, muốn thêm gala tối ngày cuối..."
-                  className="w-full rounded-md border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm focus:outline-none focus:border-primary-500"
+
                 />
-              </div>
+              </Form.Item>
 
               {formError && (
-                <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{formError}</p>
+                <Alert type="error" showIcon title={formError} />
               )}
 
-              <button
-                type="submit"
-                disabled={sending}
-                className="w-full rounded-lg bg-primary-600 py-3 text-sm font-bold text-white hover:bg-primary-700 disabled:opacity-40 cursor-pointer"
+              <AntButton
+                htmlType="submit"
+                loading={sending} disabled={sending}
+                type="primary" block
               >
-                {sending ? "Đang gửi..." : "Gửi yêu cầu — chưa phải trả tiền"}
-              </button>
-            </form>
+                {sending ? "Đang gửi..." : "Gửi yêu cầu báo giá"}
+              </AntButton>
+              <p className="text-sm text-gray-500">Bạn chưa cần thanh toán khi gửi yêu cầu.</p>
+            </form></Form>
           )}
         </div>
 
@@ -335,24 +296,24 @@ export default function GroupBooking() {
               Tra cứu yêu cầu
             </h2>
             <div className="flex gap-2">
-              <input
+              <AntInput aria-label="Dán mã tra cứu..."
                 type="text"
                 value={lookupCode}
                 onChange={(e) => setLookupCode(e.target.value)}
                 placeholder="Dán mã tra cứu..."
-                className="min-w-0 flex-1 rounded-md border border-gray-200 bg-gray-50/50 px-3 py-2 text-sm font-mono focus:outline-none focus:border-primary-500"
+                className="flex-1"
               />
-              <button
-                type="button"
+              <AntButton
+                htmlType="button"
                 onClick={() => traCuu()}
-                disabled={looking || !lookupCode.trim()}
-                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-40 cursor-pointer"
+                loading={looking} disabled={looking || !lookupCode.trim()}
+
               >
                 {looking ? "..." : "Xem"}
-              </button>
+              </AntButton>
             </div>
 
-            {lookupError && <p className="text-xs font-medium text-rose-600">{lookupError}</p>}
+            {lookupError && <Alert type="error" showIcon title={lookupError} />}
 
             {view && (
               <div className="space-y-3 rounded-xl border border-gray-100 bg-gray-50/60 p-4">
@@ -402,13 +363,13 @@ export default function GroupBooking() {
                 )}
 
                 {(view.status === "pending_quote" || view.status === "quoted") && (
-                  <button
-                    type="button"
+                  <AntButton
+                    htmlType="button"
                     onClick={rut}
-                    className="text-xs font-semibold text-rose-600 hover:underline cursor-pointer"
+
                   >
                     Rút yêu cầu này
-                  </button>
+                  </AntButton>
                 )}
               </div>
             )}

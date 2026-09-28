@@ -11,11 +11,8 @@ namespace App\Enums;
  */
 enum ScheduleStatus: string
 {
-    /** Đang mở bán. */
+    /** Chưa chốt chạy; chỉ nhận đặt khi còn chỗ và chưa tới hạn. */
     case Open = 'open';
-
-    /** Đã đóng bán vì hết chỗ hoặc qua hạn chốt danh sách, chưa chốt chạy. */
-    case Closed = 'closed';
 
     /** Đã chốt chắc chắn khởi hành, đủ số khách tối thiểu. */
     case Confirmed = 'confirmed';
@@ -32,8 +29,7 @@ enum ScheduleStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Open => 'Đang mở bán',
-            self::Closed => 'Đã đóng bán',
+            self::Open => 'Chờ chốt',
             self::Confirmed => 'Đã chốt chuyến',
             self::InProgress => 'Đang khởi hành',
             self::Completed => 'Đã kết thúc',
@@ -44,19 +40,16 @@ enum ScheduleStatus: string
     /**
      * Các trạng thái đi tiếp hợp lệ.
      *
-     * Hai điểm cần nhớ:
      * - Không có đường InProgress sang Cancelled. Chuyến đã khởi hành thì chi phí đã phát sinh
      *   và nhà cung cấp đã phục vụ, không thể coi như chưa từng xảy ra. Muốn dừng giữa chừng
      *   thì vẫn kết thúc bằng Completed kèm bản ghi sự cố.
-     * - Có đường Closed quay lại Open, để điều hành mở bán lại khi có khách hủy trước hạn chốt.
      *
      * @return array<int, self>
      */
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::Open => [self::Closed, self::Confirmed, self::Cancelled],
-            self::Closed => [self::Open, self::Confirmed, self::Cancelled],
+            self::Open => [self::Confirmed, self::Cancelled],
             self::Confirmed => [self::InProgress, self::Cancelled],
             self::InProgress => [self::Completed],
             self::Completed, self::Cancelled => [],
@@ -68,7 +61,7 @@ enum ScheduleStatus: string
         return in_array($to, $this->allowedTransitions(), true);
     }
 
-    /** Chỉ chuyến đang mở bán mới nhận đặt chỗ mới. */
+    /** Điều kiện vòng đời; model kiểm tra thêm hạn đặt và chỗ trống. */
     public function isBookable(): bool
     {
         return $this === self::Open;
@@ -112,7 +105,7 @@ enum ScheduleStatus: string
 
         return match ($legacy) {
             'active' => self::Open,
-            'full' => self::Closed,
+            'full', 'closed' => self::Open,
             'inactive' => self::Cancelled,
             default => self::tryFrom($legacy) ?? self::Open,
         };

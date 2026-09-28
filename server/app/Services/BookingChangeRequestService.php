@@ -178,7 +178,7 @@ class BookingChangeRequestService
                 'status' => BookingStatus::Cancelled->value,
                 'cancel_reason' => $locked->request_note,
                 'cancel_type' => 'by_customer',
-                'cancelled_at' => now(),
+                'cancelled_at' => DemoClock::booking($booking),
                 'cancelled_by' => $locked->requested_by,
                 // Bậc phí chốt lúc gửi; số tiền tính lại theo số đã thu hiện tại. Xem `tienHoanKhiDuyet()`.
                 'refund_amount' => $this->tienHoanKhiDuyet($booking, $locked),

@@ -40,7 +40,7 @@ export interface PolicyResponse {
    */
   payment: {
     deposit_percent: number;
-    balance_due_days: number;
+    balance_due_rule: "booking_deadline";
     reminder_days: number;
     final_notice_days: number;
   };

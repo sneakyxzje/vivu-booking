@@ -20,6 +20,8 @@ use Tests\TestCase;
  */
 class BookingGuardRulesTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private TourSchedule $schedule;
@@ -72,7 +74,7 @@ class BookingGuardRulesTest extends TestCase
      */
     public function test_don_khong_co_nguoi_lon_bi_tu_choi(): void
     {
-        $this->postJson('/api/bookings', $this->payload([
+        $this->postVerifiedBooking($this->payload([
             'adult_count' => 0,
             'child_count' => 2,
         ]))->assertStatus(422)->assertJsonValidationErrors('adult_count');
@@ -82,7 +84,7 @@ class BookingGuardRulesTest extends TestCase
 
     public function test_don_chi_co_em_be_cung_bi_tu_choi(): void
     {
-        $this->postJson('/api/bookings', $this->payload([
+        $this->postVerifiedBooking($this->payload([
             'adult_count' => 0,
             'infant_count' => 1,
         ]))->assertStatus(422)->assertJsonValidationErrors('adult_count');
@@ -90,7 +92,7 @@ class BookingGuardRulesTest extends TestCase
 
     public function test_mot_nguoi_lon_di_kem_tre_em_thi_duoc(): void
     {
-        $this->postJson('/api/bookings', $this->payload([
+        $this->postVerifiedBooking($this->payload([
             'adult_count' => 1,
             'child_count' => 2,
         ]))->assertStatus(201);
@@ -104,7 +106,7 @@ class BookingGuardRulesTest extends TestCase
     {
         Mail::fake();
 
-        $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
+        $this->postVerifiedBooking($this->payload())->assertStatus(201);
 
         $this->postJson('/api/bookings/resend-code', [
             'email' => 'khach@example.com',
@@ -123,7 +125,7 @@ class BookingGuardRulesTest extends TestCase
     {
         Mail::fake();
 
-        $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
+        $this->postVerifiedBooking($this->payload())->assertStatus(201);
 
         $coDon = $this->postJson('/api/bookings/resend-code', ['email' => 'khach@example.com']);
         $khongCoDon = $this->postJson('/api/bookings/resend-code', ['email' => 'nguoila@example.com']);
@@ -140,7 +142,7 @@ class BookingGuardRulesTest extends TestCase
     {
         Mail::fake();
 
-        $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
+        $this->postVerifiedBooking($this->payload())->assertStatus(201);
 
         Booking::query()->update(['status' => 'cancelled']);
 
@@ -163,7 +165,7 @@ class BookingGuardRulesTest extends TestCase
     {
         Mail::fake();
 
-        $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
+        $this->postVerifiedBooking($this->payload())->assertStatus(201);
 
         $this->postJson('/api/bookings/resend-code', [
             'email' => 'khach@example.com',
@@ -175,7 +177,7 @@ class BookingGuardRulesTest extends TestCase
 
     public function test_ma_tra_cuu_gui_di_la_ma_that_cua_don(): void
     {
-        $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
+        $this->postVerifiedBooking($this->payload())->assertStatus(201);
 
         $don = Booking::query()->first();
 

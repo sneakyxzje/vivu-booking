@@ -1,3 +1,8 @@
+import {
+  Card as UICard,
+  Checkbox as AntCheckbox,
+  Flex as UIFlex,
+} from "antd";
 import React from "react";
 import { Layers } from "lucide-react";
 import type { SelectOption } from "./types";
@@ -38,8 +43,7 @@ const NhomChon: React.FC<{
       )}
     </label>
     <p className="mb-2.5 text-[11px] text-gray-500">{moTa}</p>
-    <div className="flex flex-wrap gap-2">
-      {danhSach.map((muc) => {
+    <UIFlex   wrap   gap={8}>{danhSach.map((muc) => {
         const chon = daChon.includes(muc.id);
         return (
           <label
@@ -50,17 +54,11 @@ const NhomChon: React.FC<{
                 : "border-gray-200 bg-white text-gray-600 hover:border-primary-200 hover:bg-gray-50"
             }`}
           >
-            <input
-              type="checkbox"
-              checked={chon}
-              onChange={() => onToggle(muc.id)}
-              className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
+            <AntCheckbox checked={chon} onChange={() => onToggle(muc.id)} />
             {muc.name}
           </label>
         );
-      })}
-    </div>
+      })}</UIFlex>
   </div>
 );
 
@@ -74,8 +72,7 @@ export const TourFormTaxonomySection: React.FC<Props> = ({
   onToggleService,
   optionsLoading,
 }) => (
-  <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-    <div className="mb-4 flex items-start gap-3 border-b border-gray-100 pb-3">
+  <UICard  ><UIFlex vertical gap="middle"><div className="mb-4 flex items-start gap-3 border-b border-gray-100 pb-3">
       <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
         <Layers className="h-4 w-4" />
       </span>
@@ -86,15 +83,12 @@ export const TourFormTaxonomySection: React.FC<Props> = ({
           khó được tìm thấy.
         </p>
       </div>
-    </div>
-
-    {optionsLoading ? (
+    </div>{optionsLoading ? (
       <p className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-500">
         Đang tải danh mục và dịch vụ...
       </p>
     ) : (
-      <div className="space-y-5">
-        {categories.length > 0 && (
+      <UIFlex vertical gap={20} >{categories.length > 0 && (
           <NhomChon
             nhan="Danh mục"
             moTa="Loại hình tour: biển đảo, nghỉ dưỡng, khám phá..."
@@ -103,9 +97,7 @@ export const TourFormTaxonomySection: React.FC<Props> = ({
             onToggle={onToggleCategory}
             labelClass={labelClass}
           />
-        )}
-
-        {services.length > 0 && (
+        )}{services.length > 0 && (
           <NhomChon
             nhan="Dịch vụ đi kèm"
             moTa="Những gì đã nằm trong giá vé."
@@ -114,14 +106,10 @@ export const TourFormTaxonomySection: React.FC<Props> = ({
             onToggle={onToggleService}
             labelClass={labelClass}
           />
-        )}
-
-        {categories.length === 0 && services.length === 0 && (
+        )}{categories.length === 0 && services.length === 0 && (
           <p className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
             Chưa có danh mục hay dịch vụ nào trong hệ thống.
           </p>
-        )}
-      </div>
-    )}
-  </section>
+        )}</UIFlex>
+    )}</UIFlex></UICard>
 );

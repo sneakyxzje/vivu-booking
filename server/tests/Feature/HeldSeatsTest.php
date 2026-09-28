@@ -244,7 +244,7 @@ class HeldSeatsTest extends TestCase
 
         // Chạy hết các tác vụ nền: không tác vụ nào được âm thầm trả chỗ ấy về kho.
         $this->artisan('bookings:release-expired')->assertSuccessful();
-        $this->artisan('schedules:close-expired')->assertSuccessful();
+        $this->assertFalse($schedule->fresh()->isBookable());
 
         $this->assertSame(4, (int) $schedule->fresh()->booked_people);
     }

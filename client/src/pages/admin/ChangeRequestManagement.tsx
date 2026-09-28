@@ -1,3 +1,11 @@
+import {
+  Button as AntButton,
+  Card as UICard,
+  Flex as UIFlex,
+  Input as AntInput,
+  Table as AntTable,
+  Typography as AntTypography,
+} from "antd";
 import { useCallback, useEffect, useState } from "react";
 import adminService from "@/services/adminService";
 import type {
@@ -165,36 +173,18 @@ export default function ChangeRequestManagement() {
         </div>
       )}
 
-      <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm">
-        <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 font-jakarta">
-          Yêu cầu huỷ
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
+      <UICard  ><UIFlex vertical gap="middle"><AntTypography.Title level={3} >Yêu cầu huỷ
+        </AntTypography.Title><p className="text-sm text-gray-500 mt-1">
           Danh sách các yêu cầu huỷ đơn đặt tour của khách.
-        </p>
-        {pendingCount > 0 && (
+        </p>{pendingCount > 0 && (
           <p className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800">
             {pendingCount} yêu cầu đang chờ xử lý
           </p>
-        )}
-      </div>
+        )}</UIFlex></UICard>
 
-      <div className="flex flex-wrap gap-2">
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setStatusFilter(tab.key)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              statusFilter === tab.key
-                ? "bg-primary-600 text-white shadow-sm"
-                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <UIFlex   wrap   gap={8}>{STATUS_TABS.map((tab) => (
+          <AntButton type={(statusFilter === tab.key) ? "primary" : "default"} key={tab.key} htmlType="button" onClick={() => setStatusFilter(tab.key)}>{tab.label}</AntButton>
+        ))}</UIFlex>
 
       <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
         {loading ? (
@@ -210,65 +200,40 @@ export default function ChangeRequestManagement() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50/70 text-left">
-                <tr className="text-[11px] font-extrabold uppercase tracking-wider text-gray-600">
-                  <th className="px-6 py-3">Đơn</th>
-                  <th className="px-6 py-3">Khách</th>
-                  <th className="px-6 py-3">Gửi lúc</th>
-                  <th className="px-6 py-3">Hoàn dự kiến</th>
-                  <th className="px-6 py-3">Trạng thái</th>
-                  <th className="px-6 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {requests.map((item) => {
+            <AntTable rowKey="key" pagination={false} scroll={{ x: "max-content" }}
+    dataSource={requests.map((item) => {
                   const badge = STATUS_BADGE[item.status];
 
                   return (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-gray-50/50 transition-colors"
-                    >
-                      <td className="px-6 py-4 font-mono text-xs font-bold text-gray-900">
+                    {key: item.id, cells: [<>
                         BK-{item.booking_id}
                         <span className="block font-sans font-normal text-gray-500 mt-0.5">
                           {item.booking?.tour?.title ?? ""}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 text-xs text-gray-700">
+                      </>,<>
                         {item.booking?.customer_name}
-                      </td>
-                      <td className="px-6 py-4 text-xs text-gray-500">
+                      </>,<>
                         {formatDateTime(item.created_at)}
-                      </td>
-                      <td className="px-6 py-4 text-xs font-bold text-gray-900">
+                      </>,<>
                         {soTien(item.estimated_refund)}
                         <span className="block font-normal text-gray-500">
                           {item.estimated_refund_percent}%
                         </span>
-                      </td>
-                      <td className="px-6 py-4">
+                      </>,<>
                         <span
                           className={`inline-flex px-2.5 py-1 rounded-lg border text-[11px] font-bold ${badge.className}`}
                         >
                           {badge.label}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => moChiTiet(item.id)}
-                          className="px-3.5 py-1.5 text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded-xl"
-                        >
-                          Xem
-                        </button>
-                      </td>
-                    </tr>
+                      </>,<>
+                        <AntButton htmlType="button" onClick={() => moChiTiet(item.id)} type="primary">Xem
+                        </AntButton>
+                      </>], rowProps: {}}
                   );
                 })}
-              </tbody>
-            </table>
+    columns={[{ key: "0", title: <>Đơn</>, align: "left", render: (_value, record) => record.cells[0] },{ key: "1", title: <>Khách</>, align: "left", render: (_value, record) => record.cells[1] },{ key: "2", title: <>Gửi lúc</>, align: "left", render: (_value, record) => record.cells[2] },{ key: "3", title: <>Hoàn dự kiến</>, align: "left", render: (_value, record) => record.cells[3] },{ key: "4", title: <>Trạng thái</>, align: "left", render: (_value, record) => record.cells[4] },{ key: "5", title: <>Thao tác</>, align: "left", render: (_value, record) => record.cells[5] }]}
+    onRow={(record) => record.rowProps}
+     />
           </div>
         )}
       </div>
@@ -283,8 +248,7 @@ export default function ChangeRequestManagement() {
         {detailLoading && <p className="text-sm text-gray-500">Đang tải...</p>}
 
         {detail && (
-          <div className="space-y-5">
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs text-gray-700 space-y-1.5">
+          <UIFlex vertical gap={20} ><div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs text-gray-700 space-y-1.5">
               <p>
                 <span className="text-gray-500">Tour:</span>{" "}
                 <strong className="text-gray-900">
@@ -306,10 +270,7 @@ export default function ChangeRequestManagement() {
                   {detail.request.request_note}
                 </strong>
               </p>
-            </div>
-
-            {/* Chuyến khởi hành trong lúc yêu cầu nằm chờ thì không duyệt được nữa. */}
-            {!detail.can_approve && detail.blocked_reason && (
+            </div>{/* Chuyến khởi hành trong lúc yêu cầu nằm chờ thì không duyệt được nữa. */}{!detail.can_approve && detail.blocked_reason && (
               <div className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3">
                 <p className="text-sm font-bold text-rose-700">
                   Không duyệt được yêu cầu này
@@ -318,15 +279,12 @@ export default function ChangeRequestManagement() {
                   {detail.blocked_reason}
                 </p>
               </div>
-            )}
-
-            {/*
+            )}{/*
               Một con số duy nhất.
               Mức hoàn đã chốt lúc khách gửi và không có đường nào đổi được, nên hiện thêm mức
               tính lại tại thời điểm xem chỉ làm người duyệt phân vân giữa hai số. Muốn biết
               duyệt nhanh hay chậm thì đối chiếu ngày gửi với ngày duyệt, đều đã lưu sẵn.
-            */}
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-5">
+            */}<div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-5">
               <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
                 Sẽ hoàn cho khách
               </p>
@@ -337,9 +295,7 @@ export default function ChangeRequestManagement() {
                 {detail.request.estimated_refund_percent}% giá trị đơn, chốt lúc
                 khách gửi ngày {formatDateTime(detail.request.created_at)}
               </p>
-            </div>
-
-            {detail.seats_will_be_released ? (
+            </div>{detail.seats_will_be_released ? (
               <p className="text-xs text-gray-600">
                 Duyệt xong chỗ sẽ được trả về kho và chuyến bán tiếp được ngay.
               </p>
@@ -349,26 +305,18 @@ export default function ChangeRequestManagement() {
                 <strong>chỗ không quay lại kho</strong>, nó thành ghế chết và
                 chỉ mở bán lại được bằng tay.
               </p>
-            )}
-
-            {detail.request.status === "pending" ? (
+            )}{detail.request.status === "pending" ? (
               <>
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5">
                     Ghi chú xử lý{" "}
                     {rejectMode && <span className="text-rose-500">*</span>}
                   </label>
-                  <textarea
-                    rows={2}
-                    value={reviewNote}
-                    onChange={(e) => setReviewNote(e.target.value)}
-                    placeholder={
+                  <AntInput.TextArea rows={2} value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} placeholder={
                       rejectMode
                         ? "Bắt buộc khi từ chối, tối thiểu 10 ký tự. Khách sẽ đọc được lý do này."
                         : "Không bắt buộc khi duyệt."
-                    }
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary-400"
-                  />
+                    } style={{ width: "100%" }} />
                 </div>
 
                 {actionError && (
@@ -377,49 +325,21 @@ export default function ChangeRequestManagement() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-end gap-2">
-                  {rejectMode ? (
+                <UIFlex    align="center" justify="end" gap={8}>{rejectMode ? (
                     <>
-                      <button
-                        type="button"
-                        onClick={() => setRejectMode(false)}
-                        disabled={actionLoading}
-                        className="px-4 py-2 bg-white border border-gray-200 text-xs font-semibold rounded-md text-gray-600 hover:bg-gray-100"
-                      >
-                        Quay lại
-                      </button>
-                      <button
-                        type="button"
-                        onClick={tuChoi}
-                        disabled={
+                      <AntButton htmlType="button" onClick={() => setRejectMode(false)} disabled={actionLoading}>Quay lại
+                      </AntButton>
+                      <AntButton htmlType="button" onClick={tuChoi} disabled={
                           actionLoading || reviewNote.trim().length < 10
-                        }
-                        className="px-4 py-2 bg-rose-600 text-xs font-semibold rounded-md text-white hover:bg-rose-700 disabled:opacity-50"
-                      >
-                        {actionLoading ? "Đang xử lý..." : "Xác nhận từ chối"}
-                      </button>
+                        } type="primary" danger>{actionLoading ? "Đang xử lý..." : "Xác nhận từ chối"}</AntButton>
                     </>
                   ) : (
                     <>
-                      <button
-                        type="button"
-                        onClick={() => setRejectMode(true)}
-                        disabled={actionLoading}
-                        className="px-4 py-2 bg-white border border-rose-200 text-xs font-semibold rounded-md text-rose-600 hover:bg-rose-50"
-                      >
-                        Từ chối
-                      </button>
-                      <button
-                        type="button"
-                        onClick={duyet}
-                        disabled={actionLoading || !detail.can_approve}
-                        className="px-4 py-2 bg-emerald-600 text-xs font-semibold rounded-md text-white hover:bg-emerald-700 disabled:opacity-50"
-                      >
-                        {actionLoading ? "Đang xử lý..." : "Duyệt và hủy đơn"}
-                      </button>
+                      <AntButton htmlType="button" onClick={() => setRejectMode(true)} disabled={actionLoading} danger>Từ chối
+                      </AntButton>
+                      <AntButton htmlType="button" onClick={duyet} disabled={actionLoading || !detail.can_approve} type="primary">{actionLoading ? "Đang xử lý..." : "Duyệt và hủy đơn"}</AntButton>
                     </>
-                  )}
-                </div>
+                  )}</UIFlex>
               </>
             ) : (
               <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs text-gray-700 space-y-1">
@@ -433,8 +353,7 @@ export default function ChangeRequestManagement() {
                   <p>{detail.request.review_note}</p>
                 )}
               </div>
-            )}
-          </div>
+            )}</UIFlex>
         )}
       </Modal>
     </div>

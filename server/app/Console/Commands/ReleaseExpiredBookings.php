@@ -11,9 +11,11 @@ class ReleaseExpiredBookings extends Command
 
     protected $description = 'Hủy các đơn giữ chỗ quá hạn thanh toán và trả lại chỗ cho khách khác';
 
-    public function handle(BookingHoldService $holdService): int
+    use \App\Console\Concerns\RunsWithDemoClock;
+
+    public function handleForClock(): int
     {
-        $released = $holdService->releaseAllOverdue();
+        $released = app(BookingHoldService::class)->releaseAllOverdue();
 
         $this->info("Đã hủy {$released} đơn quá hạn thanh toán.");
 
