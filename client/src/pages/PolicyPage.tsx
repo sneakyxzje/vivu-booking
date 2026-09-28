@@ -320,9 +320,12 @@ export default function PolicyPage() {
               cọc xuống mục 5 nghĩa là họ chỉ gặp nó sau khi đã trả tiền.
             */}
             <Doan>
-              <Manh>4.5.</Manh> Không thanh toán đủ trước hạn chốt danh sách thì
-              <Manh> đơn bị hủy và mất khoản cọc {data.payment.deposit_percent}%</Manh>.
-              Khoản đã trả vượt tiền cọc nhưng chưa đủ giá trị đơn được ghi nhận để hoàn lại.
+              <Manh>4.5.</Manh> Với đơn đặt tour theo chỗ đã thanh toán một phần,
+              đến hạn chốt danh sách mà vẫn chưa trả đủ thì hệ thống hủy đơn và
+              giữ lại khoản cọc <Manh>{data.payment.deposit_percent}% giá trị đơn</Manh>,
+              tối đa bằng số tiền đã thu. Khoản đã trả vượt tiền cọc được ghi nhận
+              để hoàn lại. Trường hợp này không áp dụng bảng phí khách chủ động hủy
+              tại mục 5. Hạn thanh toán cụ thể hiển thị trên đơn hàng.
             </Doan>
 
             <Doan>
@@ -360,13 +363,16 @@ export default function PolicyPage() {
 
             <Doan>
               <Manh>5.1.</Manh> Mục này áp dụng đối với trường hợp khách hàng chủ
-              động yêu cầu hủy đơn hàng. Trường hợp công ty hủy chuyến khởi hành
-              được điều chỉnh tại mục 6 và không áp dụng biểu phí tại mục này.
+              động yêu cầu hủy đơn hàng. Đơn tự hủy vì chưa thanh toán đủ đúng hạn
+              áp dụng mục 4.5. Trường hợp công ty hủy chuyến khởi hành được điều
+              chỉnh tại mục 6 và không áp dụng biểu phí tại mục này.
             </Doan>
 
             <Doan>
-              <Manh>5.2.</Manh> Mức hoàn được xác định căn cứ vào số ngày còn lại
-              tính đến giờ khởi hành ghi trên đơn hàng, theo giờ Việt Nam:
+              <Manh>5.2.</Manh> Phí hủy được xác định căn cứ vào số ngày còn lại
+              tính đến giờ khởi hành ghi trên đơn hàng, theo giờ Việt Nam.
+              Tỷ lệ dưới đây tính trên <Manh>tổng giá trị đơn</Manh>, không phải
+              trên số tiền đã đặt cọc:
             </Doan>
 
             <div className="mt-5 overflow-x-auto">
@@ -376,11 +382,8 @@ export default function PolicyPage() {
                     <th className="text-caption-sm text-muted py-2.5 pr-6 font-normal tracking-wide uppercase">
                       Hủy trước ngày khởi hành
                     </th>
-                    <th className="text-caption-sm text-muted w-28 py-2.5 pr-6 font-normal tracking-wide uppercase">
-                      Được hoàn
-                    </th>
                     <th className="text-caption-sm text-muted py-2.5 font-normal tracking-wide uppercase">
-                      Vì sao
+                      Phí hủy trên giá trị đơn
                     </th>
                   </tr>
                 </thead>
@@ -394,22 +397,13 @@ export default function PolicyPage() {
                         {bac.window}
                       </td>
                       <td className="text-body-md text-ink py-3.5 pr-6 font-semibold tabular-nums">
-                        {bac.refund_percent}%
-                      </td>
-                      <td className="text-body-sm text-muted py-3.5">
-                        {bac.note ?? "—"}
+                        {100 - bac.refund_percent}%
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
-            {data.cancellation.description ? (
-              <p className="text-body-sm text-muted mt-3">
-                {data.cancellation.description}
-              </p>
-            ) : null}
 
             <Doan>
               <Manh>5.3.</Manh> Số ngày quy định tại khoản 5.2 được tính đến phần
@@ -849,17 +843,53 @@ export default function PolicyPage() {
             <Muc>19. Câu hỏi thường gặp</Muc>
 
             <div className="mt-1">
-              <CauHoi hoi="Tôi được hoàn bao nhiêu tiền khi hủy?">
+              <CauHoi hoi="Khi nào tôi phải thanh toán phần còn lại?">
                 <p>
-                  Phần trăm lấy theo bảng ở mục 5, tính theo số ngày còn lại tới
-                  giờ khởi hành.
+                  Với đơn đặt tour theo chỗ, bạn đặt cọc{" "}
+                  <strong>{data.payment.deposit_percent}% giá trị đơn</strong> và
+                  thanh toán phần còn lại <strong>trước hạn chốt danh sách của chuyến</strong>.
+                  Hạn này mặc định là {data.booking.deadline_days} ngày trước giờ khởi hành;
+                  nếu chuyến có hạn riêng, hãy theo ngày giờ hiển thị trên đơn.
+                </p>
+              </CauHoi>
+
+              <CauHoi hoi="Đến hạn mà chưa thanh toán đủ thì tôi có mất cọc không?">
+                <p>
+                  Có. Với đơn đặt tour theo chỗ đã thanh toán một phần, đến hạn chốt
+                  danh sách mà vẫn còn thiếu tiền thì hệ thống hủy đơn và giữ lại
+                  khoản cọc <strong>{data.payment.deposit_percent}% giá trị đơn</strong>,
+                  tối đa bằng số tiền đã thu. Phần đã trả vượt tiền cọc được ghi nhận
+                  để hoàn lại.
                 </p>
                 <p>
-                  Có một chi tiết dễ nhầm:{" "}
-                  <strong>phí hủy tính trên tổng giá trị đơn</strong>, còn tiền
-                  hoàn thì trừ trên <strong>số bạn đã thực trả</strong>. Đổi lại,
-                  tiền hoàn không bao giờ âm — hủy tour thì bạn không phải nộp
-                  thêm đồng nào, kể cả khi phí hủy lớn hơn số đã trả.
+                  Trường hợp này <strong>không áp dụng bảng phí hủy theo số ngày</strong> ở
+                  mục 5. Nếu chưa thanh toán khoản nào, đơn hết hạn giữ chỗ sẽ tự hủy
+                  và không có tiền cọc để khấu trừ.
+                </p>
+              </CauHoi>
+
+              <CauHoi hoi="Nếu tôi chủ động hủy đơn thì được hoàn bao nhiêu?">
+                <p>
+                  Phí hủy áp dụng theo bảng ở mục 5, dựa trên thời điểm gửi yêu cầu
+                  và bảng phí áp dụng cho đơn của bạn. Phí được tính trên{" "}
+                  <strong>tổng giá trị đơn</strong>.
+                </p>
+                <p>
+                  <strong>Tiền hoàn = số đã thanh toán − phí hủy</strong>, tối thiểu
+                  bằng 0. Nếu bạn mới đóng cọc và phí hủy bằng hoặc lớn hơn khoản
+                  cọc đó thì bạn không nhận lại tiền cọc và không phải nộp thêm.
+                </p>
+                <p>
+                  Đơn đã thanh toán cần gửi yêu cầu và chờ điều hành duyệt hủy.
+                  Trước khi gửi, bạn có thể xem số tiền hoàn dự kiến.
+                </p>
+              </CauHoi>
+
+              <CauHoi hoi="Đơn đã hủy thì tiền hoàn có về ngay không?">
+                <p>
+                  Chưa. Hệ thống ghi nhận số tiền cần hoàn; điều hành xử lý hoàn tiền
+                  và ghi nhận giao dịch sau đó. Nếu đơn có tiền được hoàn, bạn cần
+                  cung cấp đúng thông tin tài khoản nhận tiền.
                 </p>
               </CauHoi>
 
