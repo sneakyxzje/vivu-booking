@@ -58,7 +58,7 @@ class AiChatbotTest extends TestCase
     public function test_kho_tri_thuc_chi_lay_tour_dang_ban(): void
     {
         $dangBan = Tour::factory()->create(['title' => 'Tour vịnh Hạ Long']);
-        Tour::factory()->create(['title' => 'Tour sân thử', 'is_sandbox' => true]);
+        Tour::factory()->create(['title' => 'Tour đã xóa'])->delete();
         Tour::factory()->create(['title' => 'Tour đã ngừng bán', 'status' => 'inactive']);
 
         app(KnowledgeIndexer::class)->rebuild();

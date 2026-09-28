@@ -15,6 +15,7 @@ use App\Models\TourSchedule;
 use App\Services\BookingAuditLogger;
 use App\Services\BookingContactService;
 use App\Services\BookingHoldService;
+use App\Services\BookingMailDispatcher;
 use App\Services\BookingPaymentService;
 use App\Services\BookingPolicyService;
 use App\Services\CancellationPolicyService;
@@ -30,6 +31,23 @@ use Throwable;
 
 class AdminBookingController extends Controller
 {
+    /** Gửi lại thư của đơn theo yêu cầu quản trị viên. */
+    public function sendMail(Request $request, int $bookingId, BookingMailDispatcher $mailer): JsonResponse
+    {
+        $data = $request->validate([
+            'type' => ['required', 'string', Rule::in(array_keys(BookingMailDispatcher::danhSach()))],
+        ]);
+
+        $booking = Booking::query()->with(['tour', 'schedule', 'customer'])->findOrFail($bookingId);
+        $result = $mailer->gui($booking, $data['type']);
+
+        return response()->json([
+            'success' => true,
+            'message' => sprintf('Đã gửi "%s" tới %s.', $result['mo_ta'], $result['gui_toi']),
+            'data' => $result,
+        ]);
+    }
+
     public function __construct(
         private BookingHoldService $holdService,
         private BookingPolicyService $bookingPolicy,

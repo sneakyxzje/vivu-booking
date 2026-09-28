@@ -105,12 +105,10 @@ class KnowledgeIndexer
      */
     private function tourDocuments(): array
     {
-        // Đúng tập tour trang khách đang bán. Tour sân thử nghiệm bị loại: ngày giờ
-        // ở đó bị tua tới lui, không phải hàng bán cho khách.
+        // Chỉ lấy các tour đang bán trên trang khách.
         $tours = Tour::query()
             ->with(['categories', 'services', 'itineraries.checkpoints'])
             ->whereIn('status', ['active', 'full'])
-            ->where('is_sandbox', false)
             ->orderBy('id')
             ->get();
 
@@ -186,8 +184,7 @@ class KnowledgeIndexer
      */
     private function policyDocuments(): array
     {
-        $depositPercent = max(1, min(100, (int) config('booking.deposit_percent', 50)));
-        $balanceDueDays = (int) config('booking.balance_due_days', 10);
+        $depositPercent = 50;
         $holdMinutes = (int) config('booking.payment_ttl_minutes', 10);
         $deadlineDays = (int) config('booking.booking_deadline_days', 3);
         $transferFee = (float) config('booking.transfer_fee', 200_000);
@@ -205,7 +202,7 @@ class KnowledgeIndexer
                 'Đặt tour không cần tài khoản. Sau khi đặt, khách nhận một mã tra cứu để xem đơn, khai danh sách hành khách và theo dõi thanh toán.',
                 "Đơn mới đặt được giữ chỗ {$holdMinutes} phút để thanh toán. Quá {$holdMinutes} phút mà chưa trả tiền thì đơn tự hủy và chỗ được trả lại cho khách khác.",
                 'Thanh toán trực tuyến qua cổng VNPay.',
-                "Khách đặt cọc {$depositPercent}% giá trị đơn để giữ chỗ, phần còn lại trả chậm nhất {$balanceDueDays} ngày trước ngày khởi hành. Hệ thống gửi thư nhắc trước hạn; quá hạn mà chưa trả nốt thì đơn bị hủy và khoản đã cọc xử lý theo bảng phí hủy.",
+                "Khách đặt cọc {$depositPercent}% giá trị đơn để giữ chỗ, phần còn lại trả trước hạn chốt danh sách. Hệ thống gửi thư nhắc trước hạn; quá hạn mà chưa trả nốt thì đơn bị hủy và khách mất khoản đặt cọc 50%.",
                 "Hạn chốt danh sách khách mặc định là {$deadlineDays} ngày trước khởi hành. Sau hạn đó chuyến ngừng nhận đặt chỗ mới và khách không tự sửa được danh sách hành khách nữa.",
                 'Khách khai danh sách hành khách sau khi đặt, qua liên kết riêng theo mã tra cứu, hạn cuối là hạn chốt danh sách của chuyến.',
                 'Giá tính theo từng loại khách: người lớn, trẻ em và em bé có ba mức khác nhau. Mỗi em bé phải đi kèm ít nhất một người lớn trong cùng đơn.',

@@ -175,7 +175,6 @@ function AdminShell() {
     : /^\/admin\/tours\/[^/]+\/edit$/.test(pathname) ? "Chỉnh sửa tour"
     : /^\/admin\/tours\/[^/]+$/.test(pathname) ? "Chi tiết tour"
     : pathname.startsWith("/admin/tour-schedules/") ? "Điểm danh chuyến"
-    : pathname === "/admin/sandbox" ? "Sân thử nghiệp vụ"
     : pathname === "/admin/transactions" ? "Tài chính"
     : active?.label ?? "Quản trị";
   const userName = user?.name?.trim() || "Điều hành";

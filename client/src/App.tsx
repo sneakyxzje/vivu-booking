@@ -255,10 +255,6 @@ const router = createBrowserRouter([
             lazy: async () => ({ Component: (await import("@/pages/admin/AuditLogManagement")).default }),
           },
           {
-            path: "/admin/sandbox",
-            lazy: async () => ({ Component: (await import("@/pages/admin/SandboxLab")).default }),
-          },
-          {
             path: "/admin/incidents",
             lazy: async () => ({ Component: (await import("@/pages/admin/IncidentManagement")).default }),
           },

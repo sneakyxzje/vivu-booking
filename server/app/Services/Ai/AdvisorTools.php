@@ -119,7 +119,6 @@ class AdvisorTools
     {
         $query = Tour::query()
             ->whereIn('status', ['active', 'full'])
-            ->where('is_sandbox', false)
             ->withAvg('approvedReviews as rating', 'rating');
 
         if ($keyword = trim((string) ($arguments['keyword'] ?? ''))) {
@@ -324,7 +323,6 @@ class AdvisorTools
 
         return Tour::query()
             ->whereIn('status', ['active', 'full'])
-            ->where('is_sandbox', false)
             ->when(
                 ctype_digit($identifier),
                 fn ($query) => $query->whereKey((int) $identifier),
