@@ -2,7 +2,7 @@
 
 ## Kết luận
 
-Chưa thể xác nhận toàn bộ luồng đã ăn khớp. Lượt rà soát ban đầu xác định 6 vấn đề ở các bước nối xác thực → tạo đơn, nhận tiền → hoàn tiền, hủy → chuyển chuyến, tự động hóa → kết thúc và điều khoản → hành vi hệ thống. Sau đó đã sửa nội dung điều khoản/FAQ (A6) theo yêu cầu; đã sửa thêm OTP tạo đơn và gửi lại yêu cầu (A1/A5). Còn A2–A4 chưa xử lý. Mâu thuẫn VNPay mã 24 ở A7 đã được sửa khi chuẩn bị bản demo laptop.
+Chưa thể xác nhận toàn bộ luồng đã ăn khớp. Lượt rà soát ban đầu xác định 6 vấn đề ở các bước nối xác thực → tạo đơn, nhận tiền → hoàn tiền, hủy → chuyển chuyến, tự động hóa → kết thúc và điều khoản → hành vi hệ thống. Sau đó đã sửa nội dung điều khoản/FAQ (A6) theo yêu cầu; đã sửa thêm OTP tạo đơn và gửi lại yêu cầu (A1/A5). Còn A2–A4 chưa xử lý. A7 là kỳ vọng test sai với nghiệp vụ đã chốt: khách chủ động hủy tại VNPay thì đơn chờ thanh toán hủy ngay. Đã khôi phục hành vi của nhóm và sửa test cho đúng.
 
 Đây là lượt kiểm tra mã nguồn, API và kiểm thử trong môi trường cô lập. Lượt rà soát ban đầu không sửa nghiệp vụ chạy thật, không gửi thư hoặc gọi cổng thanh toán thật, không chạy migration trên cơ sở dữ liệu phát triển.
 
@@ -106,11 +106,11 @@ Mô tả A1/A5 bên dưới ghi lại lỗi trước khi sửa; kết quả hi�
 
 **Kiểm tra phần sửa:** ESLint trang điều khoản và build frontend đạt; `PublicPolicyTest` đạt 6/6 bài, 31 assertions. Chưa kiểm tra trực quan trên trình duyệt.
 
-### A7 — Phát hiện khi gỡ chặn test OTP: VNPay mã 24 hủy đơn trước hạn giữ chỗ
+### A7 — Test gộp nhầm lỗi thanh toán với khách chủ động hủy
 
-**Hiện tượng:** `VNPayCallbackService::xuLyDonChoThanhToan()` gọi `expireStaleHold` ngay khi mã phản hồi là `24`. Kiểm thử `GuideOperationsFixesTest::test_tra_tien_that_bai_thi_don_van_giu_cho_toi_het_han` yêu cầu đơn còn pending để khách đổi thẻ/thử lại đến hết hạn giữ chỗ, nhưng thực tế nhận cancelled.
+**Nghiệp vụ người dùng xác nhận:** với đơn đang chờ thanh toán, khách bấm Hủy tại VNPay (mã 24) thì hủy đơn và trả chỗ ngay. Các lỗi thanh toán khác giữ đơn đến hết hạn để thử lại.
 
-**Trạng thái:** đã sửa khi chuẩn bị bản demo laptop. Mã 24 chỉ hủy lượt thanh toán, đơn còn pending và giữ nguyên hạn/chỗ để khách thử lại. Không gia hạn giữ chỗ. Đã kiểm tra thanh toán lại thành công, IPN lặp không ghi trùng bút toán và tự hủy khi hết hạn. Giữ nguyên kỳ vọng nghiệp vụ của bài kiểm thử cũ.
+**Điều chỉnh:** khôi phục nhánh mã 24 do thành viên nhóm triển khai. Nhận định trước đó rằng nhánh này là lỗi nghiệp vụ là sai. Test lỗi thanh toán dùng mã 51; bổ sung test riêng cho mã 24, gồm callback lặp không trả chỗ hai lần. Giữ kiểm tra thử thanh toán lại sau lỗi thông thường và tự hủy khi hết hạn.
 
 ## Phạm vi đã đối chiếu ban đầu
 
@@ -143,7 +143,7 @@ Mô tả A1/A5 bên dưới ghi lại lỗi trước khi sửa; kết quả hi�
 3. Chấp thuận khi đổi chuyến: A3 cho mọi cửa điều hành có thể chuyển khách.
 4. Xử lý bù tác vụ nền: A4, đối chiếu số chỗ và trạng thái sau nhiều lần chạy.
 5. Điều khoản/FAQ: A6 đã sửa nội dung và rà mẫu email/hợp đồng; vẫn cần xử lý A3 để mọi cửa chuyển khách tuân thủ chấp thuận.
-6. Đã cập nhật tiền điều kiện OTP, sửa nhận diện alias/validation rule trong bộ kiểm tra lược đồ và chạy lại toàn bộ. A7 đã được sửa ở lượt chuẩn bị laptop. Còn kiểm thử xuyên suốt các dịch vụ bên ngoài trên môi trường tích hợp.
+6. Đã cập nhật tiền điều kiện OTP, sửa nhận diện alias/validation rule trong bộ kiểm tra lược đồ và chạy lại toàn bộ. A7 đã sửa kỳ vọng test theo xác nhận của người dùng và khôi phục hành vi hủy đơn ngay với mã 24. Còn kiểm thử xuyên suốt các dịch vụ bên ngoài trên môi trường tích hợp.
 
 ## Nhập dữ liệu trực tiếp — 29/09/2026
 

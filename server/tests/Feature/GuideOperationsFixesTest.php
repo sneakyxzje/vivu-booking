@@ -344,9 +344,8 @@ class GuideOperationsFixesTest extends TestCase
     /**
      * Trả tiền thất bại thì đơn giữ nguyên chỗ tới hết hạn, không bị hủy ngay.
      *
-     * "Thất bại" ở cổng phần lớn là chuyện khách sửa được trong một phút: sai OTP, thẻ không đủ số
-     * dư, bấm Hủy để đổi sang thẻ khác. Hủy đơn ngay nghĩa là họ quay lại thì chỗ đã mất — và thời
-     * hạn giữ chỗ sinh ra chính là để đựng khoảng thời gian đó.
+     * Lỗi thanh toán như thiếu số dư giữ đơn để thử lại. Khách chủ động hủy (mã 24)
+     * là nghiệp vụ riêng: hủy đơn ngay, được kiểm tra ở bài bên dưới.
      */
     public function test_tra_tien_that_bai_thi_don_van_giu_cho_toi_het_han(): void
     {
@@ -392,6 +391,35 @@ class GuideOperationsFixesTest extends TestCase
         $this->assertSame(4_000_000.0, (float) $booking->payments()->sum('amount'));
     }
 
+    public function test_khach_huy_tai_vnpay_thi_huy_don_va_tra_cho_ngay(): void
+    {
+        Mail::fake();
+        $chuyen = $this->taoChuyen(now()->addDays(20));
+        $this->postVerifiedBooking([
+            'tour_id' => $this->tour->id,
+            'tour_schedule_id' => $chuyen->id,
+            'customer_name' => 'Khach Huy Thanh Toan',
+            'customer_email' => 'huythanhtoan@example.com',
+            'adult_count' => 2,
+            'accept_terms' => true,
+        ])->assertStatus(201);
+
+        $booking = Booking::query()->firstOrFail();
+        $this->assertTrue($booking->expires_at->isFuture());
+        $this->assertSame(2, (int) $chuyen->fresh()->booked_people);
+        $callback = $this->vnpayQuayVe($booking, 4_000_000, thanhCong: false, maLoi: '24');
+
+        $this->getJson('/api/vnpay/ipn?' . http_build_query($callback))->assertOk();
+        $this->assertSame('cancelled', $booking->fresh()->status);
+        $this->assertSame(0, (int) $chuyen->fresh()->booked_people);
+        $this->assertDatabaseCount('booking_payments', 0);
+
+        // Callback gửi lại không trả chỗ lần thứ hai.
+        $this->getJson('/api/vnpay/ipn?' . http_build_query($callback))->assertOk();
+        $this->assertSame('cancelled', $booking->fresh()->status);
+        $this->assertSame(0, (int) $chuyen->fresh()->booked_people);
+    }
+
     /** Hết hạn thì tác vụ nền vẫn dọn đúng như cũ — không có đơn nào nằm lại vĩnh viễn. */
     public function test_het_han_thi_don_that_bai_van_duoc_don(): void
     {
@@ -423,12 +451,12 @@ class GuideOperationsFixesTest extends TestCase
     }
 
     /** Dựng lượt VNPay quay về, ký đúng như cổng thật ký. */
-    private function vnpayQuayVe(Booking $booking, float $soTien, bool $thanhCong = true): array
+    private function vnpayQuayVe(Booking $booking, float $soTien, bool $thanhCong = true, string $maLoi = '51'): array
     {
         $params = [
             'vnp_Amount' => (int) round($soTien * 100),
             'vnp_BankCode' => 'NCB',
-            'vnp_ResponseCode' => $thanhCong ? '00' : '24',
+            'vnp_ResponseCode' => $thanhCong ? '00' : $maLoi,
             'vnp_TransactionNo' => (string) random_int(10000000, 99999999),
             'vnp_TransactionStatus' => $thanhCong ? '00' : '02',
             'vnp_TxnRef' => app(VNPayService::class)->txnRef($booking),

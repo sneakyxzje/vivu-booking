@@ -127,7 +127,7 @@ class VNPayCallbackService
             }
 
             if ($booking->status === 'pending') {
-                return $this->xuLyDonChoThanhToan($booking, $thanhCong, $soTien, $maGiaoDich);
+                return $this->xuLyDonChoThanhToan($booking, $thanhCong, $soTien, $maGiaoDich, $query['vnp_ResponseCode'] ?? null);
             }
 
             /*
@@ -184,10 +184,8 @@ class VNPayCallbackService
     }
 
     /**
-     * Đơn đang chờ thanh toán: trả tiền thành công thì xác nhận, thất bại thì để nguyên.
-     *
-     * Không nhận `$schedule` nữa — từ khi lần trả tiền hỏng thôi không hủy đơn, nhánh này không
-     * còn chạm tới kho chỗ của chuyến nữa.
+     * Đơn đang chờ thanh toán: thành công thì xác nhận; khách chủ động hủy thì hủy đơn ngay.
+     * Các lỗi thanh toán khác giữ đơn tới hết hạn để khách thử lại.
      *
      * @return array{booking: Booking|null, booking_id: int|null, successful: bool, rsp_code: string}
      */
@@ -196,23 +194,14 @@ class VNPayCallbackService
         bool $thanhCong,
         float $soTien,
         ?string $maGiaoDich,
+        ?string $rspCode = null,
     ): array {
-        /*
-         * Trả tiền THẤT BẠI thì đơn giữ nguyên `pending`, không hủy.
-         *
-         * Trước đây nhánh này hủy đơn và nhả chỗ ngay lập tức. Nhưng "thất bại" ở cổng thanh toán
-         * phần lớn là những chuyện khách sửa được trong một phút: gõ sai OTP, thẻ không đủ số dư,
-         * chọn nhầm ngân hàng, hoặc bấm nút Hủy trên trang ngân hàng để quay ra đổi thẻ khác. Hủy
-         * đơn ngay nghĩa là họ quay lại thì chỗ đã mất, và phải đặt lại từ đầu — có khi chỗ ấy vừa
-         * bị người khác lấy trong đúng khoảng thời gian đó.
-         *
-         * Thời hạn giữ chỗ sinh ra chính là để đựng khoảng này. Đơn ở lại `pending` tới `expires_at`
-         * rồi `BookingHoldService` tự dọn nếu khách thật sự bỏ cuộc — không cần một đường hủy thứ
-         * hai chạy sớm hơn hạn mà cả hệ thống đang cam kết với khách.
-         *
-         * Mã 24 chỉ hủy lượt thanh toán tại cổng; khách vẫn có thể đổi thẻ và thử lại trong hạn.
-         */
         if (!$thanhCong) {
+            if ($rspCode === '24') {
+                $this->holdService->expireStaleHold($booking, 'Khách hàng từ chối thanh toán tại cổng VNPay');
+                $booking->refresh();
+            }
+
             return $this->ketQua(null, false, self::RSP_THANH_CONG, $booking->id);
         }
 
