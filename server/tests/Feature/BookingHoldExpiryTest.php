@@ -49,7 +49,7 @@ class BookingHoldExpiryTest extends TestCase
             'booking_deadline' => $hanChot,
             'max_people' => $maxPeople,
             'booked_people' => $bookedPeople,
-            'status' => $bookedPeople >= $maxPeople ? 'closed' : 'open',
+            'status' => 'open',
         ]);
     }
 
@@ -74,6 +74,7 @@ class BookingHoldExpiryTest extends TestCase
 
     public function test_don_qua_han_duoc_nha_cho_khi_co_khach_moi_dat(): void
     {
+        \Illuminate\Support\Facades\Cache::put('booking_verified_khach-moi@example.com', true, 600);
         $schedule = $this->taoTourVaLich(maxPeople: 5, bookedPeople: 3);
         $donQuaHan = $this->taoDonGiuCho($schedule, guests: 3, expiresAt: now()->subMinute());
 
@@ -98,6 +99,7 @@ class BookingHoldExpiryTest extends TestCase
 
     public function test_don_chua_qua_han_van_giu_cho_cua_khach(): void
     {
+        \Illuminate\Support\Facades\Cache::put('booking_verified_khach-moi@example.com', true, 600);
         $schedule = $this->taoTourVaLich(maxPeople: 5, bookedPeople: 3);
         $donDangGiu = $this->taoDonGiuCho($schedule, guests: 3, expiresAt: now()->addMinutes(9));
 
@@ -185,7 +187,7 @@ class BookingHoldExpiryTest extends TestCase
         $schedule->refresh();
 
         $this->assertSame(0, (int) $schedule->booked_people, 'Khách chưa trả đồng nào thì chỗ phải về kho.');
-        $this->assertSame(ScheduleStatus::Closed, $schedule->status, 'Qua hạn chốt thì không mở bán lại.');
+        $this->assertSame(ScheduleStatus::Open, $schedule->status, 'Qua hạn chốt thì không mở bán lại.');
         $this->assertFalse($schedule->isBookable());
     }
 
@@ -209,5 +211,4 @@ class BookingHoldExpiryTest extends TestCase
         $this->assertTrue($schedule->isBookable());
     }
 }
-
 

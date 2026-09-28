@@ -37,7 +37,7 @@ class BookingFinalizationService
      */
     public function finalizeSchedule(TourSchedule $schedule, ?Carbon $now = null): array
     {
-        $now ??= now();
+        $now ??= DemoClock::schedule($schedule);
 
         $ketQua = ['completed' => 0, 'no_show' => 0, 'skipped' => 0];
 

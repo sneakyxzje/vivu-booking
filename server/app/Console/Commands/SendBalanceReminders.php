@@ -46,7 +46,9 @@ class SendBalanceReminders extends Command
         parent::__construct();
     }
 
-    public function handle(): int
+    use \App\Console\Concerns\RunsWithDemoClock;
+
+    public function handleForClock(): int
     {
         $soNgayNhac = (int) config('booking.balance_reminder_days', 7);
         $soNgayCuoi = (int) config('booking.balance_final_notice_days', 2);
@@ -60,49 +62,14 @@ class SendBalanceReminders extends Command
                 continue;
             }
 
-            $conBaoNhieuNgay = now()->diffInDays($han, false);
-            /*
-             * Chỉ người ĐÃ ĐẶT CỌC mới thuộc diện được cứu bằng lá thư muộn.
-             *
-             * Cùng phép lọc mà lệnh hủy dùng, và cùng lý do: đơn mà sổ ghi 0 đồng nhiều khả năng là
-             * đơn đã trả tiền thật nhưng ai đó xác nhận tay mà quên ghi sổ. Gửi cho họ một lá đòi
-             * tiền là đòi lần hai. Lệnh hủy vốn đã không đụng tới nhóm này, nên lá thư cũng chẳng
-             * cứu họ khỏi điều gì — nó chỉ có thể gây hiểu nhầm.
-             */
-            /*
-             * Lá gửi TRƯỚC lần đổi chuyến gần nhất thì coi như chưa gửi.
-             *
-             * Nó nói về hạn của một ngày khởi hành đã không còn tồn tại. Không bỏ qua nó thì đơn
-             * chuyển sang chuyến xa hơn vĩnh viễn không nhận thư nào về hạn mới, rồi tới hạn ấy bị
-             * lệnh hủy quét ngay vì cái mốc cũ đã quá ân hạn từ lâu.
-             */
+            $conBaoNhieuNgay = \App\Services\DemoClock::commandNow()->diffInDays($han, false);
+            if ($han->lte(\App\Services\DemoClock::commandNow())) {
+                continue;
+            }
             $daNhacNhe = $booking->balance_reminder_sent_at !== null
                 && !$booking->nhacDaLacHau($booking->balance_reminder_sent_at);
             $daNhacCuoi = $booking->balance_final_notice_at !== null
                 && !$booking->nhacDaLacHau($booking->balance_final_notice_at);
-
-            $chuaTungNhac = !$daNhacNhe
-                && !$daNhacCuoi
-                && $booking->payments()->whereIn('kind', BookingPayment::THU)->exists();
-
-            /*
-             * Đã quá hạn thì thôi nhắc — TRỪ người chưa từng nhận lá nào.
-             *
-             * Với người đã bỏ qua hai lá thư, một lời nhắc "hãy trả trước ngày hôm qua" chỉ làm họ
-             * bối rối, và thư đúng lúc ấy là thư báo hủy.
-             *
-             * Nhưng có một nhóm rơi vào đây mà chưa hề được nhắc lần nào: đơn được chuyển sang
-             * chuyến gần hơn. Hạn trả nốt tính theo chuyến đích nên nó nằm ở quá khứ ngay lúc
-             * chuyển, và điều kiện cũ vắt qua đầu họ — không thư nhắc, rồi hôm sau lệnh hủy quét
-             * trúng. Người bị dời ngày đi mất luôn chuyến vì một cái hạn không ai kịp làm gì.
-             *
-             * Nên với họ, lá này là lá đầu tiên và cũng là lá cuối. Lệnh hủy chờ hết khoảng ân hạn
-             * kể từ lá thư mới đụng tới đơn, nên gửi ở đây không phải hình thức: nó mở ra đúng
-             * khoảng thời gian mà người trong luồng thường vẫn được hưởng.
-             */
-            if ($conBaoNhieuNgay < 0 && !$chuaTungNhac) {
-                continue;
-            }
 
             $laCanhBaoCuoi = $conBaoNhieuNgay <= $soNgayCuoi;
             $cot = $laCanhBaoCuoi ? 'balance_final_notice_at' : 'balance_reminder_sent_at';
@@ -140,7 +107,7 @@ class SendBalanceReminders extends Command
 
                 // Đóng mốc SAU khi gửi được, cùng lý do với thư nhắc khởi hành: đóng trước thì một
                 // lỗi máy chủ thư biến thành "đã nhắc rồi" vĩnh viễn.
-                $booking->forceFill([$cot => now()])->save();
+                $booking->forceFill([$cot => \App\Services\DemoClock::commandNow()])->save();
                 $daGui++;
 
                 $this->line(sprintf(
@@ -180,8 +147,8 @@ class SendBalanceReminders extends Command
         $daThu = '(SELECT COALESCE(SUM(bp.amount), 0) FROM booking_payments bp'
             . ' WHERE bp.booking_id = bookings.id AND bp.kind IN (?, ?))';
 
-        return Booking::query()
-            ->with(['tour:id,title', 'schedule:id,start_date', 'customer:id,email'])
+        return Booking::query()->forClock()
+            ->with(['tour:id,title', 'schedule:id,start_date,booking_deadline', 'customer:id,email'])
             ->whereIn('status', BookingStatus::paidValues())
             ->whereRaw($daThu . ' < bookings.total_amount', BookingPayment::THU)
             ->where(fn ($q) => $q
@@ -192,7 +159,7 @@ class SendBalanceReminders extends Command
                 ->orWhereNull('paid_at'))
             ->whereHas('schedule', fn ($q) => $q
                 ->whereNotIn('status', [ScheduleStatus::Cancelled->value, ScheduleStatus::Completed->value])
-                ->where('start_date', '>', now()))
+                ->where('start_date', '>', \App\Services\DemoClock::commandNow()))
             ->get();
     }
 }

@@ -31,7 +31,7 @@ use Illuminate\Support\Facades\DB;
  * ## Mỗi trạng thái đều có ít nhất một mẫu
  *
  * Tour: đang bán, ngừng bán, hết chỗ, và một tour đã xóa mềm nằm trong thùng rác.
- * Chuyến: mở bán, đóng bán, đã chốt, đang đi, đã kết thúc, đã hủy.
+ * Chuyến: chờ chốt, đã chốt, đang đi, đã kết thúc, đã hủy.
  *
  * ## Số chỗ đã bán KHÔNG đặt ở đây
  *
@@ -80,9 +80,7 @@ class SampleTourSeeder extends Seeder
          * tay nặng thêm: người thử phải lội qua một danh sách dài để tìm đúng tour mình đang xem,
          * và không tour nào trong đó dùng để chứng minh nghiệp vụ cả.
          *
-         * Ba tour là đủ để trang chủ, bộ lọc và trang chi tiết có dữ liệu thật. Phần nghiệp vụ
-         * chuyển hẳn sang `SandboxTourSeeder`, nơi mọi tình huống được dựng có chủ đích và bấm nút
-         * là tua tới được.
+         * Ba tour là đủ để trang chủ, bộ lọc và trang chi tiết có dữ liệu thật.
          *
          * Định nghĩa của mười hai tour còn lại giữ nguyên trong `danhMucTour()`: muốn danh mục dày
          * trở lại thì đổi đúng con số này, không phải gõ lại dữ liệu.
@@ -424,7 +422,7 @@ class SampleTourSeeder extends Seeder
                 'schedules' => [
                     ['cach' => -50, 'gio' => '08:00', 'max' => 25, 'trang_thai' => ScheduleStatus::Completed],
                     // Qua hạn chốt (3 ngày) nên không nhận đặt mới nữa.
-                    ['cach' => 2, 'gio' => '08:00', 'max' => 25, 'trang_thai' => ScheduleStatus::Closed],
+                    ['cach' => 2, 'gio' => '08:00', 'max' => 25, 'trang_thai' => ScheduleStatus::Open],
                     ['cach' => 10, 'gio' => '08:00', 'max' => 25],
                     ['cach' => 38, 'gio' => '08:00', 'max' => 25],
                     ['cach' => 66, 'gio' => '08:00', 'max' => 25],
@@ -702,7 +700,7 @@ class SampleTourSeeder extends Seeder
                 'lng' => 104.6333,
                 'schedules' => [
                     // Đóng bán vì đã kín chỗ, không phải vì quá hạn chốt.
-                    ['cach' => 11, 'gio' => '06:00', 'max' => 29, 'trang_thai' => ScheduleStatus::Closed],
+                    ['cach' => 11, 'gio' => '06:00', 'max' => 29, 'trang_thai' => ScheduleStatus::Open],
                 ],
             ],
 

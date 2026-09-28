@@ -16,16 +16,7 @@ use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
-/**
- * THĂM DÒ: hệ thống chịu được mô hình "đặt cọc trước, trả nốt sau" tới đâu.
- *
- * Đây không phải bộ test của một tính năng đã có, mà là phép đo trước khi đổi mô hình bán hàng: đơn
- * lẻ hiện thu đủ một lần qua cổng, và câu hỏi là nếu chuyển sang thu cọc lúc đặt rồi thu nốt lúc
- * lên xe (hoặc ở một mốc nào đó) thì những gì còn chạy và những gì gãy.
- *
- * Mỗi bài dưới đây mô phỏng một chặng của luồng ấy bằng chính các điểm cuối thật, không gọi tắt vào
- * service — vì thứ cần biết là *đường đi của người dùng* có thông hay không.
- */
+
 class DepositFlowProbeTest extends TestCase
 {
     use RefreshDatabase;
@@ -35,12 +26,7 @@ class DepositFlowProbeTest extends TestCase
     private Tour $tour;
     private TourSchedule $chuyen;
 
-    /**
-     * Đơn 4 triệu, cọc theo `booking.deposit_percent` mặc định là 50%.
-     *
-     * Viết thành hằng số để bài đọc được bằng mắt, nhưng `setUp()` ghim luôn cấu hình về 50 để hai
-     * bên không lệch nhau: đổi mặc định mà quên sửa ở đây thì cả tệp đỏ với những con số khó hiểu.
-     */
+
     private const TONG = 4_000_000;
     private const COC = 2_000_000;
     private const CON_LAI = 2_000_000;
@@ -95,14 +81,16 @@ class DepositFlowProbeTest extends TestCase
         ]);
     }
 
-    /** Đặt một đơn 4 triệu, dừng ở trạng thái chờ thanh toán. */
+
     private function datTour(): Booking
     {
+        $email = 'deposit-test@example.com';
+        \Illuminate\Support\Facades\Cache::put('booking_verified_' . $email, true, 600);
         $this->postJson('/api/bookings', [
             'tour_id' => $this->tour->id,
             'tour_schedule_id' => $this->chuyen->id,
             'customer_name' => 'Khach Dat Coc',
-            'customer_email' => 'coc-' . Str::random(5) . '@example.com',
+            'customer_email' => $email,
             'customer_phone' => '0901234567',
             'adult_count' => 2,
             'accept_terms' => true,
@@ -111,7 +99,7 @@ class DepositFlowProbeTest extends TestCase
         return Booking::query()->latest('id')->firstOrFail();
     }
 
-    /** Lượt VNPay báo về cho MỘT lần trả tiền, ký đúng như cổng thật ký. */
+
     private function vnpayBaoVe(Booking $don, float $soTien): array
     {
         $p = [
@@ -137,12 +125,7 @@ class DepositFlowProbeTest extends TestCase
 
     // --- Chặng 1: thu cọc lúc đặt ------------------------------------------------------------
 
-    /**
-     * Cổng thanh toán báo về ĐÚNG SỐ CỌC thì đơn vẫn được xác nhận và giữ chỗ.
-     *
-     * Đây là chặng nền của cả mô hình. Nếu luồng quay về đòi phải đủ giá đơn mới cho qua thì không
-     * còn gì để bàn tiếp.
-     */
+
     public function test_chang1_thu_coc_thi_don_van_duoc_xac_nhan(): void
     {
         Mail::fake();
@@ -159,7 +142,7 @@ class DepositFlowProbeTest extends TestCase
         $this->assertEquals(self::CON_LAI, $this->so()->balanceDue($daSua));
     }
 
-    /** Chỗ vẫn bị trừ như đơn trả đủ: cọc là cam kết, không phải giữ chỗ tạm. */
+
     public function test_chang1_cho_van_bi_tru_khi_moi_coc(): void
     {
         Mail::fake();
@@ -170,15 +153,7 @@ class DepositFlowProbeTest extends TestCase
         $this->artisan('bookings:check-seat-consistency')->assertSuccessful();
     }
 
-    /**
-     * Trang tra cứu phải đòi TIỀN CỌC, không đòi cả giá tour.
-     *
-     * Đây là lỗi lộ ra ngay lần đặt thật đầu tiên. Trang tra cứu dựng lại liên kết thanh toán bằng
-     * số CÒN THIẾU, mà với đơn vừa đặt thì số đó đúng bằng giá tour — nên `store()` tạo liên kết
-     * cọc xong, trang tra cứu lập tức ghi đè bằng liên kết đòi trả đủ.
-     *
-     * Khách đọc trang đặt tour thấy "đặt cọc 2 triệu", bấm sang thấy đòi 4 triệu.
-     */
+
     public function test_chang1_trang_tra_cuu_chi_doi_tien_coc(): void
     {
         Mail::fake();
@@ -198,7 +173,7 @@ class DepositFlowProbeTest extends TestCase
         );
     }
 
-    /** Đã cọc rồi thì lần sau đòi đúng phần còn lại, không đòi cọc lần nữa. */
+
     public function test_chang1_da_coc_roi_thi_doi_phan_con_lai(): void
     {
         Mail::fake();
@@ -211,18 +186,8 @@ class DepositFlowProbeTest extends TestCase
         $this->assertEquals(self::CON_LAI, $res->json('data.balance_due'));
     }
 
-    /**
-     * Đặt tour sát ngày khởi hành thì phải trả ĐỦ, không có cọc.
-     *
-     * Hạn trả nốt là ngày đi trừ mười ngày, nên khách đặt chuyến khởi hành tuần sau có hạn ấy nằm ở
-     * quá khứ. Cho họ cọc là sinh ra một đơn quá hạn ngay lúc vừa tạo: trang tra cứu báo đỏ "đã quá
-     * hạn thanh toán" trước cả khi khách đóng tab, và sáng hôm sau lệnh hủy quét đơn ấy — mất cọc vì
-     * một cái hạn không ai kịp làm gì.
-     *
-     * Đây cũng là thông lệ của ngành: tour khởi hành trong tuần thì thu đủ, cọc là ưu đãi dành cho
-     * người đặt sớm.
-     */
-    public function test_dat_sat_ngay_thi_thu_du_khong_cho_coc(): void
+
+    public function test_dat_sat_ngay_van_coc_mot_nua(): void
     {
         Mail::fake();
 
@@ -237,30 +202,32 @@ class DepositFlowProbeTest extends TestCase
             'booked_people' => 0,
         ]);
 
+        $email = 'deposit-test@example.com';
+        \Illuminate\Support\Facades\Cache::put('booking_verified_' . $email, true, 600);
         $this->postJson('/api/bookings', [
             'tour_id' => $this->tour->id,
             'tour_schedule_id' => $satNgay->id,
             'customer_name' => 'Khach Dat Gap',
-            'customer_email' => 'gap-' . Str::random(5) . '@example.com',
+            'customer_email' => $email,
             'customer_phone' => '0901234567',
             'adult_count' => 2,
             'accept_terms' => true,
         ])->assertStatus(201)
-            ->assertJsonPath('data.deposit_amount', self::TONG)
-            ->assertJsonPath('data.balance_amount', 0);
+            ->assertJsonPath('data.deposit_amount', self::COC)
+            ->assertJsonPath('data.balance_amount', self::CON_LAI);
 
         $don = Booking::query()->latest('id')->firstOrFail();
 
         $this->assertEquals(
-            self::TONG,
+            self::COC,
             $this->so()->nextPaymentAmount($don),
-            'Hạn trả nốt đã qua thì không còn hai đợt, phải thu đủ ngay.',
+            'Mọi đơn trước hạn chốt đều cọc 50%.',
         );
     }
 
     // --- Chặng 2: khách tự trả nốt trước ngày đi ---------------------------------------------
 
-    /** Trang tra cứu phải đưa ra liên kết trả nốt, đúng phần còn thiếu. */
+
     public function test_chang2_khach_tu_tra_not_online_duoc(): void
     {
         Mail::fake();
@@ -287,13 +254,7 @@ class DepositFlowProbeTest extends TestCase
 
     // --- Chặng 3: thu nốt tại điểm tập trung -------------------------------------------------
 
-    /**
-     * Khách trả nốt tại văn phòng, điều hành ghi nhận — đây là đường thu offline.
-     *
-     * Tiền chỉ đi qua tay điều hành, không qua hướng dẫn viên: người đứng ở bến không cầm tiền và
-     * cũng không phải khai gì. Ai trả bằng cách nào thì cũng chỉ có hai đường về sổ — cổng thanh
-     * toán tự ghi, hoặc điều hành ghi tay.
-     */
+
     public function test_chang3_dieu_hanh_ghi_nhan_khoan_tra_not(): void
     {
         Mail::fake();
@@ -320,7 +281,7 @@ class DepositFlowProbeTest extends TestCase
         ]);
     }
 
-    /** Không ghi quá phần còn thiếu — gõ nhầm một chữ số thì bị chặn ngay. */
+
     public function test_chang3_khong_ghi_qua_phan_con_thieu(): void
     {
         Mail::fake();
@@ -340,7 +301,7 @@ class DepositFlowProbeTest extends TestCase
 
     // --- Chặng 4: những thứ ăn theo số tiền đã thu -------------------------------------------
 
-    /** Hủy khi mới cọc: hoàn trên số đã đưa, không phải trên giá đơn. */
+
     public function test_chang4_huy_khi_moi_coc_thi_hoan_dung_so_da_dua(): void
     {
         Mail::fake();
@@ -359,7 +320,7 @@ class DepositFlowProbeTest extends TestCase
         );
     }
 
-    /** Đơn mới cọc phải nằm trong công nợ phải thu, đúng phần còn thiếu. */
+
     public function test_chang4_don_moi_coc_hien_o_cong_no_phai_thu(): void
     {
         Mail::fake();
@@ -374,7 +335,7 @@ class DepositFlowProbeTest extends TestCase
         $this->assertEquals(self::CON_LAI, $res->json('data.data.0.balance_due'));
     }
 
-    /** Doanh thu chỉ đếm tiền đã về, không đếm phần khách còn nợ. */
+
     public function test_chang4_doanh_thu_chi_dem_tien_da_ve(): void
     {
         Mail::fake();
@@ -389,8 +350,8 @@ class DepositFlowProbeTest extends TestCase
         $this->assertEquals(self::TONG, $tong['contracted_value']);
     }
 
-    /** Chuyến vẫn chốt được dù khách mới cọc: đủ khách tính theo đơn, không theo tiền. */
-    public function test_chang4_chuyen_van_chot_duoc_khi_khach_moi_coc(): void
+
+    public function test_chot_danh_sach_loai_khach_chua_tra_du(): void
     {
         Mail::fake();
 
@@ -403,18 +364,14 @@ class DepositFlowProbeTest extends TestCase
         $this->artisan('schedules:confirm-ready')->assertSuccessful();
 
         $this->assertSame(
-            ScheduleStatus::Confirmed,
+            ScheduleStatus::Open,
             $this->chuyen->fresh()->status,
-            'Đoàn đã cọc đủ người thì chuyến phải chốt được.',
+            'Không chốt chuyến rỗng sau khi loại đơn chưa trả đủ.',
         );
+        $this->assertSame('cancelled', $don->fresh()->status);
     }
 
-    /**
-     * Chuyến đi xong mà khách chưa trả nốt: đơn vẫn chốt thành hoàn thành, và khoản nợ KHÔNG mất.
-     *
-     * Đây là hệ quả trực tiếp của mô hình thu nốt tại bến — nếu hướng dẫn viên quên thu, hoặc khách
-     * khất, thì sau chuyến vẫn phải còn dấu vết để đi đòi.
-     */
+
     public function test_chang4_no_khong_bien_mat_sau_khi_chuyen_ket_thuc(): void
     {
         Mail::fake();

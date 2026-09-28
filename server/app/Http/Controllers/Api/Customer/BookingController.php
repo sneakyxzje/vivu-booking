@@ -19,7 +19,6 @@ use App\Services\BookingPolicyService;
 use App\Services\CancellationPolicyService;
 use App\Services\PassengerPolicyService;
 use App\Services\RefundAccountService;
-use App\Services\ScheduleLifecycleService;
 use App\Services\VNPayCallbackService;
 use App\Services\VNPayService;
 use Illuminate\Support\Facades\Log;
@@ -46,7 +45,6 @@ class BookingController extends Controller
         private VNPayService $vnpayService,
         private BookingHoldService $holdService,
         private BookingPolicyService $bookingPolicy,
-        private ScheduleLifecycleService $scheduleLifecycle,
         private CancellationPolicyService $cancellationPolicy,
         private PassengerPolicyService $passengerPolicy,
         private BookingAuditLogger $auditLogger,
@@ -278,7 +276,7 @@ class BookingController extends Controller
                 'discount_code' => $discount['model']?->code,
                 'discount_amount' => $discount['amount'],
                 'status' => 'pending',
-                'expires_at' => now()->addMinutes($this->holdService->holdMinutes()),
+                'expires_at' => \App\Services\DemoClock::schedule($schedule)->addMinutes($this->holdService->holdMinutes())->min($schedule->booking_deadline ?? $schedule->defaultBookingDeadline()),
                 'note' => $data['note'] ?? null,
                 /*
                  * Chép chính sách hủy vào đơn ngay lúc đặt.
@@ -308,25 +306,13 @@ class BookingController extends Controller
             $schedule->increment('booked_people', $soGhe);
             $schedule->refresh();
 
-            if ($schedule->booked_people >= $schedule->max_people) {
-                $this->scheduleLifecycle->transitionTo(
-                    $schedule,
-                    ScheduleStatus::Closed,
-                    'Tự động đóng bán do booking vừa lấp đầy số chỗ.',
-                );
-            }
 
             $this->holdService->refreshTourAvailability($schedule);
 
             return $booking->load(['tour', 'schedule']);
         });
 
-        /*
-         * Lần trả tiền đầu tiên là TIỀN CỌC, không phải cả giá tour.
-         *
-         * Phần còn lại thu trước ngày khởi hành, xem `Booking::balanceDueAt()`. Đặt
-         * `booking.deposit_percent` bằng 100 thì câu này thu đủ như lối cũ, không cần sửa gì thêm.
-         */
+
         $soTienCoc = $this->paymentService->nextPaymentAmount($booking);
         $paymentUrl = $this->vnpayService->createPayment($booking, $soTienCoc);
 
@@ -401,7 +387,6 @@ class BookingController extends Controller
             ->where('customer_id', $request->user()->id)
             ->where('status', 'pending')
             ->whereNotNull('expires_at')
-            ->where('expires_at', '<=', now())
             ->get()
             ->each(fn (Booking $booking) => $this->holdService->releaseIfOverdue($booking));
 
@@ -453,10 +438,11 @@ class BookingController extends Controller
             $hanTraNot = $conThieu > 0 ? $booking->balanceDueAt() : null;
 
             $booking->setAttribute('balance_due_at', $hanTraNot?->toDateTimeString());
-            $booking->setAttribute('balance_overdue', $hanTraNot !== null && now()->gte($hanTraNot));
+            $booking->setAttribute('balance_overdue', $hanTraNot !== null && \App\Services\DemoClock::booking($booking)->gte($hanTraNot));
 
             if ($traLanNay > 0
                 && !$booking->isGroup()
+                && !$booking->balanceDueAt()?->lte(\App\Services\DemoClock::booking($booking))
                 && in_array($booking->status, ['pending', 'confirmed'], true)) {
                 $booking->setAttribute(
                     'payment_url',
@@ -514,6 +500,7 @@ class BookingController extends Controller
          */
         if ($traLanNay > 0
             && !$booking->isGroup()
+                && !$booking->balanceDueAt()?->lte(\App\Services\DemoClock::booking($booking))
             && in_array($booking->status, ['pending', 'confirmed'], true)) {
             $booking->setAttribute('payment_url', $this->vnpayService->createPayment($booking, $traLanNay));
         }
@@ -536,16 +523,16 @@ class BookingController extends Controller
         $hanTraNot = $conThieu > 0 ? $booking->balanceDueAt() : null;
 
         $booking->setAttribute('balance_due_at', $hanTraNot?->toDateTimeString());
-        $booking->setAttribute('balance_overdue', $hanTraNot !== null && now()->gte($hanTraNot));
+        $booking->setAttribute('balance_overdue', $hanTraNot !== null && \App\Services\DemoClock::booking($booking)->gte($hanTraNot));
 
         /*
-         * Che số giấy tờ của cả đoàn, trừ khi người xem nhập đúng địa chỉ thư đã đặt.
+         * Che số giấy tờ của cả đoàn, trừ chủ đơn đăng nhập hoặc phiên OTP của đúng đơn.
          *
          * Mã tra cứu là chuỗi ngẫu nhiên khó đoán, nhưng nó nằm trong thư — và thư thì được chuyển
          * tiếp, mở trên máy dùng chung, còn lại trong lịch sử trình duyệt. Nó đủ để trả lời "đơn
          * này thế nào", không đủ để đọc căn cước và ngày sinh của từng người trong đoàn.
          */
-        $hienDayDu = $booking->khopEmail($request->query('email'));
+        $hienDayDu = app(\App\Services\PassengerAccessService::class)->canAccess($booking, $request);
 
         if (!$hienDayDu && $booking->relationLoaded('passengers')) {
             $booking->passengers->each(function ($nguoi) {
@@ -736,7 +723,7 @@ class BookingController extends Controller
                 'status' => 'cancelled',
                 'cancel_reason' => $validated['cancel_reason'],
                 'cancel_type' => 'by_customer',
-                'cancelled_at' => now(),
+                'cancelled_at' => \App\Services\DemoClock::schedule($schedule),
                 'cancelled_by' => $fresh->customer_id,
             ]);
 
@@ -978,7 +965,7 @@ class BookingController extends Controller
         $query = Booking::query()
             ->where('customer_email', $email)
             ->where('status', '!=', 'cancelled')
-            ->with(['tour:id,title', 'schedule:id,start_date'])
+            ->with(['tour:id,title', 'schedule:id,start_date,booking_deadline'])
             ->latest();
 
         if ($phone) {
@@ -1006,7 +993,6 @@ class BookingController extends Controller
         ]);
     }
 }
-
 
 
 

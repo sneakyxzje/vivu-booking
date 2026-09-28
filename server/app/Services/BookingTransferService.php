@@ -70,8 +70,8 @@ class BookingTransferService
                 $moi->schedule?->start_date?->format('d/m') ?? 'rất gần',
             ),
             sprintf(
-                '%s · vừa đổi ngày nên quy trình nhắc và hủy tự động không còn kịp chạy. '
-                    . 'Gọi khách thu nốt, hoặc duyệt cho đi rồi thu sau.',
+                '%s · vừa đổi chuyến và sắp tới hạn chốt danh sách. '
+                    . 'Nhắc khách thanh toán đủ trước hạn chốt; quá hạn đơn bị hủy và mất cọc.',
                 $moi->tour?->title ?? 'Tour',
             ),
             '/admin/bookings',
@@ -215,12 +215,10 @@ class BookingTransferService
             if ($chuyenGoc) {
                 $chuyenGoc->decrement('booked_people', min($soKhach, (int) $chuyenGoc->booked_people));
                 $chuyenGoc->refresh();
-                $this->moBanLaiNeuCon($chuyenGoc);
             }
 
             $chuyenDich->increment('booked_people', $soKhach);
             $chuyenDich->refresh();
-            $this->dongBanNeuDay($chuyenDich);
 
             $locked->forceFill([
                 'tour_schedule_id' => $chuyenDich->getKey(),
@@ -575,46 +573,4 @@ class BookingTransferService
         return (float) config('booking.transfer_fee', 200_000);
     }
 
-    /** Chuyến gốc vừa trả chỗ thì có thể bán lại được, nếu vẫn còn trong hạn chốt. */
-    private function moBanLaiNeuCon(TourSchedule $schedule): void
-    {
-        if ($this->lifecycle->currentStatus($schedule) !== ScheduleStatus::Closed) {
-            return;
-        }
-
-        if ($schedule->booked_people >= $schedule->max_people) {
-            return;
-        }
-
-        $hanChot = $schedule->booking_deadline ?? $schedule->defaultBookingDeadline();
-
-        // Qua hạn chốt thì chỗ về kho nhưng chuyến vẫn không nhận đặt mới, giống hệt lý do ở
-        // BookingHoldService::releaseHeldSeats.
-        if ($hanChot && now()->gte($hanChot)) {
-            return;
-        }
-
-        $this->lifecycle->transitionTo(
-            $schedule,
-            ScheduleStatus::Open,
-            'Mở bán lại do một đơn vừa chuyển sang chuyến khác.',
-        );
-    }
-
-    private function dongBanNeuDay(TourSchedule $schedule): void
-    {
-        if ($this->lifecycle->currentStatus($schedule) !== ScheduleStatus::Open) {
-            return;
-        }
-
-        if ($schedule->booked_people < $schedule->max_people) {
-            return;
-        }
-
-        $this->lifecycle->transitionTo(
-            $schedule,
-            ScheduleStatus::Closed,
-            'Tự động đóng bán do một đơn vừa chuyển sang khiến chuyến đầy chỗ.',
-        );
-    }
 }

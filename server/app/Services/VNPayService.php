@@ -30,9 +30,17 @@ class VNPayService
         $vnp_Locale = 'vn';
         $vnp_IpAddr = request()->ip();
 
-        $expiresAt = $booking->expires_at
-            ? Carbon::parse($booking->expires_at)
-            : now()->addMinutes((int) config('booking.payment_ttl_minutes', 10));
+        $businessNow = DemoClock::booking($booking);
+        $expiresAt = $businessNow->copy()->addMinutes((int) config('booking.payment_ttl_minutes', 10));
+        if ($booking->status === 'pending' && $booking->expires_at) {
+            $expiresAt = $expiresAt->min($booking->expires_at);
+        }
+        if ($booking->balanceDueAt()) {
+            $expiresAt = $expiresAt->min($booking->balanceDueAt());
+        }
+        // Cổng dùng giờ thật; đồng hồ demo chỉ quyết định thời lượng còn lại.
+        $seconds = max(0, $businessNow->diffInSeconds($expiresAt, false));
+        $expiresAt = now()->addSeconds($seconds);
 
         $inputData = [
             "vnp_Version" => "2.1.0",

@@ -172,7 +172,7 @@ class BookingCancellationGuardTest extends TestCase
     {
         $policy = app(BookingPolicyService::class);
 
-        foreach ([ScheduleStatus::Open, ScheduleStatus::Closed, ScheduleStatus::Confirmed] as $status) {
+        foreach ([ScheduleStatus::Open, ScheduleStatus::Confirmed] as $status) {
             $schedule = (new TourSchedule())->forceFill([
                 'id' => 1,
                 'status' => $status->value,
@@ -211,4 +211,3 @@ class BookingCancellationGuardTest extends TestCase
         $this->addToAssertionCount(1);
     }
 }
-

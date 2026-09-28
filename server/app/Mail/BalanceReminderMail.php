@@ -48,7 +48,7 @@ class BalanceReminderMail extends Mailable implements ShouldQueue
     {
         $han = $this->booking->balanceDueAt();
 
-        return $han !== null && $han->isPast();
+        return $han !== null && $han->lt(\App\Services\DemoClock::booking($this->booking));
     }
 
     public function envelope(): Envelope
@@ -97,7 +97,7 @@ class BalanceReminderMail extends Mailable implements ShouldQueue
                  * Bắt khách mở trang tra cứu rồi tự tìm nút là thêm hai bước vào đúng việc mà cả lá
                  * thư này sinh ra để giục.
                  */
-                'paymentUrl' => $conThieu > 0 && !$this->booking->isGroup()
+                'paymentUrl' => $conThieu > 0 && !$this->booking->isGroup() && !$this->daQuaHan()
                     ? app(\App\Services\VNPayService::class)->createPayment($this->booking, $conThieu)
                     : null,
                 'frontendBookingUrl' => rtrim(config('app.frontend_url'), '/')

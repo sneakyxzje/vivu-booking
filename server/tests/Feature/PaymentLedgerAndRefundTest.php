@@ -80,6 +80,7 @@ class PaymentLedgerAndRefundTest extends TestCase
 
     private function datTour(int $nguoiLon = 1): Booking
     {
+        \Illuminate\Support\Facades\Cache::put('booking_verified_' . strtolower($this->khach->email), true, now()->addMinutes(15));
         $this->postJson('/api/bookings', [
             'tour_id' => $this->tour->id,
             'tour_schedule_id' => $this->chuyen->id,

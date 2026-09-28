@@ -15,43 +15,21 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
-/**
- * Dựng sẵn toàn bộ tình huống của luồng "cọc trước, trả nốt sau", để thử tay ngay.
- *
- * Chạy riêng:  php artisan db:seed --class=DepositFlowSeeder
- *
- * ## Nguyên tắc dựng: mỗi ranh giới phải có đơn ở CẢ HAI PHÍA
- *
- * Một lệnh nền chỉ chứng minh được nó đúng khi nó vừa xử lý đơn này và vừa bỏ qua đơn kia. Bộ dữ
- * liệu toàn đơn sẽ bị xử lý không phân biệt được "lệnh chạy đúng" với "lệnh quét sạch mọi thứ",
- * nên gần một nửa số đơn dưới đây là đơn ĐỐI CHỨNG — chúng tồn tại để không có gì xảy ra với chúng.
- *
- * ## Bốn ranh giới được phủ
- *
- *   1. Cửa sổ nhắc — chưa tới lượt / tới lượt nhắc / tới lượt cảnh báo cuối.
- *   2. Hạn trả nốt — còn trong hạn / đã quá hạn.
- *   3. Điều kiện bị hủy — đã cọc / đã trả đủ / chưa trả đồng nào / là đơn đoàn / đã quá hạn nhưng
- *      CHƯA từng nhận thư nào.
- *   4. Thời điểm đặt — còn xa ngày đi (được cọc) / sát ngày đi (phải trả đủ).
- *
- * Mốc thời gian tính lùi từ lúc chạy seeder theo đúng cấu hình trong `config/booking.php`, nên
- * chạy lại lúc nào cũng ra đúng tình huống ấy. Đổi lại, dữ liệu trôi khỏi mốc sau vài ngày: seed
- * lại trước mỗi buổi thử.
- */
+
 class DepositFlowSeeder extends Seeder
 {
     private const TOUR_SLUG = 'tour-thu-nghiem-dat-coc';
 
-    /** Dấu để lần seed sau dọn sạch lần trước, không đụng dữ liệu khác. */
+
     private const TAG = '[coc]';
 
     private Tour $tour;
     private User $khach;
 
-    /** @var array<int, array<string, mixed>> */
+
     private array $bang = [];
 
-    /** @var array<int, array<string, string>> */
+
     private array $chuyenTrong = [];
 
     public function run(): void
@@ -120,16 +98,10 @@ class DepositFlowSeeder extends Seeder
         ]);
     }
 
-    /**
-     * Hai chuyến để trống, dành cho việc tự đặt tour trên giao diện.
-     *
-     * Đây là cách duy nhất thử được ranh giới thứ tư: đặt vào chuyến xa thì hệ thống thu cọc, đặt
-     * vào chuyến sát ngày thì thu đủ. Không dựng sẵn đơn cho chúng, vì thứ cần nhìn nằm ở bước
-     * trước khi đơn tồn tại — con số cổng thanh toán đòi.
-     */
+
     private function dungChuyenDeTuDat(): void
     {
-        $hanTraNot = (int) config('booking.balance_due_days', 10);
+        $hanTraNot = (int) config('booking.booking_deadline_days', 3);
 
         $xa = $this->taoChuyen($hanTraNot + 20);
         $satNgay = $this->taoChuyen(max(4, $hanTraNot - 3));
@@ -143,20 +115,15 @@ class DepositFlowSeeder extends Seeder
             [
                 'ma' => 'Chuyến #' . $satNgay->id,
                 'khoi_hanh' => $satNgay->start_date->format('d/m'),
-                'ky_vong' => 'Đặt tour vào chuyến này: phải đòi TRẢ ĐỦ, vì hạn trả nốt đã qua.',
+                'ky_vong' => 'Đặt tour vào chuyến này: vẫn cọc 50%, trả nốt trước hạn chốt danh sách.',
             ],
         ];
     }
 
-    /**
-     * Mười một đơn ở mười một tình huống.
-     *
-     * Các mốc suy ra từ cấu hình chứ không viết cứng: đổi `balance_due_days` mà seeder vẫn dựng
-     * theo số cũ thì bảng hướng dẫn in ra sẽ nói sai về chính dữ liệu nó vừa tạo.
-     */
+
     private function dungCacTinhHuong(): void
     {
-        $hanTraNot = (int) config('booking.balance_due_days', 10);
+        $hanTraNot = (int) config('booking.booking_deadline_days', 3);
         $nhacLanDau = (int) config('booking.balance_reminder_days', 7);
         $canhBaoCuoi = (int) config('booking.balance_final_notice_days', 2);
         $tyLeCoc = (int) config('booking.deposit_percent', 50);
@@ -207,19 +174,13 @@ class DepositFlowSeeder extends Seeder
             daNhacCuoiTruoc: $canhBaoCuoi + 2,
         );
 
-        /*
-         * Đơn quá hạn mà CHƯA từng nhận thư nào — cảnh của đơn vừa được chuyển sang chuyến gần hơn.
-         *
-         * Đây là ranh giới mới nhất, và là ranh giới đắt nhất nếu sai: trước khi có luật "chưa nhận
-         * cảnh báo cuối thì không hủy", đơn như thế bị hủy ngay sáng hôm sau ngày chuyển, không một
-         * lời báo trước, vì một cái hạn đã nằm ở quá khứ trước cả khi nó hạ cánh xuống chuyến ấy.
-         */
+
         $this->tinhHuong(
             ngayKhoiHanh: $hanTraNot - 2,
             tyLeDaThu: $tyLeCoc,
             moTa: 'Đã cọc, quá hạn, CHƯA nhận thư nào (vừa bị chuyển chuyến)',
             nhom: 'Hủy quá hạn',
-            kyVong: 'Lệnh hủy: KHÔNG hủy. Lệnh nhắc: gửi thư "đã tới hạn", cho ' . $canhBaoCuoi . ' ngày.',
+            kyVong: 'Lệnh hủy: BỊ HỦY và mất cọc tại hạn chốt, không phụ thuộc lịch sử nhắc.',
         );
 
         $this->tinhHuong(
@@ -283,12 +244,7 @@ class DepositFlowSeeder extends Seeder
         ]);
     }
 
-    /**
-     * Dựng một chuyến và một đơn ở đúng mốc mong muốn.
-     *
-     * @param  int  $ngayKhoiHanh  số ngày nữa thì chuyến khởi hành
-     * @param  int  $tyLeDaThu  phần trăm giá đơn đã nằm trong sổ; 0 nghĩa là chưa có bút toán nào
-     */
+
     private function tinhHuong(
         int $ngayKhoiHanh,
         int $tyLeDaThu,
@@ -331,15 +287,7 @@ class DepositFlowSeeder extends Seeder
             'note' => self::TAG . ' ' . $moTa,
         ]);
 
-        /*
-         * Ghi tiền vào SỔ, và chỉ đóng `paid_at` khi thu đủ.
-         *
-         * Đúng cách luồng thật làm. Đóng mốc ấy cho đơn mới cọc là dựng sẵn một dữ liệu nói dối:
-         * mọi phép tính tiền sẽ tưởng đơn đã trả xong.
-         *
-         * `$daThu` bằng 0 thì KHÔNG tạo bút toán nào — đó chính là tình huống dữ liệu lệch mà lệnh
-         * hủy phải bỏ qua, và nó chỉ dựng được bằng cách để sổ trống thật.
-         */
+
         if ($daThu > 0) {
             BookingPayment::query()->create([
                 'booking_id' => $don->id,
@@ -375,16 +323,7 @@ class DepositFlowSeeder extends Seeder
             $don->forceFill(['group_booking_request_id' => $yeuCau->id])->save();
         }
 
-        /*
-         * Dấu vết hai lá thư nhắc, khi tình huống cần đơn ĐÃ được cảnh báo.
-         *
-         * Lệnh hủy chỉ đụng tới đơn đã nhận cảnh báo cuối và đã qua khoảng ân hạn kể từ lá đó. Nên
-         * một đơn "quá hạn" dựng trần không còn đủ để diễn tả cảnh bị hủy — phải dựng cả lịch sử
-         * nhắc, đúng như một đơn thật đi tới bước ấy sẽ có.
-         *
-         * Chính chỗ này là thứ seeder cũ thiếu, và cái thiếu ấy giấu mất một lỗ hổng thật: khi mã
-         * chưa đòi hỏi lá thư nào, dữ liệu không có lá thư nào vẫn bị hủy ngon lành.
-         */
+
         if ($daNhacCuoiTruoc !== null) {
             $don->forceFill([
                 'balance_reminder_sent_at' => now()->subDays($daNhacCuoiTruoc + 5),
@@ -394,12 +333,7 @@ class DepositFlowSeeder extends Seeder
 
         $chuyen->forceFill(['booked_people' => 2])->save();
 
-        /*
-         * Hủy chuyến SAU khi đã dựng xong đơn.
-         *
-         * Máy trạng thái chặn thao tác trên chuyến đã hủy, nên đổi trạng thái trước thì chính bước
-         * tạo đơn ở trên bị luật của nó chặn lại.
-         */
+
         if ($chuyenBiHuy) {
             $chuyen->forceFill([
                 'status' => ScheduleStatus::Cancelled->value,
@@ -420,12 +354,7 @@ class DepositFlowSeeder extends Seeder
         ];
     }
 
-    /**
-     * In bảng hướng dẫn bằng đúng mã đơn người thử sẽ nhìn thấy trên màn hình.
-     *
-     * Nhãn kịch bản kiểu "đơn số 3" không có ích: người mở trang quản trị chỉ thấy BK-37, và bắt họ
-     * tự dò xem cái nào ứng với nhãn nào là chỗ hướng dẫn thử tay hay đứt gãy nhất.
-     */
+
     private function inHuongDan(): void
     {
         $cmd = $this->command;

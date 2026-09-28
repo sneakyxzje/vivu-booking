@@ -573,16 +573,15 @@ class BookingDeadlineScenarioSeeder extends Seeder
                 'vi' => ['Suất ở chuyến A đã trả tiền cho nhà cung cấp rồi, không rút lại được.'],
             ],
             [
-                'ten' => 'Chạy lệnh nền để chuyến tự đóng bán',
-                'lam' => ['Ở terminal: php artisan schedules:close-expired'],
-                'dung' => ['Chuyến #' . $a->id . ' chuyển từ "Đang mở bán" sang "Đã đóng bán".'],
+                'ten' => 'Kiểm tra chuyến đã hết hạn nhận đặt',
+                'lam' => ['Mở trang đặt tour, chọn chuyến #' . $a->id],
+                'dung' => ['Chuyến #' . $a->id . ' không nhận đặt vì quá hạn, trạng thái vẫn là "Chờ chốt".'],
                 'vi' => [
-                    'Ngoài đời lệnh này chạy theo lịch. Không gọi tay thì chuyến vẫn "mở bán" dù đã',
-                    'quá hạn — và bước 11 sẽ không thấy được cái bẫy của nó.',
+                    'Điều kiện hạn đặt có hiệu lực ngay, không phụ thuộc tác vụ nền.',
                 ],
             ],
             [
-                'ten' => 'Gia hạn: chuyến KHÔNG tự mở bán lại',
+                'ten' => 'Gia hạn: chuyến chưa chốt và còn chỗ nhận đặt tiếp',
                 'lam' => [
                     $sua($a),
                     'Chọn hạn chốt = ' . $giaHanToi . '  (kéo về tương lai)',
@@ -590,9 +589,9 @@ class BookingDeadlineScenarioSeeder extends Seeder
                 ],
                 'dung' => [
                     'Thêm 3 thư nữa trong laravel.log, và dòng nhật ký thứ hai ở /admin/audit-logs.',
-                    'Chuyến VẪN "Đã đóng bán" -> phải bấm "Mở bán" thì khách mới đặt lại được.',
+                    'Chuyến vẫn "Chờ chốt" và nhận đặt lại nếu còn chỗ.',
                 ],
-                'vi' => ['Mở bán lại là quyết định của người, không phải hệ quả tự động của việc dời mốc.'],
+                'vi' => ['Hạn mới có hiệu lực ngay; không còn thao tác mở bán riêng.'],
             ],
             [
                 'ten' => 'Chuyển đơn sang chuyến B — lần này được',

@@ -83,7 +83,7 @@ class AdminBookingController extends Controller
 
         $bookings = $this->sapXep($this->truyVan($filters), $filters['sort'] ?? null)
             // `payments` nạp sẵn để hai con số tiền bên dưới không sinh một cặp truy vấn cho mỗi dòng.
-            ->with(['tour:id,title', 'customer:id,name,email,phone', 'schedule:id,start_date', 'payments'])
+            ->with(['tour:id,title', 'customer:id,name,email,phone', 'schedule:id,start_date,booking_deadline', 'payments'])
             ->paginate($filters['per_page'] ?? 10)
             ->withQueryString();
 
@@ -364,7 +364,7 @@ class AdminBookingController extends Controller
 
             $booking->update([
                 'status' => 'confirmed',
-                'confirmed_at' => now(),
+                'confirmed_at' => \App\Services\DemoClock::booking($booking),
                 'expires_at' => null,
             ]);
 
@@ -545,7 +545,7 @@ class AdminBookingController extends Controller
                 'cancel_reason' => $validated['cancel_reason'],
                 // Ghi đúng loại người dùng đã chọn, và nó khớp với chính con số vừa tính ở trên.
                 'cancel_type' => $loaiHuy,
-                'cancelled_at' => now(),
+                'cancelled_at' => \App\Services\DemoClock::booking($booking),
                 'cancelled_by' => $request->user()?->id,
                 /*
                  * Ghi số tiền hoàn lên chính đơn, không chỉ vào nhật ký.

@@ -77,6 +77,11 @@ class BookingPaymentService
                 );
             }
 
+            if (in_array($kind, BookingPayment::THU, true) && !$fresh->isGroup()
+                && $fresh->balanceDueAt()?->lte(DemoClock::booking($fresh))) {
+                throw new BusinessRuleException('Đã tới hạn chốt danh sách, không thể thanh toán thêm cho đơn này.');
+            }
+
             $daThu = $this->netPaid($fresh);
 
             if ($kind === BookingPayment::HOAN && round($amount) > $daThu) {
@@ -118,7 +123,7 @@ class BookingPaymentService
                 'method' => $method,
                 'reference' => $reference,
                 'note' => $note,
-                'paid_at' => now(),
+                'paid_at' => DemoClock::booking($fresh),
                 'recorded_by' => $actor?->getKey(),
             ]);
 
@@ -130,7 +135,7 @@ class BookingPaymentService
              * xóa mốc — số thực còn giữ nằm ở sổ, không ở cột này.
              */
             if ($fresh->paid_at === null && $this->netPaid($fresh) >= round((float) $fresh->total_amount)) {
-                $fresh->forceFill(['paid_at' => now()])->save();
+                $fresh->forceFill(['paid_at' => DemoClock::booking($fresh)])->save();
             }
 
             $this->auditLogger->log($fresh, BookingAuditAction::PaymentRecorded, null, [
@@ -577,80 +582,20 @@ class BookingPaymentService
             return $conThieu;
         }
 
-        /*
-         * Đặt sát ngày khởi hành thì KHÔNG có hai đợt — thu đủ ngay.
-         *
-         * Hạn trả nốt là ngày khởi hành trừ mười ngày, nên khách đặt tour đi trong tuần tới có hạn
-         * ấy nằm ở quá khứ. Cho họ cọc nghĩa là tạo ra một đơn quá hạn ngay lúc vừa sinh: trang tra
-         * cứu báo đỏ "đã quá hạn thanh toán" trước cả khi họ đóng tab, và sáng hôm sau lệnh hủy
-         * quét đơn ấy — khách mất cọc vì một cái hạn không ai kịp làm gì.
-         *
-         * Đây cũng là cách các hãng vẫn bán: cọc là ưu đãi cho người đặt sớm, đổi lại công ty có
-         * thời gian xoay xở. Không còn thời gian thì không còn cọc.
-         */
-        $hanTraNot = $booking->balanceDueAt();
-
-        if ($hanTraNot && now()->gte($hanTraNot)) {
-            return $conThieu;
-        }
-
         return min($conThieu, $booking->depositAmount());
     }
 
-    /**
-     * Đơn này còn nợ tiền, mà quy trình thu nốt tự động KHÔNG còn kịp chạy hết trước hạn chốt.
-     *
-     * Việc thu nốt bình thường do hai tác vụ nền lo, và chúng cần thời gian thật:
-     *
-     *   1. Lệnh nhắc chạy mỗi ngày một lần, nên thư sớm nhất cũng phải sang hôm sau mới đi.
-     *   2. Lệnh hủy chỉ đụng tới đơn sau khi đã qua `balance_final_notice_days` ngày kể từ lá thư ấy.
-     *
-     * Cộng lại là `ân hạn + 1` ngày trước khi một lượt hủy có thể xảy ra.
-     *
-     * ## Vì sao đo tới HẠN CHỐT DANH SÁCH chứ không phải ngày khởi hành
-     *
-     * Cả dây chuyền này chỉ có ích khi lượt hủy còn kịp **trả chỗ về kho để bán lại**. Mà chỗ chỉ về
-     * kho khi hủy trước hạn chốt: sau mốc đó phòng, ghế và suất ăn đã chốt theo danh sách gửi nhà
-     * cung cấp, nên `BookingHoldService::shouldReleaseSeats()` giữ nguyên số chỗ và đơn thành ghế
-     * chết — công ty đã trả tiền cho một chỗ không có khách ngồi.
-     *
-     * Đo tới ngày khởi hành thì bỏ lọt đúng khoảng nguy hiểm ấy, và bỏ lọt theo một cách khó chịu:
-     * hạn chốt mang đúng giờ khởi hành của chuyến, còn lệnh hủy chạy 09:30 mỗi sáng. Nên tour đi
-     * buổi tối thì chỗ kịp về kho, tour đi 5 giờ sáng thì thành ghế chết — cùng một tình huống
-     * nghiệp vụ, hai kết cục, và thứ quyết định là giờ xe lăn bánh. Không luật nào nên phụ thuộc
-     * vào một sự trùng hợp như thế.
-     *
-     * Chỉ xảy ra khi đơn bị ĐỔI NGÀY sau lúc đặt — ghép chuyến, chuyển chuyến. Đơn đặt thẳng vào
-     * chuyến sát ngày đã bị thu đủ tiền ngay từ đầu, xem `nextPaymentAmount()`.
-     *
-     * Hàm này không quyết định gì cả, nó chỉ trả lời "có phải gọi người không". Câu trả lời đúng cho
-     * tình huống ấy luôn là có: hủy đơn của người vừa bị công ty dời ngày, vào lúc đã muộn để bán
-     * lại chỗ, là thiệt cho cả hai bên.
-     */
+    /** Cảnh báo điều hành khi đơn còn nợ và sắp tới hạn chốt. Không gia hạn thanh toán. */
     public function tuDongThuNotKhongKip(Booking $booking): bool
     {
-        if ($this->balanceDue($booking) <= 0) {
-            return false;
-        }
-
-        $schedule = $booking->schedule;
-
-        $mocCuoi = $schedule
-            ? ($schedule->booking_deadline ?? $schedule->defaultBookingDeadline())
-            : $booking->departure_date;
-
-        if (!$mocCuoi) {
-            return false;
-        }
-
-        $canToiThieu = (int) config('booking.balance_final_notice_days', 2) + 1;
-
-        return now()->addDays($canToiThieu)->gte(\Illuminate\Support\Carbon::parse($mocCuoi));
+        $deadline = $booking->balanceDueAt();
+        return $this->balanceDue($booking) > 0 && $deadline
+            && DemoClock::booking($booking)->addDays((int) config('booking.balance_final_notice_days', 2))->gte($deadline);
     }
 
     /** Còn thiếu bao nhiêu so với tổng giá trị đơn. */
     public function balanceDue(Booking $booking): float
     {
-        return max(0.0, round((float) $booking->total_amount) - $this->netPaid($booking));
+        return max(0.0, round((float) $booking->total_amount) - $this->paidForTour($booking));
     }
 }

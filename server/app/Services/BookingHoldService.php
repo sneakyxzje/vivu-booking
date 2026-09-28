@@ -11,10 +11,9 @@ class BookingHoldService
 {
     public function __construct(
         private readonly ScheduleLifecycleService $lifecycle,
-    ) {
-    }
+    ) {}
 
-    public const EXPIRED_REASON = 'Quá hạn thanh toán, hệ thống tự hủy để nhường chỗ';
+    public const EXPIRED_REASON = 'Quá hạn thanh toán';
 
     public function holdMinutes(): int
     {
@@ -41,7 +40,7 @@ class BookingHoldService
                 ->where('tour_schedule_id', $schedule->id)
                 ->where('status', 'pending')
                 ->whereNotNull('expires_at')
-                ->where('expires_at', '<=', now())
+                ->where('expires_at', '<=', DemoClock::schedule($schedule))
                 ->lockForUpdate()
                 ->get();
 
@@ -65,9 +64,9 @@ class BookingHoldService
         $released = DB::transaction(function () use ($booking) {
             $schedule = $booking->tour_schedule_id
                 ? TourSchedule::query()
-                    ->whereKey($booking->tour_schedule_id)
-                    ->lockForUpdate()
-                    ->first()
+                ->whereKey($booking->tour_schedule_id)
+                ->lockForUpdate()
+                ->first()
                 : null;
 
             $fresh = Booking::query()->whereKey($booking->id)->lockForUpdate()->first();
@@ -97,7 +96,6 @@ class BookingHoldService
             ->where('tour_id', $tourId)
             ->where('status', 'pending')
             ->whereNotNull('expires_at')
-            ->where('expires_at', '<=', now())
             ->whereNotNull('tour_schedule_id')
             ->distinct()
             ->pluck('tour_schedule_id');
@@ -116,10 +114,10 @@ class BookingHoldService
      */
     public function releaseAllOverdue(): int
     {
-        $scheduleIds = Booking::query()
+        $scheduleIds = Booking::query()->forClock()
             ->where('status', 'pending')
             ->whereNotNull('expires_at')
-            ->where('expires_at', '<=', now())
+            ->where('expires_at', '<=', DemoClock::commandNow())
             ->whereNotNull('tour_schedule_id')
             ->distinct()
             ->pluck('tour_schedule_id');
@@ -130,16 +128,16 @@ class BookingHoldService
             $released += $this->releaseOverdueForSchedule((int) $scheduleId);
         }
 
-        $orphans = Booking::query()
+        $orphans = Booking::query()->forClock()
             ->whereNull('tour_schedule_id')
             ->where('status', 'pending')
             ->whereNotNull('expires_at')
-            ->where('expires_at', '<=', now())
+            ->where('expires_at', '<=', DemoClock::commandNow())
             ->get();
 
         foreach ($orphans as $orphan) {
             $released += DB::transaction(function () use ($orphan) {
-                $fresh = Booking::query()->whereKey($orphan->id)->lockForUpdate()->first();
+                $fresh = Booking::query()->forClock()->whereKey($orphan->id)->lockForUpdate()->first();
 
                 if (!$fresh || !$fresh->isOverdue()) {
                     return 0;
@@ -182,6 +180,11 @@ class BookingHoldService
             return false;
         }
 
+        // Đơn thiếu tiền bị loại ngay lúc chốt, chưa đưa vào danh sách cuối cùng.
+        if ($booking->cancel_type === 'unpaid_balance') {
+            return true;
+        }
+
         if (!$this->hasEnteredManifest($booking)) {
             return true;
         }
@@ -192,7 +195,7 @@ class BookingHoldService
             return true;
         }
 
-        return now()->lt($deadline);
+        return DemoClock::schedule($schedule)->lt($deadline);
     }
 
     /**
@@ -212,7 +215,7 @@ class BookingHoldService
     {
         $deadline = $schedule->booking_deadline ?? $schedule->defaultBookingDeadline();
 
-        return !$deadline || now()->lt($deadline);
+        return !$deadline || DemoClock::schedule($schedule)->lt($deadline);
     }
 
     /**
@@ -243,26 +246,13 @@ class BookingHoldService
 
         $booking->forceFill([
             'seats_released' => true,
-            'seats_released_at' => now(),
+            'seats_released_at' => DemoClock::schedule($schedule),
         ])->save();
 
         // Trả đúng số GHẾ đã chiếm, không phải số người: em bé đi cùng chưa từng ăn chỗ nào.
         $schedule->decrement('booked_people', min($booking->seatsTaken(), (int) $schedule->booked_people));
         $schedule->refresh();
 
-        // Còn chỗ trống không phải lý do đủ để bán tiếp. Đơn chưa thanh toán luôn được trả chỗ,
-        // kể cả khi hết hạn giữ chỗ sau hạn chốt danh sách - và khi đó mở bán lại là sai: khách
-        // vào vẫn không đặt được, còn tác vụ đóng bán chạy sau lại đóng về ngay, làm trạng thái
-        // chuyến nhấp nháy. Điều kiện này đã có ở releaseHeldSeats, thiếu ở đây.
-        if ($schedule->status === ScheduleStatus::Closed
-            && $schedule->booked_people < $schedule->max_people
-            && $this->conTrongHanChot($schedule)) {
-            $this->lifecycle->transitionTo(
-                $schedule,
-                ScheduleStatus::Open,
-                'Tự động mở bán lại do đơn giữ chỗ quá hạn được nhả.',
-            );
-        }
 
         $this->refreshTourAvailability($schedule);
     }
@@ -295,9 +285,9 @@ class BookingHoldService
         return DB::transaction(function () use ($booking, $reason) {
             $schedule = $booking->tour_schedule_id
                 ? TourSchedule::query()
-                    ->whereKey($booking->tour_schedule_id)
-                    ->lockForUpdate()
-                    ->first()
+                ->whereKey($booking->tour_schedule_id)
+                ->lockForUpdate()
+                ->first()
                 : null;
 
             $fresh = Booking::query()->whereKey($booking->getKey())->lockForUpdate()->first();
@@ -322,7 +312,7 @@ class BookingHoldService
     ): void {
         $booking->forceFill([
             'cancel_type' => $cancelType,
-            'cancelled_at' => now(),
+            'cancelled_at' => DemoClock::schedule($schedule),
         ])->save();
 
         $booking->update([

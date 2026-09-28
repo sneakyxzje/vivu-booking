@@ -53,7 +53,6 @@ class VNPayCallbackService
     public function __construct(
         private readonly VNPayService $vnpay,
         private readonly BookingHoldService $holdService,
-        private readonly ScheduleLifecycleService $scheduleLifecycle,
         private readonly BookingPaymentService $paymentService,
     ) {
     }
@@ -110,6 +109,22 @@ class VNPayCallbackService
             $schedule = $booking->tour_schedule_id
                 ? TourSchedule::query()->whereKey($booking->tour_schedule_id)->lockForUpdate()->first()
                 : null;
+
+            // Không xác nhận đơn bằng một khoản tiền về sau hạn chốt. Nhật ký cổng ở trên
+            // vẫn lưu tiền thực nhận để điều hành đối chiếu và hoàn; IPN không được tạo
+            // một đơn confirmed không có bút toán khi sổ từ chối thu muộn.
+            if ($thanhCong && !$booking->isGroup()
+                && $booking->balanceDueAt()?->lte(DemoClock::booking($booking))) {
+                if ($booking->status === 'pending') {
+                    $this->holdService->expireStaleHold($booking, 'Đã tới hạn chốt danh sách, không nhận thanh toán mới.');
+                } else {
+                    app(BookingBalanceDeadlineService::class)->cancel($booking);
+                }
+                Log::warning('Tiền VNPay về sau hạn chốt — cần đối chiếu và hoàn khoản thu muộn.', [
+                    'booking_id' => $booking->id, 'transaction_no' => $maGiaoDich, 'amount' => $soTien,
+                ]);
+                return $this->ketQua(null, false, self::RSP_THANH_CONG, $booking->id);
+            }
 
             if ($booking->status === 'pending') {
                 return $this->xuLyDonChoThanhToan($booking, $thanhCong, $soTien, $maGiaoDich, $query['vnp_ResponseCode'] ?? null);
@@ -211,7 +226,7 @@ class VNPayCallbackService
         $booking->update([
             'status' => 'confirmed',
             'vnpay_transaction_no' => $maGiaoDich,
-            'confirmed_at' => now(),
+            'confirmed_at' => DemoClock::booking($booking),
             // Hết mười phút giữ chỗ: đơn đã xác nhận, tác vụ nhả chỗ không được đụng tới.
             'expires_at' => null,
         ]);
@@ -270,13 +285,6 @@ class VNPayCallbackService
         $schedule->increment('booked_people', $booking->seatsTaken());
         $schedule->refresh();
 
-        if ($schedule->booked_people >= $schedule->max_people) {
-            $this->scheduleLifecycle->transitionTo(
-                $schedule,
-                ScheduleStatus::Closed,
-                'Tự động đóng bán do booking vừa lấp đầy số chỗ.',
-            );
-        }
 
         $this->holdService->refreshTourAvailability($schedule);
 
@@ -288,7 +296,7 @@ class VNPayCallbackService
             'status' => 'confirmed',
             'cancel_reason' => null,
             'vnpay_transaction_no' => $maGiaoDich,
-            'confirmed_at' => now(),
+            'confirmed_at' => DemoClock::booking($booking),
             'expires_at' => null,
         ]);
 

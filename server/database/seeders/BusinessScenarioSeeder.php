@@ -236,7 +236,7 @@ class BusinessScenarioSeeder extends Seeder
             ['ma' => 'S1', 'gio' => 480, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 3, 'mo_ta' => 'Hoàn 75%, còn xa hạn chốt'],
             ['ma' => 'S2', 'gio' => 240, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 50% — đây cũng là khoảng hạn trả nốt'],
             ['ma' => 'S3', 'gio' => 120, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 10%, còn 48 giờ nữa mới tới hạn chốt'],
-            ['ma' => 'S4', 'gio' => 60, 'status' => ScheduleStatus::Closed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 10%, ĐÃ QUA hạn chốt nên hủy sinh ghế chết'],
+            ['ma' => 'S4', 'gio' => 60, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 10%, ĐÃ QUA hạn chốt nên hủy sinh ghế chết'],
             ['ma' => 'S5', 'gio' => 26, 'status' => ScheduleStatus::Confirmed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 0%, đã chốt danh sách'],
             /*
              * Khởi hành SÁNG NAY, không phải hôm qua.
