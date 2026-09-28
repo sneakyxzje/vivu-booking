@@ -17,7 +17,7 @@ import OtpVerificationModal from "@/components/booking/OtpVerificationModal";
 import otpService from "@/services/otpService";
 import type { AxiosError } from "axios";
 import type { ChangeEvent, FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 type BookingFormState = {
@@ -612,6 +612,13 @@ export const BookingTour = () => {
   const [depositPercent, setDepositPercent] = useState(50);
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
+  const [otpChallenge, setOtpChallenge] = useState("");
+  const checkoutAttempt = useRef<{
+    token: string;
+    requestKey: string;
+    payload: Parameters<typeof bookingService.create>[0];
+  } | null>(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -733,26 +740,28 @@ export const BookingTour = () => {
    * thôi không gửi. Danh sách khai sau qua liên kết theo mã tra cứu, hạn cuối là hạn chốt danh
    * sách của chuyến.
    */
-  const processBooking = async () => {
-    if (!tour) return;
+  const bookingPayload = (): Parameters<typeof bookingService.create>[0] => ({
+    tour_id: tour!.id,
+    tour_schedule_id: Number(form.tourScheduleId),
+    customer_name: form.customerName,
+    customer_email: form.customerEmail.trim().toLowerCase(),
+    customer_phone: form.customerPhone,
+    adult_count: Number(form.adultCount),
+    child_count: Number(form.childCount),
+    infant_count: Number(form.infantCount),
+    note: form.note,
+    discount_code: appliedDiscountCode ?? undefined,
+    accept_terms: form.acceptTerms,
+  });
 
+  const processBooking = async () => {
+    const attempt = checkoutAttempt.current;
+    if (!tour || !attempt) return;
     setSubmitting(true);
     setMessage(null);
-
     try {
-      const response = await bookingService.create({
-        tour_id: tour.id,
-        tour_schedule_id: Number(form.tourScheduleId),
-        customer_name: form.customerName,
-        customer_email: form.customerEmail,
-        customer_phone: form.customerPhone,
-        adult_count: Number(form.adultCount),
-        child_count: Number(form.childCount),
-        infant_count: Number(form.infantCount),
-        note: form.note,
-        discount_code: appliedDiscountCode ?? undefined,
-        accept_terms: form.acceptTerms,
-      });
+      const response = await bookingService.create(attempt.payload, attempt);
+      checkoutAttempt.current = null;
 
       const booking = {
         ...response.data.data.booking,
@@ -763,6 +772,8 @@ export const BookingTour = () => {
         state: booking,
       });
     } catch (error) {
+      const status = (error as AxiosError)?.response?.status;
+      if (status === 403 || status === 409) checkoutAttempt.current = null;
       setMessage(getErrorMessage(error));
     } finally {
       setSubmitting(false);
@@ -797,17 +808,25 @@ export const BookingTour = () => {
 
     setMessage(null);
 
+    // A retry after a lost response must reuse both proof and request identity.
+    if (checkoutAttempt.current && JSON.stringify(checkoutAttempt.current.payload) === JSON.stringify(bookingPayload())) {
+      await processBooking();
+      return;
+    }
+    checkoutAttempt.current = null;
+
     // Bắt đầu luồng gửi mã OTP xác thực trước khi tạo đơn & thanh toán
     setSendingOtp(true);
     try {
-      await otpService.sendOtp({
+      const result = await otpService.sendOtp({
         email: form.customerEmail.trim(),
         customer_name: form.customerName.trim(),
         tour_title: tour.title,
       });
+      setOtpChallenge(result.data.challenge);
       setIsOtpModalOpen(true);
-    } catch {
-      setMessage("Không thể gửi mã OTP xác thực email. Vui lòng thử lại.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Không thể gửi mã OTP xác thực email. Vui lòng thử lại.");
     } finally {
       setSendingOtp(false);
     }
@@ -866,13 +885,15 @@ export const BookingTour = () => {
 
       <OtpVerificationModal
         isOpen={isOtpModalOpen}
+        challenge={otpChallenge}
         email={form.customerEmail}
         customerName={form.customerName}
         tourTitle={tour?.title}
         onClose={() => setIsOtpModalOpen(false)}
-        onVerified={() => {
+        onVerified={async token => {
+          checkoutAttempt.current = { token, requestKey: crypto.randomUUID(), payload: bookingPayload() };
           setIsOtpModalOpen(false);
-          processBooking();
+          await processBooking();
         }}
       />
     </div>

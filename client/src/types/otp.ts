@@ -11,10 +11,11 @@ export interface OtpSendRequest {
 export interface OtpSendResponse {
   success: boolean;
   message: string;
-  expires_at?: string;
+  data: { challenge: string; expires_in: number };
 }
 
 export interface OtpVerifyRequest {
+  challenge: string;
   email: string;
   otp: string;
 }
@@ -22,5 +23,5 @@ export interface OtpVerifyRequest {
 export interface OtpVerifyResponse {
   success: boolean;
   message: string;
-  verified: boolean;
+  data: { verification_token: string; expires_in: number };
 }

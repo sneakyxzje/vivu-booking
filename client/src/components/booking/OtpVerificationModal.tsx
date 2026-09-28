@@ -7,11 +7,13 @@ interface OtpVerificationModalProps {
   email: string;
   customerName: string;
   tourTitle?: string;
+  challenge: string;
   onClose: () => void;
-  onVerified: () => void;
+  onVerified: (token: string) => void | Promise<void>;
 }
 
-function OtpForm({ email, customerName, tourTitle, onVerified, onBusyChange }: Omit<OtpVerificationModalProps, "isOpen" | "onClose"> & { onBusyChange: (busy: boolean) => void }) {
+function OtpForm({ email, customerName, tourTitle, challenge, onVerified, onBusyChange }: Omit<OtpVerificationModalProps, "isOpen" | "onClose"> & { onBusyChange: (busy: boolean) => void }) {
+  const currentChallenge = useRef(challenge);
   const [digits, setDigits] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -44,11 +46,11 @@ function OtpForm({ email, customerName, tourTitle, onVerified, onBusyChange }: O
     onBusyChange(true);
     setError("");
     try {
-      await otpService.verifyOtp({ email, otp });
+      const result = await otpService.verifyOtp({ email, otp, challenge: currentChallenge.current });
       if (!mounted.current) return;
       setVerified(true);
       setNotice("Xác thực email thành công. Đang xử lý đặt tour…");
-      await onVerified();
+      await onVerified(result.data.verification_token);
     } catch (err: unknown) {
       if (mounted.current) setError(err instanceof Error ? err.message : "Mã OTP không đúng. Vui lòng thử lại.");
     } finally {
@@ -63,8 +65,9 @@ function OtpForm({ email, customerName, tourTitle, onVerified, onBusyChange }: O
     setError("");
     setNotice("");
     try {
-      await otpService.sendOtp({ email, customer_name: customerName, tour_title: tourTitle });
+      const result = await otpService.sendOtp({ email, customer_name: customerName, tour_title: tourTitle });
       if (!mounted.current) return;
+      currentChallenge.current = result.data.challenge;
       setDigits([]);
       setGeneration(value => value + 1);
       expiry.current = Date.now() + 300_000;
@@ -72,8 +75,8 @@ function OtpForm({ email, customerName, tourTitle, onVerified, onBusyChange }: O
       setExpirySeconds(300);
       setResendSeconds(60);
       setNotice("Mã OTP mới đã được gửi vào email của bạn.");
-    } catch {
-      if (mounted.current) setError("Chưa gửi được mã OTP. Vui lòng thử lại.");
+    } catch (error) {
+      if (mounted.current) setError(error instanceof Error ? error.message : "Chưa gửi được mã OTP. Vui lòng thử lại.");
     } finally {
       if (mounted.current) { setResending(false); onBusyChange(false); }
     }
@@ -105,6 +108,6 @@ export default function OtpVerificationModal(props: OtpVerificationModalProps) {
   const [busy, setBusy] = useState(false);
   return <Modal open={props.isOpen} title="Xác thực email đặt tour" footer={null} width={480}
     onCancel={props.onClose} closable={!busy} keyboard={!busy} mask={{ closable: false }} destroyOnHidden>
-    {props.isOpen && <OtpForm key={props.email} {...props} onVerified={() => { setBusy(false); props.onVerified(); }} onBusyChange={setBusy} />}
+    {props.isOpen && <OtpForm key={props.challenge} {...props} onVerified={async token => { setBusy(false); await props.onVerified(token); }} onBusyChange={setBusy} />}
   </Modal>;
 }

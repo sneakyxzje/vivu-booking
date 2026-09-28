@@ -147,8 +147,10 @@ export interface GroupBookingPayload {
 }
 
 const bookingService = {
-  create: (payload: CreateBookingPayload) =>
-    api.post<CreateBookingResponse>("/bookings", payload),
+  create: (payload: CreateBookingPayload, proof: { token: string; requestKey: string }) =>
+    api.post<CreateBookingResponse>("/bookings", payload, { headers: {
+      "X-Booking-Verification": proof.token, "Idempotency-Key": proof.requestKey,
+    } }),
 
   createGroupRequest: (payload: GroupBookingPayload) =>
     api.post<{ success: boolean; message: string; data: { public_token: string } }>(
