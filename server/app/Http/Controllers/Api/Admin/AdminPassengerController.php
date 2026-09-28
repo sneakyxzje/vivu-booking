@@ -16,7 +16,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * G03, G05 - Điều hành sửa danh sách hành khách sau hạn chốt, và xem đơn nào khai còn thiếu.
  *
  * Điều hành sửa được cả sau hạn chốt vì họ là người gọi cho nhà cung cấp báo đổi tên. Nhưng sau
- * khi đoàn lên đường thì cũng dừng: danh sách lúc đó là dữ liệu đang dùng để điểm danh.
+ * khi đoàn lên đường thì không thay danh sách cũ. Suất chưa khai được bổ sung qua
+ * PassengerSupplementController để giữ nguyên ID và lịch sử điểm danh.
  */
 class AdminPassengerController extends Controller
 {
@@ -54,10 +55,11 @@ class AdminPassengerController extends Controller
             return $this->error('Không tìm thấy đơn đặt hàng', 404);
         }
 
-        $this->passengerPolicy->assertAdminCanEdit($booking);
-        $this->passengerPolicy->validateList($booking, $validated['passengers']);
-
         DB::transaction(function () use ($booking, $validated) {
+            TourSchedule::whereKey($booking->tour_schedule_id)->lockForUpdate()->first();
+            $booking = Booking::with('schedule')->whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            $this->passengerPolicy->assertAdminCanEdit($booking);
+            $this->passengerPolicy->validateList($booking, $validated['passengers']);
             $this->passengerPolicy->replaceList($booking, $validated['passengers']);
         });
 

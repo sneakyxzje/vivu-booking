@@ -917,9 +917,10 @@ export default function PolicyPage() {
 
               <CauHoi hoi="Tôi khai thiếu thông tin hành khách thì sao?">
                 <p>
-                  Khai dần được, không bắt điền đủ mới cho lưu. Nhưng phải xong
-                  trước <strong>hạn chốt danh sách</strong>: sau mốc đó danh sách
-                  đã gửi cho khách sạn và nhà xe nên không sửa được nữa.
+                  Bạn có thể lưu phần đã khai và bổ sung trước <strong>hạn chốt danh sách</strong>.
+                  Sau hạn này, vui lòng liên hệ điều hành. Nếu chuyến đã khởi hành,
+                  báo HDV để điều hành bổ sung khách còn thiếu trong số suất đã đặt
+                  và gửi bản cập nhật cho các nhà cung cấp liên quan.
                 </p>
               </CauHoi>
             </div>

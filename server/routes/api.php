@@ -447,6 +447,10 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         // G03, G05 - Danh sách hành khách. Điều hành sửa được cả sau hạn chốt.
         Route::get('/bookings/{id}/passengers', [AdminPassengerController::class, 'index']);
         Route::put('/bookings/{id}/passengers', [AdminPassengerController::class, 'update']);
+        Route::get('/bookings/{id}/passenger-supplements', [\App\Http\Controllers\Api\Admin\PassengerSupplementController::class, 'index']);
+        Route::post('/bookings/{id}/passenger-supplements', [\App\Http\Controllers\Api\Admin\PassengerSupplementController::class, 'store']);
+        Route::post('/bookings/{id}/passenger-supplements/{supplementId}/sent', [\App\Http\Controllers\Api\Admin\PassengerSupplementController::class, 'sent']);
+        Route::get('/bookings/{id}/passenger-supplements/{supplementId}/export', [\App\Http\Controllers\Api\Admin\PassengerSupplementController::class, 'export']);
         Route::put('/bookings/{id}/contact', [AdminBookingController::class, 'updateContact']);
         // Danh sách đoàn chia theo nhóm: mỗi đơn là một nhóm do người đại diện đăng ký.
         Route::get('/schedules/{id}/manifest', [AdminPassengerController::class, 'manifest']);
@@ -543,7 +547,6 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         Route::put('reviews/{id}/reply', [AdminReviewController::class, 'reply']);
     });
 });
-
 
 
 

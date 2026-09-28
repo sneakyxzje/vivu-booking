@@ -221,10 +221,11 @@ class PassengerController extends Controller
      */
     private function ghiDanhSach(Booking $booking, array $passengers, bool $requiresEmail = false): array
     {
-        $this->passengerPolicy->assertCustomerCanEdit($booking);
-        $this->passengerPolicy->validateList($booking, $passengers);
-
         DB::transaction(function () use ($booking, $passengers) {
+            \App\Models\TourSchedule::whereKey($booking->tour_schedule_id)->lockForUpdate()->first();
+            $booking = Booking::with('schedule')->whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            $this->passengerPolicy->assertCustomerCanEdit($booking);
+            $this->passengerPolicy->validateList($booking, $passengers);
             $this->passengerPolicy->replaceList($booking, $passengers);
         });
 

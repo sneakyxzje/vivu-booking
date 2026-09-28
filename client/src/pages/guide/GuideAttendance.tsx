@@ -160,7 +160,7 @@ function AttendanceForSchedule({ scheduleId }: { scheduleId?: string }) {
         setClock({ timestamp, receivedAt: performance.now() });
         setServerNow(timestamp);
         // Refresh permissions without replacing unsaved attendance choices.
-        setData(previous => previous ? { ...previous, schedule: latest.schedule, checkpoints: latest.checkpoints } : previous);
+        setData(previous => previous ? { ...previous, schedule: latest.schedule, checkpoints: latest.checkpoints, bookings: latest.bookings } : previous);
       } catch (err) {
         if (!cancelled) {
           setClock(null);
@@ -388,7 +388,7 @@ function AttendanceForSchedule({ scheduleId }: { scheduleId?: string }) {
         onAccess: (latest, freshClock) => {
           setClock(freshClock);
           setServerNow(freshClock.timestamp);
-          setData(previous => previous ? { ...previous, schedule: latest.schedule, checkpoints: latest.checkpoints } : previous);
+          setData(previous => previous ? { ...previous, schedule: latest.schedule, checkpoints: latest.checkpoints, bookings: latest.bookings } : previous);
         },
       });
 
@@ -441,7 +441,7 @@ function AttendanceForSchedule({ scheduleId }: { scheduleId?: string }) {
       return matchesStatus && guideSearchText(`${passenger.name} ${booking.customer_name} BK${booking.id} BK-${booking.id} ${booking.customer_phone ?? ""}`).includes(search);
     }),
   })).filter(booking => booking.passengers.length > 0);
-  const missingLists = (data?.bookings ?? []).filter(booking => !booking.passengers?.length);
+  const missingLists = (data?.bookings ?? []).filter(booking => (booking.passengers?.length ?? 0) < booking.guests);
   const needsPhotoToSave = !readOnly && activeCheckpoint?.is_required_photo && activePhotos.length === 0 && stats.total > 0 && stats.pending === 0;
 
   if (loading) return <Skeleton active paragraph={{ rows: 10 }} />;
@@ -529,7 +529,7 @@ function AttendanceForSchedule({ scheduleId }: { scheduleId?: string }) {
                   ...ATTENDANCE_STATUS_ORDER.map(status => ({ value: status, label: `${ATTENDANCE_STATUSES[status].label} (${stats[status]})` })),
                 ]} />
               </Flex>
-              {missingLists.length > 0 && <Alert showIcon type="warning" title={`Chưa có danh sách khách: ${missingLists.map(booking => `BK${booking.id}`).join(", ")}`} description="Liên hệ điều hành để bổ sung." />}
+              {missingLists.length > 0 && <Alert showIcon type="warning" title={`Chưa khai đủ: ${missingLists.map(booking => `BK${booking.id} (thiếu ${booking.guests - (booking.passengers?.length ?? 0)} người)`).join(", ")}`} description="Xác nhận khách thuộc đúng đơn và báo điều hành bổ sung. Danh sách tự cập nhật khi bạn quay lại màn hình." />}
               {filteredBookings.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={allPassengers.length === 0 ? "Chưa có danh sách hành khách" : "Không có hành khách phù hợp"}>
                 {(query || passengerFilter !== "all") && <Button onClick={() => { setQuery(""); setPassengerFilter("all"); }}>Xem tất cả khách</Button>}
               </Empty> : filteredBookings.map(booking => <Flex key={booking.id} vertical>

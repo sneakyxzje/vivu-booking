@@ -25,6 +25,8 @@ enum BookingAuditAction: string
     case Finalized = 'finalized';
 
     case PassengersUpdated = 'passengers_updated';
+    case PassengersSupplemented = 'passengers_supplemented';
+    case PassengerSupplementSent = 'passenger_supplement_sent';
 
     /** Sửa thông tin người đặt: tên, điện thoại, thư điện tử liên hệ. */
     case ContactUpdated = 'contact_updated';
@@ -54,6 +56,8 @@ enum BookingAuditAction: string
             self::CancelRequestWithdrawn => 'Khách rút lại yêu cầu hủy',
             self::Finalized => 'Chốt đơn sau chuyến',
             self::PassengersUpdated => 'Cập nhật danh sách hành khách',
+            self::PassengersSupplemented => 'Bổ sung hành khách còn thiếu',
+            self::PassengerSupplementSent => 'Đã gửi bản bổ sung cho nhà cung cấp',
             self::ContactUpdated => 'Sửa thông tin liên hệ',
             self::Transferred => 'Chuyển sang chuyến khác',
             self::PaymentRecorded => 'Ghi sổ giao dịch',

@@ -55,7 +55,9 @@ class PassengerPolicyService
             return [
                 'customer' => false,
                 'admin' => false,
-                'reason' => sprintf(
+                'reason' => $trangThai->isRunning()
+                    ? 'Chuyến đã khởi hành nên không sửa danh sách đã có. Nếu còn thiếu khách, vui lòng báo HDV hoặc điều hành để bổ sung.'
+                    : sprintf(
                     'Chuyến đang ở trạng thái "%s" nên không sửa được danh sách hành khách nữa, chỉ ghi chú bổ sung.',
                     $trangThai->label(),
                 ),

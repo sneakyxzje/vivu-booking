@@ -1,3 +1,4 @@
+import PassengerSupplementPanel from "@/components/admin/PassengerSupplementPanel";
 import { ScheduleDetailsDrawer } from "@/components/admin/ScheduleDetailsDrawer";
 import { filterScheduleList, scheduleStatusText, scheduleStatus, scheduleView, type ScheduleView } from "@/utils/scheduleList";
 import dayjs from "dayjs";
@@ -1265,6 +1266,10 @@ export default function ScheduleManagement() {
 
                         {dangMo && (
                           <div className="border-t border-gray-100 bg-gray-50/60 p-3">
+                            <div className="mb-4"><PassengerSupplementPanel bookingId={nhom.booking_id} onChanged={async () => {
+                              const updated = await adminService.getScheduleManifest(manifestScheduleId);
+                              setManifest(updated);
+                            }} /></div>
                             {nhom.passengers.length === 0 ? (
                               <p className="text-xs text-gray-500">
                                 Nhóm này chưa khai tên người nào.

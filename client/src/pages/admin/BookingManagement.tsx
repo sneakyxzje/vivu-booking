@@ -1,3 +1,4 @@
+import PassengerSupplementPanel from "@/components/admin/PassengerSupplementPanel";
 import { useState, useEffect, useRef } from "react";
 import type { Booking, BookingLedger } from "@/types";
 import adminService from "@/services/adminService";
@@ -953,14 +954,19 @@ export default function BookingManagement() {
             },
             {
               key: "passengers", label: "Hành khách",
-              children: <Table rowKey="id" dataSource={selectedBooking.passengers ?? []} pagination={false} scroll={{ x: 550 }}
+              children: <Flex vertical gap="middle"><PassengerSupplementPanel key={selectedBooking.id} bookingId={selectedBooking.id} onChanged={async () => {
+                const id = selectedBooking.id;
+                const [updated, audit] = await Promise.all([adminService.getBookingById(id), adminService.getBookingHistory(id)]);
+                setSelectedBooking(current => current?.id === id && updated ? updated : current);
+                setHistory(audit);
+              }} /><Table rowKey="id" dataSource={selectedBooking.passengers ?? []} pagination={false} scroll={{ x: 550 }}
                 locale={{ emptyText: "Chưa có danh sách hành khách" }}
                 columns={[
                   { title: "Họ tên", dataIndex: "name" },
                   { title: "Loại khách", dataIndex: "type", render: (value) => ({ adult: "Người lớn", child: "Trẻ em", infant: "Em bé" })[value as "adult" | "child" | "infant"] ?? value },
                   { title: "Giấy tờ", dataIndex: "identity_number", render: (value) => value ?? "Chưa cung cấp" },
                   { title: "Yêu cầu riêng", dataIndex: "special_request", render: (value) => value ?? "—" },
-                ]} />,
+                ]} /></Flex>,
             },
             {
               key: "history", label: "Lịch sử xử lý",
