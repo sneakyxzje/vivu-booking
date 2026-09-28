@@ -9,7 +9,6 @@ import {
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import bookingService from "@/services/bookingService";
-import { RefundPolicyCard } from "@/components/RefundPolicyCard";
 import { CreditCardIcon } from "@/components/Icons";
 import { formatDateTime } from "@/utils/format";
 
@@ -480,13 +479,6 @@ export default function BookingSuccess() {
                 </div>
               </div>
             ))}
-
-            {/*
-              Điều khoản hủy và số tiền hoàn nếu hủy bây giờ. Đơn đã hủy rồi thì không cần nữa.
-            */}
-            {!cancelled && !awaitingTransfer && (booking.public_token || id) && (
-              <RefundPolicyCard publicToken={String(booking.public_token ?? id)} />
-            )}
 
             <Card title="Thông tin liên lạc">
               <Descriptions column={{ xs: 1, sm: 2, md: 3 }} items={[
