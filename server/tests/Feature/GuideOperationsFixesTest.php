@@ -216,7 +216,8 @@ class GuideOperationsFixesTest extends TestCase
     private function dungHienTruong(bool $batBuocAnh): array
     {
         $guide = $this->taoNguoi('guide');
-        $chuyen = $this->taoChuyen(now()->subHours(2), ['status' => ScheduleStatus::InProgress->value]);
+        // Day-one attendance must stay on today's date, including runs shortly after midnight.
+        $chuyen = $this->taoChuyen(now()->startOfDay(), ['status' => ScheduleStatus::InProgress->value]);
         $chuyen->guides()->sync([$guide->id]);
 
         /** @var TourItinerary $lichTrinh */
