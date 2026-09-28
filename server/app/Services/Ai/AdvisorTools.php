@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai;
 
-use App\Models\CancellationPolicy;
+use App\Models\Booking;
 use App\Models\Tour;
 use App\Models\TourSchedule;
 use App\Services\CancellationPolicyService;
@@ -71,8 +71,10 @@ class AdvisorTools
             ),
             $this->definition(
                 'estimate_refund',
-                'Tính mức hoàn tiền theo bảng phí hủy đang áp dụng, khi khách hỏi "hủy trước N ngày thì được hoàn bao nhiêu". Bắt buộc dùng công cụ này thay vì tự suy ra từ bảng phí trong kho tri thức.',
+                'Tư vấn hoàn hủy theo hạn chốt danh sách. Cần schedule_id để xác định hạn riêng của chuyến. Không dùng bảng phí theo số ngày cũ.',
                 [
+                    'schedule_id' => ['type' => 'integer', 'description' => 'ID chuyến từ check_availability; cần để xác định hạn chốt thực tế.'],
+                    'paid_amount' => ['type' => 'number', 'description' => 'Số tiền thực đã thanh toán, chỉ điền khi khách cung cấp.'],
                     'days_before' => ['type' => 'number', 'description' => 'Số ngày báo trước, tính từ lúc hủy tới ngày khởi hành.'],
                     'amount' => ['type' => 'number', 'description' => 'Giá trị đơn, đơn vị đồng. Bỏ trống nếu khách chưa nói.'],
                 ],
@@ -240,28 +242,36 @@ class AdvisorTools
      */
     private function estimateRefund(array $arguments): array
     {
+        $schedule = isset($arguments['schedule_id'])
+            ? TourSchedule::query()->find((int) $arguments['schedule_id']) : null;
+        if (!$schedule || !$schedule->start_date) {
+            return [
+                'needs_schedule' => true,
+                'rules' => CancellationPolicyService::publicRules(),
+                'note' => 'Cần biết chuyến và hạn chốt danh sách; chỉ số ngày trước khởi hành chưa đủ để tính tiền hoàn.',
+            ];
+        }
         $daysBefore = (float) ($arguments['days_before'] ?? 0);
-
-        $policy = CancellationPolicy::dangApDung();
-        $rules = $policy && $policy->rules->isNotEmpty() ? $policy->rules : CancellationPolicyService::DEFAULT_RULES;
-
-        $percent = $this->cancellationPolicy->refundPercent($daysBefore * 24, $rules);
-
+        $amount = max(0.0, (float) ($arguments['amount'] ?? 0));
+        $booking = (new Booking())->forceFill(['total_amount' => $amount]);
+        $quotedAt = $schedule->start_date->copy()->subSeconds((int) round($daysBefore * 86400));
+        $quote = $this->cancellationPolicy->quote($booking, $schedule, now: $quotedAt);
         $result = [
             'days_before' => $daysBefore,
-            'refund_percent' => $percent,
-            'note' => 'Mức này áp dụng khi KHÁCH đổi ý. Công ty hủy chuyến thì hoàn 100%, không áp bảng phí.',
+            'booking_deadline' => $quote['booking_deadline'],
+            'refund_percent' => $quote['refund_percent'],
+            'can_cancel' => $daysBefore > 0,
+            'note' => 'Trước hạn chốt hoàn đủ số đã trả; từ hạn chốt đến trước khởi hành giữ cọc 50% giá trị đơn. Công ty hủy hoặc khách từ chối ghép khi chuyến nguồn bị hủy: hoàn đủ số đã thu còn lại. Không cho hủy từ giờ khởi hành.',
         ];
-
-        if (isset($arguments['amount']) && (float) $arguments['amount'] > 0) {
-            $amount = (float) $arguments['amount'];
+        if ($amount > 0) {
             $result['order_amount'] = $amount;
-            $result['refund_amount'] = round($amount * $percent / 100);
-            $result['cancellation_fee'] = round($amount * (100 - $percent) / 100);
-            // Phép tính thật trừ phí trên SỐ ĐÃ THU, nên khách mới đóng cọc mà hủy
-            // sát ngày có thể không nhận lại đồng nào dù phần trăm hoàn khác 0.
-            $result['warning'] = 'Số tiền thực nhận còn phụ thuộc khách đã thanh toán bao nhiêu; xem chi tiết ở màn hình xem trước khi hủy đơn.';
+            $result['cancellation_fee'] = $quote['cancellation_fee'];
+            if (isset($arguments['paid_amount'])) {
+                $result['refund_amount'] = $daysBefore > 0
+                    ? max(0.0, (float) $arguments['paid_amount'] - $quote['cancellation_fee']) : 0.0;
+            }
         }
+        $result['warning'] = 'Đây là dự tính. Số thực nhận phụ thuộc số đã trả và thời điểm gửi yêu cầu; xem trước khi hủy đơn để đối chiếu.';
 
         return $result;
     }

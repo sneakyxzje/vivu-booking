@@ -80,10 +80,10 @@ class RefundQuoteApiTest extends TestCase
 
         $this->getJson("/api/bookings/{$don->public_token}/refund-quote")
             ->assertOk()
-            ->assertJsonPath('data.refund_percent', 70)
-            ->assertJsonPath('data.cancellation_fee', 3_000_000)
-            ->assertJsonPath('data.refund_amount', 7_000_000)
-            ->assertJsonPath('data.policy_name', 'Chính sách hủy tiêu chuẩn');
+            ->assertJsonPath('data.refund_percent', 100)
+            ->assertJsonPath('data.cancellation_fee', 0)
+            ->assertJsonPath('data.refund_amount', 10_000_000)
+            ->assertJsonPath('data.policy_name', 'Hoàn hủy theo hạn chốt danh sách');
     }
 
     public function test_tra_ve_ca_bang_phi_de_khach_doi_chieu(): void
@@ -94,19 +94,19 @@ class RefundQuoteApiTest extends TestCase
 
         $rules = $response->json('data.rules');
 
-        $this->assertCount(5, $rules);
-        $this->assertSame('Từ 15 ngày trở lên', $rules[0]['window']);
-        $this->assertSame(90, $rules[0]['refund_percent']);
+        $this->assertCount(2, $rules);
+        $this->assertSame('Trước hạn chốt danh sách', $rules[0]['window']);
+        $this->assertSame(100, $rules[0]['refund_percent']);
     }
 
-    public function test_huy_sat_ngay_di_thi_khong_hoan(): void
+    public function test_huy_sau_han_chot_giu_coc_va_hoan_phan_vuot_coc(): void
     {
         $don = $this->taoDon(gioToiKhoiHanh: 12);
 
         $this->getJson("/api/bookings/{$don->public_token}/refund-quote")
             ->assertOk()
-            ->assertJsonPath('data.refund_percent', 0)
-            ->assertJsonPath('data.refund_amount', 0);
+            ->assertJsonPath('data.refund_percent', 50)
+            ->assertJsonPath('data.refund_amount', 5_000_000);
     }
 
     public function test_ma_tra_cuu_sai_thi_khong_lo_thong_tin(): void

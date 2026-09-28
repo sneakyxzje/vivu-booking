@@ -88,11 +88,11 @@ class BusinessScenarioSeederTest extends TestCase
      * làm một. Hai chuyến ấy vẫn cần cả hai vì chúng khác nhau ở chỗ khác — S3 còn trước hạn chốt
      * nên hủy thì chỗ về kho, S4 đã qua hạn chốt nên hủy sinh ghế chết.
      */
-    public function test_nam_chuyen_dau_roi_dung_bac_phi_huy(): void
+    public function test_nam_chuyen_dau_hoan_theo_han_chot(): void
     {
         $service = app(CancellationPolicyService::class);
 
-        $mongDoi = [1 => 75, 2 => 50, 3 => 10, 4 => 10, 5 => 0];
+        $mongDoi = [1 => 100, 2 => 100, 3 => 100, 4 => 50, 5 => 50];
 
         foreach ($mongDoi as $thuTu => $phanTram) {
             $schedule = $this->chuyen($thuTu);
@@ -113,7 +113,7 @@ class BusinessScenarioSeederTest extends TestCase
      * trước hạn chốt nên chỗ trả về, S4 đã qua hạn nên sinh ghế chết - dù cả hai đều là đơn đã
      * thanh toán và chỉ cách nhau vài chục giờ.
      */
-    public function test_hai_cong_tien_va_cho_dat_o_hai_moc_khac_nhau(): void
+    public function test_huy_truoc_va_sau_han_chot_co_cach_tra_cho_khac_nhau(): void
     {
         $holdService = app(BookingHoldService::class);
 

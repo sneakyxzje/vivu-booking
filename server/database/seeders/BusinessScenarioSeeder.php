@@ -233,11 +233,11 @@ class BusinessScenarioSeeder extends Seeder
             // so_hdv: số hướng dẫn viên muốn phân công. Không có luật nào ràng buộc con số này
             // với số khách - đặt khác nhau ở đây chỉ để lúc thử tay nhìn thấy đủ ba trạng thái:
             // chuyến nhiều người dẫn, chuyến một người, và chuyến chưa phân công ai.
-            ['ma' => 'S1', 'gio' => 480, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 3, 'mo_ta' => 'Hoàn 75%, còn xa hạn chốt'],
-            ['ma' => 'S2', 'gio' => 240, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 50% — đây cũng là khoảng hạn trả nốt'],
-            ['ma' => 'S3', 'gio' => 120, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 10%, còn 48 giờ nữa mới tới hạn chốt'],
-            ['ma' => 'S4', 'gio' => 60, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 10%, ĐÃ QUA hạn chốt nên hủy sinh ghế chết'],
-            ['ma' => 'S5', 'gio' => 26, 'status' => ScheduleStatus::Confirmed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn 0%, đã chốt danh sách'],
+            ['ma' => 'S1', 'gio' => 480, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 3, 'mo_ta' => 'Hoàn đủ số đã trả, còn xa hạn chốt'],
+            ['ma' => 'S2', 'gio' => 240, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn đủ số đã trả, chưa tới hạn chốt'],
+            ['ma' => 'S3', 'gio' => 120, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Hoàn đủ số đã trả, còn 48 giờ nữa mới tới hạn chốt'],
+            ['ma' => 'S4', 'gio' => 60, 'status' => ScheduleStatus::Open, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Giữ cọc 50%, ĐÃ QUA hạn chốt nên hủy sinh ghế chết'],
+            ['ma' => 'S5', 'gio' => 26, 'status' => ScheduleStatus::Confirmed, 'min' => 4, 'so_hdv' => 1, 'mo_ta' => 'Giữ cọc 50%, đã chốt danh sách'],
             /*
              * Khởi hành SÁNG NAY, không phải hôm qua.
              *
@@ -360,11 +360,11 @@ class BusinessScenarioSeeder extends Seeder
     private function dungCacDon(): void
     {
         // Nhóm B: mỗi chuyến một đơn đã thanh toán, để bấm hủy và xem báo giá hoàn.
-        $this->don['hoan90'] = $this->taoDon('S1', 'confirmed', 2, 0, 'Hủy thử: phải thấy hoàn 75%, chỗ trả về kho', 'B, C');
-        $this->don['hoan70'] = $this->taoDon('S2', 'confirmed', 2, 0, 'Hủy thử: phải thấy hoàn 50%', 'B');
-        $this->don['hoan50'] = $this->taoDon('S3', 'confirmed', 2, 1, 'Hủy thử: phải thấy hoàn 10%, chỗ vẫn trả về kho', 'B, C');
-        $this->don['hoan30'] = $this->taoDon('S4', 'confirmed', 2, 0, 'Hủy thử: hoàn 10% nhưng chỗ KHÔNG trả về, sinh ghế chết', 'B, C');
-        $this->don['hoan0'] = $this->taoDon('S5', 'confirmed', 2, 0, 'Hủy thử: hoàn 0%, chỗ không trả về', 'B, C');
+        $this->don['hoan90'] = $this->taoDon('S1', 'confirmed', 2, 0, 'Hủy thử: hoàn đủ số đã trả, chỗ trả về kho', 'B, C');
+        $this->don['hoan70'] = $this->taoDon('S2', 'confirmed', 2, 0, 'Hủy thử: hoàn đủ số đã trả', 'B');
+        $this->don['hoan50'] = $this->taoDon('S3', 'confirmed', 2, 1, 'Hủy thử: hoàn đủ số đã trả, chỗ vẫn trả về kho', 'B, C');
+        $this->don['hoan30'] = $this->taoDon('S4', 'confirmed', 2, 0, 'Hủy thử: giữ cọc 50%, chỗ KHÔNG trả về, sinh ghế chết', 'B, C');
+        $this->don['hoan0'] = $this->taoDon('S5', 'confirmed', 2, 0, 'Hủy thử: giữ cọc 50%, chỗ không trả về', 'B, C');
 
         // Nhóm C: ghế chết dựng sẵn, để thấy số chỗ của S4 không nhả ra dù đơn đã hủy.
         $gheChet = $this->taoDon('S4', 'cancelled', 3, 0, 'Ghế chết dựng sẵn: hủy sau hạn chốt, chỗ không về kho', 'C');
@@ -749,11 +749,11 @@ class BusinessScenarioSeeder extends Seeder
 
         $cmd->comment(' VÒNG 1 — chỉ xem, chưa hủy gì.  Vào /admin/bookings');
         $cmd->line('   Tìm từng mã, mở ra, bấm "Hủy đơn" để đọc bảng dự báo, rồi "Không hủy nữa":');
-        $cmd->line('     ' . $id('hoan90') . '  ->  phải thấy mức hoàn 90%');
-        $cmd->line('     ' . $id('hoan70') . '  ->  phải thấy mức hoàn 70%');
-        $cmd->line('     ' . $id('hoan50') . '  ->  phải thấy mức hoàn 50%');
-        $cmd->line('     ' . $id('hoan30') . '  ->  phải thấy mức hoàn 30% + CẢNH BÁO ghế chết');
-        $cmd->line('     ' . $id('hoan0') . '  ->  phải thấy mức hoàn 0%');
+        $cmd->line('     ' . $id('hoan90') . '  ->  hoàn đủ số đã trả (trước hạn chốt)');
+        $cmd->line('     ' . $id('hoan70') . '  ->  hoàn đủ số đã trả (trước hạn chốt)');
+        $cmd->line('     ' . $id('hoan50') . '  ->  hoàn đủ số đã trả (trước hạn chốt)');
+        $cmd->line('     ' . $id('hoan30') . '  ->  giữ cọc 50% + CẢNH BÁO ghế chết');
+        $cmd->line('     ' . $id('hoan0') . '  ->  giữ cọc 50%, hoàn phần đã trả vượt cọc');
         $cmd->newLine();
 
         $cmd->comment(' VÒNG 2 — hủy thật, xem chỗ có về kho không');

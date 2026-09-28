@@ -2,266 +2,227 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ChangeRequestStatus;
 use App\Models\Booking;
+use App\Models\BookingPayment;
 use App\Models\CancellationPolicy;
+use App\Models\Tour;
 use App\Models\TourSchedule;
+use App\Models\User;
+use App\Services\BookingBalanceDeadlineService;
+use App\Services\BookingChangeRequestService;
 use App\Services\CancellationPolicyService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use Laravel\Sanctum\Sanctum;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
-/**
- * B03 - Phí hủy và tiền hoàn.
- *
- * Câu hỏi số 7 của hội đồng: hủy tour phải trước bao lâu, và hoàn bao nhiêu.
- * Bảng phí ở docs/nghiep-vu/03-luong-huy-va-hoan-tien.md mục 2.
- *
- * Toàn bộ phép tính là hàm thuần trên số giờ còn lại và số tiền, nên không cần cơ sở dữ liệu.
- */
 class CancellationPolicyTest extends TestCase
 {
-    // quote() tra bảng chính sách trong cơ sở dữ liệu trước khi rơi về bảng phí trong mã,
-    // nên cần schema. Không seed gì để các bài dưới chạy trên bảng mặc định.
     use RefreshDatabase;
 
-    private CancellationPolicyService $service;
+    private TourSchedule $schedule;
+    private CancellationPolicyService $policy;
 
     protected function setUp(): void
     {
         parent::setUp();
-
-        $this->service = app(CancellationPolicyService::class);
-    }
-
-    private function schedule(int $gioNua): TourSchedule
-    {
-        return (new TourSchedule())->forceFill([
-            'id' => 1,
-            'start_date' => now()->addHours($gioNua),
+        Mail::fake();
+        $this->travelTo(now()->startOfSecond());
+        $this->policy = app(CancellationPolicyService::class);
+        $tour = Tour::factory()->create();
+        $this->schedule = TourSchedule::create([
+            'tour_id' => $tour->id, 'start_date' => now()->addDays(10),
+            'end_date' => now()->addDays(12), 'booking_deadline' => now()->addHours(4),
+            'status' => 'open', 'max_people' => 20, 'min_people' => 1, 'booked_people' => 1,
         ]);
     }
 
-    private function booking(float $tongTien, bool $daThanhToan = true): Booking
+    private function booking(float $paid = 5_000_000, float $total = 10_000_000): Booking
     {
-        return (new Booking())->forceFill([
-            'id' => 1,
-            'total_amount' => $tongTien,
-            'paid_at' => $daThanhToan ? now()->subDays(5) : null,
+        $booking = Booking::create([
+            'public_token' => (string) Str::uuid(), 'tour_id' => $this->schedule->tour_id,
+            'tour_schedule_id' => $this->schedule->id, 'departure_date' => $this->schedule->start_date,
+            'customer_name' => 'Test', 'customer_email' => 'test@example.com',
+            'guests' => 1, 'seats' => 1, 'adult_count' => 1, 'child_count' => 0, 'infant_count' => 0,
+            'total_amount' => $total, 'status' => 'confirmed', 'confirmed_at' => now(),
+            'seats_released' => false,
         ]);
-    }
-
-    public function test_dung_muc_hoan_o_tung_bac(): void
-    {
-        $bac = [
-            [24 * 30, 100], // hủy rất sớm, chưa cam kết gì với nhà cung cấp
-            [24 * 20, 100], // đúng mốc 20 ngày
-            [24 * 19, 75],  // 19 ngày, giữ lại nửa tiền cọc
-            [24 * 15, 75],  // đúng mốc 15 ngày
-            [24 * 14, 50],  // 14 ngày, giữ trọn tiền cọc
-            [24 * 12, 50],  // đúng mốc 12 ngày
-            [24 * 11, 50],  // 11 ngày, mất nửa giá tour — cùng con số, khác lý do
-            [24 * 10, 50],  // đúng hạn trả nốt: mất đúng phần đã cọc
-            [24 * 8, 50],   // đúng mốc 8 ngày
-            [24 * 7, 10],   // 7 ngày
-            [24 * 2, 10],   // đúng mốc 2 ngày
-            [47, 0],        // dưới 48 giờ
-            [1, 0],         // sát giờ khởi hành
-        ];
-
-        foreach ($bac as [$gioNua, $mucHoan]) {
-            $this->assertSame(
-                $mucHoan,
-                $this->service->refundPercent((float) $gioNua),
-                "Còn {$gioNua} giờ thì phải hoàn {$mucHoan} phần trăm.",
-            );
+        if ($paid > 0) {
+            BookingPayment::create(['booking_id' => $booking->id, 'kind' => 'deposit', 'amount' => $paid, 'paid_at' => now()]);
         }
+        return $booking;
     }
 
-    /**
-     * Đã qua giờ khởi hành thì không rơi vào quy tắc nào. Đây cũng là mức áp cho khách
-     * không có mặt lúc khởi hành.
-     */
-    public function test_qua_gio_khoi_hanh_thi_khong_hoan(): void
+    public static function amounts(): array
     {
-        $this->assertSame(0, $this->service->refundPercent(-1.0));
-        $this->assertSame(0, $this->service->refundPercent(-240.0));
-    }
-
-    public function test_don_khong_gan_chuyen_thi_khong_tinh_duoc_so_gio(): void
-    {
-        $this->assertNull($this->service->hoursBeforeDeparture(null));
-        $this->assertSame(0, $this->service->refundPercent(null));
-    }
-
-    public function test_tinh_day_du_mot_lan_huy_truoc_muoi_ngay(): void
-    {
-        $ketQua = $this->service->quote(
-            $this->booking(10_000_000),
-            $this->schedule(24 * 10),
-        );
-
-        /*
-         * Còn 10 ngày rơi vào bậc 8 đến 12 ngày, hoàn 50 phần trăm.
-         *
-         * Đây cũng chính là hạn trả nốt mặc định, và con số 50 không phải ngẫu nhiên: nó bằng đúng
-         * tỷ lệ cọc, nên khách bỏ ngang ở mốc này mất tròn phần đã đặt cọc.
-         */
-        $this->assertSame(50, $ketQua['refund_percent']);
-        $this->assertSame(5_000_000.0, $ketQua['cancellation_fee']);
-        $this->assertSame(5_000_000.0, $ketQua['refund_amount']);
-    }
-
-    /**
-     * Phí hủy tính trên giá trị đơn, tiền hoàn trừ trên số đã thu. Khách mới đóng một phần
-     * mà hủy sát ngày thì mất phần đã đóng, chứ không được hoàn theo tỷ lệ của phần đó.
-     */
-    public function test_phi_tinh_tren_gia_tri_don_khong_phai_tren_so_da_thu(): void
-    {
-        $ketQua = $this->service->quote(
-            $this->booking(10_000_000),
-            $this->schedule(24 * 3), // 3 ngày, hoàn 10 phần trăm
-        );
-
-        $this->assertSame(9_000_000.0, $ketQua['cancellation_fee']);
-        $this->assertSame(1_000_000.0, $ketQua['refund_amount']);
-    }
-
-    /**
-     * Ràng buộc quan trọng nhất: khách hủy thì không bao giờ phải nộp thêm tiền.
-     */
-    public function test_tien_hoan_khong_bao_gio_am(): void
-    {
-        $ketQua = $this->service->quote(
-            $this->booking(10_000_000),
-            $this->schedule(12), // dưới 48 giờ, hoàn 0 phần trăm
-        );
-
-        $this->assertSame(10_000_000.0, $ketQua['cancellation_fee']);
-        $this->assertSame(0.0, $ketQua['refund_amount']);
-    }
-
-    public function test_don_chua_thanh_toan_thi_khong_co_gi_de_hoan(): void
-    {
-        $ketQua = $this->service->quote(
-            $this->booking(10_000_000, daThanhToan: false),
-            $this->schedule(24 * 30),
-        );
-
-        $this->assertSame(100, $ketQua['refund_percent']);
-        $this->assertSame(0.0, $ketQua['paid_amount']);
-        $this->assertSame(0.0, $ketQua['refund_amount']);
-    }
-
-    /**
-     * Chính sách riêng của tour phải ghi đè được bảng mặc định. Khi task B01 vào, các quy tắc
-     * này đến từ bảng cancellation_policy_rules thay vì mảng.
-     */
-    public function test_chinh_sach_rieng_ghi_de_bang_mac_dinh(): void
-    {
-        $quyTacRieng = [
-            ['min_days_before' => 7, 'max_days_before' => null, 'refund_percent' => 100],
-            ['min_days_before' => 0, 'max_days_before' => 7, 'refund_percent' => 20],
+        return [
+            'before-unpaid' => [-1, 0, 0, 0],
+            'before-deposit' => [-1, 5_000_000, 0, 5_000_000],
+            'before-full' => [-1, 10_000_000, 0, 10_000_000],
+            'at-cutoff-deposit' => [0, 5_000_000, 5_000_000, 0],
+            'at-cutoff-partial-balance' => [0, 7_000_000, 5_000_000, 2_000_000],
+            'at-cutoff-full' => [0, 10_000_000, 5_000_000, 5_000_000],
+            'after-cutoff-full' => [1, 10_000_000, 5_000_000, 5_000_000],
+            'under-deposit-never-negative' => [1, 2_000_000, 5_000_000, 0],
         ];
-
-        $this->assertSame(100, $this->service->refundPercent(24 * 10, $quyTacRieng));
-        $this->assertSame(20, $this->service->refundPercent(24 * 3, $quyTacRieng));
     }
 
-    /**
-     * Bậc đếm bằng ngày nhưng ranh giới nằm ở giờ, không làm tròn.
-     *
-     * Bảng phí ghi "dưới 2 ngày hoàn 0%". Người hủy trước 47 tiếng vẫn là dưới 2 ngày, và phải rơi
-     * vào bậc ấy. Làm tròn số ngày lên thì họ được tính như đã báo trước đủ 2 ngày - một mức ưu ái
-     * không có trong hợp đồng, phát sinh từ một phép làm tròn.
-     */
-    public function test_ranh_gioi_bac_tinh_theo_gio_khong_lam_tron_ngay(): void
+    #[DataProvider('amounts')]
+    public function test_refund_uses_exact_custom_cutoff(int $seconds, float $paid, float $fee, float $refund): void
     {
-        $bac = [
-            ['min_days_before' => 2, 'max_days_before' => null, 'refund_percent' => 60],
-            ['min_days_before' => 0, 'max_days_before' => 2, 'refund_percent' => 0],
-        ];
-
-        $this->assertSame(0, $this->service->refundPercent(47.0, $bac), '47 giờ vẫn là dưới 2 ngày.');
-        $this->assertSame(60, $this->service->refundPercent(48.0, $bac), 'Đúng 2 ngày thì vào bậc trên.');
-        $this->assertSame(60, $this->service->refundPercent(49.0, $bac));
+        $booking = $this->booking($paid);
+        $this->travelTo($this->schedule->booking_deadline->copy()->addSeconds($seconds));
+        $quote = $this->policy->quote($booking);
+        $this->assertSame($fee, $quote['cancellation_fee']);
+        $this->assertSame($refund, $quote['refund_amount']);
+        $this->assertSame($seconds < 0, $quote['before_deadline']);
     }
 
-    /**
-     * Quy tắc đến từ cơ sở dữ liệu là đối tượng chứ không phải mảng. Lớp dịch vụ phải đọc
-     * được cả hai để B01 vào không phải sửa gì ở đây.
-     */
-    public function test_doc_duoc_quy_tac_dang_doi_tuong(): void
+    public function test_default_cutoff_is_used_when_schedule_has_no_override(): void
     {
-        $quyTac = [
-            (object) ['min_days_before' => 5, 'max_days_before' => null, 'refund_percent' => 80],
-            (object) ['min_days_before' => 0, 'max_days_before' => 5, 'refund_percent' => 10],
-        ];
-
-        $this->assertSame(80, $this->service->refundPercent(24 * 6, $quyTac));
-        $this->assertSame(10, $this->service->refundPercent(24 * 2, $quyTac));
-    }
-
-    /**
-     * Thứ tự ưu tiên: bản chính sách đơn đã sao chép vào chính nó, rồi bản đang có hiệu lực trong
-     * cơ sở dữ liệu, cuối cùng mới tới bảng phí viết trong mã.
-     *
-     * Đây là chỗ nguyên tắc không hồi tố sống hay chết: đơn cũ vẫn hưởng bảng phí cũ dù bảng phí
-     * mới đã áp dụng từ lâu.
-     */
-    public function test_ban_don_da_chep_thang_ban_dang_ap_dung(): void
-    {
-        $macDinh = CancellationPolicy::create([
-            'name' => 'Mặc định',
-            'effective_from' => now()->subDay(),
-        ]);
-        $macDinh->rules()->create([
-            'min_days_before' => 0, 'max_days_before' => null, 'refund_percent' => 10,
-        ]);
-
-        $rieng = CancellationPolicy::create([
-            'name' => 'Bản cũ hơn, đơn đã chép vào chính nó',
-            'effective_from' => now()->subDays(30),
-        ]);
-        $rieng->rules()->create([
-            'min_days_before' => 0, 'max_days_before' => null, 'refund_percent' => 55,
-        ]);
-
+        config(['booking.booking_deadline_days' => 3]);
+        $this->schedule->update(['booking_deadline' => null]);
         $booking = $this->booking(10_000_000);
-        $booking->cancellation_policy_id = $rieng->id;
-        $booking->setRelation('cancellationPolicy', $rieng);
-
-        $ketQua = $this->service->quote($booking, $this->schedule(24 * 10));
-
-        $this->assertSame(55, $ketQua['refund_percent']);
+        $cutoff = $this->schedule->start_date->copy()->subDays(3);
+        $this->assertSame(10_000_000.0, $this->policy->quote($booking, now: $cutoff->copy()->subSecond())['refund_amount']);
+        $this->assertSame(5_000_000.0, $this->policy->quote($booking, now: $cutoff)['refund_amount']);
     }
 
-    /**
-     * Đơn chưa gắn chính sách thì dùng bản đang có hiệu lực trong cơ sở dữ liệu, không rơi
-     * thẳng về bảng phí trong mã.
-     */
-    public function test_don_khong_gan_chinh_sach_thi_dung_ban_dang_ap_dung(): void
+    public function test_old_database_tiers_cannot_override_cutoff(): void
     {
-        $macDinh = CancellationPolicy::create([
-            'name' => 'Mặc định',
-            'effective_from' => now()->subDay(),
-        ]);
-        $macDinh->rules()->create([
-            'min_days_before' => 0, 'max_days_before' => null, 'refund_percent' => 25,
-        ]);
-
-        $ketQua = $this->service->quote($this->booking(10_000_000), $this->schedule(24 * 10));
-
-        $this->assertSame(25, $ketQua['refund_percent']);
+        $legacy = CancellationPolicy::create(['name' => 'Old tier policy', 'effective_from' => now()->subDay()]);
+        $legacy->rules()->create(['min_days_before' => 0, 'max_days_before' => null, 'refund_percent' => 10]);
+        $booking = $this->booking();
+        $booking->update(['cancellation_policy_id' => $legacy->id]);
+        $this->assertSame(5_000_000.0, $this->policy->quote($booking)['refund_amount']);
+        $this->travelTo($this->schedule->booking_deadline);
+        $this->assertSame(0.0, $this->policy->quote($booking)['refund_amount']);
     }
 
-    public function test_lam_tron_ve_dong_nguyen(): void
+    public function test_company_cancellation_refunds_full_payment_after_cutoff(): void
     {
-        $ketQua = $this->service->quote(
-            $this->booking(3_333_333),
-            $this->schedule(24 * 10), // hoàn 50 phần trăm
-        );
+        $booking = $this->booking(7_000_000);
+        $this->travelTo($this->schedule->booking_deadline);
+        $quote = $this->policy->quote($booking, congTyHuy: true);
+        $this->assertSame(7_000_000.0, $quote['refund_amount']);
+        $this->assertSame(0.0, $quote['cancellation_fee']);
+    }
 
-        // 50% của 3.333.333 là 1.666.666,5 — làm tròn lên đồng nguyên ở cả hai vế.
-        $this->assertSame(1_666_667.0, $ketQua['cancellation_fee']);
-        $this->assertSame(1_666_666.0, $ketQua['refund_amount']);
+    public function test_departure_instant_no_longer_quotes_a_voluntary_refund(): void
+    {
+        $booking = $this->booking(10_000_000);
+        $quote = $this->policy->quote($booking, now: $this->schedule->start_date);
+        $this->assertSame(0.0, $quote['refund_amount']);
+    }
+
+    public function test_rounds_deposit_to_whole_currency_units(): void
+    {
+        $booking = $this->booking(3_333_333, 3_333_333);
+        $quote = $this->policy->quote($booking, now: $this->schedule->booking_deadline);
+        $this->assertSame(1_666_667.0, $quote['cancellation_fee']);
+        $this->assertSame(1_666_666.0, $quote['refund_amount']);
+    }
+
+    public function test_approval_after_cutoff_preserves_early_request_and_counts_later_payment(): void
+    {
+        $booking = $this->booking();
+        $requests = app(BookingChangeRequestService::class);
+        $request = $requests->requestCancellation($booking, 'Customer cancels before deadline.');
+        BookingPayment::create(['booking_id' => $booking->id, 'kind' => 'balance', 'amount' => 5_000_000, 'paid_at' => now()]);
+        $this->travelTo($this->schedule->booking_deadline->copy()->addSecond());
+        $approved = $requests->approve($request, User::factory()->create(['role' => 'admin']));
+        $this->assertSame(ChangeRequestStatus::Approved, $approved->status);
+        $this->assertEquals(10_000_000, $booking->fresh()->refund_amount);
+        $this->assertEquals(10_000_000, $approved->estimated_refund);
+    }
+
+    public function test_automatic_cutoff_honors_pending_early_cancellation_once(): void
+    {
+        $booking = $this->booking();
+        $request = app(BookingChangeRequestService::class)->requestCancellation($booking, 'Customer requests refund before cutoff.');
+        $this->travelTo($this->schedule->booking_deadline);
+        $deadline = app(BookingBalanceDeadlineService::class);
+        $this->assertTrue($deadline->cancel($booking));
+        $this->assertEquals(5_000_000, $booking->fresh()->refund_amount);
+        $this->assertSame('by_customer', $booking->fresh()->cancel_type);
+        $this->assertSame(ChangeRequestStatus::Approved, $request->fresh()->status);
+        $this->assertFalse($deadline->cancel($booking->fresh()));
+        // Xử lý sau hạn chốt giữ chỗ đã cam kết với nhà cung cấp như luồng duyệt hủy.
+        $this->assertEquals(1, $this->schedule->fresh()->booked_people);
+        $this->assertFalse($booking->fresh()->seats_released);
+        $this->assertSame(0, BookingPayment::where('kind', 'refund')->count());
+    }
+
+    public function test_withdrawn_request_does_not_prevent_forfeiture(): void
+    {
+        $booking = $this->booking(7_000_000);
+        $request = app(BookingChangeRequestService::class)->requestCancellation($booking, 'Customer changes plans.');
+        $request->update(['status' => ChangeRequestStatus::CancelledByCustomer]);
+        $this->travelTo($this->schedule->booking_deadline);
+        app(BookingBalanceDeadlineService::class)->cancel($booking);
+        $this->assertEquals(2_000_000, $booking->fresh()->refund_amount);
+        $this->assertSame('unpaid_balance', $booking->fresh()->cancel_type);
+    }
+
+    public function test_pending_legacy_request_uses_cutoff_when_previewed_and_approved(): void
+    {
+        $booking = $this->booking(10_000_000);
+        $requests = app(BookingChangeRequestService::class);
+        $request = $requests->requestCancellation($booking, 'Early cancellation request.');
+        $request->update(['payload' => [], 'estimated_refund_percent' => 10, 'estimated_refund' => 1_000_000]);
+        $this->travelTo($this->schedule->booking_deadline->copy()->addSecond());
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        Sanctum::actingAs($admin);
+        $this->getJson('/api/admin/change-requests/'.$request->id)->assertOk()
+            ->assertJsonPath('data.request.estimated_refund', '10000000.00')
+            ->assertJsonPath('data.request.estimated_refund_percent', 100);
+        // Đọc preview không ghi lại DB.
+        $this->assertEquals(1_000_000, $request->fresh()->estimated_refund);
+        $requests->approve($request, $admin);
+        $this->assertEquals(10_000_000, $booking->fresh()->refund_amount);
+    }
+
+    public function test_admin_direct_cancellation_honors_early_request_and_closes_it(): void
+    {
+        $booking = $this->booking(10_000_000);
+        $request = app(BookingChangeRequestService::class)->requestCancellation($booking, 'Cancel before deadline.');
+        $this->travelTo($this->schedule->booking_deadline->copy()->addSecond());
+        Sanctum::actingAs(User::factory()->create(['role' => 'admin', 'status' => 'active']));
+        $this->getJson('/api/admin/bookings/'.$booking->id.'/cancel-preview')->assertOk()
+            ->assertJsonPath('data.refund_amount', 10_000_000);
+        $this->putJson('/api/admin/bookings/'.$booking->id.'/cancel', ['cancel_reason' => 'Customer requested cancellation.'])->assertOk();
+        $this->assertEquals(10_000_000, $booking->fresh()->refund_amount);
+        $this->assertSame(ChangeRequestStatus::Approved, $request->fresh()->status);
+    }
+
+    public function test_pending_late_request_keeps_deposit_fee_even_if_cutoff_is_moved(): void
+    {
+        $booking = $this->booking(10_000_000);
+        $this->travelTo($this->schedule->booking_deadline);
+        $requests = app(BookingChangeRequestService::class);
+        $request = $requests->requestCancellation($booking, 'Late cancellation request.');
+        $this->schedule->update(['booking_deadline' => now()->addDay()]);
+        $requests->approve($request, User::factory()->create(['role' => 'admin']));
+        $this->assertEquals(5_000_000, $booking->fresh()->refund_amount);
+    }
+
+    public function test_demo_clock_is_used_when_recording_request_fee(): void
+    {
+        config(['demo.enabled' => true]);
+        $booking = $this->booking(10_000_000);
+        $this->schedule->forceFill([
+            'demo_time' => $this->schedule->booking_deadline->copy()->subSecond(),
+            'demo_time_set_at' => now(),
+        ])->save();
+        $request = app(BookingChangeRequestService::class)->requestCancellation($booking->fresh(), 'Cancel before demo cutoff.');
+        $this->assertEquals(0, $request->payload['cancellation_fee']);
+        $this->assertSame($this->schedule->booking_deadline->copy()->subSecond()->format('Y-m-d H:i:s'), $request->payload['quoted_at']);
+        $this->schedule->forceFill(['demo_time' => $this->schedule->booking_deadline])->save();
+        $this->assertSame(5_000_000.0, $this->policy->quote($booking->fresh())['refund_amount']);
+        app(BookingChangeRequestService::class)->approve($request, User::factory()->create(['role' => 'admin']));
+        $this->assertEquals(10_000_000, $booking->fresh()->refund_amount);
     }
 }

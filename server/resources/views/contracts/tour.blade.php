@@ -301,31 +301,30 @@
         </li>
     </ol>
 
-    {{-- ĐIỀU 5 — hủy và hoàn. Bậc lấy từ chính sách đơn đã chép lúc đặt. --}}
+    {{-- ĐIỀU 5 — dùng cùng hạn chốt với hạn thanh toán phần còn lại. --}}
     <h2>Điều 5. Hủy chương trình và mức hoàn tiền</h2>
-    @if ($chinhSach && $bacHoan->isNotEmpty())
-        <p>Bên B hủy chương trình, mức hoàn được tính theo thời điểm báo hủy so với giờ khởi hành:</p>
+        <p>Bên B hủy chương trình, mức hoàn được tính theo thời điểm gửi yêu cầu so với hạn chốt danh sách
+            @if ($hanThanhToan) ({{ $hanThanhToan->format('H:i d/m/Y') }}) @endif:</p>
         <table>
             <thead>
-                <tr><th>Thời điểm báo hủy</th><th style="width:24%">Mức hoàn</th></tr>
+                <tr><th>Thời điểm gửi yêu cầu</th><th>Cách hoàn tiền</th></tr>
             </thead>
             <tbody>
-                @foreach ($bacHoan as $bac)
+                @foreach (\App\Services\CancellationPolicyService::publicRules() as $bac)
                     <tr>
-                        <td>{{ $bac->windowLabel() }}@if ($bac->note) &ndash; {{ $bac->note }}@endif</td>
-                        <td class="so">{{ $bac->refund_percent }}%</td>
+                        <td>{{ $bac['window'] }}</td>
+                        <td>{{ $bac['note'] }}</td>
                     </tr>
                 @endforeach
             </tbody>
         </table>
-        <p><em>Áp dụng chính sách: {{ $chinhSach->name }}.</em></p>
-    @else
-        <p>Áp dụng theo chính sách hủy do Bên A công bố tại thời điểm Bên B đặt chương trình.</p>
-    @endif
+        <p>Khoản giữ lại không vượt số đã thu. Bên B không phải nộp thêm tiền khi hủy.
+            Mức phí được giữ tại thời điểm gửi yêu cầu, kể cả khi điều hành duyệt sau hạn chốt.</p>
     <ol class="dieu-khoan">
         <li>Mức hoàn tính trên số tiền Bên B đã thực trả, và không bao giờ vượt quá số tiền đó.</li>
         <li>Chương trình đã khởi hành thì không hủy được; trường hợp Bên B tự rời đoàn được xử lý theo Điều 6.</li>
-        <li>Bên A hủy chương trình vì lý do chủ quan thì hoàn Bên B 100% số tiền đã nhận.</li>
+        <li>Bên A hủy chương trình, hoặc Bên B từ chối phương án ghép khi chuyến ban đầu bị hủy,
+            thì ghi nhận hoàn đủ số tiền đã thu còn lại, không giữ cọc.</li>
     </ol>
 
     {{--

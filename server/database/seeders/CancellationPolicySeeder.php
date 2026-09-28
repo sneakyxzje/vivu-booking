@@ -7,49 +7,17 @@ use App\Services\CancellationPolicyService;
 use App\Support\GioVietNam;
 use Illuminate\Database\Seeder;
 
-/**
- * B02 - Chính sách hủy mặc định.
- *
- * Lấy đúng bảng phí trong CancellationPolicyService::DEFAULT_RULES để mã và dữ liệu không
- * nói hai chuyện khác nhau. Lớp dịch vụ chỉ dùng hằng số đó khi chưa seed chính sách nào.
- */
+/** Bảng bậc ngày cũ chỉ còn là dữ liệu lịch sử; tiền hoàn dùng hạn chốt từng chuyến. */
 class CancellationPolicySeeder extends Seeder
 {
     public function run(): void
     {
-        $policy = CancellationPolicy::query()->updateOrCreate(
-            ['name' => 'Chính sách hủy tiêu chuẩn'],
+        CancellationPolicy::query()->firstOrCreate(
+            ['name' => CancellationPolicyService::NAME],
             [
-                'description' => 'Áp dụng cho tour nội địa. Phí hủy tăng dần khi càng sát ngày '
-                    . 'khởi hành, vì chi phí đã cam kết với nhà cung cấp càng khó hủy: khách sạn '
-                    . 'chốt phòng khoảng 7 ngày trước, nhà xe 3 ngày, suất ăn 1 đến 2 ngày. '
-                    . 'Khách đặt cọc 50% khi đăng ký và thanh toán nốt trước ngày khởi hành 10 '
-                    . 'ngày; quá hạn đó mà chưa thanh toán thì đơn được hủy và khách mất tiền cọc.',
-                // Lùi một ngày để bản seed chắc chắn đã có hiệu lực, kể cả khi seeder chạy xong là
-                // có người đặt đơn ngay trong cùng giây đó.
+                'description' => 'Trước hạn chốt danh sách hoàn đủ số đã trả. Từ hạn chốt đến trước khởi hành giữ cọc 50% giá trị đơn, hoàn phần đã trả vượt cọc. Đã khởi hành không cho hủy.',
                 'effective_from' => GioVietNam::bayGio()->subDay(),
             ],
         );
-
-        $ghiChu = [
-            20 => 'Hủy sớm, chưa cam kết gì với nhà cung cấp nên hoàn đủ.',
-            15 => 'Giữ lại một nửa tiền cọc.',
-            12 => 'Giữ trọn tiền cọc.',
-            8 => 'Qua mốc chốt phòng của phần lớn khách sạn. Đây cũng là khoảng hạn thanh toán '
-                . 'phần còn lại: quá hạn mà chưa trả nốt thì đơn hủy và khách mất cọc.',
-            2 => 'Đã chốt xe và đang chốt suất ăn.',
-            0 => 'Toàn bộ dịch vụ đã cam kết, không hủy được với nhà cung cấp.',
-        ];
-
-        $policy->rules()->delete();
-
-        foreach (CancellationPolicyService::DEFAULT_RULES as $rule) {
-            $policy->rules()->create([
-                'min_days_before' => $rule['min_days_before'],
-                'max_days_before' => $rule['max_days_before'],
-                'refund_percent' => $rule['refund_percent'],
-                'note' => $ghiChu[$rule['min_days_before']] ?? null,
-            ]);
-        }
     }
 }

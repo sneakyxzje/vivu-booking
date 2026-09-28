@@ -110,9 +110,10 @@ class ChangeRequestController extends Controller
     {
         $yeuCau = BookingChangeRequest::query()
             ->whereHas('booking', fn ($query) => $query->where('customer_id', $request->user()->id))
-            ->with('booking:id,tour_id,departure_date,total_amount,status')
+            ->with('booking:id,tour_id,tour_schedule_id,departure_date,total_amount,status,paid_at')
             ->latest()
             ->get();
+        $yeuCau->each(fn ($item) => $this->changeRequests->refreshEstimate($item));
 
         return $this->success($yeuCau, 'Lấy danh sách yêu cầu thành công');
     }

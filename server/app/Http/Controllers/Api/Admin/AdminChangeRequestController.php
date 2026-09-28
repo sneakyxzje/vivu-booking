@@ -34,7 +34,7 @@ class AdminChangeRequestController extends Controller
 
         $query = BookingChangeRequest::query()
             ->with([
-                'booking:id,tour_id,tour_schedule_id,customer_name,customer_email,guests,total_amount,status,paid_at',
+                'booking:id,tour_id,tour_schedule_id,departure_date,customer_name,customer_email,guests,total_amount,status,paid_at',
                 'booking.tour:id,title',
                 'booking.schedule:id,start_date,booking_deadline,status',
                 'requester:id,name,email',
@@ -47,6 +47,7 @@ class AdminChangeRequestController extends Controller
         }
 
         $requests = $query->paginate(15);
+        $requests->getCollection()->each(fn ($item) => $this->changeRequests->refreshEstimate($item));
 
         return $this->success([
             'requests' => $requests,
@@ -72,6 +73,7 @@ class AdminChangeRequestController extends Controller
         }
 
         $booking = $yeuCau->booking;
+        $this->changeRequests->refreshEstimate($yeuCau);
         $schedule = $booking?->schedule;
 
         $conDuyetDuoc = true;

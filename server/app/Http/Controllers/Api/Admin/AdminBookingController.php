@@ -436,7 +436,7 @@ class AdminBookingController extends Controller
             $lyDoChan = $e->getMessage();
         }
 
-        $duBao = $this->cancellationPolicy->quote($booking, $schedule, congTyHuy: $congTyHuy);
+        $duBao = $this->cancellationPolicy->quoteIncludingPendingRequest($booking, $schedule, congTyHuy: $congTyHuy);
 
         return $this->success($duBao + [
             'can_cancel' => $coTheHuy,
@@ -538,7 +538,7 @@ class AdminBookingController extends Controller
              * Đường khách xin hủy đã ghi khoản này từ đầu; đường quản trị hủy thẳng thì không, và
              * đó lại chính là đường chạm tiền mà không qua bước duyệt nào.
              */
-            $duBao = $this->cancellationPolicy->quote($booking, $schedule, congTyHuy: $congTyHuy);
+            $duBao = $this->cancellationPolicy->quoteIncludingPendingRequest($booking, $schedule, congTyHuy: $congTyHuy);
 
             $booking->update([
                 'status' => 'cancelled',
@@ -564,6 +564,19 @@ class AdminBookingController extends Controller
             ]);
 
             $this->holdService->releaseHold($booking, $schedule);
+
+            // Hủy trực tiếp cũng đóng yêu cầu còn chờ, tránh để một đơn đã hủy tiếp tục chờ duyệt.
+            \App\Models\BookingChangeRequest::query()->where('booking_id', $booking->id)
+                ->where('type', 'cancel')->pending()->lockForUpdate()->get()->each(function ($pending) use ($duBao, $request, $booking) {
+                    $pending->update([
+                        'status' => \App\Enums\ChangeRequestStatus::Approved,
+                        'estimated_refund' => $duBao['refund_amount'],
+                        'estimated_refund_percent' => $duBao['refund_percent'],
+                        'reviewed_by' => $request->user()?->id,
+                        'reviewed_at' => \App\Services\DemoClock::booking($booking),
+                        'review_note' => 'Điều hành đã xử lý hủy trực tiếp trên đơn.',
+                    ]);
+                });
 
             $this->auditLogger->logStatusChange(
                 $booking,

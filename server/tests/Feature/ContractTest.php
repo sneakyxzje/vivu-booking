@@ -232,9 +232,10 @@ class ContractTest extends TestCase
             ->assertSee($this->tour->title)
             // Điều 6 là điều khoản bất khả kháng - phần trả lời câu hỏi của hội đồng về mưa bão.
             ->assertSee('bất khả kháng', false)
-            // Bậc hoàn phải in ra theo chính sách đơn đã chép lúc đặt.
-            ->assertSee('80%')
-            ->assertSee('30%');
+            ->assertSee('Trước hạn chốt danh sách')
+            ->assertSee('Giữ cọc 50% giá trị đơn')
+            ->assertDontSee('80%')
+            ->assertDontSee('30%');
     }
 
     /**

@@ -204,16 +204,24 @@ class AiChatbotTest extends TestCase
         $this->assertSame(6, $ketQua['departures'][0]['seats_left']);
     }
 
-    public function test_cong_cu_tinh_hoan_tien_theo_bang_phi_that(): void
+    public function test_cong_cu_tinh_hoan_tien_theo_han_chot_thuc_te(): void
     {
-        $ketQua = app(AdvisorTools::class)->run('estimate_refund', ['days_before' => 25, 'amount' => 4_000_000]);
+        $schedule = TourSchedule::factory()->create([
+            'start_date' => now()->addDays(10), 'booking_deadline' => now()->addDays(9),
+        ]);
+        $ketQua = app(AdvisorTools::class)->run('estimate_refund', [
+            'schedule_id' => $schedule->id, 'days_before' => 2, 'amount' => 4_000_000, 'paid_amount' => 2_000_000,
+        ]);
 
         $this->assertSame(100, $ketQua['refund_percent']);
-        $this->assertSame(4_000_000.0, (float) $ketQua['refund_amount']);
+        $this->assertSame(2_000_000.0, (float) $ketQua['refund_amount']);
 
-        $satNgay = app(AdvisorTools::class)->run('estimate_refund', ['days_before' => 1]);
+        $satNgay = app(AdvisorTools::class)->run('estimate_refund', ['schedule_id' => $schedule->id, 'days_before' => 1]);
 
-        $this->assertSame(0, $satNgay['refund_percent']);
+        $this->assertSame(50, $satNgay['refund_percent']);
+        $missingSchedule = app(AdvisorTools::class)->run('estimate_refund', ['days_before' => 25]);
+        $this->assertTrue($missingSchedule['needs_schedule']);
+        $this->assertArrayNotHasKey('refund_percent', $missingSchedule);
     }
 
     /** Tham số sai thành dữ liệu trả về, không thành ngoại lệ làm hỏng cả lượt trả lời. */

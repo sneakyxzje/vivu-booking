@@ -165,6 +165,7 @@ class ScheduleMergeTest extends TestCase
 
         $this->mergeAndAccept($this->nguon, $this->dich, 'Hai chuyen deu thieu khach nen don ve mot.', $this->dieuHanh);
 
+        $this->dich->update(['booking_deadline' => now()->subSecond()]);
         $bang = app(\App\Services\CancellationPolicyService::class)->quote($don->fresh());
 
         $this->assertTrue($bang['moved_by_company']);
@@ -196,6 +197,7 @@ class ScheduleMergeTest extends TestCase
         $this->dich->update([
             'start_date' => now()->addDays(10),
             'end_date' => now()->addDays(11),
+            'booking_deadline' => now()->subSecond(),
         ]);
 
         $bang = app(\App\Services\CancellationPolicyService::class)->quote($don->fresh());

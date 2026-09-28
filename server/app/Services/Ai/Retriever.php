@@ -60,8 +60,14 @@ class Retriever
         $minScore = (float) config('ai.retrieval.min_score', 0.15);
 
         $scored = [];
+        $currentPolicies = array_column(app(KnowledgeIndexer::class)->policyDocuments(), null, 'key');
 
         foreach ($chunks as $chunk) {
+            // Vector cũ vẫn dùng để tìm kiếm; nội dung chính sách luôn lấy từ code hiện tại.
+            // Không cần sửa DB hoặc gọi lại embedding chỉ để cập nhật quy tắc hoàn hủy.
+            if ($chunk->source_type === 'policy' && isset($currentPolicies[$chunk->chunk_key])) {
+                $chunk->content = $currentPolicies[$chunk->chunk_key]['content'];
+            }
             $semantic = $this->cosine($questionVector, $chunk->vector());
             $lexical = $this->lexical($questionTokens, $chunk->title . ' ' . $chunk->content);
             $score = (1 - $lexicalWeight) * $semantic + $lexicalWeight * $lexical;

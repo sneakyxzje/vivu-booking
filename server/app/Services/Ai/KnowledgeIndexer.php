@@ -2,8 +2,6 @@
 
 namespace App\Services\Ai;
 
-use App\Models\CancellationPolicy;
-use App\Models\CancellationPolicyRule;
 use App\Models\KnowledgeChunk;
 use App\Models\Tour;
 use App\Models\TourItinerary;
@@ -182,7 +180,7 @@ class KnowledgeIndexer
      *
      * @return array<int, array{key: string, source_type: string, source_id: int|null, title: string, content: string}>
      */
-    private function policyDocuments(): array
+    public function policyDocuments(): array
     {
         $depositPercent = 50;
         $holdMinutes = (int) config('booking.payment_ttl_minutes', 10);
@@ -217,12 +215,12 @@ class KnowledgeIndexer
             'title' => 'Chính sách hủy và hoàn tiền',
             'content' => $this->lines([
                 'Chính sách công ty: hủy tour và hoàn tiền.',
-                'Bảng phí hủy tính theo số ngày báo trước, so với ngày khởi hành. Phần trăm dưới đây là phần khách được hoàn lại trên giá trị đơn:',
+                'Hoàn hủy dùng hạn chốt danh sách của từng chuyến; không dùng bảng bậc ngày trước khởi hành:',
                 ...$this->refundRuleLines(),
                 'Đơn chưa thanh toán thì khách tự hủy được ngay.',
                 'Đơn đã thanh toán thì khách gửi yêu cầu hủy và điều hành duyệt, không tự hủy được; khách xem trước được mức hoàn dự kiến trước khi gửi yêu cầu, và rút lại yêu cầu nếu đổi ý.',
                 'Công ty hủy chuyến thì hoàn 100% số tiền đã thu, không áp bảng phí hủy. Bảng phí chỉ áp khi khách đổi ý.',
-                'Khách vắng mặt lúc khởi hành được tính như hủy sát ngày: không hoàn tiền.',
+                'Chuyến đã khởi hành không cho hủy. Khách vắng mặt không được hoàn tiền.',
                 $transferNotice > 0
                     ? "Khách xin đổi chuyến chậm nhất {$transferNotice} ngày trước khởi hành."
                     : 'Khách xin đổi chuyến được tới tận hạn chốt danh sách của chuyến.',
@@ -254,25 +252,15 @@ class KnowledgeIndexer
     }
 
     /**
-     * Ưu tiên bảng trong cơ sở dữ liệu rồi mới tới bảng viết trong mã — đúng thứ tự
-     * CancellationPolicyService dùng khi tính tiền thật.
+     * Cùng quy tắc hạn chốt mà CancellationPolicyService dùng khi tính tiền thật.
      *
      * @return array<int, string>
      */
     private function refundRuleLines(): array
     {
-        $policy = CancellationPolicy::dangApDung();
-
-        if ($policy && $policy->rules->isNotEmpty()) {
-            return $policy->rules
-                ->map(fn (CancellationPolicyRule $rule) => "- {$rule->windowLabel()}: hoàn {$rule->refund_percent}%"
-                    . ($rule->note ? " ({$rule->note})" : ''))
-                ->all();
-        }
-
         return array_map(
-            fn (array $rule) => '- ' . (new CancellationPolicyRule($rule))->windowLabel() . ": hoàn {$rule['refund_percent']}%",
-            CancellationPolicyService::DEFAULT_RULES,
+            fn (array $rule) => '- ' . $rule['window'] . ': ' . $rule['note'],
+            CancellationPolicyService::publicRules(),
         );
     }
 

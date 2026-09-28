@@ -577,12 +577,7 @@ class BookingController extends Controller
         return response()->json([
             'success' => true,
             'data' => $quote + [
-                'policy_name' => $booking->cancellationPolicy?->name,
-                'rules' => $booking->cancellationPolicy?->rules->map(fn ($rule) => [
-                    'window' => $rule->windowLabel(),
-                    'refund_percent' => $rule->refund_percent,
-                    'note' => $rule->note,
-                ]),
+                'rules' => CancellationPolicyService::publicRules(),
             ],
         ]);
     }

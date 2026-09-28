@@ -315,16 +315,15 @@ class GroupBookingTest extends TestCase
 
         $this->service->recordPayment($booking, 'deposit', 12_000_000, 'bank_transfer', null, null, $this->admin);
 
-        // Còn 24 giờ tới khởi hành: bậc dưới 48h, hoàn 0%.
+        // Qua hạn chốt: phí tối đa bằng cọc 50% giá trị đơn.
         $quote = app(CancellationPolicyService::class)->quote(
             $booking->fresh(),
             $this->chuyen,
-            null,
-            Carbon::parse($this->chuyen->start_date)->subHours(24),
+            now: Carbon::parse($this->chuyen->start_date)->subHours(24),
         );
 
         $this->assertSame(12_000_000.0, $quote['paid_amount'], 'Số đã thu phải đọc từ sổ, không phải từ tổng đơn.');
-        $this->assertSame(40_000_000.0, $quote['cancellation_fee']);
+        $this->assertSame(20_000_000.0, $quote['cancellation_fee']);
         $this->assertSame(0.0, $quote['refund_amount'], 'Mất cọc, nhưng không bao giờ phải nộp thêm.');
     }
 

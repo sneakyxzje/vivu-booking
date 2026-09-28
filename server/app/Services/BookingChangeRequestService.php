@@ -39,30 +39,16 @@ class BookingChangeRequestService
     ) {
     }
 
-    /**
-     * Số tiền hoàn lúc DUYỆT: đóng băng bậc phần trăm, không đóng băng số tiền.
-     *
-     * Bậc phí phải chốt tại thời điểm GỬI — đó là chủ ý, và có bài kiểm canh: khách gửi yêu cầu
-     * hôm còn hai mươi ngày rồi điều hành duyệt muộn ba hôm thì không được rơi xuống bậc thấp hơn.
-     *
-     * Nhưng thứ được đóng băng lâu nay là con số tuyệt đối, mà con số ấy tính trên số đã thu tại
-     * lúc gửi. Không luật nào chặn thu tiếp trong lúc yêu cầu đang chờ: trang tra cứu vẫn dựng liên
-     * kết trả nốt, cổng vẫn nhận, sổ vẫn ghi. Khách cọc năm triệu, gửi yêu cầu hủy ở mốc hoàn đủ,
-     * rồi trả nốt năm triệu trong lúc chờ — số đóng băng vẫn là năm, và họ mất đúng phần vừa trả.
-     *
-     * Nên tính lại số tiền theo bậc đã chốt, trên số đã thu HIỆN TẠI.
-     */
-    private function tienHoanKhiDuyet(Booking $booking, BookingChangeRequest $yeuCau): float
+    /** Hiển thị đúng tiền thực nhận cho yêu cầu còn chờ; không sửa lịch sử đã xử lý. */
+    public function refreshEstimate(BookingChangeRequest $request): BookingChangeRequest
     {
-        $phanTram = (int) ($yeuCau->estimated_refund_percent ?? 0);
-        $phiHuy = round(round((float) $booking->total_amount) * (100 - $phanTram) / 100);
+        if ($request->status === ChangeRequestStatus::Pending && $request->booking) {
+            $quote = $this->cancellationPolicy->quoteForRequest($request->booking, $request);
+            $request->estimated_refund = $quote['refund_amount'];
+            $request->estimated_refund_percent = $quote['refund_percent'];
+        }
 
-        // `paidForTour()` chứ không `netPaid()`: cùng nguồn mà `quote()` dùng, nên đơn cũ chưa có
-        // bút toán nào (chỉ có mốc `paid_at`) vẫn ra đúng số thay vì ra 0.
-        return $this->payments->nghiaVuHoanGop(
-            $booking,
-            max(0.0, $this->payments->paidForTour($booking) - $phiHuy),
-        );
+        return $request;
     }
 
     /**
@@ -94,12 +80,17 @@ class BookingChangeRequestService
 
             // Chốt mức hoàn tại thời điểm gửi. Xem chú thích trong migration F01 để biết vì sao
             // không để tới lúc duyệt mới tính.
-            $duBao = $this->cancellationPolicy->quote($locked, $schedule);
+            $quotedAt = DemoClock::schedule($schedule);
+            $duBao = $this->cancellationPolicy->quote($locked, $schedule, now: $quotedAt);
 
             $yeuCau = BookingChangeRequest::query()->create([
                 'booking_id' => $locked->getKey(),
                 'type' => ChangeRequestType::Cancel,
                 'payload' => [
+                    'policy_version' => CancellationPolicyService::VERSION,
+                    'quoted_at' => $quotedAt->format('Y-m-d H:i:s'),
+                    'booking_deadline' => $duBao['booking_deadline'],
+                    'cancellation_fee' => $duBao['cancellation_fee'],
                     'seats_will_be_released' => $this->holdService->shouldReleaseSeats($locked, $schedule),
                     'hours_before' => $duBao['hours_before'],
                 ],
@@ -140,27 +131,32 @@ class BookingChangeRequestService
         ?string $ghiChu = null,
     ): BookingChangeRequest {
         return DB::transaction(function () use ($request, $nguoiDuyet, $ghiChu) {
-            $locked = BookingChangeRequest::query()
+            $target = BookingChangeRequest::query()->with('booking')
                 ->whereKey($request->getKey())
-                ->lockForUpdate()
                 ->first();
 
-            $this->assertConDuyetDuoc($locked);
+            $this->assertConDuyetDuoc($target);
 
-            $schedule = $locked->booking?->tour_schedule_id
+            // Cùng thứ tự khóa với tác vụ quá hạn: chuyến -> đơn -> yêu cầu.
+            $schedule = $target->booking?->tour_schedule_id
                 ? TourSchedule::query()
-                    ->whereKey($locked->booking->tour_schedule_id)
+                    ->whereKey($target->booking->tour_schedule_id)
                     ->lockForUpdate()
                     ->first()
                 : null;
 
             $booking = Booking::query()
-                ->whereKey($locked->booking_id)
+                ->whereKey($target->booking_id)
                 ->lockForUpdate()
                 ->first();
 
             if (!$booking) {
                 throw new BusinessRuleException('Không tìm thấy đơn đặt tour.', 404);
+            }
+            $locked = BookingChangeRequest::query()->whereKey($request->getKey())->lockForUpdate()->first();
+            $this->assertConDuyetDuoc($locked);
+            if ($booking->tour_schedule_id !== $schedule?->id) {
+                throw new BusinessRuleException('Chuyến của đơn vừa thay đổi. Vui lòng tải lại yêu cầu hủy.');
             }
 
             /*
@@ -173,6 +169,8 @@ class BookingChangeRequestService
             $this->bookingPolicy->assertCancellable($booking, $schedule);
 
             $trangThaiCu = (string) $booking->status;
+            $booking->setRelation('schedule', $schedule);
+            $quote = $this->cancellationPolicy->quoteForRequest($booking, $locked);
 
             $booking->update([
                 'status' => BookingStatus::Cancelled->value,
@@ -180,8 +178,8 @@ class BookingChangeRequestService
                 'cancel_type' => 'by_customer',
                 'cancelled_at' => DemoClock::booking($booking),
                 'cancelled_by' => $locked->requested_by,
-                // Bậc phí chốt lúc gửi; số tiền tính lại theo số đã thu hiện tại. Xem `tienHoanKhiDuyet()`.
-                'refund_amount' => $this->tienHoanKhiDuyet($booking, $locked),
+                // Giữ phí tại lúc gửi, tính lại tiền thực nhận theo sổ thu/hoàn hiện tại.
+                'refund_amount' => $this->payments->nghiaVuHoanGop($booking, $quote['refund_amount']),
             ]);
 
             $this->holdService->releaseHold($booking, $schedule);
@@ -194,7 +192,7 @@ class BookingChangeRequestService
                 $ghiChu,
                 [
                     'request_id' => $locked->getKey(),
-                    'refund_amount' => $locked->estimated_refund,
+                    'refund_amount' => $quote['refund_amount'],
                     // Ghi lại chỗ có về kho hay không, vì đó là thứ quyết định còn bán được nữa
                     // hay không và người đọc nhật ký sau này không tính lại được.
                     'seats_released' => (bool) $booking->fresh()->seats_released,
@@ -202,6 +200,8 @@ class BookingChangeRequestService
             );
 
             $locked->update([
+                'estimated_refund' => $quote['refund_amount'],
+                'estimated_refund_percent' => $quote['refund_percent'],
                 'status' => ChangeRequestStatus::Approved,
                 'reviewed_by' => $nguoiDuyet->getKey(),
                 'reviewed_at' => now(),

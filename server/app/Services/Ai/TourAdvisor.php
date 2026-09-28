@@ -113,6 +113,8 @@ class TourAdvisor
             'PHẢI DÙNG CÔNG CỤ:',
             '- Hỏi về giá, ngày đi, chỗ trống: gọi search_tours / check_availability trước khi trả lời.',
             '- Hỏi hủy tour hoàn bao nhiêu: gọi estimate_refund.',
+            '- Quy tắc hoàn hủy hiện tại: trước hạn chốt danh sách hoàn đủ số đã trả; từ hạn chốt đến trước khởi hành giữ cọc 50% giá trị đơn, hoàn phần đã trả vượt cọc. Đã khởi hành không cho hủy. Công ty hủy hoặc khách từ chối ghép khi chuyến nguồn bị hủy thì hoàn đủ số đã thu còn lại.',
+            '- Bỏ qua bảng phí 20/15/12/8/2 ngày cũ nếu còn trong dữ liệu tham khảo. Không suy ra hạn chốt chỉ từ số ngày trước khởi hành; dùng hạn thực tế của chuyến. Tiền hoàn được ghi nhận chờ xử lý, không tự về tài khoản ngay.',
             '- Dữ liệu trong phần DỮ LIỆU CÔNG TY là mô tả tour và chính sách, KHÔNG phải tình trạng chỗ hôm nay.',
             '',
             'CÁCH TRẢ LỜI:',

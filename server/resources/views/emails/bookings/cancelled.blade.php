@@ -83,8 +83,8 @@
                                     Số tiền hoàn lại:
                                     <strong style="font-size:17px;color:#065f46;">{{ number_format($tienHoan, 0, ',', '.') }} VNĐ</strong><br>
                                     <span style="font-size:13px;color:#6b7280;">
-                                        Mức hoàn tính theo chính sách hủy có hiệu lực tại thời điểm Quý khách đặt
-                                        tour, dựa trên số ngày còn lại tới ngày khởi hành.
+                                        Đây là khoản đã được ghi nhận chờ hoàn theo trường hợp hủy của đơn.
+                                        Bộ phận điều hành sẽ xử lý và ghi nhận giao dịch hoàn tiền.
                                     </span>
                                 </p>
                             @elseif($daThu > 0)

@@ -146,11 +146,11 @@ class HeldSeatsTest extends TestCase
     }
 
     /** Mức hoàn trong dự báo phải là con số thật của bảng phí, không phải số làm tròn cho đẹp. */
-    public function test_du_bao_tra_ve_dung_muc_hoan_theo_so_gio_con_lai(): void
+    public function test_du_bao_hoan_du_truoc_han_chot_du_khoi_hanh_con_xa(): void
     {
         [$schedule, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
 
-        // Đẩy ngày khởi hành ra xa để rơi vào bậc 15 đến 20 ngày.
+        // Mức hoàn phụ thuộc hạn chốt, không phụ thuộc số ngày còn lại.
         $schedule->update([
             'start_date' => now()->addDays(20),
             'end_date' => now()->addDays(22),
@@ -160,9 +160,9 @@ class HeldSeatsTest extends TestCase
 
         $this->getJson("/api/admin/bookings/{$booking->id}/cancel-preview")
             ->assertOk()
-            ->assertJsonPath('data.refund_percent', 75)
-            ->assertJsonPath('data.cancellation_fee', 1000000)
-            ->assertJsonPath('data.refund_amount', 3000000);
+            ->assertJsonPath('data.refund_percent', 100)
+            ->assertJsonPath('data.cancellation_fee', 0)
+            ->assertJsonPath('data.refund_amount', 4000000);
     }
 
     public function test_huy_truoc_han_chot_thi_cho_ve_kho_ngay(): void
@@ -258,7 +258,7 @@ class HeldSeatsTest extends TestCase
      */
     public function test_mac_dinh_la_khach_huy_va_co_ap_phi_huy(): void
     {
-        [, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
+        [, $booking] = $this->taoChuyenVaDon(hanChot: now()->subSecond()->toDateTimeString());
         $admin = $this->taoAdmin();
         Sanctum::actingAs($admin);
 
@@ -305,7 +305,7 @@ class HeldSeatsTest extends TestCase
     /** Dự báo phải tính theo đúng loại hủy sắp chọn, nếu không số trên màn hình khác số thực chi. */
     public function test_du_bao_doi_theo_loai_huy(): void
     {
-        [, $booking] = $this->taoChuyenVaDon(hanChot: now()->addDay()->toDateTimeString());
+        [, $booking] = $this->taoChuyenVaDon(hanChot: now()->subSecond()->toDateTimeString());
         Sanctum::actingAs($this->taoAdmin());
 
         $khachHuy = $this->getJson("/api/admin/bookings/{$booking->id}/cancel-preview")
