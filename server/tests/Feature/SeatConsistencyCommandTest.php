@@ -18,6 +18,8 @@ use Tests\TestCase;
  */
 class SeatConsistencyCommandTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private function taoChuyen(int $daGhi): TourSchedule
@@ -63,7 +65,7 @@ class SeatConsistencyCommandTest extends TestCase
     {
         $chuyen = $this->taoChuyen(0);
 
-        $this->postJson('/api/bookings', [
+        $this->postVerifiedBooking([
             'tour_id' => $chuyen->tour_id,
             'tour_schedule_id' => $chuyen->id,
             'customer_name' => 'Gia Dinh Co Em Be',

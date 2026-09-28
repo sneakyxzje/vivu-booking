@@ -15,6 +15,8 @@ use Tests\TestCase;
 
 class BookingHoldExpiryTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private function taoTourVaLich(
@@ -74,11 +76,10 @@ class BookingHoldExpiryTest extends TestCase
 
     public function test_don_qua_han_duoc_nha_cho_khi_co_khach_moi_dat(): void
     {
-        \Illuminate\Support\Facades\Cache::put('booking_verified_khach-moi@example.com', true, 600);
         $schedule = $this->taoTourVaLich(maxPeople: 5, bookedPeople: 3);
         $donQuaHan = $this->taoDonGiuCho($schedule, guests: 3, expiresAt: now()->subMinute());
 
-        $response = $this->postJson('/api/bookings', [
+        $response = $this->postVerifiedBooking([
             'tour_id' => $schedule->tour_id,
             'tour_schedule_id' => $schedule->id,
             'customer_name' => 'Khach Moi',
@@ -99,11 +100,10 @@ class BookingHoldExpiryTest extends TestCase
 
     public function test_don_chua_qua_han_van_giu_cho_cua_khach(): void
     {
-        \Illuminate\Support\Facades\Cache::put('booking_verified_khach-moi@example.com', true, 600);
         $schedule = $this->taoTourVaLich(maxPeople: 5, bookedPeople: 3);
         $donDangGiu = $this->taoDonGiuCho($schedule, guests: 3, expiresAt: now()->addMinutes(9));
 
-        $response = $this->postJson('/api/bookings', [
+        $response = $this->postVerifiedBooking([
             'tour_id' => $schedule->tour_id,
             'tour_schedule_id' => $schedule->id,
             'customer_name' => 'Khach Moi',

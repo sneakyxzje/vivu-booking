@@ -27,6 +27,8 @@ use Tests\TestCase;
  */
 class InfantPerAdultRuleTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private TourSchedule $chuyen;
@@ -62,7 +64,7 @@ class InfantPerAdultRuleTest extends TestCase
     /** @param array<string, mixed> $ghiDe */
     private function datTour(array $ghiDe = [])
     {
-        return $this->postJson('/api/bookings', array_merge([
+        return $this->postVerifiedBooking(array_merge([
             'tour_id' => $this->chuyen->tour_id,
             'tour_schedule_id' => $this->chuyen->id,
             'customer_name' => 'Nguyen Van A',

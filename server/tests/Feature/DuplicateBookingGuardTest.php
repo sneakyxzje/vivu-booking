@@ -21,6 +21,8 @@ use Tests\TestCase;
  */
 class DuplicateBookingGuardTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private TourSchedule $schedule;
@@ -65,8 +67,8 @@ class DuplicateBookingGuardTest extends TestCase
 
     public function test_bam_dat_hai_lan_chi_tao_mot_don(): void
     {
-        $lanMot = $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
-        $lanHai = $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
+        $lanMot = $this->postVerifiedBooking($this->payload())->assertStatus(201);
+        $lanHai = $this->postVerifiedBooking($this->payload())->assertStatus(201);
 
         $this->assertSame(1, Booking::query()->count());
 
@@ -80,16 +82,16 @@ class DuplicateBookingGuardTest extends TestCase
     /** Hệ quả tệ nhất của đơn trùng là chiếm gấp đôi số chỗ. */
     public function test_bam_hai_lan_khong_tru_hai_lan_so_cho(): void
     {
-        $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
-        $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
+        $this->postVerifiedBooking($this->payload())->assertStatus(201);
+        $this->postVerifiedBooking($this->payload())->assertStatus(201);
 
         $this->assertSame(2, (int) $this->schedule->fresh()->booked_people);
     }
 
     public function test_khach_khac_dat_cung_luc_thi_van_tao_don_rieng(): void
     {
-        $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
-        $this->postJson('/api/bookings', $this->payload([
+        $this->postVerifiedBooking($this->payload())->assertStatus(201);
+        $this->postVerifiedBooking($this->payload([
             'customer_email' => 'khachkhac@example.com',
         ]))->assertStatus(201);
 
@@ -100,20 +102,20 @@ class DuplicateBookingGuardTest extends TestCase
     /** Cùng người nhưng đặt số khách khác thì là đơn thật, không phải bấm nhầm. */
     public function test_cung_khach_nhung_khac_so_luong_thi_van_la_don_moi(): void
     {
-        $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
-        $this->postJson('/api/bookings', $this->payload(['adult_count' => 3]))->assertStatus(201);
+        $this->postVerifiedBooking($this->payload())->assertStatus(201);
+        $this->postVerifiedBooking($this->payload(['adult_count' => 3]))->assertStatus(201);
 
         $this->assertSame(2, Booking::query()->count());
     }
 
     public function test_dat_lai_cung_chuyen_o_thoi_diem_khac_thi_van_duoc(): void
     {
-        $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
+        $this->postVerifiedBooking($this->payload())->assertStatus(201);
 
         // Đẩy đơn cũ ra ngoài cửa sổ 60 giây.
         Booking::query()->update(['created_at' => now()->subMinutes(5)]);
 
-        $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
+        $this->postVerifiedBooking($this->payload())->assertStatus(201);
 
         $this->assertSame(2, Booking::query()->count());
     }
@@ -123,7 +125,7 @@ class DuplicateBookingGuardTest extends TestCase
     {
         \Illuminate\Support\Facades\Mail::fake();
 
-        $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
+        $this->postVerifiedBooking($this->payload())->assertStatus(201);
 
         \Illuminate\Support\Facades\Mail::assertQueued(\App\Mail\BookingCreatedMail::class, 1);
     }
@@ -137,13 +139,13 @@ class DuplicateBookingGuardTest extends TestCase
      */
     public function test_don_trung_bao_cho_khach_biet_la_don_cu(): void
     {
-        $this->postJson('/api/bookings', $this->payload())->assertStatus(201);
+        $this->postVerifiedBooking($this->payload())->assertStatus(201);
 
-        $this->postJson('/api/bookings', $this->payload())
+        $this->postVerifiedBooking($this->payload())
             ->assertStatus(201)
             ->assertJsonPath('success', true);
 
-        $lanHai = $this->postJson('/api/bookings', $this->payload());
+        $lanHai = $this->postVerifiedBooking($this->payload());
 
         $this->assertStringContainsString(
             'đã được ghi nhận trước đó',
@@ -169,8 +171,8 @@ class DuplicateBookingGuardTest extends TestCase
 
         $payload = $this->payload(['discount_code' => $ma->code]);
 
-        $this->postJson('/api/bookings', $payload)->assertStatus(201);
-        $this->postJson('/api/bookings', $payload)->assertStatus(201);
+        $this->postVerifiedBooking($payload)->assertStatus(201);
+        $this->postVerifiedBooking($payload)->assertStatus(201);
 
         $this->assertSame(1, (int) $ma->fresh()->used_count);
     }

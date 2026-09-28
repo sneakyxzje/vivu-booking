@@ -29,6 +29,8 @@ use Tests\TestCase;
  */
 class PublicPassengerDeclarationTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
     use \Tests\Concerns\VerifiesPassengerOtp;
 
@@ -274,8 +276,7 @@ class PublicPassengerDeclarationTest extends TestCase
     {
         $chuyenMoi = $this->taoChuyen(now()->addDays(30));
 
-        \Illuminate\Support\Facades\Cache::put('booking_verified_khachmoi@example.com', true, 900);
-        $response = $this->postJson('/api/bookings', [
+        $response = $this->postVerifiedBooking([
             'tour_id' => $this->tour->id,
             'tour_schedule_id' => $chuyenMoi->id,
             'customer_name' => 'Khách Mới',

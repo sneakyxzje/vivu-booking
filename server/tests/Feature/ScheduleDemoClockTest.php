@@ -17,6 +17,8 @@ use Tests\TestCase;
 
 class ScheduleDemoClockTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private User $admin;
@@ -108,8 +110,7 @@ class ScheduleDemoClockTest extends TestCase
         $this->enable($schedule);
         $realTime = now()->toDateTimeString();
         $customer = User::factory()->create(['role' => 'customer', 'status' => 'active']);
-        Cache::put('booking_verified_' . $customer->email, true, now()->addMinutes(15));
-        $this->actingAs($customer)->postJson('/api/bookings', [
+        $this->actingAs($customer)->postVerifiedBooking([
             'tour_id' => $schedule->tour_id, 'tour_schedule_id' => $schedule->id,
             'customer_name' => $customer->name, 'customer_email' => $customer->email,
             'adult_count' => 1, 'accept_terms' => true,

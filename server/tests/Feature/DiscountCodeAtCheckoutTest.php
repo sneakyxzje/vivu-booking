@@ -22,6 +22,8 @@ use Tests\TestCase;
  */
 class DiscountCodeAtCheckoutTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private TourSchedule $schedule;
@@ -85,7 +87,7 @@ class DiscountCodeAtCheckoutTest extends TestCase
     {
         $ma = $this->taoMa();
 
-        $this->postJson('/api/bookings', $this->payload($ma->code))->assertStatus(201);
+        $this->postVerifiedBooking($this->payload($ma->code))->assertStatus(201);
 
         $don = Booking::query()->first();
 
@@ -109,14 +111,14 @@ class DiscountCodeAtCheckoutTest extends TestCase
         $lanDau = $this->payload($ma->code);
         $lanDau['customer_email'] = $email;
 
-        $this->postJson('/api/bookings', $lanDau)->assertStatus(201);
+        $this->postVerifiedBooking($lanDau)->assertStatus(201);
         $this->assertEquals(3_600_000, (float) Booking::query()->latest('id')->first()->total_amount);
 
         // Cùng người, cùng mã, đơn thứ hai: vẫn đặt được nhưng theo giá gốc.
         $lanHai = $this->payload($ma->code);
         $lanHai['customer_email'] = $email;
 
-        $phanHoi = $this->postJson('/api/bookings', $lanHai)->assertStatus(201);
+        $phanHoi = $this->postVerifiedBooking($lanHai)->assertStatus(201);
 
         $donHai = Booking::query()->latest('id')->first();
 
@@ -132,11 +134,11 @@ class DiscountCodeAtCheckoutTest extends TestCase
 
         $mot = $this->payload($ma->code);
         $mot['customer_email'] = 'nguoi-mot@example.com';
-        $this->postJson('/api/bookings', $mot)->assertStatus(201);
+        $this->postVerifiedBooking($mot)->assertStatus(201);
 
         $hai = $this->payload($ma->code);
         $hai['customer_email'] = 'nguoi-hai@example.com';
-        $this->postJson('/api/bookings', $hai)->assertStatus(201);
+        $this->postVerifiedBooking($hai)->assertStatus(201);
 
         $this->assertEquals(3_600_000, (float) Booking::query()->latest('id')->first()->total_amount);
     }
@@ -149,7 +151,7 @@ class DiscountCodeAtCheckoutTest extends TestCase
     {
         $ma = $this->taoMa(['usage_limit' => 1, 'used_count' => 1]);
 
-        $response = $this->postJson('/api/bookings', $this->payload($ma->code))
+        $response = $this->postVerifiedBooking($this->payload($ma->code))
             ->assertStatus(201);
 
         $don = Booking::query()->first();
@@ -164,7 +166,7 @@ class DiscountCodeAtCheckoutTest extends TestCase
     {
         $ma = $this->taoMa(['expires_at' => now()->subHour()]);
 
-        $this->postJson('/api/bookings', $this->payload($ma->code))->assertStatus(201);
+        $this->postVerifiedBooking($this->payload($ma->code))->assertStatus(201);
 
         $this->assertEquals(4_000_000, (float) Booking::query()->first()->total_amount);
     }
@@ -173,7 +175,7 @@ class DiscountCodeAtCheckoutTest extends TestCase
     {
         $ma = $this->taoMa(['is_active' => false]);
 
-        $this->postJson('/api/bookings', $this->payload($ma->code))->assertStatus(201);
+        $this->postVerifiedBooking($this->payload($ma->code))->assertStatus(201);
 
         $this->assertEquals(4_000_000, (float) Booking::query()->first()->total_amount);
     }
@@ -183,7 +185,7 @@ class DiscountCodeAtCheckoutTest extends TestCase
     {
         $ma = $this->taoMa(['minimum_order_amount' => 10_000_000]);
 
-        $this->postJson('/api/bookings', $this->payload($ma->code))->assertStatus(201);
+        $this->postVerifiedBooking($this->payload($ma->code))->assertStatus(201);
 
         $this->assertEquals(4_000_000, (float) Booking::query()->first()->total_amount);
     }
@@ -194,7 +196,7 @@ class DiscountCodeAtCheckoutTest extends TestCase
      */
     public function test_ma_khong_ton_tai_thi_tu_choi_de_khach_sua(): void
     {
-        $this->postJson('/api/bookings', $this->payload('KHONGCOMANAY'))
+        $this->postVerifiedBooking($this->payload('KHONGCOMANAY'))
             ->assertStatus(422)
             ->assertJsonValidationErrors('discount_code');
 
@@ -212,8 +214,8 @@ class DiscountCodeAtCheckoutTest extends TestCase
     {
         $ma = $this->taoMa(['usage_limit' => 1]);
 
-        $this->postJson('/api/bookings', $this->payload($ma->code))->assertStatus(201);
-        $this->postJson('/api/bookings', $this->payload($ma->code))->assertStatus(201);
+        $this->postVerifiedBooking($this->payload($ma->code))->assertStatus(201);
+        $this->postVerifiedBooking($this->payload($ma->code))->assertStatus(201);
 
         $this->assertSame(1, (int) $ma->fresh()->used_count);
 
@@ -229,7 +231,7 @@ class DiscountCodeAtCheckoutTest extends TestCase
     {
         $ma = $this->taoMa();
 
-        $this->postJson('/api/bookings', $this->payload($ma->code))->assertStatus(201);
+        $this->postVerifiedBooking($this->payload($ma->code))->assertStatus(201);
         $this->assertSame(1, (int) $ma->fresh()->used_count);
 
         $don = Booking::query()->first();

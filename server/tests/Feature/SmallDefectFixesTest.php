@@ -30,6 +30,8 @@ use Tests\TestCase;
  */
 class SmallDefectFixesTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private User $dieuHanh;
@@ -112,7 +114,7 @@ class SmallDefectFixesTest extends TestCase
         ])->assertOk();
 
         // Đặt một đơn có dùng mã — hết phần của người này.
-        $this->postJson('/api/bookings', [
+        $this->postVerifiedBooking([
             'tour_id' => $this->tour->id,
             'tour_schedule_id' => $chuyen->id,
             'customer_name' => 'Nguyen Van An',

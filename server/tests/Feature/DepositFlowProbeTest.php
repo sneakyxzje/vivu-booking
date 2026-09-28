@@ -19,6 +19,8 @@ use Tests\TestCase;
 
 class DepositFlowProbeTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private User $dieuHanh;
@@ -85,8 +87,7 @@ class DepositFlowProbeTest extends TestCase
     private function datTour(): Booking
     {
         $email = 'deposit-test@example.com';
-        \Illuminate\Support\Facades\Cache::put('booking_verified_' . $email, true, 600);
-        $this->postJson('/api/bookings', [
+        $this->postVerifiedBooking([
             'tour_id' => $this->tour->id,
             'tour_schedule_id' => $this->chuyen->id,
             'customer_name' => 'Khach Dat Coc',
@@ -203,8 +204,7 @@ class DepositFlowProbeTest extends TestCase
         ]);
 
         $email = 'deposit-test@example.com';
-        \Illuminate\Support\Facades\Cache::put('booking_verified_' . $email, true, 600);
-        $this->postJson('/api/bookings', [
+        $this->postVerifiedBooking([
             'tour_id' => $this->tour->id,
             'tour_schedule_id' => $satNgay->id,
             'customer_name' => 'Khach Dat Gap',

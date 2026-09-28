@@ -59,7 +59,8 @@ class PassengerOtpTest extends TestCase
 
     public function test_matching_email_and_checkout_verification_cannot_bypass_passenger_otp(): void
     {
-        Cache::put('booking_verified_contact@example.com', true, 900);
+        $token = app(\App\Services\BookingCheckoutVerification::class)->issue('contact@example.com', null);
+        $this->withHeaders(['X-Booking-Verification' => $token, 'X-Passenger-Access' => $token]);
         $this->getJson($this->url . '?email=contact@example.com')->assertOk()
             ->assertJsonPath('data.identity_masked', true)->assertJsonPath('data.requires_otp', true);
         $this->getJson('/api/bookings/' . $this->booking->public_token . '?email=contact@example.com')

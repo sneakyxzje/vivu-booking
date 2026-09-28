@@ -17,11 +17,12 @@ use Tests\TestCase;
  */
 class ScheduleAutomationTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     public function test_khong_dat_duoc_chuyen_qua_han_du_chua_chot(): void
     {
-        \Illuminate\Support\Facades\Cache::put('booking_verified_khach-test@example.com', true, 600);
         $tour = Tour::factory()->create(['status' => 'active']);
         $schedule = TourSchedule::factory()->create([
             'tour_id' => $tour->id,
@@ -32,7 +33,7 @@ class ScheduleAutomationTest extends TestCase
             'booked_people' => 0,
         ]);
 
-        $response = $this->postJson('/api/bookings', [
+        $response = $this->postVerifiedBooking([
             'tour_id' => $tour->id,
             'tour_schedule_id' => $schedule->id,
             'customer_name' => 'Khach Test',

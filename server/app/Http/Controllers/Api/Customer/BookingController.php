@@ -12,6 +12,7 @@ use App\Models\DiscountCode;
 use App\Models\PaymentLog;
 use App\Models\TourSchedule;
 use App\Services\BookingAuditLogger;
+use App\Services\BookingCheckoutVerification;
 use App\Services\BookingContactService;
 use App\Services\BookingHoldService;
 use App\Services\BookingPaymentService;
@@ -42,6 +43,7 @@ class BookingController extends Controller
     private const DUPLICATE_WINDOW_SECONDS = 60;
 
     public function __construct(
+        private BookingCheckoutVerification $checkoutVerification,
         private VNPayService $vnpayService,
         private BookingHoldService $holdService,
         private BookingPolicyService $bookingPolicy,
@@ -107,10 +109,7 @@ class BookingController extends Controller
                 . 'nhiều hơn số người lớn.',
         ]);
 
-        $email = strtolower(trim($data['customer_email']));
-        if (!\Illuminate\Support\Facades\Cache::get('booking_verified_' . $email)) {
-            return $this->error('Bạn chưa xác thực email. Vui lòng nhận và nhập mã OTP trước khi đặt tour.', 403);
-        }
+        $data['customer_email'] = strtolower(trim($data['customer_email']));
 
         $user = auth('sanctum')->user();
 
@@ -161,19 +160,17 @@ class BookingController extends Controller
             }
         }
 
-        // Nhả chỗ của các đơn quá hạn thanh toán trước khi kiểm tra chỗ trống,
-        // để khách mới dùng được ngay slot vừa được trả lại.
-        $this->holdService->releaseOverdueForSchedule((int) $data['tour_schedule_id']);
-
         // Đặt ngoài giao dịch để biết được kết quả sau khi giao dịch đóng: đơn trùng thì không
-        // gửi lại thư và không tạo lại liên kết thanh toán.
+        // gửi lại thư.
         $laDonTrung = false;
 
         // Mã giảm giá vừa hết lượt trong lúc khách điền thông tin. Đơn vẫn tạo theo giá gốc,
         // nhưng phải nói cho khách biết vì họ đang chờ thấy con số đã giảm.
         $thongBaoMaGiam = null;
 
-        $booking = DB::transaction(function () use ($data, $user, $guestId, &$laDonTrung, &$thongBaoMaGiam) {
+        $booking = $this->checkoutVerification->create($request, $data, function () use ($data, $user, $guestId, &$laDonTrung, &$thongBaoMaGiam) {
+            // Nhả chỗ hết hạn sau khi kiểm tra xác thực và trước khi kiểm tra chỗ trống.
+            $this->holdService->releaseOverdueForSchedule((int) $data['tour_schedule_id']);
             $schedule = TourSchedule::query()
                 ->where('id', $data['tour_schedule_id'])
                 ->where('tour_id', $data['tour_id'])
@@ -310,11 +307,18 @@ class BookingController extends Controller
             $this->holdService->refreshTourAvailability($schedule);
 
             return $booking->load(['tour', 'schedule']);
-        });
+        }, $laDonTrung);
 
+        // Khôi phục cookie nếu phản hồi đầu tiên bị mất trước khi trình duyệt nhận được nó.
+        if ($guestCookie && $booking->guest_id) {
+            $guestCookie = $guestCookie->withValue($booking->guest_id);
+        }
 
         $soTienCoc = $this->paymentService->nextPaymentAmount($booking);
-        $paymentUrl = $this->vnpayService->createPayment($booking, $soTienCoc);
+        $canPay = in_array($booking->status, ['pending', 'confirmed'], true)
+            && $soTienCoc > 0 && !$booking->isOverdue()
+            && (!$booking->balanceDueAt() || $booking->balanceDueAt()->gt(\App\Services\DemoClock::booking($booking)));
+        $paymentUrl = $canPay ? $this->vnpayService->createPayment($booking, $soTienCoc) : null;
 
         // Đơn trùng thì không gửi thư lần hai. Nhận hai thư xác nhận cho một lần đặt làm khách
         // tưởng mình vừa đặt hai chuyến và gọi lên hỏi, đúng thứ mà luật chống trùng sinh ra để
@@ -336,11 +340,6 @@ class BookingController extends Controller
             ? 'Đơn đặt tour của bạn đã được ghi nhận trước đó.'
             : 'Đặt tour thành công.';
 
-        // Thu hồi cờ xác thực OTP sau khi giao dịch tạo đơn thành công
-        if (!$laDonTrung) {
-            \Illuminate\Support\Facades\Cache::forget('booking_verified_' . strtolower(trim($data['customer_email'])));
-        }
-
         $thongBao = $conNo > 0
             ? sprintf(
                 '%s Vui lòng đặt cọc %s đ trong %d phút để giữ chỗ.%s',
@@ -357,6 +356,10 @@ class BookingController extends Controller
                 $moDau,
                 $this->holdService->holdMinutes(),
             );
+
+        if ($laDonTrung && !$canPay) {
+            $thongBao = 'Đơn đặt tour của bạn đã được ghi nhận trước đó. Vui lòng xem trạng thái hiện tại của đơn.';
+        }
 
         if ($thongBaoMaGiam) {
             $thongBao = $thongBaoMaGiam . ' ' . $thongBao;

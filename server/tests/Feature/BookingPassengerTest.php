@@ -13,6 +13,8 @@ use Tests\TestCase;
 
 class BookingPassengerTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     public function test_dat_tour_luu_danh_sach_hanh_khach(): void
@@ -46,8 +48,7 @@ class BookingPassengerTest extends TestCase
             'status' => 'open',
         ]);
 
-        \Illuminate\Support\Facades\Cache::put('booking_verified_vana@example.com', true, 900);
-        $response = $this->postJson('/api/bookings', [
+        $response = $this->postVerifiedBooking([
             'tour_id' => $tour->id,
             'tour_schedule_id' => $schedule->id,
             'customer_name' => 'Nguyen Van A',

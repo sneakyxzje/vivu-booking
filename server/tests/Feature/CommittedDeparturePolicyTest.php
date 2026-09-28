@@ -21,6 +21,8 @@ use Tests\TestCase;
 
 class CommittedDeparturePolicyTest extends TestCase
 {
+    use \Tests\Concerns\VerifiesBookingOtp;
+
     use RefreshDatabase;
 
     private Tour $tour;
@@ -200,8 +202,7 @@ class CommittedDeparturePolicyTest extends TestCase
     public function test_checkout_near_cutoff_charges_half_and_caps_hold_expiry(): void
     {
         $schedule = $this->schedule(1, ['booking_deadline' => now()->addMinutes(2)]);
-        \Illuminate\Support\Facades\Cache::put('booking_verified_guest@example.com', true, 600);
-        $response = $this->postJson('/api/bookings', [
+        $response = $this->postVerifiedBooking([
             'tour_id' => $this->tour->id, 'tour_schedule_id' => $schedule->id,
             'customer_name' => 'Khách sát hạn', 'customer_email' => 'guest@example.com',
             'customer_phone' => '0901234567', 'adult_count' => 1, 'accept_terms' => true,
