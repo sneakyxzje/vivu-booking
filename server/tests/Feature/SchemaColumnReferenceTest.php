@@ -44,7 +44,6 @@ class SchemaColumnReferenceTest extends TestCase
         'after', 'after_or_equal', 'before', 'before_or_equal', 'date_format', 'mimes', 'mimetypes',
         'regex', 'starts_with', 'ends_with', 'between', 'digits_between', 'size', 'max', 'min',
         'different', 'same', 'gt', 'gte', 'lt', 'lte', 'alpha_num', 'http', 'https', 'H', 'Y', 'd', 'i',
-        'config', // Artisan config:clear, không phải danh sách cột của quan hệ.
     ];
 
     /** @return array<string, true> */

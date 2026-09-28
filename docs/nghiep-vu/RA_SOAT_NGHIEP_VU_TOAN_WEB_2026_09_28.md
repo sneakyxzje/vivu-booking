@@ -145,10 +145,21 @@ Mô tả A1/A5 bên dưới ghi lại lỗi trước khi sửa; kết quả hi�
 5. Điều khoản/FAQ: A6 đã sửa nội dung và rà mẫu email/hợp đồng; vẫn cần xử lý A3 để mọi cửa chuyển khách tuân thủ chấp thuận.
 6. Đã cập nhật tiền điều kiện OTP, sửa nhận diện alias/validation rule trong bộ kiểm tra lược đồ và chạy lại toàn bộ. A7 đã được sửa ở lượt chuẩn bị laptop. Còn kiểm thử xuyên suốt các dịch vụ bên ngoài trên môi trường tích hợp.
 
-## Bản demo laptop — kết quả cuối
+## Nhập dữ liệu trực tiếp — 29/09/2026
 
-- Backend: **988/988 bài đạt**, 4.071 assertions; frontend: **56/56 bài đạt**, build thành công.
-- Đã khôi phục dữ liệu trên MySQL riêng, áp dụng hai migration OTP/bổ sung hành khách; thử từ chối database đã tồn tại và kích hoạt bằng file môi trường thử nghiệm. Database nguồn và `.env` gốc giữ nguyên.
-- Bộ dữ liệu đã ẩn thông tin cá nhân, bỏ thư/token/session cũ; 15 tour, 62 chuyến, 31 đơn và đủ 59 ngày lịch trình. Số chỗ khớp, không có thứ tự thời gian chuyến sai.
-- Đăng nhập ba vai trò và gọi API đơn/guide/phần khách trên database khôi phục đều thành công. Chi tiết tour mẫu trả đủ các ngày.
-- Cách cài: [DEMO_LAPTOP.md](../DEMO_LAPTOP.md). SMTP, Cloudinary và VNPay cần cấu hình riêng trên laptop; lượt kiểm tra này không thay thế kiểm tra dịch vụ thật. Các phát hiện A2–A4 vẫn cần xử lý riêng, không được coi là đã khắc phục chỉ vì toàn bộ test hiện có đạt.
+Đã nhập file `vivu_booking (1).sql` của người dùng vào database web hiện tại sau khi sao lưu. Giữ nguyên tài khoản, mật khẩu, thông tin khách hàng và các bút toán gốc. Không dùng tài khoản demo thay thế, không cần script setup laptop.
+
+Các điều chỉnh dữ liệu để khớp code hiện tại:
+
+- Chạy hai migration còn thiếu cho xác thực checkout và bổ sung hành khách.
+- Bổ sung 21 ngày lịch trình còn thiếu (tổng 59 ngày) và các điểm tập trung tương ứng.
+- Điền số ghế của 30 đơn cũ theo cơ cấu người lớn/trẻ em đã lưu, không thay số khách hay tiền.
+- Chạy các tác vụ nghiệp vụ hiện có để xử lý giữ chỗ hết hạn, hạn trả đủ, chốt chuyến và hoàn thành các đơn của chuyến đã kết thúc. Chặn gửi email/thông báo trong lần chuẩn hóa dữ liệu này.
+- Bỏ thư chờ và các session/token/cache cũ; tài khoản và mật khẩu giữ nguyên.
+- Danh sách còn thiếu khách được giữ để thử luồng điều hành bổ sung, không tự điền tên người chưa được khai.
+
+Kiểm tra dữ liệu không còn lỗi cơ cấu khách/số ghế, ngày sinh theo loại khách, ngày đơn lệch ngày chuyến, thứ tự thời gian chuyến, sổ thanh toán thiếu hoặc HDV trùng lịch. Đã chạy 137 kiểm tra API trên dữ liệu nhập, gồm tour/đơn/sổ tiền, điểm danh HDV, OTP, cọc 50%, chặn khai vượt số khách và trả nốt tiền. Các giao dịch thử đã rollback, không để lại đơn thử và không gửi email thật.
+
+Luồng chuyển máy: test trên web hiện tại → export database đã chỉnh → pull code trên laptop → import SQL vào database trống → chạy `php artisan migrate`. Cấu hình SMTP/Cloudinary/VNPay vẫn nằm trong `.env` riêng. Các phát hiện A2–A4 ở trên không được coi là đã sửa chỉ vì dữ liệu nhập hợp lệ hoặc test hiện có đạt.
+
+Kiểm tra cuối sau khi gỡ tooling laptop: **980/980 bài backend đạt**, 3.795 assertions; API web đang chạy trả HTTP 200. Bộ test điểm danh đã sửa dữ liệu dựng để không vô tình chuyển ngày 1 sang hôm qua khi chạy ngay sau nửa đêm; không đổi luật điểm danh.

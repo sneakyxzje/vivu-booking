@@ -4,8 +4,6 @@
 
 **Stack:** React 19 + TypeScript + Tailwind CSS 4 (client) · Laravel 13 + Sanctum (server) · MySQL/SQLite · VNPay sandbox · Cloudinary.
 
-**Demo trên laptop:** xem [hướng dẫn khôi phục dữ liệu và chạy ứng dụng](docs/DEMO_LAPTOP.md). Bộ dữ liệu đã được làm sạch và có lệnh tạo database demo riêng.
-
 ## Tính năng chính
 
 ### Khách hàng
