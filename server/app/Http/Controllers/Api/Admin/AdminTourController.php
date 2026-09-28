@@ -389,6 +389,11 @@ class AdminTourController extends Controller
             'itineraries.*.route_points' => ['nullable', 'string'],
             'itineraries.*.rest_stops' => ['nullable', 'string'],
             'itineraries.*.content' => ['required_with:itineraries', 'string'],
+            'itineraries.*.images' => ['nullable', 'array', 'max:8'],
+            'itineraries.*.images.*' => ['required', 'url', 'max:2048'],
+            'itineraries.*.replace_images' => ['nullable', 'boolean'],
+            'itineraries.*.image_files' => ['nullable', 'array', 'max:8'],
+            'itineraries.*.image_files.*' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'itineraries.*.checkpoints' => ['nullable', 'array'],
             'itineraries.*.checkpoints.*.name' => ['required_with:itineraries.*.checkpoints', 'string', 'max:255'],
             'itineraries.*.checkpoints.*.description' => ['nullable', 'string'],
@@ -480,6 +485,7 @@ class AdminTourController extends Controller
                     'route_points' => $item['route_points'] ?? null,
                     'rest_stops' => $item['rest_stops'] ?? null,
                     'content' => $item['content'],
+                    'images' => $this->itineraryImages($item),
                 ]);
 
                 foreach ($item['checkpoints'] ?? [] as $checkpoint) {
@@ -600,6 +606,11 @@ class AdminTourController extends Controller
             'itineraries.*.route_points' => ['nullable', 'string'],
             'itineraries.*.rest_stops' => ['nullable', 'string'],
             'itineraries.*.content' => ['required_with:itineraries', 'string'],
+            'itineraries.*.images' => ['nullable', 'array', 'max:8'],
+            'itineraries.*.images.*' => ['required', 'url', 'max:2048'],
+            'itineraries.*.replace_images' => ['nullable', 'boolean'],
+            'itineraries.*.image_files' => ['nullable', 'array', 'max:8'],
+            'itineraries.*.image_files.*' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'itineraries.*.checkpoints' => ['nullable', 'array'],
             'itineraries.*.checkpoints.*.id' => ['nullable', 'exists:itinerary_checkpoints,id'],
             'itineraries.*.checkpoints.*.name' => ['required_with:itineraries.*.checkpoints', 'string', 'max:255'],
@@ -1008,6 +1019,8 @@ class AdminTourController extends Controller
                 ? $tour->itineraries()->whereKey($item['id'])->first()
                 : $tour->itineraries()->where('day_number', $item['day_number'])->first();
 
+            $payload['images'] = $this->itineraryImages($item, $itinerary);
+
             if ($itinerary) {
                 $itinerary->update($payload);
             } else {
@@ -1021,6 +1034,30 @@ class AdminTourController extends Controller
 
         // Chỉ xóa ngày nào không còn trong payload.
         $tour->itineraries()->whereKeyNot($keptIds)->delete();
+    }
+
+    private function itineraryImages(array $item, ?TourItinerary $itinerary = null): array
+    {
+        $saved = $itinerary?->images ?? [];
+        $replace = ($item['replace_images'] ?? false) || array_key_exists('images', $item);
+        $kept = $replace ? ($item['images'] ?? []) : $saved;
+        $files = $item['image_files'] ?? [];
+        $day = $item['day_number'];
+
+        if (array_diff($kept, $saved)) {
+            throw ValidationException::withMessages([
+                'itineraries' => "Ảnh giữ lại của ngày {$day} không thuộc lịch trình này.",
+            ]);
+        }
+        if (count($kept) + count($files) > 8) {
+            throw ValidationException::withMessages([
+                'itineraries' => "Ngày {$day} chỉ được thêm tối đa 8 ảnh.",
+            ]);
+        }
+        foreach ($files as $file) {
+            $kept[] = $this->cloudinaryService->uploadImage($file, 'vivu-booking/itineraries');
+        }
+        return array_values($kept);
     }
 
     /**
