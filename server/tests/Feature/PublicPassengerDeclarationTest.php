@@ -30,6 +30,7 @@ use Tests\TestCase;
 class PublicPassengerDeclarationTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\VerifiesPassengerOtp;
 
     private Tour $tour;
     private TourSchedule $chuyen;
@@ -113,6 +114,7 @@ class PublicPassengerDeclarationTest extends TestCase
      */
     public function test_khach_vang_lai_khai_duoc_danh_sach_bang_ma_tra_cuu(): void
     {
+        $this->withHeaders($this->passengerAccessHeaders($this->don));
         $this->putJson($this->duong(), ['passengers' => $this->haiNguoiLonMotTre(), 'customer_email' => 'daidien@example.com'])
             ->assertOk();
 
@@ -149,6 +151,7 @@ class PublicPassengerDeclarationTest extends TestCase
      */
     public function test_khong_co_email_thi_so_giay_to_bi_che(): void
     {
+        $this->withHeaders($this->passengerAccessHeaders($this->don));
         $this->putJson($this->duong(), [
             'passengers' => [[
                 'name' => 'Nguyễn Văn A',
@@ -158,15 +161,17 @@ class PublicPassengerDeclarationTest extends TestCase
             'customer_email' => 'daidien@example.com',
         ])->assertOk();
 
+        $this->withHeader("X-Passenger-Access", "");
         $ds = $this->getJson($this->duong())->assertOk()->json('data');
 
         $this->assertTrue($ds['identity_masked']);
         $this->assertSame('••••••••8901', $ds['passengers'][0]['identity_number']);
     }
 
-    /** Nhập đúng email đã đặt thì đọc được đầy đủ. */
-    public function test_dung_email_thi_doc_duoc_day_du(): void
+    /** Xác thực OTP của đúng đơn thì đọc được đầy đủ. */
+    public function test_dung_otp_thi_doc_duoc_day_du(): void
     {
+        $this->withHeaders($this->passengerAccessHeaders($this->don));
         $this->putJson($this->duong(), [
             'passengers' => [[
                 'name' => 'Nguyễn Văn A',
@@ -196,6 +201,7 @@ class PublicPassengerDeclarationTest extends TestCase
     /** Khai một phần vẫn lưu được — có tên ai thì điền tên người đó trước. */
     public function test_khai_mot_phan_van_luu_duoc(): void
     {
+        $this->withHeaders($this->passengerAccessHeaders($this->don));
         $this->putJson($this->duong(), [
             'passengers' => [['name' => 'Nguyễn Văn A', 'type' => 'adult']],
             'customer_email' => 'daidien@example.com',
@@ -214,6 +220,7 @@ class PublicPassengerDeclarationTest extends TestCase
      */
     public function test_qua_han_chot_thi_khach_khong_con_tu_sua_duoc(): void
     {
+        $this->withHeaders($this->passengerAccessHeaders($this->don));
         $this->chuyen->update(['booking_deadline' => now()->subHour()]);
 
         $response = $this->putJson($this->duong(), ['passengers' => $this->haiNguoiLonMotTre(), 'customer_email' => 'daidien@example.com'])
@@ -231,6 +238,7 @@ class PublicPassengerDeclarationTest extends TestCase
     /** Đoàn đã lên đường thì danh sách là dữ liệu điểm danh, không ai sửa. */
     public function test_chuyen_dang_chay_thi_khoa_han(): void
     {
+        $this->withHeaders($this->passengerAccessHeaders($this->don));
         $this->chuyen->update([
             'status' => ScheduleStatus::InProgress->value,
             'start_date' => now()->subDay(),
@@ -243,6 +251,7 @@ class PublicPassengerDeclarationTest extends TestCase
     /** Luật trùng số giấy tờ vẫn chạy trên đường công khai. */
     public function test_trung_so_giay_to_bi_tu_choi(): void
     {
+        $this->withHeaders($this->passengerAccessHeaders($this->don));
         $this->putJson($this->duong(), [
             'passengers' => [
                 ['name' => 'Nguyễn Văn A', 'type' => 'adult', 'identity_number' => '001199001234'],
@@ -265,6 +274,7 @@ class PublicPassengerDeclarationTest extends TestCase
     {
         $chuyenMoi = $this->taoChuyen(now()->addDays(30));
 
+        \Illuminate\Support\Facades\Cache::put('booking_verified_khachmoi@example.com', true, 900);
         $response = $this->postJson('/api/bookings', [
             'tour_id' => $this->tour->id,
             'tour_schedule_id' => $chuyenMoi->id,

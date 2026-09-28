@@ -117,6 +117,8 @@ Route::get('/bookings/{publicToken}', [CustomerBookingController::class, 'show']
  */
 Route::get('/bookings/{publicToken}/passengers', [CustomerPassengerController::class, 'publicIndex']);
 Route::put('/bookings/{publicToken}/passengers', [CustomerPassengerController::class, 'publicUpdate']);
+Route::post('/bookings/{publicToken}/passengers/send-otp', [CustomerPassengerController::class, 'sendOtp']);
+Route::post('/bookings/{publicToken}/passengers/verify-otp', [CustomerPassengerController::class, 'verifyOtp']);
 // Mức hoàn dự kiến nếu hủy ngay bây giờ. Khách vãng lai cũng xem được bằng mã tra cứu.
 Route::get('/bookings/{publicToken}/refund-quote', [CustomerBookingController::class, 'refundQuote']);
 /*

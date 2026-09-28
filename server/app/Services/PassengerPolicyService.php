@@ -40,7 +40,7 @@ class PassengerPolicyService
     public function editability(Booking $booking, ?TourSchedule $schedule = null, ?Carbon $now = null): array
     {
         $schedule ??= $booking->schedule;
-        $now ??= now();
+        $now ??= DemoClock::schedule($schedule);
 
         if (!$schedule) {
             // Đơn không gắn chuyến thì không có mốc thời gian nào để dựa vào, cứ cho sửa.

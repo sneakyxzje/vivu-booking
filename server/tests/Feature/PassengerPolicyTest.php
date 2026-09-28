@@ -457,6 +457,7 @@ class PassengerPolicyTest extends TestCase
      */
     public function test_dat_tour_voi_giay_to_trung_nhau_cung_bi_tu_choi(): void
     {
+        \Illuminate\Support\Facades\Cache::put('booking_verified_khach@example.com', true, 900);
         $this->postJson('/api/bookings', [
             'tour_id' => $this->schedule->tour_id,
             'tour_schedule_id' => $this->schedule->id,

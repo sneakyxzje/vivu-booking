@@ -46,6 +46,7 @@ class BookingPassengerTest extends TestCase
             'status' => 'open',
         ]);
 
+        \Illuminate\Support\Facades\Cache::put('booking_verified_vana@example.com', true, 900);
         $response = $this->postJson('/api/bookings', [
             'tour_id' => $tour->id,
             'tour_schedule_id' => $schedule->id,
