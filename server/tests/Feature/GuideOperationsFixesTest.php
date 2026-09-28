@@ -90,6 +90,9 @@ class GuideOperationsFixesTest extends TestCase
             'number_of_days' => 3,
             'number_of_nights' => 2,
             'start_location' => 'Ha Noi',
+            'itineraries' => array_map(fn ($day) => [
+                'day_number' => $day, 'title' => "Ngày {$day}", 'content' => 'Tham quan và nghỉ ngơi.',
+            ], range(1, 3)),
             'schedules' => $schedules,
         ]);
     }
@@ -428,15 +431,11 @@ class GuideOperationsFixesTest extends TestCase
     }
 
     // ─────────────────────────────────────────────────────────────────────────────────────
-    // Mức khách tối thiểu
+    // Số khách mục tiêu
     // ─────────────────────────────────────────────────────────────────────────────────────
 
     /**
-     * `min_people` đếm GHẾ, không đếm người — cùng thước với `max_people`.
-     *
-     * `booked_people` cộng lên theo số ghế (em bé đi cùng bố mẹ không chiếm chỗ), nên đếm `guests`
-     * ở đầu kia là đo hai đầu của một trục bằng hai cái thước. Chuyến `min_people = 4` bán được 2
-     * người lớn kèm 2 em bé sẽ tự chốt chạy, trong khi chỉ có 2 suất thực sự bán được.
+     * Em bé không chiếm ghế; dưới số khách mục tiêu vẫn chạy cho khách đã trả đủ.
      */
     public function test_min_people_dem_ghe_khong_dem_em_be(): void
     {
@@ -468,10 +467,11 @@ class GuideOperationsFixesTest extends TestCase
 
         $this->artisan('schedules:confirm-ready')->assertSuccessful();
 
-        $this->assertNotSame(
+        $this->assertSame(
             ScheduleStatus::Confirmed,
             $chuyen->fresh()->status,
-            'Hai người lớn và hai em bé chỉ là hai suất bán được, chưa đủ mức tối thiểu bốn.',
+            'Hai ghế đã trả đủ vẫn được khởi hành dù mục tiêu là bốn.',
         );
+        $this->assertSame(2, (int) $chuyen->fresh()->booked_people);
     }
 }

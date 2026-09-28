@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Guide;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TourResource;
 use App\Models\Tour;
+use App\Services\ScheduleLifecycleService;
+use App\Services\DemoClock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,7 +18,8 @@ class TourController extends Controller
         // Một chuyến có thể có nhiều hướng dẫn viên, nên lọc qua bảng nối.
         $assignedSchedules = fn ($query) => $query
             ->whereHas('guides', fn ($q) => $q->whereKey($guideId))
-            ->with('guides:id,name,email,phone,status');
+            ->with('guides:id,name,email,phone,status')
+            ->orderByDesc('start_date')->orderByDesc('id');
 
         $tours = Tour::query()
             ->whereHas('schedules', fn ($query) => $query
@@ -28,8 +31,19 @@ class TourController extends Controller
                 'itineraries',
                 'schedules' => $assignedSchedules,
             ])
-            ->latest()
+            ->withMax(['schedules' => fn ($query) => $query
+                ->whereHas('guides', fn ($q) => $q->whereKey($guideId))], 'start_date')
+            ->orderByDesc('schedules_max_start_date')
+            ->latest()->orderByDesc('id')
             ->get();
+
+        foreach ($tours as $tour) {
+            foreach ($tour->schedules as $schedule) {
+                $now = DemoClock::schedule($schedule);
+                $schedule->setAttribute('server_now', $now->toIso8601String());
+                $schedule->setAttribute('effective_status', app(ScheduleLifecycleService::class)->effectiveStatus($schedule, $now)->value);
+            }
+        }
 
         return response()->json([
             'success' => true,
@@ -52,7 +66,8 @@ class TourController extends Controller
                 'itineraries',
                 'schedules' => fn ($query) => $query
                     ->whereHas('guides', fn ($q) => $q->whereKey($guideId))
-                    ->with('guides:id,name,email,phone,status'),
+                    ->with('guides:id,name,email,phone,status')
+                    ->orderByDesc('start_date')->orderByDesc('id'),
             ])
             ->find($id);
 

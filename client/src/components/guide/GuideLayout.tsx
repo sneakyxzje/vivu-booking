@@ -1,273 +1,98 @@
-import React from "react";
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Suspense, useState } from "react";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { App, Avatar, Badge, Button, ConfigProvider, Drawer, Dropdown, Flex, Grid, Layout, Menu, Skeleton, Typography } from "antd";
+import { StyleProvider } from "@ant-design/cssinjs";
+import viVN from "antd/locale/vi_VN";
+import dayjs from "dayjs";
+import "dayjs/locale/vi";
+import { Bell, CalendarCheck, ClipboardList, House, Menu as MenuIcon, Map, ArrowRightLeft, TriangleAlert, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
+import { sidebarColors, sidebarMenuTokens } from "@/components/navigation/sidebarTheme";
 
-type NavItem = {
-  to: string;
-  label: string;
-  icon: React.ReactNode;
-  /** Mục duy nhất mang số chưa đọc. Xem chỗ dựng thanh điều hướng bên dưới. */
-  coHuyHieu?: boolean;
-};
+dayjs.locale("vi");
 
-const navItems: NavItem[] = [
-  {
-    to: "/guide/dashboard",
-    label: "Tổng quan",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/guide/notifications",
-    label: "Thông báo",
-    coHuyHieu: true,
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/guide/assignments",
-    label: "Chuyến được giao",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/guide/tours",
-    label: "Tour của tôi",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/guide/bookings",
-    label: "Đặt chỗ",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/guide/handovers",
-    label: "Bàn giao đoàn",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-        />
-      </svg>
-    ),
-  },
-  {
-    to: "/guide/incidents",
-    label: "Chi phí phát sinh",
-    icon: (
-      <svg
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0l-7.1 12.25A2 2 0 005 19z"
-        />
-      </svg>
-    ),
-  },
+const navItems = [
+  { key: "/guide/dashboard", label: "Tổng quan", icon: <House size={18} /> },
+  { key: "/guide/notifications", label: "Thông báo", icon: <Bell size={18} /> },
+  { key: "/guide/assignments", label: "Chuyến được giao", icon: <CalendarCheck size={18} /> },
+  { key: "/guide/tours", label: "Tour của tôi", icon: <Map size={18} /> },
+  { key: "/guide/bookings", label: "Đặt chỗ", icon: <ClipboardList size={18} /> },
+  { key: "/guide/handovers", label: "Bàn giao đoàn", icon: <ArrowRightLeft size={18} /> },
+  { key: "/guide/incidents", label: "Báo sự cố", icon: <TriangleAlert size={18} /> },
 ];
 
-const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-    isActive
-      ? "bg-primary-600 text-white shadow-md"
-      : "text-gray-600 hover:bg-gray-100 hover:text-primary-600"
-  }`;
-
-export const GuideLayout: React.FC = () => {
+function GuideShell() {
   const { user, logout } = useAuth();
   const { unread } = useNotifications();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const screens = Grid.useBreakpoint();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const selectedKey = pathname.startsWith("/guide/attendance/") ? "/guide/tours"
+    : navItems.find(item => pathname.startsWith(item.key))?.key ?? "/guide/dashboard";
+  const title = pathname.startsWith("/guide/attendance/") ? "Điểm danh đoàn" : navItems.find(item => item.key === selectedKey)?.label;
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
+  const handleLogout = () => { logout(); navigate("/login"); };
+  const sidebar = <Flex vertical style={{ height: "100%", minHeight: 0, background: sidebarColors.background }}>
+    <Flex vertical gap="middle" style={{ padding: 24, borderBottom: `1px solid ${sidebarColors.border}` }}>
+      <Link to="/"><Typography.Title level={4} style={{ margin: 0, color: sidebarColors.text }}>VivuBooking</Typography.Title></Link>
+      <Flex gap="small" align="center">
+        <Avatar style={{ background: "#0b817a", flexShrink: 0 }}>{user?.name?.charAt(0).toUpperCase() ?? "H"}</Avatar>
+        <Flex vertical style={{ minWidth: 0 }}>
+          <Typography.Text strong ellipsis style={{ color: sidebarColors.text }}>{user?.name ?? "Hướng dẫn viên"}</Typography.Text>
+          <Typography.Text ellipsis style={{ color: sidebarColors.secondaryText }}>{user?.email}</Typography.Text>
+        </Flex>
+      </Flex>
+    </Flex>
+    <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} style={{ flex: 1, padding: "12px 8px", borderInlineEnd: 0 }}
+      items={navItems.map(item => ({
+        ...item, label: <Flex justify="space-between" align="center" gap="small">
+          <span>{item.label}</span>{item.key === "/guide/notifications" && <Badge count={unread} overflowCount={99} />}
+        </Flex>
+      }))}
+      onClick={({ key }) => { navigate(key); setMenuOpen(false); }} />
+    <Flex vertical gap="small" style={{ padding: 16, borderTop: `1px solid ${sidebarColors.border}` }}>
+      <Button ghost onClick={() => navigate("/")}>Về trang chủ</Button>
+      <Button danger ghost onClick={handleLogout}>Đăng xuất</Button>
+    </Flex>
+  </Flex>;
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
-      {/* Sidebar */}
-      <aside className="w-full md:w-64 shrink-0 bg-white border-r border-gray-200 flex flex-col md:sticky md:top-0 md:h-screen md:self-start">
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-          <Link
-            to="/"
-            className="text-xl font-bold text-gray-900 tracking-tight flex items-center gap-2"
-          >
-            <span className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center text-white text-sm">
-              VB
-            </span>
-            VivuBooking{" "}
-            <span className="text-[10px] bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded font-semibold uppercase">
-              Guide
-            </span>
-          </Link>
-        </div>
+  return <Layout style={{ minHeight: "100vh" }}>
+    {screens.lg && <Layout.Sider width={256} theme="dark" style={{ position: "sticky", top: 0, height: "100vh", overflowY: "auto", borderInlineEnd: `1px solid ${sidebarColors.border}` }}>{sidebar}</Layout.Sider>}
+    <Drawer title={<Typography.Text strong style={{ color: sidebarColors.text }}>Hướng dẫn viên</Typography.Text>} placement="left" open={!screens.lg && menuOpen} onClose={() => setMenuOpen(false)}
+      closeIcon={<X size={18} color={sidebarColors.secondaryText} />}
+      size={288} styles={{ section: { background: sidebarColors.background }, header: { borderBottom: `1px solid ${sidebarColors.border}` }, body: { padding: 0, background: sidebarColors.background } }}>{sidebar}</Drawer>
+    <Layout style={{ minWidth: 0 }}>
+      <Layout.Header style={{ background: "#fff", padding: screens.md ? "0 24px" : "0 16px", height: 72, lineHeight: "normal", position: "sticky", top: 0, zIndex: 20, borderBottom: "1px solid #f0f0f0" }}>
+        <Flex align="center" justify="space-between" gap="middle" style={{ height: "100%" }}>
+          <Flex align="center" gap="small" style={{ minWidth: 0 }}>
+            {!screens.lg && <Button type="text" icon={<MenuIcon size={20} />} aria-label="Mở điều hướng" onClick={() => setMenuOpen(true)} />}
+            <Flex vertical style={{ minWidth: 0 }}>
+              <Typography.Text type="secondary">Hướng dẫn viên</Typography.Text>
+              <Typography.Text strong ellipsis>{title}</Typography.Text>
+            </Flex>
+          </Flex>
+          <Dropdown trigger={["click"]} menu={{
+            items: [{ key: "home", label: "Về trang chủ" }, { key: "logout", label: "Đăng xuất", danger: true }],
+            onClick: ({ key }) => key === "logout" ? handleLogout() : navigate("/")
+          }}>
+            <Button type="text" aria-label="Tài khoản hướng dẫn viên"><Avatar size="small" style={{ background: "#0b817a" }}>{user?.name?.charAt(0).toUpperCase() ?? "H"}</Avatar>{screens.md ? user?.name : null}</Button>
+          </Dropdown>
+        </Flex>
+      </Layout.Header>
+      <Layout.Content style={{ padding: screens.md ? 24 : 16, minWidth: 0 }}>
+        <Suspense fallback={<Skeleton active paragraph={{ rows: 8 }} />}><Outlet /></Suspense>
+      </Layout.Content>
+    </Layout>
+  </Layout>;
+}
 
-        {/* User profile section */}
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center gap-3 bg-gray-50/50">
-          <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-white font-bold text-sm">
-            {user?.name?.charAt(0).toUpperCase() ?? "H"}
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-gray-900 truncate text-sm">
-              {user?.name ?? "Guide User"}
-            </p>
-            <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-          </div>
-        </div>
-
-        {/*
-          Thanh điều hướng.
-
-          Số chưa đọc gắn ngay cạnh mục "Thông báo" chứ không dựng thêm chuông ở góc: bố cục này
-          không có thanh trên cùng, và thêm một thanh chỉ để đặt một con số là dựng cả một tầng
-          giao diện cho một chi tiết.
-        */}
-        <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => (
-            <NavLink key={item.to} to={item.to} className={linkClass}>
-              {item.icon}
-              {item.label}
-              {item.coHuyHieu && unread > 0 && (
-                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[10px] font-bold text-white">
-                  {unread > 99 ? "99+" : unread}
-                </span>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Action footer */}
-        <div className="p-4 border-t border-gray-200 space-y-2">
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-primary-600 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              />
-            </svg>
-            Quay lại trang chủ
-          </Link>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2 text-sm text-red-600 hover:bg-red-50 px-4 py-2 rounded-lg transition-colors text-left"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-              />
-            </svg>
-            Đăng xuất
-          </button>
-        </div>
-      </aside>
-
-      {/* Main content area */}
-      <main className="flex-1 min-w-0 p-4 md:p-6 w-full">
-        <Outlet />
-      </main>
-    </div>
-  );
-};
+export function GuideLayout() {
+  return <StyleProvider layer><ConfigProvider locale={viVN} theme={{
+    token: { colorPrimary: "#0b817a", fontFamily: "Inter, system-ui, sans-serif", borderRadius: 8, controlHeight: 44 },
+    components: { Menu: { ...sidebarMenuTokens, itemHeight: 44 }, Layout: { siderBg: sidebarColors.background }, Button: { fontWeight: 600 } },
+  }}><App><GuideShell /></App></ConfigProvider></StyleProvider>;
+}
 
 export default GuideLayout;

@@ -1,4 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useGuideFeedback } from "@/hooks/useGuideFeedback";
+import { Empty, Alert, Button, Card, Form, InputNumber, Modal, Select, Skeleton, Table, Tabs, Typography } from "antd";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import guideService from "@/services/guideService";
 import type { GuideBooking, BookingStatus } from "@/types/guide";
@@ -25,34 +27,35 @@ const formatDate = formatDateTime;
 type StatusFilter = "all" | BookingStatus;
 
 export const GuideBookings: React.FC = () => {
+  const feedback = useGuideFeedback();
   const [searchParams] = useSearchParams();
   const initialStatus = (searchParams.get("status") as StatusFilter) || "all";
 
   const [bookings, setBookings] = useState<GuideBooking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loadFailed, setLoadFailed] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatus);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
-  const [toast, setToast] = useState("");
   /** Đơn đang mở ô thu tiền. Xác nhận là khẳng định đã cầm tiền, nên phải khai số. */
   const [dangThu, setDangThu] = useState<GuideBooking | null>(null);
   const [soTien, setSoTien] = useState("");
   const [hinhThuc, setHinhThuc] = useState<"cash" | "bank_transfer">("cash");
 
-  useEffect(() => {
-    guideService
-      .getBookings()
-      .then((data) => setBookings(data))
-      .catch(() => setError("Không thể tải danh sách đặt chỗ."))
+  const loadData = useCallback(() => {
+    feedback.clearLoadError("Chưa tải được danh sách đặt chỗ");
+    return guideService.getBookings()
+      .then(result => {
+        setBookings(result);
+        setLoadFailed(false);
+      })
+      .catch(err => {
+        setLoadFailed(true);
+        feedback.loadError(err, "Chưa tải được danh sách đặt chỗ");
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [feedback]);
 
-  useEffect(() => {
-    if (toast) {
-      const t = setTimeout(() => setToast(""), 3000);
-      return () => clearTimeout(t);
-    }
-  }, [toast]);
+  useEffect(() => { void loadData(); }, [loadData]);
 
   const filtered = useMemo(() => {
     if (statusFilter === "all") return bookings;
@@ -73,7 +76,7 @@ export const GuideBookings: React.FC = () => {
   };
 
   const handleConfirm = async () => {
-    if (!dangThu) return;
+    if (!dangThu || confirmingId !== null) return;
 
     const id = dangThu.id;
     setConfirmingId(id);
@@ -81,25 +84,27 @@ export const GuideBookings: React.FC = () => {
     try {
       const so = Number(soTien);
 
-      await guideService.confirmBooking(
+      const result = await guideService.confirmBooking(
         id,
         so > 0 ? { amount: so, method: hinhThuc } : undefined,
       );
+      if (!result.success) {
+        feedback.error(null, "Chưa xác nhận được đặt chỗ. Vui lòng thử lại.");
+        return;
+      }
 
-      const updated = await guideService.getBookings();
-      setBookings(updated);
+      // The payment succeeded. A failed list refresh must not invite a second collection.
+      setBookings(previous => previous.map(booking => booking.id === id ? { ...booking, status: "confirmed" } : booking));
       setDangThu(null);
-      setToast("Đã xác nhận đặt chỗ và ghi khoản thu.");
+      feedback.success(so > 0 ? "Đã xác nhận đặt chỗ và ghi khoản thu." : "Đã xác nhận đặt chỗ.");
+      try {
+        setBookings(await guideService.getBookings());
+        setLoadFailed(false);
+      } catch {
+        feedback.warning("Đơn đã xác nhận và khoản thu đã được lưu. Chưa cập nhật được danh sách; vui lòng tải lại trang, không thu lại tiền.");
+      }
     } catch (err) {
-      const data = (
-        err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }
-      )?.response?.data;
-
-      setToast(
-        (data?.errors ? Object.values(data.errors).flat()[0] : null) ??
-          data?.message ??
-          "Không thể xác nhận đặt chỗ. Vui lòng thử lại.",
-      );
+      feedback.error(err, `Chưa xác nhận được đơn BK-${id}. Vui lòng kiểm tra lại trước khi thử lại.`);
     } finally {
       setConfirmingId(null);
     }
@@ -114,107 +119,72 @@ export const GuideBookings: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {toast && (
-        <div className="fixed top-24 right-4 z-50 bg-emerald-600 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-lg">
-          {toast}
-        </div>
-      )}
-
-      {error && (
-        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Quản lý đặt chỗ</h1>
+        <Typography.Title level={3} style={{ margin: 0 }}>Quản lý đặt chỗ</Typography.Title>
         <p className="text-gray-500 text-sm mt-1">
           Xem và xác nhận đặt tour từ khách hàng
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setStatusFilter(tab.key)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              statusFilter === tab.key
-                ? "bg-primary-600 text-white"
-                : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs activeKey={statusFilter} onChange={(key) => setStatusFilter(key as StatusFilter)} items={tabs} />
 
       {loading ? (
-        <div className="text-center py-16 text-gray-500">Đang tải...</div>
+        <Skeleton active />
+      ) : loadFailed ? (
+        <Empty description="Danh sách chưa tải được"><Button onClick={() => { setLoading(true); void loadData(); }}>Tải lại</Button></Empty>
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-100 p-12 text-center text-gray-500">
-          Không có đặt chỗ nào.
-        </div>
+        <Card ><div>
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có đặt chỗ khớp bộ lọc." />
+        </div></Card>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-100 shadow-sm overflow-hidden">
+        <Card ><div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 text-left text-gray-500 text-xs uppercase tracking-wide">
-                  <th className="px-6 py-3 font-semibold">Mã</th>
-                  <th className="px-4 py-3 font-semibold">Khách hàng</th>
-                  <th className="px-4 py-3 font-semibold">Tour</th>
-                  <th className="px-4 py-3 font-semibold">Ngày đi</th>
-                  <th className="px-4 py-3 font-semibold">Số khách</th>
-                  <th className="px-4 py-3 font-semibold">Tổng tiền</th>
-                  <th className="px-4 py-3 font-semibold">Trạng thái</th>
-                  <th className="px-6 py-3 font-semibold text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map((b) => (
-                  <tr key={b.id} className="hover:bg-gray-50/50">
-                    <td className="px-6 py-4 font-mono text-xs text-gray-500">
-                      #{b.id}
-                    </td>
-                    <td className="px-4 py-4">
-                      <p className="font-medium text-gray-900">{b.customer_name}</p>
-                      <p className="text-xs text-gray-500">{b.customer_phone}</p>
-                    </td>
-                    <td className="px-4 py-4 text-gray-700 max-w-[180px] truncate">
-                      {b.tour_title}
-                    </td>
-                    <td className="px-4 py-4 text-gray-600">
-                      {formatDate(b.departure_date)}
-                    </td>
-                    <td className="px-4 py-4 text-gray-600">{b.guests}</td>
-                    <td className="px-4 py-4 font-medium text-gray-900">
-                      {formatPrice(b.total_amount)}
-                    </td>
-                    <td className="px-4 py-4">
-                      <BookingStatusBadge status={b.status} />
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {b.status === "pending" ? (
-                        <button
-                          type="button"
-                          disabled={confirmingId === b.id}
-                          onClick={() => moOThuTien(b)}
-                          className="text-xs font-semibold bg-primary-600 text-white px-3 py-1.5 rounded-lg hover:bg-primary-700 disabled:opacity-50"
-                        >
-                          {confirmingId === b.id ? "..." : "Xác nhận"}
-                        </button>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <Table rowKey="id" dataSource={filtered} scroll={{ x: 1100 }} pagination={{ pageSize: 10, showSizeChanger: false, hideOnSinglePage: true }} columns={[{
+key: "col0", title: <>Mã</>, render: (_: unknown, b: GuideBooking) => <>
+                #{b.id}
+              </>
+},
+            {
+key: "col1", title: <>Khách hàng</>, render: (_: unknown, b: GuideBooking) => <>
+                <p className="font-medium text-gray-900">{b.customer_name}</p>
+                <p className="text-xs text-gray-500">{b.customer_phone}</p>
+              </>
+},
+            {
+key: "col2", title: <>Tour</>, render: (_: unknown, b: GuideBooking) => <>
+                {b.tour_title}
+              </>
+},
+            {
+key: "col3", title: <>Ngày đi</>, render: (_: unknown, b: GuideBooking) => <>
+                {formatDate(b.departure_date)}
+              </>
+},
+            { key: "col4", title: <>Số khách</>, render: (_: unknown, b: GuideBooking) => <>{b.guests}</> },
+            {
+key: "col5", title: <>Tổng tiền</>, render: (_: unknown, b: GuideBooking) => <>
+                {formatPrice(b.total_amount)}
+              </>
+},
+            {
+key: "col6", title: <>Trạng thái</>, render: (_: unknown, b: GuideBooking) => <>
+                <BookingStatusBadge status={b.status} />
+              </>
+},
+            {
+key: "col7", title: <>Thao tác</>, render: (_: unknown, b: GuideBooking) => <>
+                {b.status === "pending" ? (
+                  <Button type="primary" disabled={confirmingId === b.id} onClick={() => moOThuTien(b)}>
+                    {confirmingId === b.id ? "..." : "Xác nhận"}
+                  </Button>
+                ) : (
+                  <span className="text-xs text-gray-400">—</span>
+                )}
+              </>
+}]} />
           </div>
-        </div>
+        </div></Card>
       )}
 
       {/*
@@ -225,75 +195,19 @@ export const GuideBookings: React.FC = () => {
         thái, và sổ giao dịch vẫn ghi đơn ấy thu 0 đồng.
       */}
       {dangThu && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
-            <h3 className="text-base font-bold text-gray-900">
-              Xác nhận đơn BK-{dangThu.id}
-            </h3>
-            <p className="mt-1 text-xs text-gray-500">
-              {dangThu.customer_name} · {formatPrice(dangThu.total_amount)}
-            </p>
-
-            <label className="mt-4 block">
-              <span className="text-xs font-medium text-gray-700">Số tiền vừa thu</span>
-              <input
-                type="number"
-                min={0}
-                inputMode="numeric"
-                value={soTien}
-                onChange={(e) => setSoTien(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
-            </label>
-
-            <label className="mt-3 block">
-              <span className="text-xs font-medium text-gray-700">Hình thức</span>
-              <select
-                value={hinhThuc}
-                onChange={(e) => setHinhThuc(e.target.value as "cash" | "bank_transfer")}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              >
-                <option value="cash">Tiền mặt</option>
-                <option value="bank_transfer">Chuyển khoản</option>
-              </select>
-            </label>
-
-            <p className="mt-3 text-xs text-gray-500">
-              Để trống chỉ được khi văn phòng đã ghi nhận khoản thu từ trước.
-            </p>
-
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDangThu(null)}
-                className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                disabled={confirmingId === dangThu.id}
-                onClick={handleConfirm}
-                className="rounded-lg bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
-              >
-                {confirmingId === dangThu.id ? "Đang lưu..." : "Ghi nhận & xác nhận"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <Modal open title={"Xác nhận đơn BK-" + dangThu.id} onCancel={() => setDangThu(null)} closable={confirmingId === null} keyboard={confirmingId === null} mask={{ closable: false }} okText="Ghi nhận & xác nhận" cancelText="Hủy" onOk={handleConfirm} confirmLoading={confirmingId !== null} cancelButtonProps={{ disabled: confirmingId !== null }}>
+          <Typography.Paragraph>{dangThu.customer_name} · {formatPrice(dangThu.total_amount)}</Typography.Paragraph>
+          <Form layout="vertical" disabled={confirmingId !== null}>
+            <Form.Item htmlFor="GuideBookings-field-1" label="Số tiền vừa thu" help="Chỉ điền khoản tiền bạn vừa nhận, tránh ghi trùng khoản văn phòng đã thu.">
+              <InputNumber id="GuideBookings-field-1" min={0} precision={0} value={soTien === "" ? null : Number(soTien)} onChange={(value) => setSoTien(value === null ? "" : String(value))} suffix="₫" style={{ width: "100%" }} />
+            </Form.Item>
+            <Form.Item htmlFor="GuideBookings-field-2" label="Hình thức"><Select id="GuideBookings-field-2" value={hinhThuc} onChange={setHinhThuc} options={[{ value: "cash", label: "Tiền mặt" }, { value: "bank_transfer", label: "Chuyển khoản" }]} /></Form.Item>
+          </Form>
+          <Alert showIcon type="info" title="Để trống chỉ được khi văn phòng đã ghi nhận khoản thu từ trước." />
+        </Modal>
       )}
     </div>
   );
 };
 
 export default GuideBookings;
-
-
-
-
-
-
-
-
-
-

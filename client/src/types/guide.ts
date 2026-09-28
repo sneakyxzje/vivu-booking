@@ -106,6 +106,7 @@ export interface AttendanceItinerary {
 
 export interface AttendanceCheckpoint {
   id: number;
+  attendance_date: string;
   tour_itinerary_id: number;
   name: string;
   description?: string | null;
@@ -164,8 +165,14 @@ export interface CheckpointPhoto {
 
 export interface AttendanceData {
   schedule: {
+    demo_clock?: import("@/utils/demoClock").DemoClockValue | null;
     id: number;
     start_date: string;
+    end_date: string | null;
+    status: import("./tour").TourSchedule["status"];
+    can_record: boolean;
+    server_now: string;
+    recording_ends_at: string;
     max_people: number;
     booked_people: number;
   };
@@ -197,9 +204,6 @@ export interface SaveAttendanceResult {
 
 export interface UploadCheckinPhotoResult {
   photo: CheckpointPhoto;
-  distance_meters: number;
-  warning: boolean;
-  warning_message: string | null;
 }
 
 export type { Tour };

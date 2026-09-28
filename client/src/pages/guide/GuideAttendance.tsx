@@ -1,3 +1,7 @@
+import { attendanceAccess, attendanceDate, attendanceNow, type AttendanceClock } from "@/utils/attendanceAccess";
+import { useGuideFeedback } from "@/hooks/useGuideFeedback";
+import { DemoClockNotice } from "@/components/DemoClockNotice";
+import { Alert, Button, Card, Empty, Flex, Form, Image, Input, Modal, Progress, Select, Skeleton, Tabs, Tag, Typography, theme } from "antd";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import guideService from "@/services/guideService";
@@ -16,6 +20,9 @@ import {
   requiresNote,
   SUGGESTED_REASONS,
 } from "@/utils/attendance";
+import { guideSearchText } from "@/utils/guideAssignments";
+import { changedPassengerIds, recordKey, type AttendanceMap } from "@/utils/attendanceDraft";
+import { AttendancePhotoError, uploadAttendancePhoto } from "@/utils/attendancePhoto";
 import { formatDateTime } from "@/utils/format";
 
 /**
@@ -30,46 +37,33 @@ import { formatDateTime } from "@/utils/format";
  * tạo ra bằng chứng giả.
  */
 
-type AttendanceRecord = { status: PassengerCheckinStatus; note: string };
-type AttendanceMap = Record<string, AttendanceRecord>;
-
-const recordKey = (checkpointId: number, passengerId: number) => `${checkpointId}:${passengerId}`;
-
-const errorMessage = (error: unknown, fallback: string): string => {
-  const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-  return typeof message === "string" && message.length > 0 ? message : fallback;
-};
-
-/** Lấy tọa độ hiện tại. Máy chủ bắt buộc có tọa độ mới nhận ảnh check-in. */
-const currentPosition = (): Promise<{ latitude: number; longitude: number }> =>
-  new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error("Thiết bị không hỗ trợ định vị."));
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) =>
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        }),
-      () => reject(new Error("Không lấy được vị trí. Vui lòng bật định vị và cho phép truy cập.")),
-      { enableHighAccuracy: true, timeout: 15000 },
-    );
-  });
-
 export const GuideAttendance: React.FC = () => {
   const { scheduleId } = useParams<{ scheduleId: string }>();
+  return <AttendanceForSchedule key={scheduleId} scheduleId={scheduleId} />;
+};
+
+function AttendanceForSchedule({ scheduleId }: { scheduleId?: string }) {
+  const feedback = useGuideFeedback();
+  const { token } = theme.useToken();
 
   const [data, setData] = useState<AttendanceData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reload, setReload] = useState(0);
+  const [clock, setClock] = useState<AttendanceClock | null>(null);
+  const [serverNow, setServerNow] = useState(NaN);
   const [activeCheckpointId, setActiveCheckpointId] = useState<number | null>(null);
   const [records, setRecords] = useState<AttendanceMap>({});
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<{
+    file: File;
+    previewUrl: string;
+    checkpoint: AttendanceCheckpoint;
+  } | null>(null);
+  const [lastUploadedPhotoId, setLastUploadedPhotoId] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
+  const [passengerFilter, setPassengerFilter] = useState("all");
 
   const [activeNote, setActiveNote] = useState<{
     passenger: AttendancePassenger;
@@ -78,10 +72,13 @@ export const GuideAttendance: React.FC = () => {
   } | null>(null);
   const [noteInput, setNoteInput] = useState("");
 
-  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const photoUploadInFlight = useRef(false);
+  const photoSectionRef = useRef<HTMLDivElement>(null);
+  const photoPreviewUrl = selectedPhoto?.previewUrl;
+  useEffect(() => {
+    return () => { if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl); };
+  }, [photoPreviewUrl]);
   /** Điểm dừng sắp theo ngày rồi tới thứ tự trong ngày, giống thứ tự đoàn thực sự đi qua. */
   const orderedCheckpoints = useMemo(() => {
     return [...(data?.checkpoints ?? [])].sort((a, b) => {
@@ -103,15 +100,28 @@ export const GuideAttendance: React.FC = () => {
   useEffect(() => {
     if (!scheduleId) return;
 
+    let cancelled = false;
+    feedback.clearLoadError("Chưa tải được điểm danh");
+
     guideService
       .getAttendance(Number(scheduleId))
       .then((result) => {
+        if (cancelled) return;
         if (!result) {
-          setError("Không tìm thấy lịch khởi hành được phân công.");
+          setLoadFailed(true);
+          feedback.loadError(null, "Chưa tải được điểm danh");
           return;
         }
 
+        setLoadFailed(false);
         setData(result);
+        const timestamp = Date.parse(result.schedule.server_now);
+        setClock({ timestamp, receivedAt: performance.now() });
+        setServerNow(timestamp);
+        const sorted = [...result.checkpoints].sort((a, b) =>
+          (a.tour_itinerary?.day_number ?? 0) - (b.tour_itinerary?.day_number ?? 0) || a.sequence - b.sequence);
+        const first = sorted.find(point => point.attendance_date === attendanceDate(timestamp)) ?? sorted[0];
+        setActiveCheckpointId(first?.id ?? null);
 
         const initial: AttendanceMap = {};
         result.checkins.forEach((checkin) => {
@@ -122,27 +132,76 @@ export const GuideAttendance: React.FC = () => {
         });
         setRecords(initial);
       })
-      .catch((err) => setError(errorMessage(err, "Không thể tải dữ liệu điểm danh.")))
-      .finally(() => setLoading(false));
-  }, [scheduleId]);
-
-  // Chọn sẵn điểm dừng đầu tiên sau khi đã biết thứ tự thật, không dựa vào thứ tự trả về.
-  useEffect(() => {
-    if (activeCheckpointId === null && orderedCheckpoints.length > 0) {
-      setActiveCheckpointId(orderedCheckpoints[0].id);
-    }
-  }, [orderedCheckpoints, activeCheckpointId]);
+      .catch((err) => { if (!cancelled) { setLoadFailed(true); feedback.loadError(err, "Chưa tải được điểm danh"); } })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [scheduleId, reload, feedback]);
 
   useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(timer);
-  }, [toast]);
+    if (!clock) return;
+    const tick = () => setServerNow(attendanceNow(clock, performance.now()));
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [clock]);
+
+  const loadedScheduleId = data?.schedule.id;
+  useEffect(() => {
+    if (!loadedScheduleId) return;
+    let cancelled = false;
+    let syncing = false;
+    const syncAccess = async () => {
+      if (syncing) return;
+      syncing = true;
+      try {
+        const latest = await guideService.getAttendance(loadedScheduleId);
+        if (cancelled) return;
+        if (!latest) throw new Error("Missing attendance data");
+        const timestamp = Date.parse(latest.schedule.server_now);
+        setClock({ timestamp, receivedAt: performance.now() });
+        setServerNow(timestamp);
+        // Refresh permissions without replacing unsaved attendance choices.
+        setData(previous => previous ? { ...previous, schedule: latest.schedule, checkpoints: latest.checkpoints } : previous);
+      } catch (err) {
+        if (!cancelled) {
+          setClock(null);
+          setServerNow(NaN);
+          feedback.error(err, "Chưa kiểm tra được quyền điểm danh. Tạm khóa chỉnh sửa; hệ thống sẽ thử lại.");
+        }
+      } finally {
+        syncing = false;
+      }
+    };
+    const resume = () => {
+      if (document.visibilityState === "hidden") return;
+      setClock(null);
+      setServerNow(NaN);
+      void syncAccess();
+    };
+    const timer = window.setInterval(() => { if (document.visibilityState !== "hidden") void syncAccess(); }, 30000);
+    window.addEventListener("focus", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [loadedScheduleId, feedback]);
 
   const activeCheckpoint = useMemo(
     () => orderedCheckpoints.find((item) => item.id === activeCheckpointId) ?? null,
     [orderedCheckpoints, activeCheckpointId],
   );
+
+  const readOnlyMessage = attendanceAccess(data?.schedule, activeCheckpoint, clock ? serverNow : NaN);
+  const readOnly = readOnlyMessage !== null;
+  const canWriteAt = (elapsed: number) => attendanceAccess(data?.schedule, activeCheckpoint, attendanceNow(clock, elapsed)) === null;
+  const savedRecords = useMemo(() => Object.fromEntries((data?.checkins ?? []).map(checkin => [
+    recordKey(checkin.itinerary_checkpoint_id, checkin.booking_passenger_id),
+    { status: checkin.status, note: checkin.note ?? "" },
+  ])), [data?.checkins]);
+  // A locked day displays persisted facts, never yesterday's unsaved draft.
+  const visibleRecords = readOnly ? savedRecords : records;
 
   const activePhotos = useMemo(
     () => (data?.photos ?? []).filter((photo) => photo.itinerary_checkpoint_id === activeCheckpointId),
@@ -170,7 +229,7 @@ export const GuideAttendance: React.FC = () => {
 
     let recorded = 0;
     allPassengers.forEach((passenger) => {
-      const record = records[recordKey(activeCheckpointId, passenger.id)];
+      const record = visibleRecords[recordKey(activeCheckpointId, passenger.id)];
       if (!record) return;
       counts[record.status]++;
       recorded++;
@@ -183,32 +242,28 @@ export const GuideAttendance: React.FC = () => {
       pending: total - recorded,
       percent: total > 0 ? Math.round((recorded / total) * 100) : 0,
     };
-  }, [allPassengers, records, activeCheckpointId]);
+  }, [allPassengers, visibleRecords, activeCheckpointId]);
 
   const setStatus = (
     passenger: AttendancePassenger,
     customerName: string,
     status: PassengerCheckinStatus,
   ) => {
-    if (activeCheckpointId === null) return;
+    if (readOnly || saving || activeCheckpointId === null) return;
 
     const key = recordKey(activeCheckpointId, passenger.id);
     const existing = records[key];
 
-    setRecords((prev) => ({
-      ...prev,
-      [key]: { status, note: existing?.note ?? "" },
-    }));
-
-    // Trạng thái nào cần lý do thì mở ngay ô nhập, đỡ phải nhớ quay lại điền.
     if (requiresNote(status)) {
       setActiveNote({ passenger, customerName, status });
       setNoteInput(existing?.note ?? "");
+    } else {
+      setRecords(prev => ({ ...prev, [key]: { status, note: "" } }));
     }
   };
 
   const handleSaveNote = () => {
-    if (!activeNote || activeCheckpointId === null) return;
+    if (!canWriteAt(performance.now()) || !activeNote || activeCheckpointId === null || noteInput.trim().length < MIN_ATTENDANCE_NOTE_LENGTH) return;
 
     setRecords((prev) => ({
       ...prev,
@@ -223,12 +278,18 @@ export const GuideAttendance: React.FC = () => {
   };
 
   const handleSave = async () => {
-    if (!data || !scheduleId || activeCheckpointId === null) return;
+    if (!canWriteAt(performance.now()) || !data || !scheduleId || activeCheckpointId === null || saving) return;
+    if (activeCheckpoint?.is_required_photo && activePhotos.length === 0 && stats.pending === 0) {
+      feedback.warning("Thêm ảnh của đoàn trước khi lưu đủ khách tại điểm dừng này.");
+      return;
+    }
 
     const payload: AttendanceCheckinInput[] = [];
     const thieuGhiChu: string[] = [];
+    const changedIds = new Set(changedPassengerIds(activeCheckpointId, allPassengers, records, savedRecords));
 
     allPassengers.forEach((passenger) => {
+      if (!changedIds.has(passenger.id)) return;
       const record = records[recordKey(activeCheckpointId, passenger.id)];
       if (!record) return;
 
@@ -245,16 +306,12 @@ export const GuideAttendance: React.FC = () => {
     });
 
     if (thieuGhiChu.length > 0) {
-      setToast({
-        message:
-          `Cần ghi chú ít nhất ${MIN_ATTENDANCE_NOTE_LENGTH} ký tự cho: ` + thieuGhiChu.join(", "),
-        type: "error",
-      });
+      feedback.error(null, `Cần ghi chú ít nhất ${MIN_ATTENDANCE_NOTE_LENGTH} ký tự cho: ${thieuGhiChu.join(", ")}`);
       return;
     }
 
     if (payload.length === 0) {
-      setToast({ message: "Chưa chọn trạng thái cho hành khách nào.", type: "error" });
+      feedback.warning("Chưa chọn trạng thái cho hành khách nào.");
       return;
     }
 
@@ -292,536 +349,273 @@ export const GuideAttendance: React.FC = () => {
         });
 
         const boQua = payload.length - result.saved;
-        setToast({
-          message:
-            `Đã lưu điểm danh cho ${result.saved} hành khách.` +
-            (boQua > 0 ? ` Bỏ qua ${boQua} người thuộc đơn chưa xác nhận.` : ""),
-          type: "success",
-        });
+        const content = `Đã lưu điểm danh cho ${result.saved} hành khách.` +
+          (boQua > 0 ? ` Bỏ qua ${boQua} người thuộc đơn chưa xác nhận.` : "");
+        if (boQua > 0) feedback.warning(content);
+        else feedback.success(content);
+      } else {
+        feedback.error(null, "Chưa nhận được kết quả lưu điểm danh. Vui lòng kiểm tra lại.");
       }
     } catch (err) {
-      setToast({
-        message: errorMessage(err, "Không thể lưu điểm danh. Vui lòng thử lại."),
-        type: "error",
-      });
+      feedback.error(err, "Chưa lưu được điểm danh. Các lựa chọn của bạn vẫn được giữ lại.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !scheduleId || activeCheckpointId === null) return;
+    // Reset immediately so the same file can be selected again after any failure.
+    event.target.value = "";
+    if (!file || !activeCheckpoint || photoUploadInFlight.current || saving) return;
+    if (file.size > 5 * 1024 * 1024) { feedback.warning("Ảnh không được vượt quá 5MB. Hãy chọn ảnh nhỏ hơn."); return; }
+    if (file.type && !file.type.startsWith("image/")) { feedback.warning("Vui lòng chọn tệp hình ảnh."); return; }
+    // Keep the target together with the file, even if page data refreshes while previewing.
+    setSelectedPhoto({ file, previewUrl: URL.createObjectURL(file), checkpoint: selectedPhoto?.checkpoint ?? activeCheckpoint });
+  };
 
+  const handlePhotoUpload = async () => {
+    if (!selectedPhoto || !scheduleId || photoUploadInFlight.current || saving) return;
+    const { file, checkpoint } = selectedPhoto;
+
+    photoUploadInFlight.current = true;
     setUploading(true);
     try {
-      const coords = await currentPosition();
-      const result = await guideService.uploadCheckinPhoto(
-        Number(scheduleId),
-        activeCheckpointId,
-        file,
-        coords,
-      );
+      const result = await uploadAttendancePhoto(Number(scheduleId), checkpoint.id, file, {
+        getAttendance: guideService.getAttendance,
+        upload: guideService.uploadCheckinPhoto,
+        elapsed: () => performance.now(),
+        onAccess: (latest, freshClock) => {
+          setClock(freshClock);
+          setServerNow(freshClock.timestamp);
+          setData(previous => previous ? { ...previous, schedule: latest.schedule, checkpoints: latest.checkpoints } : previous);
+        },
+      });
 
       if (result?.photo) {
         const photo = result.photo;
         setData((prev) => (prev ? { ...prev, photos: [photo, ...prev.photos] } : prev));
-        setToast({
-          message: result.warning
-            ? result.warning_message ?? "Đã lưu ảnh nhưng vị trí chụp ở xa điểm dừng."
-            : "Đã tải ảnh check-in thành công.",
-          type: result.warning ? "error" : "success",
-        });
+        setLastUploadedPhotoId(photo.id);
+        setSelectedPhoto(null);
+        photoSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        feedback.success(`Đã thêm ảnh tại ${checkpoint.name}.`);
+      } else {
+        feedback.error(null, "Chưa nhận được kết quả tải ảnh. Vui lòng kiểm tra lại.");
       }
     } catch (err) {
-      const fallback =
-        err instanceof Error ? err.message : "Không thể tải ảnh lên. Vui lòng thử lại.";
-      setToast({ message: errorMessage(err, fallback), type: "error" });
+      if (err instanceof AttendancePhotoError) feedback.error(null, err.message);
+      else feedback.error(err, "Chưa tải được ảnh check-in. Vui lòng thử lại.");
     } finally {
+      photoUploadInFlight.current = false;
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  if (loading) {
-    return (
-      <div className="py-20 text-center space-y-3">
-        <div className="w-10 h-10 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto" />
-        <p className="text-sm font-medium text-gray-500">Đang tải dữ liệu điểm danh...</p>
-      </div>
-    );
-  }
+  const dirtyCheckpointIds = orderedCheckpoints.filter(point =>
+    attendanceAccess(data?.schedule, point, clock ? serverNow : NaN) === null &&
+    changedPassengerIds(point.id, allPassengers, records, savedRecords).length > 0).map(point => point.id);
+  const dirtyCount = readOnly || activeCheckpointId === null ? 0 : changedPassengerIds(activeCheckpointId, allPassengers, records, savedRecords).length;
+  const hasUnsavedChanges = dirtyCheckpointIds.length > 0;
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasUnsavedChanges]);
 
-  if (error || !data) {
-    return (
-      <div className="space-y-4 max-w-2xl mx-auto py-12">
-        <div className="rounded-2xl bg-rose-50 border border-rose-200 p-6 text-center text-rose-700">
-          <p className="font-semibold">{error || "Không thể tải dữ liệu điểm danh."}</p>
-          <Link
-            to="/guide/tours"
-            className="inline-block mt-4 text-xs font-bold text-rose-800 underline"
-          >
-            Quay lại danh sách Tour của tôi
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const activeDay = activeCheckpoint?.tour_itinerary?.day_number ?? 0;
+  const dayPoints = groupedByDay.find(([day]) => day === activeDay)?.[1] ?? [];
+  const pointIndex = dayPoints.findIndex(point => point.id === activeCheckpointId);
+  const today = attendanceDate(serverNow);
+  const selectPoint = (id: number) => {
+    setActiveCheckpointId(id);
+    setPassengerFilter("all");
+    setQuery("");
+  };
+  const search = guideSearchText(query);
+  const filteredBookings = (data?.bookings ?? []).map(booking => ({
+    ...booking,
+    passengers: (booking.passengers ?? []).filter(passenger => {
+      const record = activeCheckpointId === null ? undefined : visibleRecords[recordKey(activeCheckpointId, passenger.id)];
+      const matchesStatus = passengerFilter === "all" || (passengerFilter === "pending" ? !record : record?.status === passengerFilter);
+      return matchesStatus && guideSearchText(`${passenger.name} ${booking.customer_name} BK${booking.id} BK-${booking.id} ${booking.customer_phone ?? ""}`).includes(search);
+    }),
+  })).filter(booking => booking.passengers.length > 0);
+  const missingLists = (data?.bookings ?? []).filter(booking => !booking.passengers?.length);
+  const needsPhotoToSave = !readOnly && activeCheckpoint?.is_required_photo && activePhotos.length === 0 && stats.total > 0 && stats.pending === 0;
+
+  if (loading) return <Skeleton active paragraph={{ rows: 10 }} />;
+  if (loadFailed || !data) return <Empty description="Chưa có dữ liệu điểm danh"><Flex justify="center" gap="small"><Button onClick={() => { setLoading(true); setReload(value => value + 1); }}>Tải lại</Button><Link to="/guide/tours"><Button>Về danh sách tour</Button></Link></Flex></Empty>;
 
   return (
-    <div className="space-y-6 animate-fade-in pb-12">
-      {toast && (
-        <div
-          className={`fixed top-20 right-4 z-50 max-w-sm px-4 py-3 rounded-xl shadow-xl text-sm font-semibold text-white ${
-            toast.type === "success" ? "bg-emerald-600" : "bg-rose-600"
-          }`}
-        >
-          {toast.message}
-        </div>
-      )}
-
-      <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <Link
-            to="/guide/tours"
-            className="inline-flex items-center gap-1 text-xs font-bold text-primary-600 hover:underline mb-2"
-          >
-            Quay lại danh sách Tour
-          </Link>
-          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 font-jakarta">
-            Điểm danh đoàn du lịch
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            <span className="font-semibold text-gray-800">{data.tour.title}</span> · Khởi hành:{" "}
-            <span className="text-primary-700 font-medium">
-              {formatDateTime(data.schedule.start_date)}
-            </span>
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving || activeCheckpointId === null || allPassengers.length === 0}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 active:scale-95 text-white text-sm font-bold rounded-2xl shadow-md transition-all disabled:opacity-50"
-        >
-          {saving ? (
-            <>
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-              </svg>
-              <span>Đang lưu...</span>
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Lưu điểm danh điểm dừng này</span>
-            </>
-          )}
-        </button>
+    <Flex vertical gap="middle">
+      <div>
+        <Link to="/guide/tours">← Tour của tôi</Link>
+        <Typography.Title level={3} style={{ margin: "8px 0 4px" }}>Điểm danh</Typography.Title>
+        <Typography.Text strong>{data.tour.title}</Typography.Text><br />
+        <Typography.Text type="secondary">Chuyến #{data.schedule.id} · Khởi hành {formatDateTime(data.schedule.start_date)}</Typography.Text>
       </div>
-
-      {/* Điểm dừng, gom theo ngày hành trình */}
-      {groupedByDay.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-gray-100 p-12 text-center space-y-2">
-          <p className="text-gray-600 font-semibold">Tour này chưa thiết lập điểm dừng nào.</p>
-          <p className="text-xs text-gray-500">
-            Quản trị viên cần khai báo điểm dừng cho từng ngày trong lịch trình trước khi điểm danh.
-          </p>
-        </div>
-      ) : (
-        <>
-          <div className="space-y-3">
-            {groupedByDay.map(([day, checkpoints]) => (
-              <div key={day} className="flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-gray-500 w-16 shrink-0">
-                  Ngày {day}
-                </span>
-                {checkpoints.map((checkpoint) => {
-                  const isActive = activeCheckpointId === checkpoint.id;
-                  const soAnh = (data.photos ?? []).filter(
-                    (photo) => photo.itinerary_checkpoint_id === checkpoint.id,
-                  ).length;
-
-                  return (
-                    <button
-                      key={checkpoint.id}
-                      type="button"
-                      onClick={() => setActiveCheckpointId(checkpoint.id)}
-                      className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                        isActive
-                          ? "bg-primary-600 text-white shadow-md -translate-y-0.5"
-                          : "bg-white border border-gray-100 text-gray-700 hover:bg-gray-50 shadow-sm"
-                      }`}
-                    >
-                      <span>{checkpoint.name}</span>
-                      {/* Điểm dừng bắt buộc có ảnh — nói bằng chữ thay vì biểu tượng phải đoán. */}
-                      {checkpoint.is_required_photo && (
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-wide ${
-                            isActive
-                              ? "text-white/80"
-                              : soAnh > 0
-                                ? "text-emerald-600"
-                                : "text-amber-600"
-                          }`}
-                        >
-                          {soAnh > 0 ? "Có ảnh" : "Thiếu ảnh"}
-                        </span>
-                      )}
-                    </button>
-                  );
+      <DemoClockNotice clock={data.schedule.demo_clock} />
+      {groupedByDay.length === 0 ? <Empty description="Chưa có điểm dừng. Liên hệ điều hành để bổ sung." /> : <>
+        <Card styles={{ body: { paddingTop: 0 } }}>
+          <Tabs activeKey={String(activeDay)} onChange={key => { const point = groupedByDay.find(([day]) => day === Number(key))?.[1][0]; if (point) selectPoint(point.id); }}
+            items={groupedByDay.map(([day, points]) => ({
+              key: String(day), disabled: saving || uploading,
+              label: <Flex vertical gap={2}>
+                <Typography.Text strong>Ngày {day}{points[0]?.attendance_date === today ? " · Hôm nay" : ""}{points.some(point => dirtyCheckpointIds.includes(point.id)) ? " •" : ""}</Typography.Text>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>{points[0]?.attendance_date?.split("-").reverse().join("/")}</Typography.Text>
+              </Flex>,
+            }))} />
+          <Flex vertical gap="small">
+            <Flex justify="space-between" align="center" gap="small" wrap>
+              <Typography.Text strong>Điểm dừng {pointIndex + 1}/{dayPoints.length}</Typography.Text>
+              <Flex gap="small">
+                <Button disabled={saving || uploading || pointIndex <= 0} onClick={() => selectPoint(dayPoints[pointIndex - 1].id)}>Điểm trước</Button>
+                <Button disabled={saving || uploading || pointIndex >= dayPoints.length - 1} onClick={() => selectPoint(dayPoints[pointIndex + 1].id)}>Điểm tiếp</Button>
+              </Flex>
+            </Flex>
+            <Select aria-label="Chọn điểm dừng" value={activeCheckpointId} disabled={saving || uploading} onChange={selectPoint}
+              style={{ width: "100%" }} options={dayPoints.map((point, index) => ({ value: point.id, label: `${index + 1}. ${point.name}${dirtyCheckpointIds.includes(point.id) ? " · Chưa lưu" : ""}` }))} />
+          </Flex>
+        </Card>
+        {activeCheckpoint && <>
+          {readOnly && <Alert showIcon type="info" title={readOnlyMessage} />}
+          <Card>
+            <Flex vertical gap="middle">
+              <Flex justify="space-between" align="start" gap="small" wrap>
+                <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+                  <Typography.Title level={4} style={{ margin: 0, overflowWrap: "anywhere" }}>{activeCheckpoint.name}</Typography.Title>
+                  {activeCheckpoint.description && <Typography.Text type="secondary">{activeCheckpoint.description}</Typography.Text>}
+                </div>
+                <Tag>{readOnly ? "Chỉ xem" : "Điểm danh hôm nay"}</Tag>
+              </Flex>
+              <Flex gap="small" justify="space-between" wrap>
+                <Typography.Text>{stats.recorded}/{stats.total} khách đã ghi{dirtyCount > 0 ? ` · ${dirtyCount} chưa lưu` : ""}</Typography.Text>
+                <Typography.Text type={stats.pending > 0 ? "warning" : "secondary"}>{stats.pending > 0 ? `Còn ${stats.pending} khách` : stats.total > 0 ? "Đã ghi đủ khách" : "Chưa có hành khách"}</Typography.Text>
+              </Flex>
+              <Progress percent={stats.percent} showInfo={false} status="normal" style={{ margin: 0 }} />
+              <div ref={photoSectionRef} style={{ scrollMarginTop: 88 }}>
+                <Flex vertical gap="middle">
+                  <Flex justify="space-between" gap="small" wrap align="center">
+                    <Flex vertical gap={4} style={{ flex: "1 1 200px", minWidth: 0 }}>
+                      <Typography.Text strong>Ảnh tại {activeCheckpoint.name} ({activePhotos.length})</Typography.Text>
+                      {activeCheckpoint.is_required_photo && <div><Tag color={activePhotos.length ? "success" : "warning"}>{activePhotos.length ? "Đã có ảnh" : "Cần bổ sung ảnh"}</Tag></div>}
+                    </Flex>
+                    <Button loading={uploading} disabled={readOnly || saving} onClick={() => fileInputRef.current?.click()}>Thêm ảnh</Button>
+                  </Flex>
+                  {activePhotos.length === 0 ? <Typography.Text type="secondary">Chưa có ảnh tại điểm này.</Typography.Text> : <Image.PreviewGroup>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 12 }}>
+                      {activePhotos.map((photo, index) => <Flex vertical gap="small" key={photo.id} style={{ minWidth: 0 }}>
+                        <Image src={photo.image_path} alt={`Ảnh ${index + 1} tại ${activeCheckpoint.name}`} width="100%" height={140} style={{ objectFit: "cover", borderRadius: 8 }} />
+                        <Flex gap={4} vertical>
+                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{photo.captured_at || photo.created_at ? formatDateTime(photo.captured_at ?? photo.created_at) : "Đã tải lên"}</Typography.Text>
+                          {photo.id === lastUploadedPhotoId && <div><Tag color="success">Vừa tải lên</Tag></div>}
+                        </Flex>
+                      </Flex>)}
+                    </div>
+                  </Image.PreviewGroup>}
+                </Flex>
+              </div>
+              <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handlePhotoSelection} />
+            </Flex>
+          </Card>
+          <Card>
+            <Flex vertical gap="middle">
+              <Typography.Title level={4} style={{ margin: 0 }}>Hành khách</Typography.Title>
+              <Flex gap="small" wrap>
+                <Input.Search aria-label="Tìm hành khách" placeholder="Tên khách, mã đơn hoặc số điện thoại" value={query} allowClear onChange={event => setQuery(event.target.value)} style={{ flex: "2 1 240px" }} />
+                <Select aria-label="Lọc trạng thái điểm danh" value={passengerFilter} onChange={setPassengerFilter} style={{ flex: "1 1 190px" }} options={[
+                  { value: "all", label: `Tất cả (${stats.total})` }, { value: "pending", label: `Chưa điểm danh (${stats.pending})` },
+                  ...ATTENDANCE_STATUS_ORDER.map(status => ({ value: status, label: `${ATTENDANCE_STATUSES[status].label} (${stats[status]})` })),
+                ]} />
+              </Flex>
+              {missingLists.length > 0 && <Alert showIcon type="warning" title={`Chưa có danh sách khách: ${missingLists.map(booking => `BK${booking.id}`).join(", ")}`} description="Liên hệ điều hành để bổ sung." />}
+              {filteredBookings.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={allPassengers.length === 0 ? "Chưa có danh sách hành khách" : "Không có hành khách phù hợp"}>
+                {(query || passengerFilter !== "all") && <Button onClick={() => { setQuery(""); setPassengerFilter("all"); }}>Xem tất cả khách</Button>}
+              </Empty> : filteredBookings.map(booking => <Flex key={booking.id} vertical>
+                <Flex gap="small" wrap align="center" style={{ padding: "10px 12px", background: token.colorFillAlter, borderRadius: token.borderRadius }}>
+                  <Typography.Text strong>BK{booking.id} · {booking.customer_name}</Typography.Text>
+                  {booking.customer_phone && <Typography.Link href={`tel:${booking.customer_phone}`}>{booking.customer_phone}</Typography.Link>}
+                </Flex>
+                {booking.passengers.map(passenger => {
+                  const record = visibleRecords[recordKey(activeCheckpoint.id, passenger.id)];
+                  const saved = savedRecords[recordKey(activeCheckpoint.id, passenger.id)];
+                  const changed = !readOnly && record && (record.status !== saved?.status || record.note !== saved?.note);
+                  return <Flex key={passenger.id} vertical gap="small" style={{ padding: "16px 0", borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+                    <Flex justify="space-between" align="center" gap="middle" wrap>
+                      <Flex vertical gap={4} style={{ flex: "1 1 180px", minWidth: 0 }}>
+                        <Typography.Text strong style={{ overflowWrap: "anywhere" }}>{passenger.name}</Typography.Text>
+                        <Flex align="center" gap="small" wrap>
+                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{passenger.type === "adult" ? "Người lớn" : passenger.type === "child" ? "Trẻ em" : "Em bé"}{!record ? " · Chưa điểm danh" : changed ? " · Chưa lưu" : " · Đã lưu"}</Typography.Text>
+                          {changed && <Button type="link" size="small" disabled={saving} aria-label={`Hoàn tác thay đổi của ${passenger.name}`} onClick={() => {
+                            setRecords(previous => {
+                              const next = { ...previous };
+                              const key = recordKey(activeCheckpoint.id, passenger.id);
+                              if (saved) next[key] = saved;
+                              else delete next[key];
+                              return next;
+                            });
+                          }}>Hoàn tác</Button>}
+                        </Flex>
+                        {passenger.note && <Typography.Text type="secondary">{passenger.note}</Typography.Text>}
+                      </Flex>
+                      {readOnly ? <Tag color={record?.status === "present" ? "success" : record ? "warning" : "default"}>{record ? ATTENDANCE_STATUSES[record.status].label : "Chưa điểm danh"}</Tag> : <Flex gap="small" wrap style={{ flex: "1 1 270px", justifyContent: "flex-end" }}>
+                        <Button type={record?.status === "present" ? "primary" : "default"} aria-pressed={record?.status === "present"} aria-label={`Có mặt: ${passenger.name}`} disabled={saving} onClick={() => setStatus(passenger, booking.customer_name, "present")} style={{ flex: "1 1 90px" }}>Có mặt</Button>
+                        <Select aria-label={`Trạng thái khác của ${passenger.name}`} placeholder="Vắng / khác" value={record && record.status !== "present" ? record.status : undefined} disabled={saving}
+                          onChange={status => setStatus(passenger, booking.customer_name, status)} style={{ flex: "1 1 160px", minWidth: 0 }}
+                          options={ATTENDANCE_STATUS_ORDER.filter(status => status !== "present").map(status => ({ value: status, label: ATTENDANCE_STATUSES[status].label }))} />
+                      </Flex>}
+                    </Flex>
+                    {record && requiresNote(record.status) && <Flex gap="small" align="center" wrap>
+                      <Typography.Text type={noteIsValid(record.status, record.note) ? "secondary" : "danger"}>{record.note || "Chưa có lý do"}</Typography.Text>
+                      {!readOnly && <Button type="link" size="small" disabled={saving} onClick={() => { setActiveNote({ passenger, customerName: booking.customer_name, status: record.status }); setNoteInput(record.note); }}>Sửa lý do</Button>}
+                    </Flex>}
+                  </Flex>;
                 })}
-              </div>
-            ))}
-          </div>
-
-          {activeCheckpoint && (
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-              <div className="xl:col-span-2 space-y-6">
-                {/* Tiến độ tại điểm dừng đang chọn */}
-                <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm space-y-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h2 className="text-lg font-bold text-gray-900 font-jakarta">
-                        {activeCheckpoint.name}
-                      </h2>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Ngày {activeCheckpoint.tour_itinerary?.day_number ?? "?"}
-                        {activeCheckpoint.tour_itinerary?.title
-                          ? ` · ${activeCheckpoint.tour_itinerary.title}`
-                          : ""}{" "}
-                        · <span className="font-bold text-gray-800">{stats.total} hành khách</span>
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-2xl font-extrabold text-primary-600 font-jakarta">
-                        {stats.percent}%
-                      </span>
-                      <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                        Đã ghi ({stats.recorded}/{stats.total})
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {ATTENDANCE_STATUS_ORDER.map((status) => (
-                      <span
-                        key={status}
-                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold ${ATTENDANCE_STATUSES[status].badgeClass}`}
-                      >
-                        {ATTENDANCE_STATUSES[status].label}:{" "}
-                        {stats[status]}
-                      </span>
-                    ))}
-                    <span className="px-2.5 py-1 rounded-lg border border-gray-200 bg-gray-50 text-gray-600 text-[11px] font-bold">
-                      Chưa ghi: {stats.pending}
-                    </span>
-                  </div>
-
-                  {activeCheckpoint.is_required_photo && activePhotos.length === 0 && (
-                    <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-2xl p-3">
-                      Điểm dừng này bắt buộc có ảnh check-in. Vui lòng chụp ảnh đoàn trước khi rời điểm.
-                    </p>
-                  )}
-                </div>
-
-                {/* Danh sách hành khách theo từng đơn */}
-                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-100">
-                  <div className="px-6 py-4 bg-gray-50/50 flex items-center justify-between">
-                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-gray-600">
-                      Danh sách đoàn
-                    </h3>
-                    <span className="text-xs font-medium text-gray-500">
-                      Điểm danh theo từng người
-                    </span>
-                  </div>
-
-                  {data.bookings.length === 0 ? (
-                    <p className="p-8 text-center text-sm text-gray-500">
-                      Chưa có đơn đặt tour nào được xác nhận cho chuyến đi này.
-                    </p>
-                  ) : (
-                    data.bookings.map((booking) => (
-                      <div key={booking.id} className="p-6 space-y-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold text-gray-900 text-base">
-                            {booking.customer_name}
-                          </span>
-                          <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-mono text-[11px] font-semibold">
-                            BK-{booking.id}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {booking.customer_phone || "Không có SĐT"} · {booking.guests} khách
-                          </span>
-                        </div>
-
-                        {(booking.passengers ?? []).length === 0 ? (
-                          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                            Đơn này chưa khai danh sách hành khách nên chưa điểm danh được.
-                          </p>
-                        ) : (
-                          <div className="space-y-3">
-                            {(booking.passengers ?? []).map((passenger) => {
-                              const record = records[recordKey(activeCheckpoint.id, passenger.id)];
-                              const thieuGhiChu =
-                                record && !noteIsValid(record.status, record.note);
-
-                              return (
-                                <div
-                                  key={passenger.id}
-                                  className="rounded-2xl border border-gray-100 p-4 space-y-3 hover:bg-gray-50/40 transition-colors"
-                                >
-                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-semibold text-gray-900 text-sm">
-                                        {passenger.name}
-                                      </span>
-                                      <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 text-[11px] font-medium">
-                                        {passenger.type === "adult"
-                                          ? "Người lớn"
-                                          : passenger.type === "child"
-                                            ? "Trẻ em"
-                                            : "Em bé"}
-                                      </span>
-                                      {!record && (
-                                        <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-500 text-[11px] font-semibold">
-                                          Chưa ghi
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                                      {ATTENDANCE_STATUS_ORDER.map((status) => {
-                                        const config = ATTENDANCE_STATUSES[status];
-                                        const isSelected = record?.status === status;
-                                        return (
-                                          <button
-                                            key={status}
-                                            type="button"
-                                            onClick={() =>
-                                              setStatus(passenger, booking.customer_name, status)
-                                            }
-                                            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 ${
-                                              isSelected
-                                                ? config.buttonClass
-                                                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                                            }`}
-                                          >
-                                            {config.label}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-
-                                  {record && requiresNote(record.status) && (
-                                    <div
-                                      className={`flex items-center justify-between gap-3 text-xs p-3 rounded-xl border ${
-                                        thieuGhiChu
-                                          ? "bg-rose-50 border-rose-200"
-                                          : "bg-amber-50/60 border-amber-100"
-                                      }`}
-                                    >
-                                      <div className="space-y-0.5 min-w-0">
-                                        <span
-                                          className={`font-bold ${thieuGhiChu ? "text-rose-800" : "text-amber-800"}`}
-                                        >
-                                          Ghi chú ({ATTENDANCE_STATUSES[record.status].label}):
-                                        </span>
-                                        <p
-                                          className={`truncate ${thieuGhiChu ? "text-rose-900" : "text-amber-900"}`}
-                                        >
-                                          {record.note ? (
-                                            `"${record.note}"`
-                                          ) : (
-                                            <i>
-                                              Bắt buộc, tối thiểu {MIN_ATTENDANCE_NOTE_LENGTH} ký tự
-                                            </i>
-                                          )}
-                                        </p>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setActiveNote({
-                                            passenger,
-                                            customerName: booking.customer_name,
-                                            status: record.status,
-                                          });
-                                          setNoteInput(record.note);
-                                        }}
-                                        className="px-3 py-1 bg-white border border-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-50 transition-colors shrink-0"
-                                      >
-                                        Sửa ghi chú
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Ảnh check-in của điểm dừng đang chọn */}
-              <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden p-6 space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-base font-jakarta">Ảnh check-in</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Ảnh gắn tọa độ tại {activeCheckpoint.name}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="px-4 py-2 bg-primary-50 text-primary-700 hover:bg-primary-100 font-bold text-xs rounded-2xl transition-colors disabled:opacity-50 shrink-0"
-                  >
-                    {uploading ? "Đang tải..." : "+ Thêm ảnh"}
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="hidden"
-                    onChange={handlePhotoUpload}
-                  />
-                </div>
-
-                {activePhotos.length === 0 ? (
-                  <div className="border border-dashed border-gray-200 rounded-2xl p-8 text-center space-y-2 bg-gray-50/50">
-                    <p className="text-xs text-gray-500">Chưa có ảnh nào tại điểm dừng này.</p>
-                    <p className="text-[11px] text-gray-400">
-                      Ảnh cần quyền định vị để đối chiếu với tọa độ điểm dừng.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    {activePhotos.map((photo) => (
-                      <button
-                        key={photo.id}
-                        type="button"
-                        onClick={() => setPreviewPhotoUrl(photo.image_path)}
-                        className="group relative h-36 rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all text-left"
-                      >
-                        <img
-                          src={photo.image_path}
-                          alt={`Ảnh check-in tại ${activeCheckpoint.name}`}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          loading="lazy"
-                        />
-                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
-                          Phóng to
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Nhập lý do cho trạng thái khác "có mặt" */}
-      {activeNote && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-fade-in">
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 font-jakarta">
-                Nhập lý do ({ATTENDANCE_STATUSES[activeNote.status].label})
-              </h3>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Hành khách: <span className="font-bold text-gray-800">{activeNote.passenger.name}</span>{" "}
-                · Đơn của {activeNote.customerName}
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-gray-700">Gợi ý lý do phổ biến:</label>
-              <div className="flex flex-wrap gap-1.5">
-                {SUGGESTED_REASONS.map((reason) => (
-                  <button
-                    key={reason}
-                    type="button"
-                    onClick={() => setNoteInput(reason)}
-                    className="px-2.5 py-1 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 text-[11px] font-medium text-left transition-colors"
-                  >
-                    {reason}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Ghi chú chi tiết:</label>
-              <textarea
-                rows={3}
-                value={noteInput}
-                onChange={(event) => setNoteInput(event.target.value)}
-                placeholder="Ghi lại chuyện đã xảy ra, đủ để đọc lại vẫn hiểu..."
-                className="w-full rounded-2xl border border-gray-200 p-3 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none"
-              />
-              <p
-                className={`text-[11px] mt-1 font-semibold ${
-                  noteInput.trim().length >= MIN_ATTENDANCE_NOTE_LENGTH
-                    ? "text-emerald-700"
-                    : "text-gray-500"
-                }`}
-              >
-                {noteInput.trim().length}/{MIN_ATTENDANCE_NOTE_LENGTH} ký tự tối thiểu
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setActiveNote(null)}
-                className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveNote}
-                disabled={noteInput.trim().length < MIN_ATTENDANCE_NOTE_LENGTH}
-                className="px-5 py-2 rounded-xl bg-primary-600 text-xs font-bold text-white hover:bg-primary-700 shadow-sm disabled:opacity-50"
-              >
-                Xác nhận ghi chú
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {previewPhotoUrl && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
-          onClick={() => setPreviewPhotoUrl(null)}
-        >
-          <div className="relative max-w-4xl w-full max-h-[90vh] overflow-hidden rounded-2xl">
-            <img
-              src={previewPhotoUrl}
-              alt="Ảnh check-in phóng to"
-              className="w-full h-full object-contain max-h-[85vh] mx-auto"
-            />
-            <p className="text-center text-white text-xs font-medium mt-2">
-              Bấm bất kỳ đâu để đóng
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
+              </Flex>)}
+            </Flex>
+          </Card>
+          <Card size="small" style={{ position: "sticky", bottom: 12, zIndex: 10, boxShadow: token.boxShadowSecondary }}>
+            <Flex justify="space-between" gap="small" align="center" wrap>
+              <Flex vertical style={{ flex: "1 1 200px", minWidth: 0 }} aria-live="polite">
+                <Typography.Text strong>{readOnly ? "Chỉ xem điểm danh" : dirtyCount > 0 ? `${dirtyCount} khách có thay đổi chưa lưu` : "Không có thay đổi chưa lưu"}</Typography.Text>
+                <Typography.Text type="secondary" ellipsis>{activeCheckpoint.name}</Typography.Text>
+                {dirtyCheckpointIds.some(id => id !== activeCheckpointId) && <Button type="link" style={{ padding: 0, height: "auto", justifyContent: "start", whiteSpace: "normal", textAlign: "left" }} disabled={saving || uploading}
+                  onClick={() => selectPoint(dirtyCheckpointIds.find(id => id !== activeCheckpointId)!)}>Xem điểm khác còn thay đổi chưa lưu</Button>}
+              </Flex>
+              {needsPhotoToSave ? <Button type="primary" loading={uploading} disabled={saving} onClick={() => fileInputRef.current?.click()} style={{ flex: "0 1 200px" }}>Thêm ảnh để lưu</Button>
+                : <Button type="primary" loading={saving} disabled={readOnly || uploading || dirtyCount === 0} onClick={handleSave} style={{ flex: "0 1 200px" }}>Lưu điểm danh{dirtyCount > 0 ? ` (${dirtyCount})` : ""}</Button>}
+            </Flex>
+          </Card>
+        </>}
+      </>}
+      <Modal open={selectedPhoto !== null} title="Xem ảnh trước khi tải" closable={!uploading} mask={{ closable: false }}
+        onCancel={() => { if (!photoUploadInFlight.current) setSelectedPhoto(null); }}
+        footer={<Flex gap="small" justify="end" wrap>
+          <Button disabled={uploading} onClick={() => setSelectedPhoto(null)}>Hủy</Button>
+          <Button disabled={uploading} onClick={() => fileInputRef.current?.click()}>Chọn ảnh khác</Button>
+          <Button type="primary" loading={uploading} disabled={!selectedPhoto || saving} onClick={() => void handlePhotoUpload()}>Tải ảnh lên</Button>
+        </Flex>}>
+        {selectedPhoto && <Flex vertical gap="middle">
+          <Flex vertical gap={4}>
+            <Typography.Text strong>{selectedPhoto.checkpoint.name}</Typography.Text>
+            <Typography.Text type="secondary">Ngày {selectedPhoto.checkpoint.tour_itinerary?.day_number ?? "—"} · {selectedPhoto.checkpoint.attendance_date?.split("-").reverse().join("/")} · Chuyến #{data.schedule.id}</Typography.Text>
+          </Flex>
+          <Image key={selectedPhoto.previewUrl} src={selectedPhoto.previewUrl} alt={`Ảnh sẽ tải tại ${selectedPhoto.checkpoint.name}`} width="100%" style={{ maxHeight: "45vh", objectFit: "contain", borderRadius: 8 }} />
+          <Flex vertical gap={4}>
+            <Typography.Text style={{ overflowWrap: "anywhere" }}>{selectedPhoto.file.name}</Typography.Text>
+            <Typography.Text type="secondary">{(selectedPhoto.file.size / (1024 * 1024)).toFixed(2)} MB · {uploading ? "Đang tải ảnh…" : "Chưa tải lên"}</Typography.Text>
+          </Flex>
+        </Flex>}
+      </Modal>
+      <Modal open={activeNote !== null} title={activeNote ? "Nhập lý do: " + ATTENDANCE_STATUSES[activeNote.status].label : "Nhập lý do"} onCancel={() => setActiveNote(null)} onOk={handleSaveNote} okText="Áp dụng" cancelText="Hủy" okButtonProps={{ disabled: readOnly || noteInput.trim().length < MIN_ATTENDANCE_NOTE_LENGTH }} mask={{ closable: false }}>
+        {readOnly && <Alert type="info" showIcon title="Chỉ xem" description={readOnlyMessage} />}
+        {activeNote && <Typography.Paragraph>Hành khách: <strong>{activeNote.passenger.name}</strong> · Đơn của {activeNote.customerName}</Typography.Paragraph>}
+        <Form layout="vertical" disabled={readOnly}><Form.Item htmlFor="GuideAttendance-field-1" label="Gợi ý lý do"><Select id="GuideAttendance-field-1" placeholder="Chọn lý do để điền nhanh" value={null} options={SUGGESTED_REASONS.map(reason => ({ value: reason, label: reason }))} onChange={setNoteInput} /></Form.Item>
+          <Form.Item htmlFor="GuideAttendance-field-2" label="Lý do" required extra="Tối thiểu 10 ký tự."><Input.TextArea id="GuideAttendance-field-2" rows={4} maxLength={2000} showCount value={noteInput} onChange={event => setNoteInput(event.target.value)} placeholder="Nhập lý do của hành khách" /></Form.Item>
+        </Form>
+      </Modal>
+    </Flex>
   );
 };
 

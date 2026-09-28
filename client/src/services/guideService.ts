@@ -401,19 +401,15 @@ const guideService = {
   },
 
   /**
-   * Ảnh check-in phải kèm tọa độ nơi chụp. Máy chủ so với tọa độ điểm dừng và cảnh báo khi
-   * cách quá 200m; thiếu tọa độ thì bị từ chối chứ không lưu suông.
+   * Gửi ảnh gắn với chuyến và điểm dừng; không thu thập vị trí thiết bị.
    */
   uploadCheckinPhoto: async (
     scheduleId: number,
     checkpointId: number,
     photo: File,
-    coords: { latitude: number; longitude: number },
   ): Promise<UploadCheckinPhotoResult | null> => {
     const data = new FormData();
     data.append("photo", photo);
-    data.append("latitude", String(coords.latitude));
-    data.append("longitude", String(coords.longitude));
 
     const response = await api.post(
       `/guide/schedules/${scheduleId}/checkpoints/${checkpointId}/checkin-photo`,

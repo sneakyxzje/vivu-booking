@@ -30,7 +30,7 @@ class GuideController extends Controller
             'data' => [
                 'total_tours' => (clone $schedules)->distinct()->count('tour_id'),
                 'active_tours' => (clone $schedules)->whereIn('status', [ScheduleStatus::Open->value, ScheduleStatus::Confirmed->value, ScheduleStatus::InProgress->value])->distinct()->count('tour_id'),
-                'full_tours' => (clone $schedules)->where('status', ScheduleStatus::Closed->value)->distinct()->count('tour_id'),
+                'full_tours' => (clone $schedules)->where('status', ScheduleStatus::Open->value)->whereColumn('booked_people', '>=', 'max_people')->distinct()->count('tour_id'),
                 'total_bookings' => (clone $bookings)->count(),
                 'pending_bookings' => (clone $bookings)->where('status', 'pending')->count(),
                 /*

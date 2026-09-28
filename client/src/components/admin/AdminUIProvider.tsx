@@ -4,6 +4,7 @@ import { App, ConfigProvider } from "antd";
 import viVN from "antd/locale/vi_VN";
 import dayjs from "dayjs";
 import "dayjs/locale/vi";
+import { sidebarColors, sidebarMenuTokens } from "@/components/navigation/sidebarTheme";
 
 dayjs.locale("vi");
 
@@ -21,20 +22,11 @@ export function AdminUIProvider({ children }: PropsWithChildren) {
         },
         components: {
           Menu: {
-            darkItemBg: "#0f172a",
-            darkSubMenuItemBg: "#0f172a",
-            darkPopupBg: "#0f172a",
-            darkItemColor: "#94a3b8",
-            darkItemHoverColor: "#ffffff",
-            darkItemHoverBg: "#1e293b",
-            darkItemSelectedColor: "#ffffff",
-            darkItemSelectedBg: "rgba(11, 129, 122, 0.22)",
-            darkGroupTitleColor: "#64748b",
-            itemBorderRadius: 8,
+            ...sidebarMenuTokens,
             itemHeight: 42,
           },
           Layout: {
-            siderBg: "#0f172a",
+            siderBg: sidebarColors.background,
           },
         },
       }}>

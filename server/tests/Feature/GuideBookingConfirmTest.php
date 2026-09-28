@@ -56,7 +56,7 @@ class GuideBookingConfirmTest extends TestCase
             'status' => ScheduleStatus::Confirmed->value,
             'start_date' => now()->addHours(6),
             'end_date' => now()->addDays(2),
-            'booking_deadline' => now()->subDays(2),
+            'booking_deadline' => now()->addHours(2),
             'max_people' => 10,
             'min_people' => 2,
             'booked_people' => 2,

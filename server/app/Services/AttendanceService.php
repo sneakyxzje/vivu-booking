@@ -25,8 +25,7 @@ use Illuminate\Support\Facades\DB;
  */
 class AttendanceService
 {
-    /** Ghi bù sau khoảng này thì đánh dấu là ghi muộn. */
-    private const LATE_ENTRY_AFTER_HOURS = 24;
+    public const TIMEZONE = 'Asia/Ho_Chi_Minh';
 
     /** Ghi chú giải thích phải đủ dài để có ý nghĩa khi đọc lại. */
     private const MIN_NOTE_LENGTH = 10;
@@ -47,7 +46,7 @@ class AttendanceService
         ItineraryCheckpoint $checkpoint,
         ?Carbon $now = null,
     ): void {
-        $now ??= now();
+        $now ??= DemoClock::schedule($schedule);
 
         // 1. Chỉ hướng dẫn viên đang phụ trách chuyến này mới ghi được.
         // Một chuyến có thể có nhiều hướng dẫn viên; ai trong số đó cũng điểm danh được.
@@ -77,18 +76,22 @@ class AttendanceService
             );
         }
 
-        // 4. Không cho tick trước cho ngày chưa tới.
+        // 4. Chỉ ghi/sửa trong đúng ngày của điểm dừng, theo giờ Việt Nam.
         $ngayCuaDiemDung = $this->checkpointDate(
             $schedule,
             $checkpoint
         );
 
-        if (
-            $ngayCuaDiemDung->startOfDay()
-                ->gt($now->copy()->startOfDay())
-        ) {
+        $today = $now->copy()->setTimezone(self::TIMEZONE)->startOfDay();
+        if ($ngayCuaDiemDung->startOfDay()->gt($today)) {
             throw new BusinessRuleException(sprintf(
                 'Điểm dừng này thuộc ngày %s, chưa tới nên chưa điểm danh được.',
+                $ngayCuaDiemDung->format('d/m/Y'),
+            ));
+        }
+        if ($ngayCuaDiemDung->lt($today)) {
+            throw new BusinessRuleException(sprintf(
+                'Điểm dừng ngày %s đã qua, chỉ được xem. Nếu cần đính chính, vui lòng báo điều hành.',
                 $ngayCuaDiemDung->format('d/m/Y'),
             ));
         }
@@ -108,7 +111,7 @@ class AttendanceService
         ?string $note = null,
         ?Carbon $now = null,
     ): PassengerCheckin {
-        $now ??= now();
+        $now ??= DemoClock::schedule($schedule);
 
         $this->assertCanRecord(
             $guide,
@@ -137,17 +140,6 @@ class AttendanceService
             ));
         }
 
-        // 5. Ghi bù muộn thì vẫn cho ghi
-        // nhưng đánh dấu là ghi muộn.
-        $isLateEntry = $now->gt(
-            $this->checkpointDate(
-                $schedule,
-                $checkpoint
-            )
-                ->endOfDay()
-                ->addHours(self::LATE_ENTRY_AFTER_HOURS)
-        );
-
         /*
          * Lưu điểm danh.
          */
@@ -158,8 +150,7 @@ class AttendanceService
             $passenger,
             $status,
             $note,
-            $now,
-            $isLateEntry
+            $now
         ) {
             $checkin = PassengerCheckin::query()
                 ->where(
@@ -199,7 +190,7 @@ class AttendanceService
                     'note' => $note,
                     'checked_by' => $guide->getKey(),
                     'checked_at' => $now,
-                    'is_late_entry' => $isLateEntry,
+                    'is_late_entry' => false,
                 ]);
 
                 return $checkin->fresh();
@@ -216,7 +207,7 @@ class AttendanceService
                 'note' => $note,
                 'checked_by' => $guide->getKey(),
                 'checked_at' => $now,
-                'is_late_entry' => $isLateEntry,
+                'is_late_entry' => false,
             ]);
         });
 
@@ -454,7 +445,7 @@ class AttendanceService
      * của lịch trình, phải cộng với ngày khởi hành
      * của chuyến mới ra ngày thật.
      */
-    private function checkpointDate(
+    public function checkpointDate(
         TourSchedule $schedule,
         ItineraryCheckpoint $checkpoint
     ): Carbon {
@@ -466,7 +457,7 @@ class AttendanceService
         );
 
         return Carbon::parse($schedule->start_date)
-            ->copy()
+            ->setTimezone(self::TIMEZONE)
             ->addDays($ngayThu - 1);
     }
 }
