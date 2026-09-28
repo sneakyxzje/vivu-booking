@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React, { useState, useEffect } from "react";
 import bookingService from "@/services/bookingService";
 import type {
@@ -416,6 +417,8 @@ export const MyBookingsTab: React.FC = () => {
    */
   const renderStatusBadge = (status: string, conThieu = 0) => {
     switch (status) {
+      case "awaiting_transfer":
+        return <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">Chờ phản hồi ghép chuyến</span>;
       case "confirmed":
         if (conThieu > 0) {
           return (
@@ -704,6 +707,10 @@ export const MyBookingsTab: React.FC = () => {
                       đó là tiền cọc, không phải cả phần còn thiếu. In nhầm trường thì nút ghi 4
                       triệu còn cổng đòi 2 triệu, và khách dừng lại tự hỏi có nhầm không.
                     */}
+                    {item.status === "awaiting_transfer" && <Link
+                      to={`/booking-success/${item.public_token}?email=${encodeURIComponent(item.customer_email)}`}
+                      className="px-3.5 py-1.5 text-xs font-semibold bg-amber-100 text-amber-900 rounded-xl"
+                    >Chọn chuyến thay thế / hoàn tiền</Link>}
                     {item.payment_url && Number(item.payment_amount ?? item.balance_due ?? 0) > 0 && (
                       <a
                         href={item.payment_url}

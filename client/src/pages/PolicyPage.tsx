@@ -561,8 +561,9 @@ export default function PolicyPage() {
               Công ty gửi email nêu lịch trình đề xuất, hạn thanh toán phần còn lại
               và hạn phản hồi. <Manh>Chỉ chuyển khách sau khi khách đồng ý</Manh>;
               giá đơn giữ nguyên và không thu phí ghép chuyến.
-              Nếu từ chối hoặc không phản hồi trong thời hạn đề xuất, khách giữ
-              chuyến ban đầu và vẫn phải thanh toán đủ trước hạn chốt của chuyến đó.
+              Chuyến nguồn được hủy ngay khi quyết định ghép. Nếu khách từ chối
+              hoặc hết hạn chưa phản hồi, đơn được hủy và ghi nhận chờ hoàn đủ
+              số tiền đã thu còn lại, không trừ phí hủy.
             </Doan>
 
             {/* --- 8. Bất khả kháng và thay đổi lộ trình --- */}
@@ -882,9 +883,9 @@ export default function PolicyPage() {
               <CauHoi hoi="Chuyến của tôi được đề xuất ghép, tôi có phải đồng ý không?">
                 <p>
                   Không. Bạn nhận email và chọn đồng ý hoặc từ chối trên trang đơn
-                  hàng. Từ chối hoặc không phản hồi trong thời hạn đề xuất thì
-                  giữ chuyến ban đầu. Bạn vẫn cần thanh toán đủ trước hạn chốt
-                  của chuyến đó để tham gia.
+                  hàng. Khi ghép, chuyến ban đầu được hủy. Đồng ý thì chuyển sang
+                  chuyến thay thế; từ chối hoặc hết hạn chưa phản hồi thì hủy đơn
+                  và ghi nhận chờ hoàn đủ số tiền đã thu còn lại.
                 </p>
               </CauHoi>
 

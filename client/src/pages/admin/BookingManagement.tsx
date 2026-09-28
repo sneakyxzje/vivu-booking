@@ -34,7 +34,7 @@ const METHOD_LABEL: Record<string, string> = {
 };
 
 /*
- * Năm trạng thái mà luồng hiện tại sinh ra được, khớp với `BookingStatus::liveValues()`.
+ * Các trạng thái mà luồng hiện tại sinh ra được, khớp với `BookingStatus::liveValues()`.
  *
  * Trước đây bảng chỉ vẽ ba trạng thái đầu, nên đơn của mọi chuyến đã đi xong hiện ra một cái nhãn
  * màu vàng rỗng không chữ — trông như dữ liệu hỏng, trong khi đơn hoàn toàn bình thường.
@@ -42,6 +42,7 @@ const METHOD_LABEL: Record<string, string> = {
 const NHAN_TRANG_THAI: Record<string, string> = {
   pending: "Chờ thanh toán / xác nhận",
   confirmed: "Đã xác nhận",
+  awaiting_transfer: "Chờ phản hồi ghép chuyến",
   cancelled: "Đã hủy",
   completed: "Đã hoàn thành",
   no_show: "Không có mặt",
@@ -50,6 +51,7 @@ const NHAN_TRANG_THAI: Record<string, string> = {
 const MAU_TRANG_THAI: Record<string, string> = {
   pending: "warning",
   confirmed: "processing",
+  awaiting_transfer: "warning",
   cancelled: "error",
   completed: "success",
   no_show: "default",

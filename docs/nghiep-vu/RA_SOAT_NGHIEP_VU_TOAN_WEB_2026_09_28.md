@@ -163,3 +163,12 @@ Kiểm tra dữ liệu không còn lỗi cơ cấu khách/số ghế, ngày sinh
 Luồng chuyển máy: test trên web hiện tại → export database đã chỉnh → pull code trên laptop → import SQL vào database trống → chạy `php artisan migrate`. Cấu hình SMTP/Cloudinary/VNPay vẫn nằm trong `.env` riêng. Các phát hiện A2–A4 ở trên không được coi là đã sửa chỉ vì dữ liệu nhập hợp lệ hoặc test hiện có đạt.
 
 Kiểm tra cuối sau khi gỡ tooling laptop: **980/980 bài backend đạt**, 3.795 assertions; API web đang chạy trả HTTP 200. Bộ test điểm danh đã sửa dữ liệu dựng để không vô tình chuyển ngày 1 sang hôm qua khi chạy ngay sau nửa đêm; không đổi luật điểm danh.
+
+
+### Cập nhật quyết định ghép chuyến ngày 29/09/2026
+Thay thế quy tắc giữ chuyến nguồn trong phần cập nhật ngày 28/09:
+- Xác nhận ghép: hủy chuyến nguồn ngay, ngừng bán; đơn chưa thanh toán bị hủy.
+- Đơn đã cọc/trả đủ chuyển sang `awaiting_transfer`, gửi email phương án thay thế và hạn phản hồi. Chưa chuyển khách sang chuyến đích.
+- Đồng ý trước hạn: kiểm tra lại lịch trình/sức chứa/hạn chốt rồi chuyển riêng đơn đó; giữ giá và số tiền đã thu.
+- Từ chối hoặc hết hạn chưa phản hồi: hủy đơn `by_company`, ghi nghĩa vụ hoàn đủ tiền đã thu còn lại. Không ghi bút toán hoàn cho đến khi thực trả.
+- Chuyến nguồn không tổ chức lại cho khách từ chối. Tác vụ `bookings:expire-proposals` xử lý hết hạn; trong chế độ demo có mốc riêng cho chuyến nguồn đã hủy.

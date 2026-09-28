@@ -52,6 +52,8 @@ const nhanTruong: Record<string, string> = {
 const nhanTrangThai: Record<string, string> = {
   pending: "Chờ thanh toán",
   confirmed: "Đã xác nhận",
+  awaiting_transfer: "Chờ phản hồi ghép chuyến",
+  merge_proposed: "Gửi phương án ghép chuyến",
   cancelled: "Đã hủy",
   completed: "Đã hoàn thành",
   no_show: "Không có mặt",

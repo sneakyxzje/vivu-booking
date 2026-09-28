@@ -40,7 +40,7 @@ export function ScheduleDetailsDrawer(props: Props) {
       </div>
 
       {s.cancelled_reason && status === "cancelled" && <Alert type="info" showIcon title={`Lý do hủy: ${s.cancelled_reason}`} />}
-      {s.merged_into_schedule_id && <Typography.Text>Khách đã được ghép sang chuyến #{s.merged_into_schedule_id}.</Typography.Text>}
+      {s.merged_into_schedule_id && <Typography.Text>Chuyến đã hủy để ghép sang chuyến #{s.merged_into_schedule_id}. Chỉ khách đồng ý mới được chuyển; khách từ chối hoặc hết hạn phản hồi được hoàn tiền.</Typography.Text>}
 
       <section aria-label="Thời gian chuyến đi">
         <Typography.Title level={5}>Thời gian chuyến đi</Typography.Title>
@@ -96,7 +96,7 @@ export function ScheduleDetailsDrawer(props: Props) {
         </Flex>
       </section>}
 
-      {props.canAdvanceTime && active && <Collapse size="small" items={[{
+      {props.canAdvanceTime && (active || !!s.merged_into_schedule_id) && <Collapse size="small" items={[{
         key: "demo", label: "Chạy thử thời gian (demo)", children: <>
           <Typography.Paragraph type="secondary">Thay đổi thời gian của chuyến để chạy thử. Thao tác có thể tự hủy đơn quá hạn.</Typography.Paragraph>
           {s.demo_clock && <Typography.Paragraph>Thời gian đang dùng: {formatDateTime(s.demo_clock.now)}</Typography.Paragraph>}

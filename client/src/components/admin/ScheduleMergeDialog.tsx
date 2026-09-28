@@ -36,7 +36,7 @@ export function ScheduleMergeDialog({
     mask={{ closable: false }} styles={{ body: { maxHeight: "72vh", overflowY: "auto" } }}
     footer={<Flex justify="space-between" align="center" wrap gap="small">
       <Typography.Text type="secondary">{!target ? "Chọn chuyến nhận để tiếp tục." : reason.trim().length < 10 ? "Nhập lý do ít nhất 10 ký tự." : "Kiểm tra ngày khởi hành và các đơn bị ảnh hưởng."}</Typography.Text>
-      <Flex gap="small"><Button disabled={saving} onClick={onClose}>Đóng</Button><Button type="primary" loading={saving} disabled={!canConfirm} onClick={onConfirm}>Gửi đề xuất ghép</Button></Flex>
+      <Flex gap="small"><Button disabled={saving} onClick={onClose}>Đóng</Button><Button type="primary" loading={saving} disabled={!canConfirm} onClick={onConfirm}>Hủy chuyến nguồn và gửi đề xuất</Button></Flex>
     </Flex>}>
     <Flex vertical gap="middle">
       <Form layout="vertical">
@@ -88,12 +88,12 @@ export function ScheduleMergeDialog({
           <Row gutter={[16, 16]}>
             <Col xs={24} sm={8}><Statistic title="Khách chuyển sang" value={target.transferring_guests} suffix="khách" /><Typography.Text type="secondary">{target.transferring} đơn · {target.transferring_seats} ghế</Typography.Text></Col>
             <Col xs={24} sm={8}><Statistic title="Chỗ trống sau khi nhận khách" value={target.remaining_seats_after} suffix="ghế" /></Col>
-            <Col xs={24} sm={8}><Statistic title="Đơn bị hủy" value={target.cancelling} suffix="đơn" /></Col>
+            <Col xs={24} sm={8}><Statistic title="Đơn chưa thanh toán bị hủy ngay" value={target.cancelling} suffix="đơn" /></Col>
           </Row>
         </Flex> : <Typography.Text type="secondary">{loading ? "Đang tải thông tin ghép chuyến…" : "Chọn chuyến nhận để xem số đơn, số khách và số ghế sau khi ghép."}</Typography.Text>}
       </Card>
-      {target && <Alert type="info" showIcon title="Gửi đề xuất và chờ khách đồng ý"
-        description={`Khách trả lời trước ${formatDateTime(target.response_deadline)}. Chỉ chuyển khi khách đồng ý và chuyến nhận còn chỗ; khách còn lại vẫn đi chuyến ban đầu.`} />}
+      {target && <Alert type="warning" showIcon title="Chuyến nguồn sẽ hủy ngay sau khi xác nhận"
+        description={`Khách trả lời trước ${formatDateTime(target.response_deadline)}. Khách đồng ý mới được chuyển sang chuyến nhận. Từ chối hoặc hết hạn chưa trả lời: hủy đơn và chờ hoàn đủ số tiền đã thu còn lại.`} />}
       <Form layout="vertical"><Form.Item label="Lý do ghép chuyến" required extra="Nội dung gửi cho khách qua email, 10–500 ký tự.">
         <Input.TextArea value={reason} disabled={saving} rows={3} maxLength={500} showCount onChange={(event) => onReasonChange(event.target.value)}
           placeholder="Ví dụ: Mời quý khách chuyển sang chuyến ngày 12/10, giữ nguyên giá tour." />

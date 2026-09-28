@@ -32,6 +32,7 @@ const mauTrangThai: Record<string, string> = {
   pending_quote: "bg-amber-50 text-amber-700 border-amber-200",
   quoted: "bg-sky-50 text-sky-700 border-sky-200",
   confirmed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  awaiting_transfer: "bg-amber-50 text-amber-700 border-amber-200",
   rejected: "bg-rose-50 text-rose-700 border-rose-200",
   withdrawn: "bg-gray-50 text-gray-500 border-gray-200",
 };

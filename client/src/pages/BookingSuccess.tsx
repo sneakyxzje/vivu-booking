@@ -111,6 +111,7 @@ const isCancelledStatus = (status: string) =>
  * nhưng với khách thì một bên còn việc phải làm và một bên thì không.
  */
 const getStatusBadge = (status: string, conNo = 0) => {
+  if (status === "awaiting_transfer") return <Tag color="warning">Chờ phản hồi ghép chuyến</Tag>;
   if (isPaidStatus(status)) return <Tag color={conNo > 0 ? "processing" : "success"}>{conNo > 0 ? "Đã cọc" : "Đã thanh toán"}</Tag>;
   if (isPendingStatus(status)) return <Tag color="warning">Chờ thanh toán</Tag>;
   return <Tag color="error">{status === "failed" ? "Thanh toán chưa hoàn tất" : isCancelledStatus(status) ? "Đã hủy" : status}</Tag>;
@@ -204,8 +205,11 @@ export default function BookingSuccess() {
       }
     };
 
-    loadBooking();
-    if (proposalEmail.trim()) loadProposals();
+    // Reading proposals can expire a merge and cancel the booking; reload after it settles.
+    void (async () => {
+      if (proposalEmail.trim()) await loadProposals();
+      await loadBooking();
+    })();
   }, [id, state, proposalEmail]);
 
   const handleRespondProposal = async (proposalId: number, choiceId: string) => {
@@ -226,14 +230,15 @@ export default function BookingSuccess() {
         choice_id: choiceId,
         customer_email: proposalEmail.trim(),
       });
-      const updated = await bookingService.getById(id);
-      setBooking(updated.data.data as Booking);
-      // Refresh
-      const response = await bookingService.getProposals(id, proposalEmail.trim());
-      setProposals(response.data?.data || []);
     } catch (err: any) {
       setProposalError(err.response?.data?.message || "Lỗi khi xác nhận. Vui lòng thử lại.");
     } finally {
+      try {
+        const response = await bookingService.getProposals(id, proposalEmail.trim());
+        setProposals(response.data?.data || []);
+        const updated = await bookingService.getById(id);
+        setBooking(updated.data.data as Booking);
+      } catch { /* Keep the response error visible if refreshing also fails. */ }
       setRespondingProposalId(null);
     }
   };
@@ -378,7 +383,8 @@ export default function BookingSuccess() {
     ?.replace(/,\s*hệ thống tự hủy để nhường chỗ\.?$/u, "")
     .trim();
 
-  const headerTitle = daCocChuaDu
+  const awaitingTransfer = booking.status === "awaiting_transfer";
+  const headerTitle = awaitingTransfer ? "Chuyến ban đầu đã hủy" : daCocChuaDu
     ? "Đã nhận tiền cọc, chỗ của bạn được giữ"
     : paid
       ? "Thanh toán thành công!"
@@ -387,7 +393,7 @@ export default function BookingSuccess() {
         : paymentStatus === "failed"
           ? "Thanh toán chưa hoàn tất"
           : "Đặt tour thành công!";
-  const headerDescription = daCocChuaDu
+  const headerDescription = awaitingTransfer ? "Vui lòng chọn chuyến thay thế bên dưới hoặc từ chối để được hoàn tiền. Hết hạn chưa phản hồi, đơn sẽ hủy và chuyển sang chờ hoàn tiền." : daCocChuaDu
     ? `Booking BK${booking.id} đã được giữ chỗ. Còn ${formatCurrency(remainingAmount)} cần thanh toán${booking.balance_due_at ? ` trước ngày ${formatDateTime(booking.balance_due_at)}` : ""}; chúng tôi đã gửi chi tiết về ${booking.customer_email}.`
     : paid
       ? `Booking BK${booking.id} đã được xác nhận. Thông tin hóa đơn và phiếu xác nhận đã được gửi về ${booking.customer_email}.`
@@ -437,7 +443,7 @@ export default function BookingSuccess() {
                   {(proposal.schedule_snapshot.to.itineraries ?? []).map((day: { day_number: number; title: string; content?: string }) =>
                     <p key={day.day_number}>Ngày {day.day_number}: {day.title} — {day.content?.replace(/<[^>]*>/g, " ")}</p>) }
                 </div>}
-                <p className="text-sm mb-4">Từ chối hoặc không phản hồi sẽ giữ chuyến ban đầu. Bạn vẫn cần thanh toán đủ trước hạn chốt của chuyến đang đặt.</p>
+                {proposal.schedule_snapshot && <p className="text-sm mb-4">Chuyến ban đầu đã hủy. Đồng ý để chuyển sang chuyến thay thế; từ chối hoặc hết hạn chưa phản hồi sẽ hủy đơn và ghi nhận chờ hoàn đủ số tiền đã thu còn lại.</p>}
 
                 <div className="bg-white p-4 rounded-lg border border-amber-100 shadow-sm">
                   <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">
@@ -458,7 +464,7 @@ export default function BookingSuccess() {
                     />
 
                     <div className="flex flex-wrap gap-2">
-                      {[{ id: "accept", label: "Đồng ý" }, { id: "reject", label: "Từ chối, giữ chuyến ban đầu" }].map((opt) => (
+                      {[{ id: "accept", label: "Đồng ý" }, { id: "reject", label: proposal.schedule_snapshot ? "Từ chối và nhận hoàn tiền" : "Từ chối" }].map((opt) => (
                         <AntButton htmlType="button"
                           key={opt.id}
                           onClick={() => handleRespondProposal(proposal.id, opt.id)}
@@ -478,7 +484,7 @@ export default function BookingSuccess() {
             {/*
               Điều khoản hủy và số tiền hoàn nếu hủy bây giờ. Đơn đã hủy rồi thì không cần nữa.
             */}
-            {!cancelled && (booking.public_token || id) && (
+            {!cancelled && !awaitingTransfer && (booking.public_token || id) && (
               <RefundPolicyCard publicToken={String(booking.public_token ?? id)} />
             )}
 

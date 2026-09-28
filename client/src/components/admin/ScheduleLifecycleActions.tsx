@@ -24,8 +24,8 @@ export function ScheduleLifecycleActions({ schedule, onChanged, onFeedback }: {
   const [error, setError] = useState("");
   const [pending, setPending] = useState<{ label: string; detail: string; status?: string; milestone?: string }>();
   const inFlight = useRef(false);
-  if (schedule.status === "completed" || schedule.status === "cancelled") return null;
-  const next = nextStep[schedule.status];
+  if (schedule.status === "completed" || (schedule.status === "cancelled" && !schedule.merged_into_schedule_id)) return null;
+  const next = schedule.status === "cancelled" ? undefined : nextStep[schedule.status];
 
   async function loadMilestones(open: boolean) {
     if (!open) return;
@@ -61,7 +61,7 @@ export function ScheduleLifecycleActions({ schedule, onChanged, onFeedback }: {
 
   return <Flex vertical gap={4} style={{ maxWidth: 300 }}>
     <Flex gap="small" wrap>
-      <Button size="small" type="primary" disabled={busy} onClick={() => { setError(""); setPending(next); }}>{next.label}</Button>
+      {next && <Button size="small" type="primary" disabled={busy} onClick={() => { setError(""); setPending(next); }}>{next.label}</Button>}
       <Dropdown trigger={["click"]} onOpenChange={loadMilestones} menu={{
         items: loading ? [{ key: "loading", label: "Đang tải…", disabled: true }] : [
           ...milestones.filter(m => !["booking_deadline", "departure", "completion"].includes(m.key)).map(m => ({
