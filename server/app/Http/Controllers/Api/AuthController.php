@@ -17,7 +17,12 @@ class AuthController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => ['required', new \App\Rules\ValidEmail(), 'unique:users,email'],
+            'phone' => ['bail', 'required', 'string', 'max:20', new \App\Rules\ValidPhone()],
             'password' => 'required|min:6',
+        ], [
+            'phone.required' => 'Vui lòng nhập số điện thoại.',
+            'phone.string' => 'Số điện thoại không hợp lệ.',
+            'phone.max' => 'Số điện thoại không được vượt quá 20 ký tự.',
         ]);
 
         // Đăng ký công khai luôn là customer. Tài khoản guide do admin tạo
@@ -25,6 +30,7 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
+            'phone' => $data['phone'],
             'password' => Hash::make($data['password']),
             'role' => 'customer'
         ]);

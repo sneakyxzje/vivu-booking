@@ -16,6 +16,7 @@ class AuthSecurityTest extends TestCase
         $response = $this->postJson('/api/register', [
             'name' => 'Ke Tan Cong',
             'email' => 'attacker@example.com',
+            'phone' => '0901234567',
             'password' => 'password123',
             'role' => 'admin',
         ]);
@@ -29,6 +30,7 @@ class AuthSecurityTest extends TestCase
         $this->postJson('/api/register', [
             'name' => 'Nguoi Dung',
             'email' => 'guide-wannabe@example.com',
+            'phone' => '0901234567',
             'password' => 'password123',
             'role' => 'guide',
         ])->assertOk();
